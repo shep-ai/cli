@@ -16,6 +16,7 @@ import { mkdirSync } from 'node:fs';
 import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import { AgentRunStatus, type ApprovalGates, type AgentType } from '@/domain/generated/output.js';
+import { IS_WINDOWS } from '../../../platform.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -107,6 +108,7 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     const child = fork(workerPath, args, {
       detached: true,
       stdio: ['ignore', logFd, logFd, 'ipc'],
+      ...(IS_WINDOWS ? { windowsHide: true } : {}),
     });
 
     if (!child.pid) {

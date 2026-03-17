@@ -50,6 +50,12 @@ export default tseslint.config(
       'src/domain/generated/**', // TypeSpec-generated domain models
       'packages/core/src/domain/generated/**', // TypeSpec-generated domain models (core)
 
+      // Spec artifacts (auto-generated YAML/MD, evidence PNGs)
+      'specs/**',
+
+      // Claude Code skills (third-party)
+      '.claude/skills/**',
+
       // TypeSpec (handled by tsp linter)
       'tsp/**',
 

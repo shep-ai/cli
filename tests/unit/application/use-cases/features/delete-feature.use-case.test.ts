@@ -68,6 +68,7 @@ describe('DeleteFeatureUseCase', () => {
       findById: vi.fn().mockResolvedValue(createMockFeature()),
       findByIdPrefix: vi.fn().mockResolvedValue(null),
       findBySlug: vi.fn(),
+      findByBranch: vi.fn(),
       list: vi.fn(),
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
@@ -77,6 +78,7 @@ describe('DeleteFeatureUseCase', () => {
 
     mockWorktreeService = {
       create: vi.fn(),
+      addExisting: vi.fn(),
       remove: vi.fn(),
       prune: vi.fn(),
       list: vi.fn(),
@@ -85,6 +87,7 @@ describe('DeleteFeatureUseCase', () => {
       remoteBranchExists: vi.fn().mockResolvedValue(false),
       getWorktreePath: vi.fn().mockReturnValue('/repo/.worktrees/feat-test-feature'),
       ensureGitRepository: vi.fn(),
+      listBranches: vi.fn().mockResolvedValue([]),
     };
 
     mockProcessService = {

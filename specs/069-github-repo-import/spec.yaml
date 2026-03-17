@@ -557,3 +557,7 @@ rejectionFeedback:
     attachments:
       - >-
         /Users/arielshadkhan/.shep/attachments/pending-7f61a579-12ff-4abe-b8de-6231fecea857/image-5bee7466.png
+  - iteration: 5
+    message: Resolve merge conflicts
+    phase: merge
+    timestamp: '2026-03-17T13:55:45.123Z'

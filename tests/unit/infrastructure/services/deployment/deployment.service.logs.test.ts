@@ -45,7 +45,7 @@ function createMockDeps(mockChild?: ReturnType<typeof createMockChild>): Deploym
       command: 'npm run dev',
     }),
     kill: vi.fn(),
-    isAlive: vi.fn().mockReturnValue(false),
+    isAlive: vi.fn().mockReturnValue(true),
   };
 }
 
@@ -199,6 +199,7 @@ describe('DeploymentService — log accumulation', () => {
       mockChild.stdout.emit('data', Buffer.from('some output\n'));
       expect(service.getLogs('feat-1')!).toHaveLength(1);
 
+      (deps.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(false);
       const stopPromise = service.stop('feat-1');
       await vi.advanceTimersByTimeAsync(300);
       mockChild.emit('exit', 0, null);

@@ -12,7 +12,13 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-const defaultFlags = { skills: false, envDeploy: false, debug: false, githubImport: false };
+const defaultFlags = {
+  skills: false,
+  envDeploy: false,
+  debug: false,
+  githubImport: false,
+  adoptBranch: false,
+};
 
 describe('FeatureFlagsSettingsSection', () => {
   beforeEach(() => {
@@ -20,14 +26,18 @@ describe('FeatureFlagsSettingsSection', () => {
     mockUpdateSettingsAction.mockResolvedValue({ success: true });
   });
 
-  it('renders 3 feature flag toggles with descriptions', () => {
+  it('renders 5 feature flag toggles with descriptions', () => {
     render(<FeatureFlagsSettingsSection featureFlags={defaultFlags} />);
     expect(screen.getByTestId('switch-flag-skills')).toBeDefined();
     expect(screen.getByTestId('switch-flag-envDeploy')).toBeDefined();
     expect(screen.getByTestId('switch-flag-debug')).toBeDefined();
+    expect(screen.getByTestId('switch-flag-githubImport')).toBeDefined();
+    expect(screen.getByTestId('switch-flag-adoptBranch')).toBeDefined();
     expect(screen.getByText('Skills')).toBeDefined();
     expect(screen.getByText('Deployments')).toBeDefined();
     expect(screen.getByText('Debug')).toBeDefined();
+    expect(screen.getByText('GitHub Import')).toBeDefined();
+    expect(screen.getByText('Adopt Branch')).toBeDefined();
   });
 
   it('renders description text for each flag', () => {
@@ -38,6 +48,10 @@ describe('FeatureFlagsSettingsSection', () => {
     expect(screen.getByText('Enable environment deployment features in the web UI')).toBeDefined();
     expect(
       screen.getByText('Enable debug UI elements and verbose client-side logging')
+    ).toBeDefined();
+    expect(screen.getByText('Enable importing repositories from GitHub')).toBeDefined();
+    expect(
+      screen.getByText('Enable the ability to adopt existing branches as tracked features')
     ).toBeDefined();
   });
 

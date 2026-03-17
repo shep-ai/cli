@@ -43,7 +43,7 @@ export async function deployFeature(
 
     log.info('worktree path exists, calling deploymentService.start()');
     const deploymentService = resolve<IDeploymentService>('IDeploymentService');
-    deploymentService.start(featureId, worktreePath);
+    deploymentService.start(featureId, worktreePath, 'feature');
 
     log.info('start() returned successfully — state=Booting');
     return { success: true, state: DeploymentState.Booting };

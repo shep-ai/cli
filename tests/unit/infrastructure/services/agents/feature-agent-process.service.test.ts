@@ -14,8 +14,9 @@ import type { AgentRun } from '@/domain/generated/output.js';
 import { AgentRunStatus, AgentType } from '@/domain/generated/output.js';
 
 // Use vi.hoisted so mock fn is available when vi.mock factory runs
-const { mockFork } = vi.hoisted(() => ({
+const { mockFork, mockIsWindows } = vi.hoisted(() => ({
   mockFork: vi.fn(),
+  mockIsWindows: { value: false },
 }));
 
 vi.mock(import('node:child_process'), async (importOriginal) => {
@@ -26,6 +27,12 @@ vi.mock(import('node:child_process'), async (importOriginal) => {
     fork: (...args: unknown[]) => mockFork(...args),
   };
 });
+
+vi.mock('@/infrastructure/platform.js', () => ({
+  get IS_WINDOWS() {
+    return mockIsWindows.value;
+  },
+}));
 
 import { FeatureAgentProcessService } from '@/infrastructure/services/agents/feature-agent/feature-agent-process.service.js';
 
@@ -161,6 +168,23 @@ describe('FeatureAgentProcessService', () => {
       expect(() => {
         service.spawn('feat-1', 'run-1', '/repo', '/repo/specs/001');
       }).toThrow('Failed to spawn feature agent worker');
+    });
+
+    it('should include windowsHide: true in fork options on Windows', () => {
+      mockIsWindows.value = true;
+      service.spawn('feat-1', 'run-1', '/repo', '/repo/specs/001');
+
+      const options = mockFork.mock.calls[0][2];
+      expect(options).toMatchObject({ windowsHide: true });
+      mockIsWindows.value = false;
+    });
+
+    it('should NOT include windowsHide in fork options on non-Windows', () => {
+      mockIsWindows.value = false;
+      service.spawn('feat-1', 'run-1', '/repo', '/repo/specs/001');
+
+      const options = mockFork.mock.calls[0][2];
+      expect(options).not.toHaveProperty('windowsHide');
     });
   });
 

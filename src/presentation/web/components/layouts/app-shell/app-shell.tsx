@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Plus, FolderPlus, Github } from 'lucide-react';
+import { Plus, FolderPlus, Github, GitBranch } from 'lucide-react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
 import {
@@ -28,7 +28,7 @@ interface AppShellProps {
 }
 
 /** Control center route prefixes where the FAB should be visible. */
-const CONTROL_CENTER_PREFIXES = ['/', '/create', '/feature', '/repository'];
+const CONTROL_CENTER_PREFIXES = ['/', '/create', '/adopt', '/feature', '/repository'];
 
 function isControlCenterRoute(pathname: string): boolean {
   return CONTROL_CENTER_PREFIXES.some(
@@ -48,6 +48,10 @@ function AppShellInner({ children }: AppShellProps) {
   const { features, hasRepositories } = useSidebarFeaturesContext();
   const handleNewFeature = useCallback(() => {
     guardedNavigate(() => router.push('/create'));
+  }, [router, guardedNavigate]);
+
+  const handleAdoptBranch = useCallback(() => {
+    guardedNavigate(() => router.push('/adopt'));
   }, [router, guardedNavigate]);
 
   const handleFeatureClick = useCallback(
@@ -93,6 +97,16 @@ function AppShellInner({ children }: AppShellProps) {
         icon: <Plus className="h-4 w-4" />,
         onClick: handleNewFeature,
       },
+      ...(featureFlags.adoptBranch
+        ? [
+            {
+              id: 'adopt-branch',
+              label: 'Adopt Branch',
+              icon: <GitBranch className="h-4 w-4" />,
+              onClick: handleAdoptBranch,
+            },
+          ]
+        : []),
       {
         id: 'add-repository',
         label: 'Add Repository',
@@ -112,10 +126,12 @@ function AppShellInner({ children }: AppShellProps) {
     return actions;
   }, [
     handleNewFeature,
+    handleAdoptBranch,
     handleAddRepository,
     addingRepo,
     handleImportFromGitHub,
     featureFlags.githubImport,
+    featureFlags.adoptBranch,
   ]);
 
   return (

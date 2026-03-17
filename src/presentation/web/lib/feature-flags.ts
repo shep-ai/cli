@@ -17,6 +17,7 @@ export interface FeatureFlagsState {
   envDeploy: boolean;
   debug: boolean;
   githubImport: boolean;
+  adoptBranch: boolean;
 }
 
 export function getFeatureFlags(): FeatureFlagsState {
@@ -29,6 +30,7 @@ export function getFeatureFlags(): FeatureFlagsState {
           envDeploy: flags.envDeploy,
           debug: flags.debug,
           githubImport: flags.githubImport,
+          adoptBranch: flags.adoptBranch,
         };
       }
     }
@@ -44,6 +46,7 @@ export function getFeatureFlags(): FeatureFlagsState {
         : true,
     debug: false,
     githubImport: false,
+    adoptBranch: false,
   };
 }
 
@@ -63,5 +66,8 @@ export const featureFlags = {
   },
   get githubImport() {
     return getFeatureFlags().githubImport;
+  },
+  get adoptBranch() {
+    return getFeatureFlags().adoptBranch;
   },
 } as const;

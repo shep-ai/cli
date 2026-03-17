@@ -80,6 +80,8 @@ yarn.lock
 # Misc
 # =============================================================================
 .cache/
+.eslintcache
+node_modules/.cache/prettier/
 .temp/
 .tmp/
 *.bak

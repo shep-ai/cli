@@ -20,8 +20,12 @@ function loadDevFallbacks(): Record<string, string> {
     let branch = '';
     let commitHash = '';
     try {
-      branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).trim();
-      commitHash = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+      const isWin = process.platform === 'win32';
+      const syncOpts = isWin
+        ? { encoding: 'utf-8' as const, windowsHide: true }
+        : { encoding: 'utf-8' as const };
+      branch = execSync('git rev-parse --abbrev-ref HEAD', syncOpts).trim();
+      commitHash = execSync('git rev-parse HEAD', syncOpts).trim();
     } catch {
       // Not in a git repo
     }

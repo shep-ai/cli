@@ -154,6 +154,7 @@ export function createDefaultSettings(): Settings {
     envDeploy: true,
     debug: false,
     githubImport: false,
+    adoptBranch: false,
   };
 
   return {

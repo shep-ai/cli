@@ -110,6 +110,7 @@ export interface SettingsRow {
   feature_flag_env_deploy: number;
   feature_flag_debug: number;
   feature_flag_github_import: number;
+  feature_flag_adopt_branch: number;
 }
 
 /**
@@ -211,6 +212,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     feature_flag_env_deploy: settings.featureFlags?.envDeploy ? 1 : 0,
     feature_flag_debug: settings.featureFlags?.debug ? 1 : 0,
     feature_flag_github_import: settings.featureFlags?.githubImport ? 1 : 0,
+    feature_flag_adopt_branch: settings.featureFlags?.adoptBranch ? 1 : 0,
   };
 }
 
@@ -341,6 +343,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       envDeploy: row.feature_flag_env_deploy === 1,
       debug: row.feature_flag_debug === 1,
       githubImport: row.feature_flag_github_import === 1,
+      adoptBranch: row.feature_flag_adopt_branch === 1,
     },
 
     // Onboarding (INTEGER → boolean)

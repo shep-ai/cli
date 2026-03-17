@@ -16,6 +16,7 @@ import {
   GitCommitHorizontal,
   ArrowDown,
   User,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
@@ -30,7 +31,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from './repository-node-config';
@@ -250,38 +250,6 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                   repositoryPath={data.repositoryPath}
                   onCreateFromSession={handleCreateFromSession}
                 />
-                {featureFlags.envDeploy ? (
-                  <>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center">
-                            <ActionButton
-                              label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                              onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
-                              loading={deployAction.deployLoading || deployAction.stopLoading}
-                              error={!!deployAction.deployError}
-                              icon={isDeploymentActive ? Square : Play}
-                              iconOnly
-                              variant="ghost"
-                              size="icon-xs"
-                            />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    {isDeploymentActive ? (
-                      <DeploymentStatusBadge
-                        status={deployAction.status}
-                        url={deployAction.url}
-                        targetId={data.repositoryPath}
-                      />
-                    ) : null}
-                  </>
-                ) : null}
               </>
             ) : null}
 
@@ -359,6 +327,73 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                   <span>{data.committer}</span>
                 </span>
               ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Row 4: Local dev server — always visible when envDeploy flag is on */}
+        {featureFlags.envDeploy && data.repositoryPath ? (
+          <div
+            data-testid="repository-node-dev-preview"
+            className="border-t px-4 py-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 text-xs">
+              {deployAction.deployError ? (
+                <span className="truncate text-xs text-red-500">{deployAction.deployError}</span>
+              ) : isDeploymentActive ? (
+                <>
+                  <span className="mr-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-green-500" />
+                  {deployAction.url ? (
+                    <a
+                      href={deployAction.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate text-green-700 hover:underline dark:text-green-400"
+                    >
+                      {deployAction.url}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">Starting...</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-muted-foreground">
+                  Run
+                  <span className="text-muted-foreground/50 ml-2 text-[10px]">
+                    start local environment
+                  </span>
+                </span>
+              )}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="ml-auto flex items-center">
+                      <ActionButton
+                        label={
+                          deployAction.deployError
+                            ? 'Retry'
+                            : isDeploymentActive
+                              ? 'Stop Dev Server'
+                              : 'Start Dev Server'
+                        }
+                        onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
+                        loading={deployAction.deployLoading || deployAction.stopLoading}
+                        error={false}
+                        icon={
+                          deployAction.deployError ? RotateCcw : isDeploymentActive ? Square : Play
+                        }
+                        iconOnly
+                        variant="ghost"
+                        size="icon-xs"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         ) : null}

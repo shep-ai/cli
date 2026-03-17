@@ -53,6 +53,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       findById: vi.fn().mockResolvedValue(createMockFeature()),
       findByIdPrefix: vi.fn().mockResolvedValue(null),
       findBySlug: vi.fn(),
+      findByBranch: vi.fn(),
       list: vi.fn(),
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
@@ -62,6 +63,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
 
     mockWorktreeService = {
       create: vi.fn(),
+      addExisting: vi.fn(),
       remove: vi.fn().mockResolvedValue(undefined),
       prune: vi.fn().mockResolvedValue(undefined),
       list: vi.fn(),
@@ -70,6 +72,7 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       remoteBranchExists: vi.fn().mockResolvedValue(true),
       getWorktreePath: vi.fn(),
       ensureGitRepository: vi.fn(),
+      listBranches: vi.fn().mockResolvedValue([]),
     };
 
     mockGitPrService = {

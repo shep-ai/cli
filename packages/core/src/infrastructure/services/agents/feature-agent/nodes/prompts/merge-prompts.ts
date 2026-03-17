@@ -11,7 +11,7 @@
 
 import yaml from 'js-yaml';
 import { EvidenceType, type Evidence } from '@/domain/generated/output.js';
-import { readSpecFile } from '../node-helpers.js';
+import { readSpecFile, buildResumeContext } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
 /**
@@ -177,7 +177,9 @@ export function buildCommitPushPrPrompt(
    - Write a rich PR body that summarizes the changes using the spec context below`);
   }
 
-  return `You are performing git operations in a feature worktree.
+  const resumeContext = buildResumeContext(state.resumeReason);
+
+  return `${resumeContext}You are performing git operations in a feature worktree.
 ${rejectionSection}
 ## Feature Specification Context
 

@@ -40,6 +40,7 @@ function createMockWorktreeService() {
     remoteBranchExists: vi.fn(),
     getWorktreePath: vi.fn().mockReturnValue('/wt/feat-test'),
     ensureGitRepository: vi.fn(),
+    listBranches: vi.fn().mockResolvedValue([]),
   };
 }
 

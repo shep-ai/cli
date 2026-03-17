@@ -14,7 +14,13 @@ import { AppShell } from '@/components/layouts/app-shell';
 import { FeatureFlagsProvider } from '@/hooks/feature-flags-context';
 import { useSidebarFeaturesContext } from '@/hooks/sidebar-features-context';
 
-const defaultFlags = { skills: false, envDeploy: false, debug: false, githubImport: false };
+const defaultFlags = {
+  skills: false,
+  envDeploy: false,
+  debug: false,
+  githubImport: false,
+  adoptBranch: false,
+};
 
 function renderShell(children: React.ReactNode) {
   return render(

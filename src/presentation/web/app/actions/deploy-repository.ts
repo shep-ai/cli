@@ -27,7 +27,7 @@ export async function deployRepository(
 
     log.info('directory exists, calling deploymentService.start()');
     const deploymentService = resolve<IDeploymentService>('IDeploymentService');
-    deploymentService.start(repositoryPath, repositoryPath);
+    deploymentService.start(repositoryPath, repositoryPath, 'repository');
 
     log.info('start() returned successfully — state=Booting');
     return { success: true, state: DeploymentState.Booting };

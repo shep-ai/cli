@@ -503,7 +503,13 @@ describe('SQLiteSettingsRepository', () => {
   describe('feature flags', () => {
     it('should initialize settings with featureFlags and load them back', async () => {
       const settings = createTestSettings();
-      settings.featureFlags = { skills: true, envDeploy: false, debug: true, githubImport: false };
+      settings.featureFlags = {
+        skills: true,
+        envDeploy: false,
+        debug: true,
+        githubImport: false,
+        adoptBranch: false,
+      };
 
       await repository.initialize(settings);
       const loaded = await repository.load();
@@ -513,6 +519,7 @@ describe('SQLiteSettingsRepository', () => {
         envDeploy: false,
         debug: true,
         githubImport: false,
+        adoptBranch: false,
       });
     });
 
@@ -527,6 +534,7 @@ describe('SQLiteSettingsRepository', () => {
         envDeploy: false,
         debug: false,
         githubImport: false,
+        adoptBranch: false,
       });
     });
 
@@ -534,7 +542,13 @@ describe('SQLiteSettingsRepository', () => {
       const settings = createTestSettings();
       await repository.initialize(settings);
 
-      settings.featureFlags = { skills: true, envDeploy: true, debug: false, githubImport: false };
+      settings.featureFlags = {
+        skills: true,
+        envDeploy: true,
+        debug: false,
+        githubImport: false,
+        adoptBranch: true,
+      };
       settings.updatedAt = new Date('2025-01-02T00:00:00Z');
       await repository.update(settings);
 
@@ -544,23 +558,32 @@ describe('SQLiteSettingsRepository', () => {
         envDeploy: true,
         debug: false,
         githubImport: false,
+        adoptBranch: true,
       });
     });
 
     it('should store feature flag booleans as INTEGER 0/1', async () => {
       const settings = createTestSettings();
-      settings.featureFlags = { skills: true, envDeploy: false, debug: true, githubImport: false };
+      settings.featureFlags = {
+        skills: true,
+        envDeploy: false,
+        debug: true,
+        githubImport: false,
+        adoptBranch: false,
+      };
 
       await repository.initialize(settings);
 
       const row = db
         .prepare(
-          'SELECT feature_flag_skills, feature_flag_env_deploy, feature_flag_debug FROM settings WHERE id = ?'
+          'SELECT feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_github_import, feature_flag_adopt_branch FROM settings WHERE id = ?'
         )
         .get('singleton') as Record<string, number>;
       expect(row.feature_flag_skills).toBe(1);
       expect(row.feature_flag_env_deploy).toBe(0);
       expect(row.feature_flag_debug).toBe(1);
+      expect(row.feature_flag_github_import).toBe(0);
+      expect(row.feature_flag_adopt_branch).toBe(0);
     });
   });
 

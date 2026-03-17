@@ -292,7 +292,7 @@ describe('GitPrService', () => {
 
       await service.mergePr('/repo', 42);
 
-      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--squash', '--auto'], {
+      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--squash'], {
         cwd: '/repo',
       });
     });
@@ -305,7 +305,7 @@ describe('GitPrService', () => {
 
       await service.mergePr('/repo', 42, 'rebase');
 
-      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--rebase', '--auto'], {
+      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--rebase'], {
         cwd: '/repo',
       });
     });
@@ -441,8 +441,10 @@ describe('GitPrService', () => {
     it('should resolve run ID via gh run list then watch it', async () => {
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
-          // gh run list --branch ... --json databaseId --limit 1
-          stdout: JSON.stringify([{ databaseId: 789 }]),
+          // gh run list --branch ... --json databaseId,url --limit 1
+          stdout: JSON.stringify([
+            { databaseId: 789, url: 'https://github.com/org/repo/actions/runs/789' },
+          ]),
           stderr: '',
         })
         .mockResolvedValueOnce({
@@ -456,16 +458,17 @@ describe('GitPrService', () => {
       expect(mockExec).toHaveBeenNthCalledWith(
         1,
         'gh',
-        ['run', 'list', '--branch', 'feat/branch', '--json', 'databaseId', '--limit', '1'],
+        ['run', 'list', '--branch', 'feat/branch', '--json', 'databaseId,url', '--limit', '1'],
         { cwd: '/repo' }
       );
       expect(mockExec).toHaveBeenNthCalledWith(
         2,
         'gh',
-        ['run', 'watch', '789', '--exit-status', '--compact', '--interval', '30'],
+        ['run', 'watch', '789', '--exit-status', '--interval', '30'],
         expect.objectContaining({ cwd: '/repo' })
       );
       expect(result.status).toBe('success');
+      expect(result.runUrl).toBe('https://github.com/org/repo/actions/runs/789');
     });
 
     it('should return pending when no runs exist for the branch', async () => {
@@ -483,7 +486,9 @@ describe('GitPrService', () => {
     it('should return failure when gh run watch exits non-zero (exit code message)', async () => {
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
-          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stdout: JSON.stringify([
+            { databaseId: 789, url: 'https://github.com/org/repo/actions/runs/789' },
+          ]),
           stderr: '',
         })
         .mockRejectedValueOnce(new Error('exit code 1'));
@@ -508,7 +513,9 @@ describe('GitPrService', () => {
 
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
-          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stdout: JSON.stringify([
+            { databaseId: 789, url: 'https://github.com/org/repo/actions/runs/789' },
+          ]),
           stderr: '',
         })
         .mockRejectedValueOnce(execError);
@@ -531,7 +538,9 @@ describe('GitPrService', () => {
 
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
-          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stdout: JSON.stringify([
+            { databaseId: 789, url: 'https://github.com/org/repo/actions/runs/789' },
+          ]),
           stderr: '',
         })
         .mockRejectedValueOnce(execError);
@@ -546,7 +555,9 @@ describe('GitPrService', () => {
     it('should throw GIT_ERROR for genuine errors (not CI failure)', async () => {
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
-          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stdout: JSON.stringify([
+            { databaseId: 789, url: 'https://github.com/org/repo/actions/runs/789' },
+          ]),
           stderr: '',
         })
         .mockRejectedValueOnce(new Error('network connection reset'));
@@ -559,7 +570,9 @@ describe('GitPrService', () => {
     it('should throw GitPrError with CI_TIMEOUT on timeout', async () => {
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
-          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stdout: JSON.stringify([
+            { databaseId: 789, url: 'https://github.com/org/repo/actions/runs/789' },
+          ]),
           stderr: '',
         })
         .mockRejectedValueOnce(new Error('timed out waiting for run'));
@@ -574,7 +587,9 @@ describe('GitPrService', () => {
       // stdout may contain checkmarks like "✓ build in 1m2s" without "success" or "completed"
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
-          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stdout: JSON.stringify([
+            { databaseId: 789, url: 'https://github.com/org/repo/actions/runs/789' },
+          ]),
           stderr: '',
         })
         .mockResolvedValueOnce({
@@ -590,7 +605,9 @@ describe('GitPrService', () => {
     it('should return success when gh run watch exits 0 with empty stdout', async () => {
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
-          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stdout: JSON.stringify([
+            { databaseId: 789, url: 'https://github.com/org/repo/actions/runs/789' },
+          ]),
           stderr: '',
         })
         .mockResolvedValueOnce({
@@ -606,7 +623,9 @@ describe('GitPrService', () => {
     it('should pass timeout option to exec', async () => {
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
-          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stdout: JSON.stringify([
+            { databaseId: 789, url: 'https://github.com/org/repo/actions/runs/789' },
+          ]),
           stderr: '',
         })
         .mockResolvedValueOnce({
@@ -619,7 +638,7 @@ describe('GitPrService', () => {
       expect(mockExec).toHaveBeenNthCalledWith(
         2,
         'gh',
-        ['run', 'watch', '789', '--exit-status', '--compact', '--interval', '30'],
+        ['run', 'watch', '789', '--exit-status', '--interval', '30'],
         {
           cwd: '/repo',
           timeout: 30000,

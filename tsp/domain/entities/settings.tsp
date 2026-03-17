@@ -469,6 +469,9 @@ model FeatureFlags {
 
   @doc("Enable GitHub repository import in the web UI")
   githubImport: boolean = false;
+
+  @doc("Enable adopt branch feature to import existing branches as tracked features")
+  adoptBranch: boolean = false;
 }
 
 /**

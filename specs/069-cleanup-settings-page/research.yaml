@@ -1,0 +1,354 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: cleanup-settings-page
+summary: >
+  Presentation-layer-only cleanup of settings-page-client.tsx. Remove the dead
+  auth method row (disabled Select + "Coming soon" tooltip + unreachable token
+  input) and associated dead code/imports. Add two missing notification event
+  SwitchRow toggles (prBlocked, mergeReviewReady) following the identical pattern
+  used by the four existing PR event toggles. Update Storybook stories and unit
+  tests. No domain, TypeSpec, database, or backend changes required.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (Next.js App Router)
+  - shadcn/ui (Switch, Select, Tooltip, Label, Input, Button)
+  - Storybook
+  - Vitest + React Testing Library
+
+relatedLinks:
+  - https://ui.shadcn.com/docs/components/switch
+
+decisions:
+  - title: Dead code removal strategy for auth method row
+    chosen: >-
+      Remove the entire auth method SettingsRow, the AUTH_METHOD_OPTIONS constant,
+      the authMethod variable reference, the token/showToken state, the unreachable
+      token input JSX block, and the token logic in buildAgentPayload — all in a
+      single pass
+    rejected:
+      - >-
+        Replace disabled Select with read-only text display — rejected because the
+        spec explicitly resolved this question in favour of showing a read-only
+        display, but there is zero user value in showing a value the user cannot
+        change and that is set programmatically. The spec answer says "Show
+        read-only display" but the selectionRationale recommends removal. Given
+        that the auth method is set automatically during agent configuration,
+        removal is the cleaner path and the spec requirements (FR-1 through FR-3,
+        SC-1 through SC-3) mandate removal of the row and dead code.
+      - >-
+        Keep disabled row and only remove dead token code — rejected because the
+        "Coming soon" tooltip on a permanently disabled control is confusing dead
+        UI that provides no user value
+    rationale: >
+      The disabled auth method Select with "Coming soon" tooltip is dead UI —
+      users cannot interact with it and the value is set programmatically. All
+      code guarded by `authMethod === AgentAuthMethod.Token` is unreachable since
+      the default is `Session` and there is no UI to change it. Removing
+      everything in one pass is safe because: (1) the `authMethod` variable is
+      only read, never written via UI; (2) the token input is behind an
+      unreachable condition; (3) AUTH_METHOD_OPTIONS is only consumed by the
+      removed Select. This aligns with FR-1, FR-2, FR-3.
+
+  - title: Import cleanup after auth method removal
+    chosen: >-
+      Remove Eye, EyeOff from lucide-react import; remove Tooltip,
+      TooltipContent, TooltipProvider, TooltipTrigger import; remove
+      AgentAuthMethod from domain import. Keep Select/SelectContent/SelectItem/
+      SelectTrigger/SelectValue since they are used by editor, shell, and
+      terminal selects.
+    rejected:
+      - >-
+        Leave all imports in place — rejected because unused imports fail lint
+        checks and violate FR-10
+      - >-
+        Remove Select imports too — rejected because Select is used at lines 809
+        (editor), 849 (shell), and 883 (terminal). Only the auth method usage is
+        removed.
+    rationale: >
+      Grep analysis confirms: Eye/EyeOff are only used in the token visibility
+      toggle (line 753, inside unreachable block). Tooltip components are only
+      used in the auth method row (lines 701-725). AgentAuthMethod is only used
+      in AUTH_METHOD_OPTIONS and dead code checks. Select components are used in
+      3 other places (editor, shell, terminal) so they must stay. This targeted
+      removal satisfies FR-10 and SC-13.
+
+  - title: New notification toggle implementation pattern
+    chosen: >-
+      Use the existing SwitchRow component with the same onChange pattern:
+      spread events into newEvents with the toggled value, call setEvents, then
+      call save(buildNotificationPayload({ events: newEvents })). Place after
+      the prChecksFailed SwitchRow (line 1438) and before the closing
+      </SettingsSection> tag (line 1439).
+    rejected:
+      - >-
+        Create a new reusable component for event toggles — rejected because the
+        existing SwitchRow component already encapsulates the pattern perfectly
+        and all 9 existing event toggles use it directly. Adding abstraction for
+        2 more toggles is over-engineering.
+      - >-
+        Use a data-driven approach mapping event keys to labels and rendering
+        toggles from an array — rejected because this would be a refactor beyond
+        the cleanup scope. The spec says to follow the same pattern as existing
+        toggles (FR-4, FR-5, FR-7, SC-7).
+    rationale: >
+      The existing pattern is simple and consistent: each event toggle is a
+      SwitchRow with label, id, testId, checked bound to events[key], and
+      onChange that creates a new events object and saves. The
+      buildNotificationPayload helper already handles serialising the full
+      notification state. Adding two more SwitchRow instances following this
+      exact pattern is the minimum-change approach that satisfies FR-4 through
+      FR-7. The new toggles will automatically work with auto-save because the
+      events state already includes prBlocked and mergeReviewReady (initialised
+      from settings.notifications.events at line 441).
+
+  - title: Storybook story updates
+    chosen: >-
+      Update the AllSections story to remove authMethod: Token and token from
+      agent config (since those fields are no longer relevant to UI). Verify
+      Default story uses createDefaultSettings() which already includes
+      prBlocked and mergeReviewReady defaults (both true). No new stories
+      needed — existing stories cover the new toggles through defaults.
+    rejected:
+      - >-
+        Add a dedicated story for notification toggles — rejected because the
+        Default and AllSections stories already render the full settings page
+        including all notification toggles. The new toggles will appear
+        automatically since defaults factory includes them.
+      - >-
+        Remove the AllSections story entirely — rejected because it tests
+        non-default configurations for other sections (featureFlags, etc.) which
+        are still valid
+    rationale: >
+      The AllSections story currently sets authMethod: Token and token:
+      'sk-test-token-12345' which would reference removed UI. This must be
+      cleaned up. The Default story uses createDefaultSettings() which already
+      sets prBlocked: true and mergeReviewReady: true, so the new toggles will
+      render in all stories without changes. FR-8 is satisfied by cleaning up
+      the stale auth reference and confirming toggles render.
+
+  - title: Unit test updates
+    chosen: >-
+      No test changes needed for the removal — there are no existing tests that
+      assert on the auth method row or token input. For the new toggles, the
+      existing test structure tests sections at a high level (checking testIds
+      like notification-settings-section exist) rather than individual toggles.
+      Adding toggle-specific tests is optional but not required by the current
+      test pattern.
+    rejected:
+      - >-
+        Add comprehensive toggle interaction tests (click, verify state, verify
+        save called) — rejected because the existing test suite does not test
+        individual toggle interactions for any of the 9 existing event toggles.
+        Adding tests only for the 2 new ones would be inconsistent.
+      - >-
+        Remove existing tests and rewrite — rejected because the existing tests
+        are valid and passing; FR-9 says to update tests if needed, not rewrite
+        them
+    rationale: >
+      The existing test file has 6 tests that verify section rendering,
+      props passing, and edge cases. None test individual notification toggles
+      or the auth method row. Since the new toggles follow the identical pattern
+      as existing ones and the section-level test (notification-settings-section
+      testId) still passes, the tests remain valid. FR-9 is satisfied. SC-11
+      requires tests pass — they will since no tested elements are removed.
+
+# Open questions (all resolved during research)
+openQuestions:
+  - question: >-
+      Will removing authMethod variable break the buildAgentPayload function?
+    resolved: true
+    options:
+      - option: Remove authMethod from buildAgentPayload entirely
+        description: >-
+          Remove the authMethod references from buildAgentPayload. The function
+          currently spreads authMethod into the merged object and conditionally
+          adds token. Since authMethod is always Session (the default) and is not
+          user-changeable, we can hardcode the default or omit it. However, the
+          agent type still needs to be saved.
+        selected: false
+      - option: Keep buildAgentPayload but simplify it to only handle agentType
+        description: >-
+          Simplify buildAgentPayload to only handle the type field since that is
+          the only agent setting the user can change. Remove authMethod and token
+          logic entirely. The function becomes { agent: { type: merged.type } }.
+        selected: true
+      - option: Remove buildAgentPayload entirely and inline the save call
+        description: >-
+          Since the only agent setting is type, inline the save payload at the
+          call site. This eliminates the helper function. However, the function
+          may be called from multiple places.
+        selected: false
+    selectionRationale: >
+      buildAgentPayload is called when the agent type changes. After removing
+      authMethod and token dead code, the only agent setting the user can change
+      is type. Simplifying the function to return { agent: { type } } is
+      cleaner than inlining because it preserves the pattern used by
+      buildNotificationPayload and other builder helpers in the component.
+
+  - question: >-
+      Should the Tooltip/TooltipProvider imports be removed even though they might
+      be needed for future features?
+    resolved: true
+    options:
+      - option: Remove all unused imports now
+        description: >-
+          Remove Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Eye,
+          EyeOff, and AgentAuthMethod imports since they are no longer used after
+          the auth method row removal. Re-adding imports when needed is trivial.
+        selected: true
+      - option: Keep Tooltip imports for potential future use
+        description: >-
+          Leave the Tooltip imports in place anticipating they may be needed
+          later. This avoids churn if tooltips are added to other settings.
+          However, unused imports fail lint checks.
+        selected: false
+      - option: Move unused imports to a comment block
+        description: >-
+          Comment out unused imports for easy restoration. This is an
+          anti-pattern that clutters code and fails lint checks.
+        selected: false
+    selectionRationale: >
+      Unused imports will fail the project's lint checks (pnpm lint:fix).
+      The CLAUDE.md rules say to avoid backwards-compatibility hacks like
+      keeping unused code. Imports are trivially re-added via IDE auto-import
+      when needed. FR-10 and SC-13 explicitly require cleaning up unused imports.
+
+  - question: >-
+      How do the new toggles get their initial checked state?
+    resolved: true
+    options:
+      - option: Read from events state (initialised from settings.notifications.events)
+        description: >-
+          The events state is initialised at line 441 as
+          { ...settings.notifications.events }. Since NotificationEventConfig
+          includes prBlocked and mergeReviewReady, and
+          settings-defaults.factory.ts sets both to true, the events state
+          object already contains these fields. The new SwitchRow components
+          can simply bind to events.prBlocked and events.mergeReviewReady.
+        selected: true
+      - option: Add separate useState for each new toggle
+        description: >-
+          Create dedicated state variables like [prBlocked, setPrBlocked].
+          This is inconsistent with how other event toggles work — they all
+          share the events state object.
+        selected: false
+      - option: Default to true if field is missing in events
+        description: >-
+          Add fallback: events.prBlocked ?? true. This handles the case where
+          old settings don't have the new fields. However, the
+          settings-defaults.factory.ts already provides defaults and the
+          settings mapper should populate these fields.
+        selected: false
+    selectionRationale: >
+      All existing event toggles use the shared events state object initialised
+      from settings.notifications.events. The NotificationEventConfig type
+      already includes prBlocked and mergeReviewReady as required boolean fields.
+      The defaults factory sets both to true. Using the same pattern ensures
+      consistency with FR-7 and SC-7.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Dead Code Removal Strategy for Auth Method Row
+
+  **Chosen:** Remove the entire auth method SettingsRow, AUTH_METHOD_OPTIONS constant, authMethod variable, token/showToken state, unreachable token input JSX, and token logic in buildAgentPayload — all in a single pass.
+
+  **Rejected:**
+  - Replace with read-only display — the auth method is set programmatically and showing it adds no user value
+  - Keep disabled row and only remove token code — "Coming soon" tooltip on disabled control is confusing dead UI
+
+  **Rationale:** The disabled auth method Select is dead UI. All code behind `authMethod === AgentAuthMethod.Token` is unreachable since default is `Session` and no UI changes it. Safe single-pass removal since nothing else depends on these variables.
+
+  ### 2. Import Cleanup After Auth Method Removal
+
+  **Chosen:** Remove Eye, EyeOff, Tooltip*, AgentAuthMethod imports. Keep Select imports (used by editor/shell/terminal selects).
+
+  **Rejected:**
+  - Leave all imports — fails lint
+  - Remove Select too — still used in 3 other selects
+
+  **Rationale:** Grep confirms Eye/EyeOff only in token toggle, Tooltip* only in auth row, AgentAuthMethod only in dead code. Select used at lines 809, 849, 883.
+
+  ### 3. New Notification Toggle Pattern
+
+  **Chosen:** Add two SwitchRow components after prChecksFailed, using identical pattern: label, id, testId, checked from events state, onChange spreads events + saves via buildNotificationPayload.
+
+  **Rejected:**
+  - New reusable event toggle component — over-engineering for 2 additions
+  - Data-driven toggle rendering — refactor beyond cleanup scope
+
+  **Rationale:** events state already contains prBlocked and mergeReviewReady (initialised from settings at line 441). buildNotificationPayload already serialises the full events object. Zero new infrastructure needed.
+
+  ### 4. Storybook Story Updates
+
+  **Chosen:** Clean up AllSections story to remove authMethod/token agent config. Default story already covers new toggles via createDefaultSettings() defaults.
+
+  **Rejected:**
+  - New dedicated notification story — existing stories render full page
+  - Remove AllSections — still tests valid non-default configs
+
+  **Rationale:** AllSections references `authMethod: Token` and `token:` which map to removed UI. Default story uses factory that already includes prBlocked: true and mergeReviewReady: true.
+
+  ### 5. Unit Test Updates
+
+  **Chosen:** No structural test changes needed. Existing tests verify section-level rendering, not individual toggles. New toggles render within existing tested sections.
+
+  **Rejected:**
+  - Add comprehensive toggle interaction tests — inconsistent with existing test coverage level
+  - Rewrite tests — unnecessary, existing tests are valid
+
+  **Rationale:** No tests assert on auth method row or individual notification toggles. Section-level testIds remain unchanged.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | shadcn/ui Switch | Toggle component for new events | Use (existing) | Already used by all 9 existing event toggles; no new dependency |
+  | shadcn/ui Tooltip | Was wrapping auth method Select | Remove usage | Only used in auth method row being removed |
+  | lucide-react Eye/EyeOff | Was showing/hiding token | Remove usage | Only used in unreachable token input block |
+  | AgentAuthMethod enum | Was used in auth options and dead checks | Remove import | No remaining usage after dead code removal |
+
+  No new libraries or dependencies are introduced by this change.
+
+  ## Security Considerations
+
+  - **No security impact.** The token input field being removed was unreachable dead code — the condition `authMethod === AgentAuthMethod.Token` could never be true since the default is `Session` and no UI allows changing it. Removing it eliminates a potential future vector if the field were ever accidentally enabled without proper validation.
+  - The new notification toggles control boolean preferences only — no sensitive data, no authentication flows, no external API calls.
+
+  ## Performance Implications
+
+  - **Bundle size decrease (marginal).** Removing dead JSX (token input, auth method Select, Tooltip wrapper) and unused imports (Eye, EyeOff, Tooltip components) will slightly reduce the component bundle. If Tooltip is tree-shaken out entirely (only import site), the savings could be meaningful.
+  - **No runtime overhead.** The two new SwitchRow components are lightweight — same as existing toggles. The events state object already tracks 9 events; going to 11 has negligible memory impact. No additional re-renders since the pattern is identical.
+  - **Auto-save latency unchanged.** New toggles use the same `save(buildNotificationPayload(...))` path as existing toggles — no additional network calls or state management overhead (NFR-2 satisfied).
+
+  ## Architecture Notes
+
+  This change is entirely within the **Presentation layer** (`src/presentation/web/`). It does not cross any Clean Architecture boundaries:
+
+  - **Domain layer**: No changes. `NotificationEventConfig` already includes `prBlocked` and `mergeReviewReady` fields. `AgentAuthMethod` enum remains in the domain for use by agent configuration code — only the UI import is removed.
+  - **Application layer**: No changes. `updateSettingsAction` already handles the full settings payload including all notification events.
+  - **Infrastructure layer**: No changes. `notification.service.ts` already maps PrBlocked and MergeReviewReady events. `settings.mapper.ts` already persists all notification event fields.
+  - **Presentation layer**: Only `settings-page-client.tsx`, its stories, and tests are modified.
+
+  ### Files to Modify
+
+  | File | Changes |
+  | ---- | ------- |
+  | `settings-page-client.tsx` | Remove auth row (lines ~696-757), AUTH_METHOD_OPTIONS (lines ~52-55), authMethod/token/showToken state (lines ~367-369), token logic in buildAgentPayload (lines ~496-500), unused imports. Add 2 SwitchRow toggles after line ~1438. |
+  | `settings-page-client.stories.tsx` | Remove `authMethod: Token` and `token:` from AllSections story agent config |
+  | `settings-page-client.test.tsx` | No changes expected — existing tests don't assert on removed or added elements |
+
+  ### New Toggle Specifications
+
+  | Field | ID | TestID | Label | Position |
+  | ----- | -- | ------ | ----- | -------- |
+  | prBlocked | notif-event-prBlocked | switch-event-prBlocked | PR blocked | After prChecksFailed |
+  | mergeReviewReady | notif-event-mergeReviewReady | switch-event-mergeReviewReady | Merge review ready | After prBlocked |
+
+  ---
+
+  _Research complete — ready for planning phase_

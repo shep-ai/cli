@@ -65,6 +65,7 @@ describe('CheckAndUnblockFeaturesUseCase', () => {
       findById: vi.fn(),
       findByIdPrefix: vi.fn(),
       findBySlug: vi.fn(),
+      findByBranch: vi.fn(),
       list: vi.fn(),
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue(undefined),

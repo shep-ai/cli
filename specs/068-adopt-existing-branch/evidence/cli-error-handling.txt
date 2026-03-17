@@ -1,0 +1,22 @@
+CLI Error Handling — `shep feat adopt`
+=======================================
+Date: 2026-03-16
+
+── Main branch rejection ──────────────────────────────────────────
+$ shep feat adopt main
+
+  ✗ Failed to adopt branch
+  Error: Cannot adopt the "main" branch. The main branch should not be tracked as a feature.
+
+── Nonexistent branch ─────────────────────────────────────────────
+$ shep feat adopt nonexistent-branch-xyz
+
+  ✗ Failed to adopt branch
+  Error: Branch "nonexistent-branch-xyz" does not exist locally or on the remote.
+         Check the branch name spelling and ensure you have fetched from the remote.
+
+Evidence:
+- Main/master branch rejection works with clear error message (FR-7)
+- Nonexistent branch returns descriptive error with helpful suggestion (FR-4, NFR-4)
+- Exit code set to 1 on failure
+- Spinner shown during async operation

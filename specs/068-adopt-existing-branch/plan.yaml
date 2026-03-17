@@ -1,0 +1,204 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: adopt-existing-branch
+summary: >
+  Implementation plan for adopting existing git branches into Shep's feature tracking system.
+  Creates a new standalone AdoptBranchUseCase (not extending CreateFeatureUseCase), adds
+  addExisting() to IWorktreeService for attaching to existing branches, adds findByBranch()
+  to IFeatureRepository for duplicate detection, and wires up CLI + Web UI presentation layers.
+  No TypeSpec or domain model changes needed — reuses SdlcLifecycle.Maintain. Five phases:
+  foundation (interfaces + helpers), infrastructure implementations, use case, CLI, and Web UI.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - tsyringe (DI)
+  - Commander.js (CLI)
+  - Next.js (Web UI server actions + parallel routes)
+  - SQLite (persistence via IFeatureRepository)
+  - git worktree (branch isolation)
+  - React Flow (feature graph visualization)
+  - Vitest (testing framework)
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Foundation — Interfaces & Pure Helpers'
+    description: >
+      Extend IWorktreeService with addExisting() and IFeatureRepository with findByBranch().
+      Create pure utility functions for branch-name-to-feature-name and branch-name-to-slug
+      derivation. These are the building blocks every subsequent phase depends on. Starting
+      here means the use case can be developed against stable interfaces without mocking
+      unimplemented methods. Pure functions are trivially testable and establish the naming
+      contract early.
+    parallel: false
+
+  - id: phase-2
+    name: 'Infrastructure — Service & Repository Implementations'
+    description: >
+      Implement WorktreeService.addExisting() (git worktree add without -b flag) and
+      SQLiteFeatureRepository.findByBranch() (SQL query by branch + repositoryPath).
+      These are the concrete implementations the use case needs at runtime. Implementing
+      them before the use case ensures the full stack is testable end-to-end in integration
+      tests later.
+    parallel: false
+
+  - id: phase-3
+    name: 'Application — AdoptBranchUseCase & DI Registration'
+    description: >
+      Create the core AdoptBranchUseCase with all business logic: branch validation
+      (local/remote existence check, main branch rejection), duplicate detection (via
+      findByBranch), worktree creation or reuse (via addExisting/exists), feature name
+      and slug derivation, repository resolution (find-or-create), and Feature entity
+      persistence with lifecycle=Maintain. Register in DI container. This is the heart
+      of the feature — all presentation layers delegate to this single use case.
+    parallel: false
+
+  - id: phase-4
+    name: 'Presentation — CLI Command'
+    description: >
+      Create the `shep feat adopt <branch>` CLI subcommand following the established
+      command pattern (createAdoptCommand factory, spinner, messages/colors output).
+      Register in the feat command group. Add integration tests using the CLI runner
+      pattern with isolated temp repositories.
+    parallel: false
+
+  - id: phase-5
+    name: 'Presentation — Web UI'
+    description: >
+      Create the server action (adoptBranch), the /adopt parallel route drawer,
+      the AdoptBranchDrawer component with text input for branch name, and add
+      the "Adopt Branch" FAB action. Follow existing patterns: force-dynamic page,
+      client component for interactivity, shep:feature-created event for optimistic
+      UI updates. Create Storybook stories for all new components.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/application/use-cases/features/adopt-branch.use-case.ts
+  - packages/core/src/application/use-cases/features/__tests__/adopt-branch.use-case.test.ts
+  - packages/core/src/application/use-cases/features/branch-name-utils.ts
+  - packages/core/src/application/use-cases/features/__tests__/branch-name-utils.test.ts
+  - packages/core/src/infrastructure/services/git/__tests__/worktree.service.add-existing.test.ts
+  - packages/core/src/infrastructure/repositories/__tests__/sqlite-feature-repository.find-by-branch.test.ts
+  - src/presentation/cli/commands/feat/adopt.command.ts
+  - src/presentation/cli/commands/feat/__tests__/adopt.command.test.ts
+  - src/presentation/web/app/actions/adopt-branch.ts
+  - src/presentation/web/app/(dashboard)/@drawer/adopt/page.tsx
+  - src/presentation/web/components/common/control-center-drawer/adopt-branch-drawer.tsx
+  - src/presentation/web/components/common/control-center-drawer/adopt-branch-drawer.stories.tsx
+  - src/presentation/web/components/common/control-center-drawer/adopt-drawer-client.tsx
+
+filesToModify:
+  - packages/core/src/application/ports/output/services/worktree-service.interface.ts
+  - packages/core/src/application/ports/output/repositories/feature-repository.interface.ts
+  - packages/core/src/infrastructure/services/git/worktree.service.ts
+  - packages/core/src/infrastructure/repositories/sqlite-feature-repository.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/commands/feat/index.ts
+  - src/presentation/web/components/layouts/app-shell/app-shell.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The adopt-existing-branch feature follows the established Clean Architecture layering with
+  dependencies pointing inward. No domain model changes are needed — the existing Feature entity
+  and SdlcLifecycle.Maintain enum value have the exact semantics required.
+
+  **Layer mapping:**
+  - **Domain**: No changes. Feature entity and SdlcLifecycle.Maintain already exist.
+  - **Application**: New AdoptBranchUseCase + pure branch-name utility functions. Extended
+    IFeatureRepository (findByBranch) and IWorktreeService (addExisting) interfaces.
+  - **Infrastructure**: WorktreeService.addExisting() implementation,
+    SQLiteFeatureRepository.findByBranch() implementation, DI container registration.
+  - **Presentation/CLI**: New adopt.command.ts in feat command group.
+  - **Presentation/Web**: New server action, /adopt parallel route drawer, FAB action.
+
+  The use case is standalone — it does NOT extend or modify CreateFeatureUseCase (NFR-5).
+  It needs only three injected dependencies: IFeatureRepository, IRepositoryRepository,
+  and IWorktreeService. This contrasts with CreateFeatureUseCase's 11 dependencies
+  (MetadataGenerator, SlugResolver, ISpecInitializerService, etc.) none of which adopt needs.
+
+  ## Key Design Decisions
+
+  ### 1. Standalone Use Case (not extending Create)
+  The adopt flow is fundamentally simpler than create: no AI metadata generation, no spec
+  initialization, no agent spawning, no attachment handling, no parent validation, no slug
+  collision resolution. A standalone AdoptBranchUseCase with 3 dependencies follows existing
+  patterns (StartFeatureUseCase, DeleteFeatureUseCase) and keeps each use case focused on a
+  single responsibility.
+
+  ### 2. addExisting() vs Modified create()
+  The git commands are different: `git worktree add <path> -b <branch>` (create) vs
+  `git worktree add <path> <branch>` (adopt). A separate addExisting() method clearly
+  communicates intent, avoids modifying create()'s signature, and prevents risk to existing
+  callers. For remote-only branches, the use case passes `origin/<branch>` as the branch
+  argument — git natively handles remote tracking ref setup.
+
+  ### 3. findByBranch() for Duplicate Detection
+  Direct SQL query `WHERE branch = ? AND repository_path = ?` is the most efficient and
+  accurate approach. Using findBySlug() would be incorrect since the slug is a transformation
+  of the branch name (not identical), and different branches could theoretically produce the
+  same slug. Using list() with in-memory filtering would be wasteful.
+
+  ### 4. Local String Transformation for Naming
+  Pure function: strip common prefixes (feat/, fix/, chore/, etc.), replace hyphens/underscores
+  with spaces, title-case each word. This is instant, deterministic, has zero external
+  dependencies, and satisfies the 5-second performance requirement (NFR-1). AI-based naming
+  would add 2-5 seconds and require agent infrastructure to be configured.
+
+  ### 5. Single-Phase Server Action
+  Unlike createFeature (which has a slow Phase 2 with AI + agent spawn), adopt completes in
+  1-2 seconds. No fire-and-forget background task needed. The UI gets the complete feature
+  in a single round-trip, simplifying error handling and state management.
+
+  ### 6. Separate /adopt Drawer
+  The create drawer has many fields (description, attachments, agent settings, gates, repository
+  selector, parent selector) that don't apply to adopt. A dedicated drawer with just a branch
+  name input is cleaner UX and follows the established parallel-route drawer pattern.
+
+  ## Implementation Strategy
+
+  Phases are ordered bottom-up through the architecture layers:
+
+  **Phase 1 (Foundation)** establishes contracts first — extending interfaces and creating pure
+  utility functions. This ensures all subsequent phases develop against stable APIs and enables
+  TDD from the start (pure functions and interfaces are the easiest to test).
+
+  **Phase 2 (Infrastructure)** implements the concrete service and repository methods. These are
+  tested independently before being composed in the use case, following the dependency inversion
+  principle.
+
+  **Phase 3 (Application)** builds the use case, which is the core of the feature. With
+  interfaces and implementations already in place, the use case can be developed with real or
+  mocked dependencies. Unit tests mock all dependencies; integration tests use real ones.
+
+  **Phase 4 (CLI)** wires the use case to the command line. This is a thin presentation layer
+  that resolves the use case from DI, calls execute(), and formats the output.
+
+  **Phase 5 (Web UI)** is last because it depends on the server action (which depends on the
+  use case). The drawer, FAB action, and parallel route follow established patterns with
+  minimal new logic.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | git worktree add fails for remote-only branches | Use `origin/<branch>` as the start point — git natively supports remote tracking refs. Test with both local and remote branches. |
+  | Existing worktree for branch conflicts with adopt | Check worktreeService.exists() before creating. If exists, reuse the worktree path (FR-8, NFR-7). |
+  | Slug collision between adopt and create | Validate via findBySlug() after derivation. If collision exists, findByBranch() would have caught duplicate adoption first. For genuine slug collisions across different branches, return a clear error. |
+  | Feature list/actions break for adopted features with undefined specPath | Audit feature list rendering and action handlers to ensure they handle undefined specPath gracefully. The delete flow already handles this case. |
+  | CreateFeatureUseCase accidentally modified | NFR-5 explicitly requires no changes. The adopt use case is fully standalone. Verify no imports from create are added. |
+  | FAB action count grows awkwardly | The FAB component supports arbitrary action counts. Three actions (New Feature, Adopt Branch, Add Repository) is a reasonable count and fits the staggered animation pattern. |
+  | Branch name edge cases (slashes, dots, unicode) | Use the same normalization that git itself applies. Test with various branch name formats including nested slashes (feat/auth/login-bug), dots (release/v1.0.0), and underscores. |
+
+  ---
+
+  _Plan complete — proceed to implementation_

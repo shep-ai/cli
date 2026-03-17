@@ -1,3 +1,40 @@
+## [1.127.3](https://github.com/shep-ai/cli/compare/v1.127.2...v1.127.3) (2026-03-17)
+
+
+### Performance Improvements
+
+* **dx:** speed up pnpm validate with caching and ignores ([448bdc1](https://github.com/shep-ai/cli/commit/448bdc19ea23a318e86e42e06d9843f641c9792f))
+
+## [1.127.2](https://github.com/shep-ai/cli/compare/v1.127.1...v1.127.2) (2026-03-17)
+
+### Bug Fixes
+
+- **agents:** propagate reject/approve feedback on failed features ([#406](https://github.com/shep-ai/cli/issues/406)) ([2c6a1f1](https://github.com/shep-ai/cli/commit/2c6a1f1d7c0c6bf4ef1af0ce0944bb5b99400f3f))
+
+## [1.127.1](https://github.com/shep-ai/cli/compare/v1.127.0...v1.127.1) (2026-03-17)
+
+### Bug Fixes
+
+- **cli:** add windowsHide option to child process spawns on windows ([#407](https://github.com/shep-ai/cli/issues/407)) ([31c7194](https://github.com/shep-ai/cli/commit/31c7194c3820162e6f652f08983cfa70d34c6ebe))
+
+# [1.127.0](https://github.com/shep-ai/cli/compare/v1.126.0...v1.127.0) (2026-03-17)
+
+### Features
+
+- **domain:** add adopt-existing-branch to import git branches as tracked features ([#394](https://github.com/shep-ai/cli/issues/394)) ([db5119d](https://github.com/shep-ai/cli/commit/db5119d7ca9bcd754ac40b9b63a7f8dc9e2a1748))
+
+# [1.126.0](https://github.com/shep-ai/cli/compare/v1.125.0...v1.126.0) (2026-03-17)
+
+### Features
+
+- **web:** persist dev server state and fix ci watch bug ([#402](https://github.com/shep-ai/cli/issues/402)) ([d77838b](https://github.com/shep-ai/cli/commit/d77838b4bcf976b53997c5fbb54bf67adedad188))
+
+# [1.125.0](https://github.com/shep-ai/cli/compare/v1.124.0...v1.125.0) (2026-03-17)
+
+### Features
+
+- **web:** cleanup settings page - remove dead auth ui and add missing notification toggles ([#403](https://github.com/shep-ai/cli/issues/403)) ([beec826](https://github.com/shep-ai/cli/commit/beec826f6763d7a95f1c263146c7f1026f5c3c74))
+
 # [1.124.0](https://github.com/shep-ai/cli/compare/v1.123.0...v1.124.0) (2026-03-16)
 
 ### Features

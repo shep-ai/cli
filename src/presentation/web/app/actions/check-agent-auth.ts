@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { execFile } from 'node:child_process';
+import { IS_WINDOWS } from '@shepai/core/infrastructure/platform';
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { resolve } from '@/lib/server-container';
 import type { ListToolsUseCase } from '@shepai/core/application/use-cases/tools/list-tools.use-case';
@@ -103,7 +104,8 @@ function tier2AuthVerify(agentType: string, binaryName: string): Promise<boolean
     }
 
     try {
-      execFile(cmd, args, { timeout: 5000 }, (error) => {
+      const opts = IS_WINDOWS ? { timeout: 5000, windowsHide: true } : { timeout: 5000 };
+      execFile(cmd, args, opts, (error) => {
         resolve(!error);
       });
     } catch {

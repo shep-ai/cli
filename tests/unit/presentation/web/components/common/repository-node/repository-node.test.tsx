@@ -60,27 +60,6 @@ vi.mock('@/hooks/feature-flags-context', () => ({
   useFeatureFlags: () => ({ envDeploy: true, skills: false, debug: false, githubImport: false }),
 }));
 
-// Mock DeploymentStatusBadge
-vi.mock('@/components/common/deployment-status-badge', () => ({
-  DeploymentStatusBadge: ({
-    status,
-    url,
-    targetId,
-  }: {
-    status: string | null;
-    url?: string | null;
-    targetId?: string;
-  }) =>
-    status ? (
-      <div
-        data-testid="deployment-status-badge"
-        data-status={status}
-        data-url={url}
-        data-target-id={targetId}
-      />
-    ) : null,
-}));
-
 // Mock radix-ui tooltip — render trigger children directly, hide content to avoid DOM noise
 vi.mock('radix-ui', () => ({
   Tooltip: {
@@ -384,7 +363,7 @@ describe('RepositoryNode', () => {
       expect(mockStop).toHaveBeenCalledOnce();
     });
 
-    it('renders DeploymentStatusBadge when status is Booting or Ready', () => {
+    it('shows URL link when deployment is Ready with url', () => {
       mockDeployHookReturn = {
         ...mockDeployHookReturn,
         status: 'Ready',
@@ -392,27 +371,26 @@ describe('RepositoryNode', () => {
       };
       renderNode(dataWithRepoPath);
 
-      const badge = screen.getByTestId('deployment-status-badge');
-      expect(badge).toBeInTheDocument();
-      expect(badge).toHaveAttribute('data-status', 'Ready');
+      const link = screen.getByRole('link', { name: /localhost:3000/ });
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute('href', 'http://localhost:3000');
     });
 
-    it('does not render DeploymentStatusBadge when status is null', () => {
+    it('shows "Run" label when deployment is not active', () => {
       renderNode(dataWithRepoPath);
 
-      expect(screen.queryByTestId('deployment-status-badge')).not.toBeInTheDocument();
+      expect(screen.getByText('Run')).toBeInTheDocument();
     });
 
-    it('passes targetId (repositoryPath) to DeploymentStatusBadge', () => {
+    it('shows "Starting..." when deployment is Booting without url', () => {
       mockDeployHookReturn = {
         ...mockDeployHookReturn,
-        status: 'Ready',
-        url: 'http://localhost:3000',
+        status: 'Booting',
+        url: null,
       };
       renderNode(dataWithRepoPath);
 
-      const badge = screen.getByTestId('deployment-status-badge');
-      expect(badge).toHaveAttribute('data-target-id', '/home/user/my-repo');
+      expect(screen.getByText('Starting...')).toBeInTheDocument();
     });
   });
 

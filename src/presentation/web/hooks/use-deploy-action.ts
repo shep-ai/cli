@@ -27,7 +27,6 @@ export interface DeployActionState {
 
 const log = createLogger('[useDeployAction]');
 
-const ERROR_CLEAR_DELAY = 5000;
 const POLL_INTERVAL = 3000;
 
 export function useDeployAction(input: DeployActionInput | null): DeployActionState {
@@ -37,7 +36,6 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
   const [status, setStatus] = useState<DeploymentState | null>(null);
   const [url, setUrl] = useState<string | null>(null);
 
-  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
   const statusRef = useRef(status);
@@ -55,10 +53,37 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     };
   }, []);
 
+  // Fetch status on mount — recover running dev servers after page reload
+  useEffect(() => {
+    if (!input) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const result = await getDeploymentStatus(input.targetId);
+        if (cancelled || !mountedRef.current) return;
+        if (result && result.state !== 'Stopped') {
+          log.info(`mount recovery: "${input.targetId}" state=${result.state}, url=${result.url}`);
+          setStatus(result.state as DeploymentState);
+          setUrl(result.url);
+          startPolling(input.targetId);
+        }
+      } catch {
+        // Server container may not be available (e.g., in tests)
+        log.debug(`mount recovery failed for "${input.targetId}" — ignoring`);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // Only run on mount (input identity is stable from the caller)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input?.targetId]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
@@ -82,7 +107,19 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
           return;
         }
 
-        const result = await getDeploymentStatus(targetId);
+        let result;
+        try {
+          result = await getDeploymentStatus(targetId);
+        } catch (err) {
+          log.warn(`poll fetch failed for "${targetId}":`, err);
+          // Treat fetch failure as deployment gone — clear UI
+          if (mountedRef.current) {
+            setStatus(null);
+            setUrl(null);
+            stopPolling();
+          }
+          return;
+        }
 
         if (!mountedRef.current) return;
 
@@ -107,6 +144,31 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     [stopPolling]
   );
 
+  // Idle poll — when no deployment is known, periodically check if one was
+  // started externally (e.g., from the drawer while the repo node is mounted).
+  const IDLE_POLL_INTERVAL = 5000;
+  useEffect(() => {
+    if (!input || status !== null) return;
+
+    const timer = setInterval(async () => {
+      if (!mountedRef.current) return;
+      try {
+        const result = await getDeploymentStatus(input.targetId);
+        if (!mountedRef.current) return;
+        if (result && result.state !== 'Stopped') {
+          log.info(`idle poll: "${input.targetId}" state=${result.state}, url=${result.url}`);
+          setStatus(result.state as DeploymentState);
+          setUrl(result.url);
+          startPolling(input.targetId);
+        }
+      } catch {
+        // ignore
+      }
+    }, IDLE_POLL_INTERVAL);
+
+    return () => clearInterval(timer);
+  }, [input, status, startPolling]);
+
   const handleDeploy = useCallback(async () => {
     if (!input) {
       log.warn('deploy() called but input is null — no-op');
@@ -120,8 +182,6 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     log.info(
       `deploy() — targetType="${input.targetType}", targetId="${input.targetId}", repositoryPath="${input.repositoryPath}"`
     );
-
-    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
 
     setDeployLoading(true);
     setDeployError(null);
@@ -141,9 +201,8 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
 
       if (!result.success) {
         const errorMessage = result.error ?? 'An unexpected error occurred';
-        log.error(`deploy failed: ${errorMessage}`);
+        log.warn(`deploy failed: ${errorMessage}`);
         setDeployError(errorMessage);
-        errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
       } else {
         log.info(`deploy succeeded — initial state=${result.state}, starting polling`);
         setStatus(result.state ?? null);
@@ -155,7 +214,6 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       log.error(`deploy threw exception: ${errorMessage}`, err);
       setDeployError(errorMessage);
-      errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
     } finally {
       if (mountedRef.current) {
         setDeployLoading(false);

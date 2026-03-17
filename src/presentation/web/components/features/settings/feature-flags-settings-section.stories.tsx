@@ -20,6 +20,7 @@ export const Default: Story = {
       envDeploy: false,
       debug: false,
       githubImport: false,
+      adoptBranch: false,
     },
   },
 };
@@ -31,6 +32,7 @@ export const AllEnabled: Story = {
       envDeploy: true,
       debug: true,
       githubImport: true,
+      adoptBranch: true,
     },
   },
 };
@@ -42,6 +44,7 @@ export const AllDisabled: Story = {
       envDeploy: false,
       debug: false,
       githubImport: false,
+      adoptBranch: false,
     },
   },
 };

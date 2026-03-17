@@ -2,13 +2,8 @@
 
 import { resolve } from '@/lib/server-container';
 import type { ApproveAgentRunUseCase } from '@shepai/core/application/use-cases/agents/approve-agent-run.use-case';
-import type { ResumeFeatureUseCase } from '@shepai/core/application/use-cases/features/resume-feature.use-case';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
-import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
 import type { PrdApprovalPayload } from '@shepai/core/domain/generated/output';
-import { AgentRunStatus } from '@shepai/core/domain/generated/output';
-
-const ERROR_STATUSES = new Set<string>([AgentRunStatus.failed, AgentRunStatus.interrupted]);
 
 export async function approveFeature(
   featureId: string,
@@ -30,15 +25,10 @@ export async function approveFeature(
       return { approved: false, error: 'Feature has no agent run' };
     }
 
-    const runRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
-    const run = await runRepo.findById(feature.agentRunId);
-
-    if (run && ERROR_STATUSES.has(run.status)) {
-      const resumeUseCase = resolve<ResumeFeatureUseCase>('ResumeFeatureUseCase');
-      await resumeUseCase.execute(featureId, { promptPrefix: 'User approved. Please continue.' });
-      return { approved: true };
-    }
-
+    // Always use ApproveAgentRunUseCase — it handles waitingApproval, failed,
+    // and interrupted statuses. This ensures approval is propagated via
+    // Command({update: {_approvalAction: 'approved'}}) so the graph node
+    // receives it on resume.
     const approveUseCase = resolve<ApproveAgentRunUseCase>('ApproveAgentRunUseCase');
     const result = await approveUseCase.execute(feature.agentRunId, payload);
 

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { SettingsPageClient } from './settings-page-client';
 import { createDefaultSettings } from '@shepai/core/domain/factories/settings-defaults.factory';
-import { AgentType, AgentAuthMethod } from '@shepai/core/domain/generated/output';
+import { AgentType } from '@shepai/core/domain/generated/output';
 
 const defaultSettings = createDefaultSettings();
 
@@ -30,15 +30,15 @@ export const AllSections: Story = {
     settings: {
       ...defaultSettings,
       agent: {
+        ...defaultSettings.agent,
         type: AgentType.GeminiCli,
-        authMethod: AgentAuthMethod.Token,
-        token: 'sk-test-token-12345',
       },
       featureFlags: {
         skills: true,
         envDeploy: true,
         debug: false,
         githubImport: false,
+        adoptBranch: false,
       },
     },
     shepHome: '/opt/shep',

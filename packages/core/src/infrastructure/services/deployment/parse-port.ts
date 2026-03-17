@@ -44,13 +44,20 @@ const PORT_PATTERNS: {
  * @param line - A single line of process output
  * @returns The detected URL string, or null if no URL/port was found
  */
+// Strip ANSI escape codes (colors, cursor movement, etc.)
+// eslint-disable-next-line no-control-regex
+const ANSI_REGEX = /\x1b\[[0-9;]*[a-zA-Z]/g;
+
 export function parsePort(line: string): string | null {
   if (!line?.trim()) {
     return null;
   }
 
+  // Strip ANSI escape codes before matching — dev servers often emit colored output
+  const clean = line.replace(ANSI_REGEX, '');
+
   for (const { regex, extract } of PORT_PATTERNS) {
-    const match = line.match(regex);
+    const match = clean.match(regex);
     if (match) {
       return extract(match);
     }

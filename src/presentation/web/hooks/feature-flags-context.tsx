@@ -8,6 +8,7 @@ const defaultFlags: FeatureFlagsState = {
   envDeploy: true,
   debug: false,
   githubImport: false,
+  adoptBranch: false,
 };
 
 const FeatureFlagsContext = createContext<FeatureFlagsState>(defaultFlags);

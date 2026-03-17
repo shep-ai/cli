@@ -562,6 +562,10 @@ export type FeatureFlags = {
    * Enable GitHub repository import in the web UI
    */
   githubImport: boolean;
+  /**
+   * Enable adopt branch feature to import existing branches as tracked features
+   */
+  adoptBranch: boolean;
 };
 
 /**

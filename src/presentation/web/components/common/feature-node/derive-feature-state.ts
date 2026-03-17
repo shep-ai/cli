@@ -68,6 +68,11 @@ export function deriveNodeState(
     return 'done';
   }
 
+  // Adopted branch with an open PR — needs user review/merge action
+  if (feature.lifecycle === SdlcLifecycle.Review && !agentRun) {
+    return 'action-required';
+  }
+
   const tasks = feature.plan?.tasks;
   if (!tasks || tasks.length === 0) {
     return 'running';
