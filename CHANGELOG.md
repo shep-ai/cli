@@ -1,3 +1,10 @@
+# [1.130.0](https://github.com/shep-ai/cli/compare/v1.129.4...v1.130.0) (2026-03-17)
+
+
+### Features
+
+* **web:** add react file manager as fallback folder picker with feature flag ([#412](https://github.com/shep-ai/cli/issues/412)) ([8eaf27e](https://github.com/shep-ai/cli/commit/8eaf27e398a6afae2b56d2184f30ff15ca78fe9f))
+
 ## [1.129.4](https://github.com/shep-ai/cli/compare/v1.129.3...v1.129.4) (2026-03-17)
 
 
