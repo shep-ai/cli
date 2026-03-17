@@ -13,7 +13,11 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import type Database from 'better-sqlite3';
-import treeKill from 'tree-kill';
+// NOTE: We intentionally do NOT use tree-kill here. tree-kill traverses
+// /proc to find child processes which can accidentally kill parent processes
+// (including the Shep web UI). Instead, we use process.kill(-pid) to send
+// signals to the process GROUP (since we spawn with detached: true, the
+// child gets its own process group via setsid()).
 import { DeploymentState } from '@/domain/generated/output.js';
 import type {
   IDeploymentService,
@@ -62,7 +66,20 @@ export interface DeploymentServiceDeps {
 const defaultDeps: DeploymentServiceDeps = {
   spawn,
   detectDevScript,
-  kill: (pid, signal) => treeKill(pid, signal),
+  kill: (pid, signal) => {
+    try {
+      // Kill the entire process group (negative PID) — safe because
+      // detached: true puts the child in its own group via setsid().
+      process.kill(-pid, signal as NodeJS.Signals);
+    } catch {
+      // Fallback: kill just the process itself
+      try {
+        process.kill(pid, signal as NodeJS.Signals);
+      } catch {
+        // Process already dead
+      }
+    }
+  },
   isAlive: (pid: number) => {
     try {
       process.kill(pid, 0);
