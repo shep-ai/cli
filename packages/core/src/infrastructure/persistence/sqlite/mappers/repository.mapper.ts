@@ -17,6 +17,7 @@ export interface RepositoryRow {
   id: string;
   name: string;
   path: string;
+  remote_url: string | null;
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
@@ -30,6 +31,7 @@ export function toDatabase(repo: Repository): RepositoryRow {
     id: repo.id,
     name: repo.name,
     path: repo.path,
+    remote_url: repo.remoteUrl ?? null,
     created_at: repo.createdAt instanceof Date ? repo.createdAt.getTime() : repo.createdAt,
     updated_at: repo.updatedAt instanceof Date ? repo.updatedAt.getTime() : repo.updatedAt,
     deleted_at: repo.deletedAt
@@ -48,6 +50,7 @@ export function fromDatabase(row: RepositoryRow): Repository {
     id: row.id,
     name: row.name,
     path: row.path,
+    remoteUrl: row.remote_url ?? undefined,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : undefined,

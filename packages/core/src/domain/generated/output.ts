@@ -298,6 +298,10 @@ export type EnvironmentConfig = {
    * Preferred terminal emulator
    */
   terminalPreference: TerminalType;
+  /**
+   * Default directory for cloning GitHub repositories (e.g. ~/repos)
+   */
+  defaultCloneDirectory?: string;
 };
 
 /**
@@ -554,6 +558,10 @@ export type FeatureFlags = {
    * Enable debug UI elements and verbose client-side logging
    */
   debug: boolean;
+  /**
+   * Enable GitHub repository import in the web UI
+   */
+  githubImport: boolean;
   /**
    * Enable adopt branch feature to import existing branches as tracked features
    */
@@ -1528,6 +1536,10 @@ export type Repository = SoftDeletableEntity & {
    * Absolute file system path to the repository root (unique)
    */
   path: string;
+  /**
+   * Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)
+   */
+  remoteUrl?: string;
 };
 
 /**

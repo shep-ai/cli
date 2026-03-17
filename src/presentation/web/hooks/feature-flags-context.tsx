@@ -7,6 +7,7 @@ const defaultFlags: FeatureFlagsState = {
   skills: false,
   envDeploy: true,
   debug: false,
+  githubImport: false,
   adoptBranch: false,
 };
 

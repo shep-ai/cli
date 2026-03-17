@@ -149,6 +149,9 @@ model EnvironmentConfig {
    */
   @doc("Preferred terminal emulator")
   terminalPreference: TerminalType = TerminalType.System;
+
+  @doc("Default directory for cloning GitHub repositories (e.g. ~/repos)")
+  defaultCloneDirectory?: string;
 }
 
 /**
@@ -463,6 +466,9 @@ model FeatureFlags {
 
   @doc("Enable debug UI elements and verbose client-side logging")
   debug: boolean = false;
+
+  @doc("Enable GitHub repository import in the web UI")
+  githubImport: boolean = false;
 
   @doc("Enable adopt branch feature to import existing branches as tracked features")
   adoptBranch: boolean = false;

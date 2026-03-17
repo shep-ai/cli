@@ -152,6 +152,86 @@ describe('SQLiteRepositoryRepository', () => {
     });
   });
 
+  describe('findByRemoteUrl()', () => {
+    it('should return repository when remoteUrl matches exactly', async () => {
+      const repo = createTestRepo({ remoteUrl: 'https://github.com/owner/repo' });
+      await repository.create(repo);
+      // update remote_url since create() does not insert it
+      await repository.update('repo-1', { remoteUrl: 'https://github.com/owner/repo' });
+
+      const found = await repository.findByRemoteUrl('https://github.com/owner/repo');
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe('repo-1');
+      expect(found!.remoteUrl).toBe('https://github.com/owner/repo');
+    });
+
+    it('should return repository when URL differs only in .git suffix', async () => {
+      await repository.create(createTestRepo());
+      await repository.update('repo-1', { remoteUrl: 'https://github.com/owner/repo' });
+
+      const found = await repository.findByRemoteUrl('https://github.com/owner/repo.git');
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe('repo-1');
+    });
+
+    it('should return repository when URL differs only in casing', async () => {
+      await repository.create(createTestRepo());
+      await repository.update('repo-1', { remoteUrl: 'https://github.com/owner/repo' });
+
+      const found = await repository.findByRemoteUrl('https://github.com/Owner/Repo');
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe('repo-1');
+    });
+
+    it('should return null when no match found', async () => {
+      await repository.create(createTestRepo());
+
+      const found = await repository.findByRemoteUrl('https://github.com/other/repo');
+      expect(found).toBeNull();
+    });
+
+    it('should not return soft-deleted repositories', async () => {
+      await repository.create(createTestRepo());
+      await repository.update('repo-1', { remoteUrl: 'https://github.com/owner/repo' });
+      await repository.softDelete('repo-1');
+
+      const found = await repository.findByRemoteUrl('https://github.com/owner/repo');
+      expect(found).toBeNull();
+    });
+  });
+
+  describe('update()', () => {
+    it('should update remoteUrl and updatedAt', async () => {
+      await repository.create(createTestRepo());
+
+      const updated = await repository.update('repo-1', {
+        remoteUrl: 'https://github.com/owner/repo',
+      });
+
+      expect(updated.remoteUrl).toBe('https://github.com/owner/repo');
+      expect(updated.updatedAt.getTime()).toBeGreaterThan(
+        new Date('2026-01-01T00:00:00Z').getTime()
+      );
+    });
+
+    it('should update name without affecting other fields', async () => {
+      await repository.create(createTestRepo());
+      await repository.update('repo-1', { remoteUrl: 'https://github.com/owner/repo' });
+
+      const updated = await repository.update('repo-1', { name: 'new-name' });
+
+      expect(updated.name).toBe('new-name');
+      expect(updated.path).toBe('/Users/test/my-project');
+      expect(updated.remoteUrl).toBe('https://github.com/owner/repo');
+    });
+
+    it('should throw for nonexistent id', async () => {
+      await expect(
+        repository.update('nonexistent', { remoteUrl: 'https://github.com/owner/repo' })
+      ).rejects.toThrow('Repository not found: nonexistent');
+    });
+  });
+
   describe('date handling', () => {
     it('should round-trip dates through create and findById', async () => {
       const repo = createTestRepo({

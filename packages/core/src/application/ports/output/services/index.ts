@@ -39,3 +39,16 @@ export type {
 } from './ide-launcher-service.interface.js';
 export type { IDaemonService, DaemonState } from './daemon-service.interface.js';
 export type { IDeploymentService, DeploymentStatus } from './deployment-service.interface.js';
+export type {
+  IGitHubRepositoryService,
+  GitHubRepo,
+  ListUserRepositoriesOptions,
+  CloneOptions,
+  ParsedGitHubUrl,
+} from './github-repository-service.interface.js';
+export {
+  GitHubAuthError,
+  GitHubCloneError,
+  GitHubUrlParseError,
+  GitHubRepoListError,
+} from './github-repository-service.interface.js';

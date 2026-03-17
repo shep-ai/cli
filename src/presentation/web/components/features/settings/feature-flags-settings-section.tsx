@@ -13,6 +13,7 @@ const FLAG_DESCRIPTIONS: Record<keyof FeatureFlags, string> = {
   skills: 'Enable Skills navigation and functionality in the web UI',
   envDeploy: 'Enable environment deployment features in the web UI',
   debug: 'Enable debug UI elements and verbose client-side logging',
+  githubImport: 'Enable GitHub repository import in the web UI',
   adoptBranch: 'Enable the ability to adopt existing branches as tracked features',
 };
 
@@ -20,10 +21,17 @@ const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
   skills: 'Skills',
   envDeploy: 'Deployments',
   debug: 'Debug',
+  githubImport: 'GitHub Import',
   adoptBranch: 'Adopt Branch',
 };
 
-const FLAG_KEYS: (keyof FeatureFlags)[] = ['skills', 'envDeploy', 'debug', 'adoptBranch'];
+const FLAG_KEYS: (keyof FeatureFlags)[] = [
+  'skills',
+  'envDeploy',
+  'debug',
+  'githubImport',
+  'adoptBranch',
+];
 
 export interface FeatureFlagsSettingsSectionProps {
   featureFlags: FeatureFlags;

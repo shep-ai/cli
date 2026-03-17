@@ -24,4 +24,7 @@ model Repository extends SoftDeletableEntity {
 
   @doc("Absolute file system path to the repository root (unique)")
   path: string;
+
+  @doc("Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)")
+  remoteUrl?: string;
 }

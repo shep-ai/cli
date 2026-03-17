@@ -6,7 +6,13 @@ interface DecoratorContext {
   parameters?: { sidebar?: { defaultOpen?: boolean } };
 }
 
-const defaultFeatureFlags = { skills: true, envDeploy: true, debug: false, adoptBranch: false };
+const defaultFeatureFlags = {
+  skills: true,
+  envDeploy: true,
+  debug: false,
+  githubImport: false,
+  adoptBranch: false,
+};
 
 const meta: Meta<typeof AppSidebar> = {
   title: 'Layout/AppSidebar',

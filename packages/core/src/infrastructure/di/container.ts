@@ -47,6 +47,8 @@ import { DaemonPidService } from '../services/daemon/daemon-pid.service.js';
 import type { IDeploymentService } from '../../application/ports/output/services/deployment-service.interface.js';
 import { DeploymentService } from '../services/deployment/deployment.service.js';
 import { AttachmentStorageService } from '../services/attachment-storage.service.js';
+import type { IGitHubRepositoryService } from '../../application/ports/output/services/github-repository-service.interface.js';
+import { GitHubRepositoryService } from '../services/external/github-repository.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -110,6 +112,8 @@ import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use
 import { AddRepositoryUseCase } from '../../application/use-cases/repositories/add-repository.use-case.js';
 import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
 import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
+import { ImportGitHubRepositoryUseCase } from '../../application/use-cases/repositories/import-github-repository.use-case.js';
+import { ListGitHubRepositoriesUseCase } from '../../application/use-cases/repositories/list-github-repositories.use-case.js';
 import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 import { CleanupFeatureWorktreeUseCase } from '../../application/use-cases/features/cleanup-feature-worktree.use-case.js';
@@ -214,6 +218,10 @@ export async function initializeContainer(): Promise<typeof container> {
     ToolInstallerServiceImpl
   );
   container.registerSingleton<IGitPrService>('IGitPrService', GitPrService);
+  container.registerSingleton<IGitHubRepositoryService>(
+    'IGitHubRepositoryService',
+    GitHubRepositoryService
+  );
   container.registerSingleton<IIdeLauncherService>(
     'IIdeLauncherService',
     JsonDrivenIdeLauncherService
@@ -358,6 +366,8 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(AddRepositoryUseCase);
   container.registerSingleton(ListRepositoriesUseCase);
   container.registerSingleton(DeleteRepositoryUseCase);
+  container.registerSingleton(ImportGitHubRepositoryUseCase);
+  container.registerSingleton(ListGitHubRepositoriesUseCase);
   // CheckAndUnblockFeaturesUseCase must be registered before UpdateFeatureLifecycleUseCase
   // because the latter injects the former via class token.
   container.registerSingleton(CheckAndUnblockFeaturesUseCase);
@@ -438,6 +448,12 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('DeleteRepositoryUseCase', {
     useFactory: (c) => c.resolve(DeleteRepositoryUseCase),
+  });
+  container.register('ImportGitHubRepositoryUseCase', {
+    useFactory: (c) => c.resolve(ImportGitHubRepositoryUseCase),
+  });
+  container.register('ListGitHubRepositoriesUseCase', {
+    useFactory: (c) => c.resolve(ListGitHubRepositoriesUseCase),
   });
   container.register('CheckAndUnblockFeaturesUseCase', {
     useFactory: (c) => c.resolve(CheckAndUnblockFeaturesUseCase),

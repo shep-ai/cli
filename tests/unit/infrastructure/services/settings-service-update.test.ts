@@ -68,7 +68,13 @@ describe('updateSettings', () => {
     // Act
     const updated = {
       ...initial,
-      featureFlags: { skills: true, envDeploy: false, debug: true, adoptBranch: false },
+      featureFlags: {
+        skills: true,
+        envDeploy: false,
+        debug: true,
+        githubImport: false,
+        adoptBranch: false,
+      },
     };
     updateSettings(updated);
 

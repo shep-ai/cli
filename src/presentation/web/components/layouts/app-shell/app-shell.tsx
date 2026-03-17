@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Plus, FolderPlus, GitBranch } from 'lucide-react';
+import { Plus, FolderPlus, Github, GitBranch } from 'lucide-react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
 import {
@@ -12,6 +12,7 @@ import {
 import { ThemeToggle } from '@/components/common/theme-toggle';
 import { SoundToggle } from '@/components/common/sound-toggle';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
+import { GitHubImportDialog } from '@/components/common/github-import-dialog';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';
 import { DrawerCloseGuardProvider, useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
 import {
@@ -61,6 +62,7 @@ function AppShellInner({ children }: AppShellProps) {
   );
 
   const [addingRepo, setAddingRepo] = useState(false);
+  const [githubDialogOpen, setGithubDialogOpen] = useState(false);
 
   const handleAddRepository = useCallback(async () => {
     if (addingRepo) return;
@@ -75,8 +77,20 @@ function AppShellInner({ children }: AppShellProps) {
     }
   }, [addingRepo]);
 
-  const fabActions: FloatingActionButtonAction[] = useMemo(
-    () => [
+  const handleImportFromGitHub = useCallback(() => {
+    setGithubDialogOpen(true);
+  }, []);
+
+  const handleGitHubImportComplete = useCallback((repository: { path?: string }) => {
+    if (repository.path) {
+      window.dispatchEvent(
+        new CustomEvent('shep:add-repository', { detail: { path: repository.path } })
+      );
+    }
+  }, []);
+
+  const fabActions: FloatingActionButtonAction[] = useMemo(() => {
+    const actions: FloatingActionButtonAction[] = [
       {
         id: 'new-feature',
         label: 'New Feature',
@@ -100,9 +114,25 @@ function AppShellInner({ children }: AppShellProps) {
         onClick: handleAddRepository,
         loading: addingRepo,
       },
-    ],
-    [handleNewFeature, handleAdoptBranch, handleAddRepository, addingRepo, featureFlags.adoptBranch]
-  );
+    ];
+    if (featureFlags.githubImport) {
+      actions.push({
+        id: 'import-github',
+        label: 'Import from GitHub',
+        icon: <Github className="h-4 w-4" />,
+        onClick: handleImportFromGitHub,
+      });
+    }
+    return actions;
+  }, [
+    handleNewFeature,
+    handleAdoptBranch,
+    handleAddRepository,
+    addingRepo,
+    handleImportFromGitHub,
+    featureFlags.githubImport,
+    featureFlags.adoptBranch,
+  ]);
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -123,6 +153,13 @@ function AppShellInner({ children }: AppShellProps) {
           <main className="h-full">{children}</main>
           {isControlCenterRoute(pathname) && hasRepositories ? (
             <FloatingActionButton actions={fabActions} />
+          ) : null}
+          {featureFlags.githubImport ? (
+            <GitHubImportDialog
+              open={githubDialogOpen}
+              onOpenChange={setGithubDialogOpen}
+              onImportComplete={handleGitHubImportComplete}
+            />
           ) : null}
         </div>
       </SidebarInset>

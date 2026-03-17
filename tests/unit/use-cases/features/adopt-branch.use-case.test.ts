@@ -42,10 +42,12 @@ describe('AdoptBranchUseCase', () => {
       findById: vi.fn().mockResolvedValue(null),
       findByPath: vi.fn().mockResolvedValue(mockRepository),
       findByPathIncludingDeleted: vi.fn().mockResolvedValue(null),
+      findByRemoteUrl: vi.fn().mockResolvedValue(null),
       list: vi.fn().mockResolvedValue([]),
       remove: vi.fn().mockResolvedValue(undefined),
       softDelete: vi.fn().mockResolvedValue(undefined),
       restore: vi.fn().mockResolvedValue(undefined),
+      update: vi.fn().mockResolvedValue(undefined),
     };
 
     mockWorktreeService = {

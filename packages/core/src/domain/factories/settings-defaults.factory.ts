@@ -102,6 +102,7 @@ export function createDefaultSettings(): Settings {
     defaultEditor: DEFAULT_EDITOR,
     shellPreference: DEFAULT_SHELL,
     terminalPreference: DEFAULT_TERMINAL,
+    defaultCloneDirectory: '~/repos',
   };
 
   const system: SystemConfig = {
@@ -152,6 +153,7 @@ export function createDefaultSettings(): Settings {
     skills: false,
     envDeploy: true,
     debug: false,
+    githubImport: false,
     adoptBranch: false,
   };
 

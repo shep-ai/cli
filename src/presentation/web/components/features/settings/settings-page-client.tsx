@@ -349,6 +349,7 @@ export function SettingsPageClient({
     skills: false,
     envDeploy: false,
     debug: false,
+    githubImport: false,
     adoptBranch: false,
   };
 
@@ -1403,6 +1404,18 @@ export function SettingsPageClient({
               checked={flags.debug}
               onChange={(v) => {
                 const newFlags = { ...flags, debug: v };
+                setFlags(newFlags);
+                save({ featureFlags: newFlags });
+              }}
+            />
+            <SwitchRow
+              label="GitHub Import"
+              description="Enable GitHub repository import in the web UI"
+              id="flag-githubImport"
+              testId="switch-flag-githubImport"
+              checked={flags.githubImport}
+              onChange={(v) => {
+                const newFlags = { ...flags, githubImport: v };
                 setFlags(newFlags);
                 save({ featureFlags: newFlags });
               }}

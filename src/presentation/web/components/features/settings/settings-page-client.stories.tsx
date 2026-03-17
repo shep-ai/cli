@@ -37,6 +37,7 @@ export const AllSections: Story = {
         skills: true,
         envDeploy: true,
         debug: false,
+        githubImport: false,
         adoptBranch: false,
       },
     },

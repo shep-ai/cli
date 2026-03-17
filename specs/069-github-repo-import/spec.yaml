@@ -1,0 +1,563 @@
+name: github-repo-import
+number: 69
+branch: feat/069-github-repo-import
+oneLiner: Import GitHub repositories by URL or by browsing user's repos via gh CLI
+userQuery: >
+  As a user of shep I want to be able to add new repository from remote github,
+  it should support both direct url and also list my own private repositories
+summary: >
+  Add the ability to import GitHub repositories into Shep by cloning them
+  locally. Supports two flows: (1) paste a GitHub URL directly, and (2)
+  browse/search the authenticated user's repositories (including private ones)
+  via the gh CLI. The cloned repo is automatically registered as a tracked Shep
+  repository.
+phase: Requirements
+sizeEstimate: M
+relatedFeatures:
+  - 036 - Repository Entity (introduced Repository domain model)
+  - 038 - Repo CLI Commands (shep repo ls / show)
+technologies:
+  - GitHub CLI (gh) - already installed as a required tool
+  - Commander.js - CLI command framework
+  - '@inquirer/prompts - interactive TUI prompts'
+  - TypeSpec - domain model definitions
+  - tsyringe - dependency injection
+  - better-sqlite3 - persistence layer
+  - Next.js / React - Web UI (shadcn/ui components)
+relatedLinks: []
+openQuestions:
+  - question: >-
+      Should the Repository domain model be extended with an optional remoteUrl
+      field?
+    resolved: true
+    options:
+      - option: Add optional remoteUrl field
+        description: >
+          Extend the TypeSpec Repository model with an optional `remoteUrl:
+          string` field. Requires a SQLite migration to add the column. Enables
+          future features like "open on GitHub", sync status display, and
+          re-clone from remote. Small migration cost now saves significant
+          rework later.
+        selected: true
+      - option: Keep model unchanged
+        description: >
+          Do not modify the Repository entity. The clone URL is used only during
+          import and discarded. Simpler now but loses provenance — no way to
+          know where a repo came from after import. Future features that need
+          the remote URL would require a migration anyway.
+        selected: false
+    selectionRationale: >
+      Adding `remoteUrl` is a low-cost, high-value change. The TypeSpec model
+      change is trivial (one optional field), the migration is a single ALTER
+      TABLE ADD COLUMN, and storing provenance enables "open on GitHub" links,
+      remote sync indicators, and re-import detection (skip repos already cloned
+      from the same URL). The field is optional so existing local-only repos are
+      unaffected.
+    answer: Add optional remoteUrl field
+  - question: Where should cloned repositories be stored on disk?
+    resolved: true
+    options:
+      - option: User-chosen directory
+        description: >
+          Prompt the user for a destination directory each time. Maximum user
+          control but adds friction to the import flow and introduces UX
+          complexity in the Web UI (need a folder picker for destination).
+        selected: false
+      - option: Managed directory under ~/.shep/repos/
+        description: >
+          Clone into `~/.shep/repos/<hash>/main` using the same SHA256 hash
+          scheme as worktrees (hash of remote URL). Fully managed, zero
+          friction, consistent with existing path conventions. Users can still
+          find repos via `shep repo show`.
+        selected: false
+      - option: Configurable default with per-import override
+        description: >
+          Default clone destination is a configurable base directory (defaults
+          to `~/repos/` or user's preferred code directory). CLI users can
+          override with `--dest` flag. Web UI shows the default with an option
+          to change. Balances discoverability (repos live where users expect)
+          with convenience (sensible default).
+        selected: true
+    selectionRationale: >
+      A configurable default with per-import override gives the best balance.
+      Managed directories under `~/.shep/` are hidden and surprising — users
+      expect cloned repos in their normal code directories. A user-chosen
+      directory every time adds friction. A sensible default (e.g. `~/repos/`)
+      with a `--dest` override and Web UI option keeps the flow fast while
+      giving control when needed.
+    answer: Configurable default with per-import override
+  - question: How should the CLI repo add command handle the two import flows?
+    resolved: true
+    options:
+      - option: Single command with --url flag
+        description: >
+          `shep repo add --url <github-url>` for direct URL import. Without
+          --url, enters interactive mode to browse user's repos. Simple,
+          discoverable, follows Commander.js patterns already in the codebase.
+        selected: true
+      - option: Separate subcommands
+        description: >
+          `shep repo import <url>` for URL import, `shep repo browse` for
+          interactive browsing. Clearer separation but adds two commands instead
+          of one, and diverges from the user's mental model of "add a repo"
+          being a single action.
+        selected: false
+    selectionRationale: >
+      A single `shep repo add` command with an optional `--url` flag is more
+      intuitive. The user wants to "add a repo" — whether by URL or by browsing
+      is an implementation detail. Without `--url`, the command presents a
+      choice between pasting a URL and browsing repos interactively. With
+      `--url`, it skips straight to cloning. This matches the existing `shep
+      repo ls` / `shep repo show` pattern of one verb per action.
+    answer: Single command with --url flag
+  - question: >-
+      Should the Web UI add-repo button support both local folder and GitHub
+      import?
+    resolved: true
+    options:
+      - option: Unified button with method picker
+        description: >
+          The existing FAB button opens a popover/dropdown with two options:
+          "Local folder" (existing folder picker) and "From GitHub" (opens a
+          dialog for URL input or repo browsing). Clean UX, single entry point,
+          no extra buttons cluttering the canvas.
+        selected: true
+      - option: Separate buttons
+        description: >
+          Add a second FAB button specifically for GitHub import alongside the
+          existing folder picker button. More discoverable but adds visual
+          clutter and breaks the current minimal canvas design.
+        selected: false
+    selectionRationale: >
+      A unified button with a method picker keeps the UI clean and aligns with
+      the principle of one entry point for "add repository". The popover adds
+      minimal interaction cost (one extra click) while supporting both flows
+      without cluttering the canvas.
+    answer: Unified button with method picker
+  - question: How should gh CLI authentication failures be handled?
+    resolved: true
+    options:
+      - option: Fail fast with instructions
+        description: >
+          Check `gh auth status` before attempting any GitHub operations. If not
+          authenticated, display a clear error message with the command to run
+          (`gh auth login`) and exit. No automatic login flow — keep it simple
+          and respect user's auth preferences.
+        selected: false
+      - option: Automatic gh auth login flow
+        description: >
+          Detect missing auth and automatically launch `gh auth login` in an
+          interactive subprocess. More seamless but couples Shep to gh's auth
+          flow, may conflict with TTY handling in TUI mode, and could surprise
+          users with an unexpected OAuth flow.
+        selected: true
+    selectionRationale: >
+      Failing fast with clear instructions is safer and simpler. The `gh auth
+      login` flow involves OAuth browser redirects and device codes that are
+      hard to manage from within Shep's process. A clear error message ("Run `gh
+      auth login` first") is actionable and avoids TTY/subprocess complications.
+    answer: Automatic gh auth login flow
+  - question: >-
+      What pagination strategy should be used for listing user's GitHub
+      repositories?
+    resolved: true
+    options:
+      - option: Load first page with search
+        description: >
+          Fetch the first 30 repos sorted by most recently pushed. Provide a
+          search/filter input that calls `gh repo list --json ... --limit 30 -q
+          <filter>` on the server. Fast initial load, handles large repo counts
+          via search rather than pagination. Good enough for most users (active
+          repos appear first).
+        selected: true
+      - option: Infinite scroll / load more
+        description: >
+          Fetch repos in pages of 30, with a "load more" button or infinite
+          scroll. Shows all repos eventually but slower for large accounts, more
+          complex to implement across CLI and Web, and most users have < 100
+          repos anyway.
+        selected: false
+    selectionRationale: >
+      Loading the first page sorted by recent push activity with a search filter
+      covers the majority of use cases. Most users will find their repo in the
+      first 30 results or can search by name. This avoids the complexity of
+      cross-platform pagination (CLI vs Web) while remaining fast and
+      responsive.
+    answer: Load first page with search
+  - question: Should the feature support cloning via git clone or gh repo clone?
+    resolved: true
+    options:
+      - option: gh repo clone
+        description: >
+          Use `gh repo clone owner/repo -- --arg` which handles authentication
+          automatically (uses gh's stored credentials), supports private repos
+          without extra SSH/token setup, and is already the established pattern
+          for GitHub operations in this codebase.
+        selected: true
+      - option: git clone with URL
+        description: >
+          Use `git clone https://github.com/owner/repo.git` directly. Simpler
+          subprocess call but requires the user to have git credentials
+          configured separately for private repos. Does not leverage gh's auth,
+          which is already required and verified.
+        selected: false
+    selectionRationale: >
+      `gh repo clone` is the right choice because it automatically uses gh's
+      authenticated session, works seamlessly with private repos, and aligns
+      with the codebase's existing pattern of using `gh` for all GitHub
+      operations. The user already has `gh` authenticated (verified before
+      import), so leveraging that auth is simpler than requiring separate git
+      credentials.
+    answer: gh repo clone
+content: >
+  ## Problem Statement
+
+
+  Currently, Shep only supports adding repositories that already exist on the
+  local filesystem.
+
+  The Web UI uses a native folder picker, and there is no CLI command for adding
+  repos at all.
+
+  Users who want to work with a GitHub repository must manually clone it first,
+  then add
+
+  the local path to Shep — a disjointed experience.
+
+
+  This feature adds a streamlined GitHub import flow: users can either paste a
+  GitHub URL
+
+  or interactively browse their own repositories (including private ones) to
+  clone and
+
+  register a repo in a single step.
+
+
+  ## Success Criteria
+
+
+  - [ ] `shep repo add --url https://github.com/owner/repo` clones and registers
+  the repo in one step
+
+  - [ ] `shep repo add` (no flags) presents an interactive flow to choose
+  between URL input and repo browsing
+
+  - [ ] Interactive browse mode lists the authenticated user's GitHub repos
+  (including private) and allows selection
+
+  - [ ] Web UI add-repository button offers both "Local folder" and "From
+  GitHub" options
+
+  - [ ] Web UI "From GitHub" flow supports URL input with validation and repo
+  browsing with search
+
+  - [ ] Cloned repos are registered with their `remoteUrl` stored in the
+  Repository entity
+
+  - [ ] Duplicate detection: importing a repo already tracked (by remoteUrl or
+  local path) returns the existing record
+
+  - [ ] Clear error message when `gh` is not authenticated, with `gh auth login`
+  instructions
+
+  - [ ] All new code has unit tests with >90% coverage; integration tests for
+  clone + register flow
+
+  - [ ] Web UI GitHub import components have colocated Storybook stories
+
+
+  ## Functional Requirements
+
+
+  - **FR-1: GitHub URL Import (CLI)** — `shep repo add --url <github-url>`
+  accepts a GitHub repository URL (HTTPS or shorthand `owner/repo`), validates
+  the format, clones the repo via `gh repo clone`, and registers it using
+  `AddRepositoryUseCase`. Supports `--dest <path>` to override the clone
+  destination directory.
+
+
+  - **FR-2: Interactive Import Flow (CLI)** — `shep repo add` without `--url`
+  presents an interactive TUI prompt with two choices: (a) "Paste a GitHub URL"
+  and (b) "Browse my repositories". Option (a) prompts for URL input. Option (b)
+  fetches and displays the user's repos for selection.
+
+
+  - **FR-3: Browse User Repositories** — The browse flow calls `gh repo list`
+  with `--json name,nameWithOwner,description,isPrivate,pushedAt` to list the
+  authenticated user's repositories sorted by most recently pushed. Displays up
+  to 30 repos with name, description, and visibility badge. Supports text search
+  to filter by name.
+
+
+  - **FR-4: Clone Operation** — Clone is performed via `gh repo clone
+  <nameWithOwner> <destination>`. The destination defaults to a configurable
+  base directory (e.g., `~/repos/<repo-name>`). Clone progress is streamed to
+  stdout/stderr so the user sees git's progress output.
+
+
+  - **FR-5: Repository Registration** — After a successful clone, delegate to
+  the existing `AddRepositoryUseCase` with the cloned local path and repo name.
+  Set the `remoteUrl` field on the created Repository entity.
+
+
+  - **FR-6: Duplicate Detection** — Before cloning, check if a repo with the
+  same `remoteUrl` is already tracked. If so, return the existing repository and
+  skip the clone. Also rely on `AddRepositoryUseCase`'s existing path
+  deduplication (returns existing repo if path matches).
+
+
+  - **FR-7: Authentication Check** — Before any GitHub operation, verify `gh
+  auth status` succeeds. If not authenticated, throw a descriptive error:
+  "GitHub CLI is not authenticated. Run `gh auth login` to sign in."
+
+
+  - **FR-8: URL Validation** — Accept GitHub URLs in these formats:
+  `https://github.com/owner/repo`, `https://github.com/owner/repo.git`,
+  `git@github.com:owner/repo.git`, and shorthand `owner/repo`. Extract
+  `owner/repo` (nameWithOwner) for use with `gh repo clone`. Reject non-GitHub
+  URLs with a clear error.
+
+
+  - **FR-9: Web UI GitHub Import Dialog** — Extend the add-repository FAB button
+  to show a popover with "Local folder" and "From GitHub" options. "From GitHub"
+  opens a dialog with two tabs: "URL" (text input with validation) and "Browse"
+  (searchable list of user's repos). Selecting a repo or entering a URL triggers
+  the import server action.
+
+
+  - **FR-10: Import Server Action** — New Next.js server action
+  `importGitHubRepository` that accepts `{ url: string; dest?: string }`,
+  resolves the `ImportGitHubRepositoryUseCase`, and returns `{ repository?:
+  Repository; error?: string }`.
+
+
+  - **FR-11: Web UI Progress Feedback** — During clone, show an optimistic repo
+  node on the canvas (same pattern as current add-repo) with a loading/cloning
+  indicator. Replace with the real repo on success, or remove with error toast
+  on failure.
+
+
+  - **FR-12: Domain Model Extension** — Add optional `remoteUrl?: string` field
+  to the Repository TypeSpec model. Generate a SQLite migration to add the
+  `remote_url` column (nullable TEXT).
+
+
+  - **FR-13: IGitHubRepositoryService Port** — Define a new output port
+  interface with methods: `checkAuth(): Promise<void>`,
+  `cloneRepository(nameWithOwner: string, destination: string): Promise<void>`,
+  `listUserRepositories(options?: { limit?: number; search?: string }):
+  Promise<GitHubRepo[]>`, and `parseGitHubUrl(url: string): { owner: string;
+  repo: string; nameWithOwner: string }`.
+
+
+  - **FR-14: ListGitHubRepositoriesUseCase** — Application-layer use case that
+  calls `IGitHubRepositoryService.checkAuth()` then `listUserRepositories()` and
+  returns the result. Decouples presentation from infrastructure.
+
+
+  - **FR-15: ImportGitHubRepositoryUseCase** — Application-layer use case that:
+  (1) validates the URL, (2) checks auth, (3) checks for duplicate by remoteUrl,
+  (4) clones via `IGitHubRepositoryService`, (5) delegates to
+  `AddRepositoryUseCase` to register, (6) updates the repo record with
+  `remoteUrl`.
+
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1: Performance** — `gh repo list` call must complete within 10
+  seconds. Clone operations should stream progress output and have no artificial
+  timeout (large repos may take minutes). The browse UI must render the initial
+  repo list within 2 seconds of receiving data.
+
+
+  - **NFR-2: Cross-Platform** — All file paths must be normalized (backslash →
+  forward slash) before storage, consistent with existing `normalizePath()`
+  usage. Subprocess spawning must use the platform-aware `ExecFunction` from the
+  DI container (shell: true on Windows).
+
+
+  - **NFR-3: Error Handling** — Define custom error classes: `GitHubAuthError`
+  (not authenticated), `GitHubCloneError` (clone failed), `GitHubUrlParseError`
+  (invalid URL format), `GitHubRepoListError` (list failed). Each must include
+  the original error as `cause` for debugging.
+
+
+  - **NFR-4: Security** — Never log or display GitHub tokens. URL validation
+  must reject non-GitHub URLs to prevent SSRF-like misuse. The `--dest` path
+  must be validated (no path traversal, must be an absolute or resolvable path).
+
+
+  - **NFR-5: Testability** — All GitHub CLI interactions are behind the
+  `IGitHubRepositoryService` port interface, enabling full mocking in tests. No
+  direct `gh` subprocess calls outside the infrastructure service
+  implementation.
+
+
+  - **NFR-6: UX Consistency** — CLI prompts must use `shepTheme` and follow the
+  multi-step wizard pattern from `onboarding.wizard.ts`. Web UI components must
+  use shadcn/ui primitives and follow existing dialog/popover patterns.
+
+
+  - **NFR-7: Accessibility** — Web UI dialog and popover must be
+  keyboard-navigable, have proper ARIA labels, and follow shadcn/ui
+  accessibility defaults.
+
+
+  - **NFR-8: Storybook Coverage** — Every new Web UI component (GitHub import
+  dialog, repo browser list, URL input form) must have a colocated
+  `.stories.tsx` file with at least: default state, loading state, error state,
+  and empty state stories.
+
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | Should the Repository model get a `remoteUrl` field? | Add optional
+  `remoteUrl` field | Low-cost migration, enables "open on GitHub" links and
+  duplicate detection by URL |
+
+  | 2 | Where should cloned repos be stored? | Configurable default with
+  `--dest` override | Repos in user's normal directories, not hidden in
+  `~/.shep/`, with override for flexibility |
+
+  | 3 | How should CLI handle the two import flows? | Single `shep repo add`
+  command with `--url` flag | Intuitive single entry point, interactive mode
+  without flag, direct mode with flag |
+
+  | 4 | Should Web UI button support both flows? | Unified button with method
+  picker popover | Clean UI, one entry point, minimal extra clicks |
+
+  | 5 | How to handle `gh` auth failures? | Fail fast with instructions | Safer
+  than auto-launching OAuth flow, clear actionable error message |
+
+  | 6 | Pagination for repo listing? | First page (30 repos) with search |
+  Covers 95%+ of use cases, avoids pagination complexity |
+
+  | 7 | Clone via `git clone` or `gh repo clone`? | `gh repo clone` | Leverages
+  existing gh auth, works with private repos automatically |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | `tsp/domain/entities/repository.tsp` | Medium | Add optional `remoteUrl`
+  field to Repository model |
+
+  | `packages/core/src/domain/generated/output.ts` | Medium | Regenerated from
+  TypeSpec (adds `remoteUrl` to Repository type) |
+
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations/` | Medium |
+  New migration to add `remote_url` column |
+
+  | `packages/core/src/application/use-cases/repositories/` | High | New
+  `ImportGitHubRepositoryUseCase` and `ListGitHubRepositoriesUseCase` |
+
+  | `packages/core/src/application/ports/output/services/` | High | New
+  `IGitHubRepositoryService` port interface |
+
+  | `packages/core/src/infrastructure/services/external/` | High | New
+  `GitHubRepositoryService` implementation using `gh` CLI |
+
+  | `src/presentation/cli/commands/repo/` | High | New `shep repo add` command
+  with `--url` flag and interactive browser |
+
+  | `src/presentation/tui/prompts/` | Medium | New prompt for GitHub repo
+  selection and URL input |
+
+  | `src/presentation/web/components/common/add-repository-button/` | Medium |
+  Extend to popover with "Local folder" / "From GitHub" options |
+
+  | `src/presentation/web/components/` | Medium | New GitHub import dialog
+  component with URL + browse tabs |
+
+  | `src/presentation/web/app/actions/` | Medium | New `importGitHubRepository`
+  server action |
+
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register new
+  services and use cases |
+
+
+  ## Dependencies
+
+
+  - **GitHub CLI (`gh`)**: Already declared as a required tool in
+  `packages/core/src/infrastructure/services/tool-installer/tools/gh.json`. Must
+  be authenticated (`gh auth login`).
+
+  - **AddRepositoryUseCase**: The import flow clones first, then delegates to
+  the existing use case to register the local path.
+
+  - **IRepositoryRepository**: Needs a new `findByRemoteUrl(url: string)` method
+  for duplicate detection by remote URL.
+
+  - **Shep directory service**: Uses `getShepHomeDir()` from
+  `shep-directory.service.ts` for fallback clone destination.
+
+  - **Tool installer**: May need to verify `gh` is installed and authenticated
+  before import.
+
+  - **TypeSpec compiler**: `pnpm tsp:compile` after model change to regenerate
+  domain types.
+
+  - **SQLite migration system**: Existing migration runner for the `remote_url`
+  column addition.
+
+
+  ## Size Estimate
+
+
+  **M (days)** — The core functionality (clone via gh, register repo) builds on
+  established patterns
+
+  (gh CLI integration, AddRepositoryUseCase). Effort breakdown:
+
+  - Domain model + migration: ~0.5 day
+
+  - Service port + implementation: ~1 day
+
+  - Use cases + tests: ~1 day
+
+  - CLI command + TUI prompts: ~1 day
+
+  - Web UI components + stories: ~1.5 days
+
+  - Integration tests + polish: ~0.5 day
+rejectionFeedback:
+  - iteration: 1
+    message: |-
+      Clicking on new repository opens file browser,
+      to import remote repository we need to have a seperate button
+    phase: merge
+    timestamp: '2026-03-17T08:14:36.196Z'
+  - iteration: 2
+    message: |-
+      Im getting
+      "GitHub CLI is not authenticated. Run `gh auth login` to sign in."
+      but Im connected
+    phase: merge
+    timestamp: '2026-03-17T08:58:23.103Z'
+  - iteration: 3
+    message: Resolve merge conflicts
+    phase: merge
+    timestamp: '2026-03-17T09:50:18.389Z'
+  - iteration: 4
+    message: There is some UI issues fix it
+    phase: merge
+    timestamp: '2026-03-17T11:02:37.385Z'
+    attachments:
+      - >-
+        /Users/arielshadkhan/.shep/attachments/pending-7f61a579-12ff-4abe-b8de-6231fecea857/image-5bee7466.png
+  - iteration: 5
+    message: Resolve merge conflicts
+    phase: merge
+    timestamp: '2026-03-17T13:55:45.123Z'

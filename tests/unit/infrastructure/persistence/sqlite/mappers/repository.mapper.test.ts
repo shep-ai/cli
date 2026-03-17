@@ -22,6 +22,7 @@ function createTestRow(overrides: Partial<RepositoryRow> = {}): RepositoryRow {
     id: 'repo-abc-123',
     name: 'my-project',
     path: '/Users/test/my-project',
+    remote_url: null,
     created_at: new Date('2025-06-01T10:00:00Z').getTime(),
     updated_at: new Date('2025-06-01T12:00:00Z').getTime(),
     deleted_at: null,
@@ -104,6 +105,36 @@ describe('Repository Mapper', () => {
     });
   });
 
+  describe('remoteUrl mapping', () => {
+    it('toDatabase should map remoteUrl to remote_url column', () => {
+      const repo = createTestRepository({ remoteUrl: 'https://github.com/owner/repo' });
+      const row = toDatabase(repo);
+
+      expect(row.remote_url).toBe('https://github.com/owner/repo');
+    });
+
+    it('toDatabase should map undefined remoteUrl to null', () => {
+      const repo = createTestRepository();
+      const row = toDatabase(repo);
+
+      expect(row.remote_url).toBeNull();
+    });
+
+    it('fromDatabase should map remote_url to remoteUrl', () => {
+      const row = createTestRow({ remote_url: 'https://github.com/owner/repo' });
+      const repo = fromDatabase(row);
+
+      expect(repo.remoteUrl).toBe('https://github.com/owner/repo');
+    });
+
+    it('fromDatabase should map null remote_url to undefined', () => {
+      const row = createTestRow({ remote_url: null });
+      const repo = fromDatabase(row);
+
+      expect(repo.remoteUrl).toBeUndefined();
+    });
+  });
+
   describe('round-trip', () => {
     it('should preserve all data through toDatabase -> fromDatabase', () => {
       const original = createTestRepository();
@@ -125,6 +156,22 @@ describe('Repository Mapper', () => {
       const restored = fromDatabase(row);
 
       expect(restored.deletedAt).toEqual(deletedAt);
+    });
+
+    it('should preserve remoteUrl through round-trip', () => {
+      const original = createTestRepository({ remoteUrl: 'https://github.com/owner/repo' });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+
+      expect(restored.remoteUrl).toBe('https://github.com/owner/repo');
+    });
+
+    it('should preserve undefined remoteUrl through round-trip', () => {
+      const original = createTestRepository();
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+
+      expect(restored.remoteUrl).toBeUndefined();
     });
   });
 });

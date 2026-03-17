@@ -144,6 +144,14 @@ describe('createDefaultSettings', () => {
       expect(settings.environment.shellPreference).toBe('bash');
     });
 
+    it('should set defaultCloneDirectory to homedir/repos', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.environment.defaultCloneDirectory).toBe('~/repos');
+    });
+
     it('should match TypeSpec model defaults', () => {
       // Act
       const settings = createDefaultSettings();
@@ -153,6 +161,7 @@ describe('createDefaultSettings', () => {
         defaultEditor: 'vscode',
         shellPreference: 'bash',
         terminalPreference: 'system',
+        defaultCloneDirectory: '~/repos',
       });
     });
   });
@@ -306,6 +315,7 @@ describe('createDefaultSettings', () => {
         skills: false,
         envDeploy: true,
         debug: false,
+        githubImport: false,
         adoptBranch: false,
       });
     });
@@ -325,6 +335,7 @@ describe('createDefaultSettings', () => {
         defaultEditor: 'vscode',
         shellPreference: 'bash',
         terminalPreference: 'system',
+        defaultCloneDirectory: '~/repos',
       });
       expect(settings.system).toEqual({
         autoUpdate: true,

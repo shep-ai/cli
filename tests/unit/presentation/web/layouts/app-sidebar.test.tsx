@@ -38,7 +38,13 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-const defaultFlags = { skills: true, envDeploy: false, debug: false, adoptBranch: false };
+const defaultFlags = {
+  skills: true,
+  envDeploy: false,
+  debug: false,
+  githubImport: false,
+  adoptBranch: false,
+};
 
 function renderWithSidebar(ui: React.ReactElement) {
   return render(<SidebarProvider>{ui}</SidebarProvider>);

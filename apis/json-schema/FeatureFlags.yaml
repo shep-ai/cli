@@ -14,6 +14,10 @@ properties:
     type: boolean
     default: false
     description: Enable debug UI elements and verbose client-side logging
+  githubImport:
+    type: boolean
+    default: false
+    description: Enable GitHub repository import in the web UI
   adoptBranch:
     type: boolean
     default: false
@@ -22,5 +26,6 @@ required:
   - skills
   - envDeploy
   - debug
+  - githubImport
   - adoptBranch
 description: Feature flag toggles for runtime feature control
