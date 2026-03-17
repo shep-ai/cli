@@ -38,7 +38,7 @@ jobs:
         shell: pwsh
         run: |
           irm 'https://cursor.com/install?win32=true' | iex
-          echo "$env:LOCALAPPDATA\cursor-agent" >> $env:GITHUB_PATH
+          # Do NOT add to PATH — shep resolves node.exe directly
 
       - name: Clone sheep repo
         shell: bash
