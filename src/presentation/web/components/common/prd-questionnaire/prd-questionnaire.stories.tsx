@@ -305,3 +305,47 @@ export const RejectingState: Story = {
     isRejecting: true,
   },
 };
+
+/** Long labels — verifies that AI Recommended badge stays on one line even with very long option labels. */
+export const LongLabels: Story = {
+  render: () => (
+    <InteractiveQuestionnaire
+      data={{
+        question: 'Review Feature Requirements',
+        context: 'Testing badge nowrap behavior with long option labels.',
+        questions: [
+          {
+            id: 'long-label',
+            question:
+              'Which deployment strategy should we use for the distributed microservices architecture?',
+            type: 'select' as const,
+            options: [
+              {
+                id: 'opt-long-1',
+                label:
+                  'Blue-Green Deployment with Automated Canary Analysis and Progressive Rollout',
+                rationale:
+                  'Minimizes downtime and risk by running two identical production environments',
+                recommended: true,
+              },
+              {
+                id: 'opt-long-2',
+                label:
+                  'Rolling Update with Health Check Verification and Automatic Rollback on Failure',
+                rationale: 'Gradually replaces instances with zero-downtime deployment',
+              },
+              {
+                id: 'opt-long-3',
+                label:
+                  'Feature Flags with Percentage-Based Gradual Rollout to Target User Segments',
+                rationale: 'Enables targeted rollout and instant rollback via configuration',
+                isNew: true,
+              },
+            ],
+          },
+        ],
+        finalAction: mockFinalAction,
+      }}
+    />
+  ),
+};

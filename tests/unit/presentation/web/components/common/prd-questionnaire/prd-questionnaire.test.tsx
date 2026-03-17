@@ -115,6 +115,14 @@ describe('PrdQuestionnaire', () => {
       expect(badges.length).toBeGreaterThanOrEqual(1);
     });
 
+    it('AI Recommended badge has whitespace-nowrap and shrink-0 classes', () => {
+      render(<PrdQuestionnaire {...defaultProps} />);
+
+      const badge = screen.getAllByText('AI Recommended')[0];
+      expect(badge).toHaveClass('whitespace-nowrap');
+      expect(badge).toHaveClass('shrink-0');
+    });
+
     it('renders New badge when isNew=true', () => {
       render(<PrdQuestionnaire {...defaultProps} />);
 

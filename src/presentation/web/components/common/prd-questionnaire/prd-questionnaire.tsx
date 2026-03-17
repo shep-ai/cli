@@ -110,12 +110,16 @@ export function PrdQuestionnaire({
                     </span>
                     <div className="flex-1">
                       <div className="mb-0.5 flex items-center gap-2">
-                        <span className="text-foreground text-xs font-semibold">{opt.label}</span>
+                        <span className="text-foreground min-w-0 text-xs font-semibold">
+                          {opt.label}
+                        </span>
                         {opt.recommended ? (
-                          <Badge className="px-1.5 py-0 text-[10px]">AI Recommended</Badge>
+                          <Badge className="shrink-0 px-1.5 py-0 text-[10px] whitespace-nowrap">
+                            AI Recommended
+                          </Badge>
                         ) : null}
                         {opt.isNew ? (
-                          <Badge className="border-transparent bg-emerald-600 px-1.5 py-0 text-[10px] text-white hover:bg-emerald-600/80">
+                          <Badge className="shrink-0 border-transparent bg-emerald-600 px-1.5 py-0 text-[10px] whitespace-nowrap text-white hover:bg-emerald-600/80">
                             New
                           </Badge>
                         ) : null}
