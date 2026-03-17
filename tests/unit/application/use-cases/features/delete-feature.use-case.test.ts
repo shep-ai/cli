@@ -508,7 +508,8 @@ describe('DeleteFeatureUseCase', () => {
       await useCase.execute('feat-123-full-uuid', { cleanup: true });
 
       expect(mockWorktreeService.remove).toHaveBeenCalled();
-      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
+      // Single deleteBranch call with deleteRemote=true handles both local and remote
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledTimes(1);
       expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith(
         '/repo',
         'feat/test-feature',

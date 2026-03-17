@@ -149,38 +149,48 @@ export class DeleteFeatureUseCase {
 
     const cleanup = options?.cleanup !== false;
     if (cleanup) {
-      // Delete local feature branch
-      try {
-        await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch);
-      } catch {
-        // Branch might not exist
-      }
+      const shouldDeleteRemote = options?.closePr !== false;
 
-      // Delete remote feature branch if it exists (skip when closePr is false to preserve the PR)
-      if (options?.closePr !== false) {
+      // Delete local branch, and also remote if closePr is enabled.
+      // deleteBranch(cwd, branch, true) deletes local then remote in one call,
+      // so we must NOT delete local separately when also deleting remote.
+      if (shouldDeleteRemote) {
+        let remoteDeleted = false;
         try {
           const remoteExists = await this.worktreeService.remoteBranchExists(
             feature.repositoryPath,
             feature.branch
           );
           if (remoteExists) {
+            // Delete local + remote in one call (deleteBranch does local first, then remote)
             await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch, true);
-
-            // Update pr.status to Closed after remote branch deletion (GitHub auto-closes the PR)
-            if (feature.pr?.status === PrStatus.Open) {
-              try {
-                await this.featureRepo.update({
-                  ...feature,
-                  pr: { ...feature.pr, status: PrStatus.Closed },
-                  updatedAt: new Date(),
-                });
-              } catch {
-                // PR status update is best-effort
-              }
-            }
+            remoteDeleted = true;
+          } else {
+            // No remote branch — just delete local
+            await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch);
           }
         } catch {
-          // Remote branch cleanup is best-effort
+          // Branch cleanup is best-effort
+        }
+
+        // Update pr.status to Closed after remote branch deletion (GitHub auto-closes the PR)
+        if (remoteDeleted && feature.pr?.status === PrStatus.Open) {
+          try {
+            await this.featureRepo.update({
+              ...feature,
+              pr: { ...feature.pr, status: PrStatus.Closed },
+              updatedAt: new Date(),
+            });
+          } catch {
+            // PR status update is best-effort
+          }
+        }
+      } else {
+        // closePr is false — only delete local branch, preserve remote (and the PR)
+        try {
+          await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch);
+        } catch {
+          // Branch might not exist
         }
       }
     }
