@@ -46,7 +46,11 @@ export class GitHubRepositoryService implements IGitHubRepositoryService {
 
   async checkAuth(): Promise<void> {
     try {
-      await this.execFile('gh', ['auth', 'status']);
+      // Use `gh auth token` instead of `gh auth status` because `gh auth status`
+      // exits non-zero when *any* configured account has a stale token, even if
+      // the active account is fully authenticated. `gh auth token` only checks the
+      // active account and exits 0 as long as it has a valid token.
+      await this.execFile('gh', ['auth', 'token']);
     } catch (error) {
       const cause = error instanceof Error ? error : undefined;
       const errnoCode = (error as NodeJS.ErrnoException)?.code;

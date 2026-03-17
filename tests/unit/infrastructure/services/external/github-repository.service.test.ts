@@ -47,14 +47,14 @@ describe('GitHubRepositoryService', () => {
   // -------------------------------------------------------------------------
 
   describe('checkAuth()', () => {
-    it('should succeed when gh auth status exits 0', async () => {
-      mockExecFile.mockResolvedValue({ stdout: '', stderr: '' });
+    it('should succeed when gh auth token exits 0', async () => {
+      mockExecFile.mockResolvedValue({ stdout: 'gho_xxxx', stderr: '' });
 
       await expect(service.checkAuth()).resolves.toBeUndefined();
-      expect(mockExecFile).toHaveBeenCalledWith('gh', ['auth', 'status']);
+      expect(mockExecFile).toHaveBeenCalledWith('gh', ['auth', 'token']);
     });
 
-    it('should throw GitHubAuthError when gh auth status fails', async () => {
+    it('should throw GitHubAuthError when gh auth token fails', async () => {
       mockExecFile.mockRejectedValue(new Error('not logged in'));
 
       await expect(service.checkAuth()).rejects.toThrow(GitHubAuthError);

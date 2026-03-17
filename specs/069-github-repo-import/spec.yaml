@@ -539,3 +539,10 @@ rejectionFeedback:
       to import remote repository we need to have a seperate button
     phase: merge
     timestamp: '2026-03-17T08:14:36.196Z'
+  - iteration: 2
+    message: |-
+      Im getting
+      "GitHub CLI is not authenticated. Run `gh auth login` to sign in."
+      but Im connected
+    phase: merge
+    timestamp: '2026-03-17T08:58:23.103Z'
