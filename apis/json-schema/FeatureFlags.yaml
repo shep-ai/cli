@@ -22,10 +22,15 @@ properties:
     type: boolean
     default: false
     description: Enable adopt branch feature to import existing branches as tracked features
+  reactFileManager:
+    type: boolean
+    default: false
+    description: Use the built-in React file manager instead of the native OS folder picker
 required:
   - skills
   - envDeploy
   - debug
   - githubImport
   - adoptBranch
+  - reactFileManager
 description: Feature flag toggles for runtime feature control

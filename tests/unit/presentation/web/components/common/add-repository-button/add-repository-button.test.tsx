@@ -18,16 +18,64 @@ vi.mock('@/app/actions/list-github-repositories', () => ({
   listGitHubRepositories: (...args: unknown[]) => mockListGitHubRepositories(...args),
 }));
 
+// Mock the react-file-manager-dialog as a simple controlled dialog
+vi.mock('@/components/common/react-file-manager-dialog', () => ({
+  ReactFileManagerDialog: ({
+    open,
+    onSelect,
+    onOpenChange,
+  }: {
+    open: boolean;
+    onSelect: (path: string | null) => void;
+    onOpenChange: (open: boolean) => void;
+  }) => {
+    if (!open) return null;
+    return (
+      <div data-testid="react-file-manager-dialog">
+        <button data-testid="rfm-select" onClick={() => onSelect('/selected/path')}>
+          Select
+        </button>
+        <button data-testid="rfm-cancel" onClick={() => onSelect(null)}>
+          Cancel
+        </button>
+        <button data-testid="rfm-close" onClick={() => onOpenChange(false)}>
+          Close
+        </button>
+      </div>
+    );
+  },
+}));
+
+// Mock feature flags context
 vi.mock('@/hooks/feature-flags-context', () => ({
-  useFeatureFlags: () => ({ skills: false, envDeploy: false, debug: false, githubImport: true }),
+  useFeatureFlags: vi.fn(() => ({
+    skills: false,
+    envDeploy: true,
+    debug: false,
+    githubImport: true,
+    adoptBranch: false,
+    reactFileManager: false,
+  })),
 }));
 
 import { AddRepositoryButton } from '@/components/common/add-repository-button';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
+
+const mockUseFeatureFlags = vi.mocked(useFeatureFlags);
 
 describe('AddRepositoryButton', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockListGitHubRepositories.mockResolvedValue({ repos: [] });
+    mockPickFolder.mockResolvedValue(null);
+    mockUseFeatureFlags.mockReturnValue({
+      skills: false,
+      envDeploy: true,
+      debug: false,
+      githubImport: true,
+      adoptBranch: false,
+      reactFileManager: false,
+    });
   });
 
   it('renders button that opens popover on click', async () => {
@@ -110,6 +158,236 @@ describe('AddRepositoryButton', () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId('add-repo-local-folder')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('feature flag reactFileManager OFF (native picker with fallback)', () => {
+    beforeEach(() => {
+      mockUseFeatureFlags.mockReturnValue({
+        skills: false,
+        envDeploy: true,
+        debug: false,
+        githubImport: true,
+        adoptBranch: false,
+        reactFileManager: false,
+      });
+    });
+
+    it('calls native pickFolder when local folder is clicked', async () => {
+      mockPickFolder.mockResolvedValue('/some/path');
+      const user = userEvent.setup();
+      render(<AddRepositoryButton />);
+
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+
+      await waitFor(() => {
+        expect(mockPickFolder).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('calls onSelect with path when native picker succeeds', async () => {
+      mockPickFolder.mockResolvedValue('/some/path');
+      const onSelect = vi.fn();
+      const user = userEvent.setup();
+      render(<AddRepositoryButton onSelect={onSelect} />);
+
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+
+      await waitFor(() => {
+        expect(onSelect).toHaveBeenCalledWith('/some/path');
+      });
+    });
+
+    it('does not trigger fallback when native picker is cancelled (null)', async () => {
+      mockPickFolder.mockResolvedValue(null);
+      const user = userEvent.setup();
+      render(<AddRepositoryButton />);
+
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+
+      await waitFor(() => {
+        expect(mockPickFolder).toHaveBeenCalledTimes(1);
+      });
+      expect(screen.queryByTestId('react-file-manager-dialog')).not.toBeInTheDocument();
+    });
+
+    it('opens React file manager dialog as fallback when native picker throws', async () => {
+      mockPickFolder.mockRejectedValue(new Error('zenity not found'));
+      const user = userEvent.setup();
+      render(<AddRepositoryButton />);
+
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('react-file-manager-dialog')).toBeInTheDocument();
+      });
+    });
+
+    it('calls onSelect when folder is selected in fallback dialog', async () => {
+      mockPickFolder.mockRejectedValue(new Error('zenity not found'));
+      const onSelect = vi.fn();
+      const user = userEvent.setup();
+      render(<AddRepositoryButton onSelect={onSelect} />);
+
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('react-file-manager-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('rfm-select'));
+      expect(onSelect).toHaveBeenCalledWith('/selected/path');
+    });
+
+    it('closes dialog without calling onSelect when fallback dialog is cancelled', async () => {
+      mockPickFolder.mockRejectedValue(new Error('zenity not found'));
+      const onSelect = vi.fn();
+      const user = userEvent.setup();
+      render(<AddRepositoryButton onSelect={onSelect} />);
+
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('react-file-manager-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('rfm-cancel'));
+      expect(onSelect).not.toHaveBeenCalled();
+      await waitFor(() => {
+        expect(screen.queryByTestId('react-file-manager-dialog')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('feature flag reactFileManager ON (direct React picker)', () => {
+    beforeEach(() => {
+      mockUseFeatureFlags.mockReturnValue({
+        skills: false,
+        envDeploy: true,
+        debug: false,
+        githubImport: true,
+        adoptBranch: false,
+        reactFileManager: true,
+      });
+    });
+
+    it('opens React file manager dialog directly without calling native picker', async () => {
+      const user = userEvent.setup();
+      render(<AddRepositoryButton />);
+
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('react-file-manager-dialog')).toBeInTheDocument();
+      });
+      expect(mockPickFolder).not.toHaveBeenCalled();
+    });
+
+    it('calls onSelect with path when folder is selected in direct dialog', async () => {
+      const onSelect = vi.fn();
+      const user = userEvent.setup();
+      render(<AddRepositoryButton onSelect={onSelect} />);
+
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('react-file-manager-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('rfm-select'));
+      expect(onSelect).toHaveBeenCalledWith('/selected/path');
+    });
+
+    it('does not call onSelect when dialog is cancelled', async () => {
+      const onSelect = vi.fn();
+      const user = userEvent.setup();
+      render(<AddRepositoryButton onSelect={onSelect} />);
+
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('react-file-manager-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('rfm-cancel'));
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('dialog state management', () => {
+    it('resets showReactPicker when dialog closes', async () => {
+      mockUseFeatureFlags.mockReturnValue({
+        skills: false,
+        envDeploy: true,
+        debug: false,
+        githubImport: true,
+        adoptBranch: false,
+        reactFileManager: true,
+      });
+      const user = userEvent.setup();
+      render(<AddRepositoryButton />);
+
+      // Open the popover and click local folder to open the dialog
+      await user.click(screen.getByTestId('add-repository-button'));
+      await waitFor(() => {
+        expect(screen.getByTestId('add-repo-local-folder')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('add-repo-local-folder'));
+      await waitFor(() => {
+        expect(screen.getByTestId('react-file-manager-dialog')).toBeInTheDocument();
+      });
+
+      // Close the dialog
+      await user.click(screen.getByTestId('rfm-close'));
+      await waitFor(() => {
+        expect(screen.queryByTestId('react-file-manager-dialog')).not.toBeInTheDocument();
+      });
     });
   });
 });

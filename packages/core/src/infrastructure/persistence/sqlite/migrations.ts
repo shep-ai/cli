@@ -2,7 +2,7 @@
  * SQLite Migrations Module
  *
  * Manages database schema migrations using umzug v3.
- * Legacy migrations (V1–V34) are registered programmatically from legacy-migrations.ts.
+ * Legacy migrations (V1–V35) are registered programmatically from legacy-migrations.ts.
  * New migrations (35+) are individual .ts files in the migrations/ directory,
  * discovered at runtime via directory scan.
  *
@@ -23,7 +23,7 @@ import { LEGACY_MIGRATIONS, LEGACY_MIGRATION_NAMES } from './legacy-migrations.j
  * The latest schema version (highest legacy migration version number).
  * Exported for test assertions so they don't hardcode version numbers.
  */
-export const LATEST_SCHEMA_VERSION = 34;
+export const LATEST_SCHEMA_VERSION = 35;
 
 /**
  * Resolves the migrations directory path.
@@ -107,7 +107,7 @@ function createUmzug(db: Database.Database): Umzug<Database.Database> {
     context: db,
     migrations: async () => {
       const newMigrations = await discoverNewMigrations(migrationsDir);
-      // Legacy migrations first (001–034), then new migrations (035+) sorted by name
+      // Legacy migrations first (001–035), then new migrations (035+) sorted by name
       return [...LEGACY_MIGRATIONS, ...newMigrations];
     },
     /* eslint-disable no-console */
@@ -129,7 +129,7 @@ function createUmzug(db: Database.Database): Umzug<Database.Database> {
  *
  * Internally creates an Umzug instance configured with:
  *   - SQLiteMigrationStorage (custom better-sqlite3 storage adapter)
- *   - 34 legacy inline migrations from legacy-migrations.ts
+ *   - 35 legacy inline migrations from legacy-migrations.ts
  *   - Runtime discovery for new migration files (35+)
  *   - Debug-level logger (when DEBUG_SQL is set)
  *

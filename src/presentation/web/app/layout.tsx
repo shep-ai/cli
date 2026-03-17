@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '@xyflow/react/dist/base.css';
+import '@cubone/react-file-manager/dist/style.css';
 import './globals.css';
 import { AppShell } from '@/components/layouts/app-shell';
 import { Toaster } from '@/components/ui/sonner';

@@ -11,6 +11,7 @@ import {
 } from '@/components/common/floating-action-button';
 import { ThemeToggle } from '@/components/common/theme-toggle';
 import { SoundToggle } from '@/components/common/sound-toggle';
+import { ReactFileManagerDialog } from '@/components/common/react-file-manager-dialog';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
 import { GitHubImportDialog } from '@/components/common/github-import-dialog';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';
@@ -63,19 +64,36 @@ function AppShellInner({ children }: AppShellProps) {
 
   const [addingRepo, setAddingRepo] = useState(false);
   const [githubDialogOpen, setGithubDialogOpen] = useState(false);
+  const [showReactPicker, setShowReactPicker] = useState(false);
 
   const handleAddRepository = useCallback(async () => {
     if (addingRepo) return;
+
+    if (featureFlags.reactFileManager) {
+      setShowReactPicker(true);
+      return;
+    }
+
     setAddingRepo(true);
     try {
       const path = await pickFolder();
       if (path) {
         window.dispatchEvent(new CustomEvent('shep:add-repository', { detail: { path } }));
       }
+    } catch {
+      // Native picker failed — fall back to React file manager
+      setShowReactPicker(true);
     } finally {
       setAddingRepo(false);
     }
-  }, [addingRepo]);
+  }, [addingRepo, featureFlags.reactFileManager]);
+
+  const handleReactPickerSelect = useCallback((path: string | null) => {
+    if (path) {
+      window.dispatchEvent(new CustomEvent('shep:add-repository', { detail: { path } }));
+    }
+    setShowReactPicker(false);
+  }, []);
 
   const handleImportFromGitHub = useCallback(() => {
     setGithubDialogOpen(true);
@@ -163,6 +181,13 @@ function AppShellInner({ children }: AppShellProps) {
           ) : null}
         </div>
       </SidebarInset>
+      <ReactFileManagerDialog
+        open={showReactPicker}
+        onOpenChange={(open) => {
+          if (!open) setShowReactPicker(false);
+        }}
+        onSelect={handleReactPickerSelect}
+      />
     </SidebarProvider>
   );
 }

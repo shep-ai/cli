@@ -1,0 +1,201 @@
+name: react-file-manager
+summary: >
+  Add @cubone/react-file-manager as an in-app fallback folder picker with a feature flag toggle.
+  Implementation follows four phases: (1) domain model and feature flag plumbing, (2) server-side
+  directory listing API, (3) React file manager dialog component with Storybook story, and
+  (4) integration into the existing AddRepositoryButton with fallback logic. Key decisions include
+  server-side directory filtering (directories only, hidden excluded by default), try-catch fallback
+  in the client wrapper, and shadcn/ui Dialog wrapping a dynamically-imported FileManager component.
+
+relatedFeatures: []
+technologies:
+  - '@cubone/react-file-manager'
+  - React 19
+  - Next.js 16 (App Router)
+  - TypeSpec
+  - shadcn/ui (Dialog, Switch, Checkbox)
+  - Tailwind CSS
+  - Vitest
+  - Storybook 8
+  - Node.js fs/promises
+  - sonner (toast)
+
+relatedLinks:
+  - https://github.com/Saifullah-dev/react-file-manager
+  - https://www.npmjs.com/package/@cubone/react-file-manager
+
+phases:
+  - id: phase-1
+    name: 'Domain Model & Feature Flag Plumbing'
+    description: >
+      Extend the FeatureFlags TypeSpec model with the reactFileManager boolean, regenerate output.ts,
+      wire the new flag into the feature-flags resolution logic (DB-primary + env var fallback), and
+      add the toggle row in the Settings UI. This phase comes first because all subsequent phases
+      depend on being able to read the flag value to decide picker behavior.
+    parallel: false
+
+  - id: phase-2
+    name: 'Directory Listing API'
+    description: >
+      Create the Next.js API route at /api/directory/list that reads the filesystem using
+      fs.readdir with withFileTypes, filters to directories only (optionally including hidden),
+      validates paths for security (absolute check, traversal normalization), and returns a
+      JSON response matching the FileManager data contract. This phase is independent of the
+      UI component but must be ready before the dialog can fetch real data.
+    parallel: false
+
+  - id: phase-3
+    name: 'React File Manager Dialog Component'
+    description: >
+      Install the @cubone/react-file-manager package and create the ReactFileManagerDialog
+      component in the common components tier. Wraps @cubone/react-file-manager FileManager
+      inside a shadcn/ui Dialog with dynamic import (ssr: false). Includes directory navigation
+      via API fetches, selection management, hidden files toggle, loading states, and a Storybook
+      story with mock data. Follows the established delete-feature-dialog pattern with colocated
+      config, stories, and index files.
+    parallel: false
+
+  - id: phase-4
+    name: 'Pick-Folder Integration & Fallback Logic'
+    description: >
+      Wire the ReactFileManagerDialog into AddRepositoryButton with conditional logic based
+      on the reactFileManager feature flag. When flag is ON, open the dialog directly. When
+      flag is OFF, attempt the native picker first and fall back to the dialog on error.
+      Correctly distinguish user cancellation (null path, no error) from failure (thrown error)
+      to avoid false fallback triggers. Update Storybook mocks for the fallback scenario.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/app/api/directory/list/route.ts
+  - src/presentation/web/components/common/react-file-manager-dialog/react-file-manager-dialog.tsx
+  - src/presentation/web/components/common/react-file-manager-dialog/react-file-manager-dialog-config.ts
+  - src/presentation/web/components/common/react-file-manager-dialog/react-file-manager-dialog.stories.tsx
+  - src/presentation/web/components/common/react-file-manager-dialog/index.ts
+  - tests/unit/presentation/web/api/directory-list.test.ts
+  - tests/unit/presentation/web/lib/feature-flags-react-file-manager.test.ts
+  - tests/unit/presentation/web/components/add-repository-button-fallback.test.ts
+
+filesToModify:
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/domain/generated/output.ts
+  - src/presentation/web/lib/feature-flags.ts
+  - src/presentation/web/components/features/settings/feature-flags-settings-section.tsx
+  - src/presentation/web/components/common/add-repository-button/add-repository-button.tsx
+  - src/presentation/web/components/common/add-repository-button/pick-folder.ts
+  - package.json
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature adds a React-based folder picker as both a fallback and an opt-in alternative
+  to the native OS dialog (zenity/osascript/PowerShell). It touches four architectural layers:
+
+  1. **Domain (TypeSpec)**: Extend FeatureFlags model with `reactFileManager: boolean = false`
+  2. **Presentation — Feature Flags**: Wire the new flag through the existing DB-primary +
+     env var fallback resolution in `feature-flags.ts`, and add the toggle in the Settings UI
+  3. **Presentation — API Route**: New `/api/directory/list` endpoint for server-side filesystem
+     browsing with security validation (path traversal prevention, absolute path enforcement)
+  4. **Presentation — Components**: New `ReactFileManagerDialog` (Tier 1 common component)
+     wrapping `@cubone/react-file-manager` in a shadcn/ui Dialog, integrated into the
+     existing `AddRepositoryButton` with conditional fallback logic
+
+  The architecture strictly follows Clean Architecture: the domain layer only gains a boolean
+  field, no infrastructure changes are needed (FolderDialogService already throws on failure),
+  and all new code lives in the presentation layer.
+
+  ### Data Flow
+
+  ```
+  AddRepositoryButton (client)
+    |-- Flag ON -> Opens ReactFileManagerDialog directly
+    +-- Flag OFF -> Calls pickFolder() server action
+        |-- Success -> Returns path to onSelect
+        |-- Cancel -> Returns null (no fallback)
+        +-- Error -> Opens ReactFileManagerDialog as fallback
+
+  ReactFileManagerDialog (client)
+    -> fetch('/api/directory/list?path=...') on open and navigation
+    -> FileManager component renders directory entries
+    -> User selects directory -> "Select Folder" button -> onSelect(path)
+    -> User cancels -> onSelect(null)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Server-Side Directory Filtering (Directories Only)
+  The @cubone/react-file-manager component has no native folder-only mode. We filter on the
+  server side using `dirent.isDirectory()` in the API route, so the FileManager component only
+  ever receives directory entries. This is more efficient than client-side filtering (reduces
+  payload) and avoids visual noise from non-selectable file entries.
+
+  ### 2. Try-Catch Fallback in Client Wrapper
+  The existing `pick-folder.ts` client wrapper already throws on server action errors (line 10-12).
+  The `AddRepositoryButton` catches errors in its try block. The fallback fits naturally:
+  catch the error from `pickFolder()`, then set state to open the React dialog. This catches ALL
+  failure modes (missing binary, display server issues, permissions) without needing pre-flight
+  checks. The server action already distinguishes user cancel (path: null, no error) from failure
+  (path: null, error: string), so we correctly avoid triggering fallback on intentional
+  cancellation (FR-21).
+
+  ### 3. Dynamic Import with SSR Disabled
+  @cubone/react-file-manager has known SSR incompatibilities (ReactCurrentOwner errors).
+  The component is loaded via `next/dynamic(() => import(...), { ssr: false })`, which also
+  means it's only fetched when the dialog opens — keeping the initial page bundle small.
+  The CSS (`@cubone/react-file-manager/dist/style.css`) is co-imported with the component.
+
+  ### 4. shadcn/ui Dialog Wrapper
+  Follows the established `delete-feature-dialog` pattern: shadcn/ui Dialog with
+  `open`/`onOpenChange` props, action buttons in the footer, colocated config/stories/index
+  files. Dialog provides built-in backdrop click and Escape key handling for cancel behavior.
+
+  ### 5. Controlled Navigation Model
+  The parent component (ReactFileManagerDialog) owns the current path in React state. On each
+  directory click (via `onFileOpen`), it fetches the directory listing API with the new path
+  and updates the `files` prop. This lazy-loading approach keeps API calls fast and memory
+  usage minimal. The `isLoading` prop on FileManager provides built-in loading state.
+
+  ### 6. Hidden Files Toggle via API Query Parameter
+  The API accepts an optional `showHidden` boolean query parameter (default false). The dialog
+  component renders a small toggle in the header. Server-side filtering means hidden directory
+  names are only sent when explicitly requested.
+
+  ### 7. Feature Flag Follows Existing Pattern Exactly
+  TypeSpec model field -> `pnpm tsp:compile` -> add to `FeatureFlagsState` interface -> add to
+  `getFeatureFlags()` with DB-primary and `NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER` env var fallback ->
+  add to FLAG_KEYS/FLAG_LABELS/FLAG_DESCRIPTIONS in the settings section component. Zero new
+  patterns introduced.
+
+  ## Implementation Strategy
+
+  The four phases are ordered by dependency:
+
+  **Phase 1 (Feature Flag)** comes first because phases 3 and 4 need to read the flag to
+  decide picker behavior. This is the simplest phase — extending an existing pattern with
+  one new boolean field.
+
+  **Phase 2 (API Route)** comes second because the dialog component (phase 3) depends on the
+  API contract for its data fetching. The API route is self-contained and testable in isolation.
+
+  **Phase 3 (Dialog Component)** depends on the API contract but can use mocked fetch in
+  tests and stories. It's the largest phase — creating the new component directory with all
+  four files (component, config, stories, index) plus the npm package installation.
+
+  **Phase 4 (Integration)** comes last because it wires everything together: reading the
+  feature flag, conditionally rendering the dialog, and implementing the fallback try-catch
+  in the existing AddRepositoryButton. This phase has the highest risk of regression since
+  it modifies an existing working component.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | @cubone/react-file-manager SSR crash | Dynamic import with `ssr: false`; error boundary catches load failures and shows toast (NFR-9) |
+  | React 19 incompatibility | Peer dep range (>=18) covers React 19; verify in Storybook and unit tests before integration |
+  | Path traversal security vulnerability | `path.resolve()` normalization + `path.isAbsolute()` validation; dedicated test cases for `../` injection (NFR-1, NFR-2) |
+  | Large directory listing slow response | `fs.readdir` with `withFileTypes: true` avoids stat calls; server-side filtering reduces payload; no recursive traversal (NFR-4) |
+  | Fallback triggers on user cancel | Explicit check: only trigger fallback on thrown error, not on null return (user cancel) per FR-21 |
+  | CSS conflicts with app styles | Component CSS loaded via dynamic import only when dialog opens; theme color set via `primaryColor` prop |
+  | Feature flag regression | Additive change only — new field with default `false`; existing flags untouched; dedicated test for new flag resolution |
+  | Bundle size increase | Dynamic import ensures @cubone/react-file-manager (~80-120KB gzipped) only loads on demand, not in initial bundle (NFR-5) |

@@ -1,0 +1,469 @@
+name: react-file-manager
+summary: >
+  13 tasks across 4 phases implementing the React file manager fallback with feature flag toggle.
+  Phase 1 sets up the domain model and feature flag plumbing (3 tasks). Phase 2 builds the
+  directory listing API with security validation (2 tasks). Phase 3 creates the React file manager
+  dialog component with Storybook story (4 tasks). Phase 4 integrates the dialog into the existing
+  AddRepositoryButton with fallback logic (4 tasks).
+
+relatedFeatures: []
+technologies:
+  - '@cubone/react-file-manager'
+  - TypeSpec
+  - Vitest
+  - Storybook 8
+  - shadcn/ui
+  - Next.js 16
+  - Node.js fs/promises
+
+relatedLinks: []
+
+tasks:
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Phase 1: Domain Model & Feature Flag Plumbing
+  # ──────────────────────────────────────────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add reactFileManager field to FeatureFlags TypeSpec model'
+    description: >
+      Add a `reactFileManager: boolean = false` field with @doc annotation to the FeatureFlags
+      model in tsp/domain/entities/settings.tsp, then run pnpm tsp:compile to regenerate
+      output.ts. This is the foundation — all subsequent feature flag wiring depends on this
+      field existing in the generated types.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'FeatureFlags model in settings.tsp contains reactFileManager: boolean = false with @doc'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'Generated output.ts includes reactFileManager in the FeatureFlags interface'
+      - 'pnpm validate passes (no type errors introduced)'
+    tdd:
+      red:
+        - 'Write a test that imports FeatureFlags from output.ts and asserts reactFileManager property exists as boolean type'
+      green:
+        - 'Add the reactFileManager field to settings.tsp FeatureFlags model'
+        - 'Run pnpm tsp:compile to regenerate output.ts'
+      refactor:
+        - 'Verify @doc annotation matches the description convention of existing flags'
+    estimatedEffort: '20min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Wire reactFileManager into feature flag resolution logic'
+    description: >
+      Extend the FeatureFlagsState interface and getFeatureFlags() function in feature-flags.ts
+      to include the new reactFileManager flag. Follow the existing pattern: DB-primary resolution
+      from Settings.featureFlags, with NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER env var as fallback.
+      Default to false when neither DB nor env var is set.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeatureFlagsState interface includes reactFileManager: boolean'
+      - 'getFeatureFlags() returns reactFileManager from DB when settings exist'
+      - 'getFeatureFlags() falls back to NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER env var'
+      - 'getFeatureFlags() defaults to false when neither DB nor env var is set'
+      - 'Deprecated featureFlags getter proxy includes reactFileManager'
+    tdd:
+      red:
+        - 'Write test in feature-flags-react-file-manager.test.ts that asserts getFeatureFlags() returns reactFileManager: false by default'
+        - 'Write test that asserts reactFileManager reads from DB when settings exist'
+        - 'Write test that asserts NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER env var fallback works'
+      green:
+        - 'Add reactFileManager to FeatureFlagsState interface'
+        - 'Add reactFileManager to the DB resolution branch in getFeatureFlags()'
+        - 'Add reactFileManager env var fallback in the else branch'
+        - 'Add reactFileManager getter to deprecated featureFlags proxy'
+      refactor:
+        - 'Ensure the new flag follows the exact same code pattern as existing flags (skills, envDeploy, debug)'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add React File Manager toggle to Settings UI'
+    description: >
+      Add the reactFileManager flag to FLAG_KEYS, FLAG_LABELS, and FLAG_DESCRIPTIONS in the
+      feature-flags-settings-section.tsx component. This makes the toggle appear in Settings >
+      Feature Flags alongside existing toggles (Skills, Deployments, Debug).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'FLAG_KEYS array includes reactFileManager'
+      - 'FLAG_LABELS maps reactFileManager to "React File Manager"'
+      - 'FLAG_DESCRIPTIONS maps reactFileManager to description explaining behavior'
+      - 'Toggle switch renders in Settings > Feature Flags section'
+      - 'Toggling persists to database via updateSettingsAction'
+    tdd:
+      red:
+        - 'No dedicated unit test needed — the component is purely declarative mapping additions'
+        - 'Verification via Storybook visual check and existing integration patterns'
+      green:
+        - 'Add reactFileManager to FLAG_KEYS array'
+        - 'Add reactFileManager entry to FLAG_LABELS: "React File Manager"'
+        - 'Add reactFileManager entry to FLAG_DESCRIPTIONS with behavior explanation (FR-2, NFR-15)'
+      refactor:
+        - 'Verify alphabetical or logical ordering of FLAG_KEYS is consistent'
+    estimatedEffort: '15min'
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Phase 2: Directory Listing API
+  # ──────────────────────────────────────────────────────────────────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create directory listing API route with security validation'
+    description: >
+      Create GET /api/directory/list route that accepts path and showHidden query params.
+      Validates path is absolute (400 if not), resolves with path.resolve() to prevent traversal,
+      checks directory exists (404 if not), then reads with fs.readdir({ withFileTypes: true }).
+      Filters to directories only (FR-7) and excludes hidden entries by default (FR-8).
+      Returns JSON { entries: [...], currentPath: string }. Defaults to os.homedir() when
+      path is omitted (FR-9). Skips inaccessible entries silently.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'GET /api/directory/list returns 200 with entries array and currentPath'
+      - 'Each entry has name, path, isDirectory (true), and updatedAt fields (FR-6)'
+      - 'Only directories returned — no files, symlinks, or other entry types (FR-7)'
+      - 'Hidden entries (starting with .) excluded by default (FR-8)'
+      - 'showHidden=true query param includes hidden entries'
+      - 'Missing path param defaults to os.homedir() (FR-9)'
+      - 'Relative path returns 400 (NFR-1)'
+      - 'Path with ../ sequences resolved via path.resolve() (NFR-2)'
+      - 'Non-existent path returns 404 (FR-10)'
+      - 'Empty directory returns 200 with empty entries array (FR-10)'
+      - 'Inaccessible entries skipped without failing the request'
+    tdd:
+      red:
+        - 'Write test: GET with valid absolute path returns 200 with directory entries'
+        - 'Write test: GET with relative path returns 400 with error message'
+        - 'Write test: GET with non-existent path returns 404'
+        - 'Write test: response only contains directories (mock readdir with mixed entries)'
+        - 'Write test: hidden entries excluded by default'
+        - 'Write test: showHidden=true includes hidden entries'
+        - 'Write test: path with ../ resolved correctly (traversal prevention)'
+        - 'Write test: missing path defaults to os.homedir()'
+        - 'Write test: empty directory returns empty entries array'
+      green:
+        - 'Create src/presentation/web/app/api/directory/list/route.ts'
+        - 'Implement GET handler with path validation, resolution, readdir, and filtering'
+        - 'Use NextResponse.json() following existing API route patterns'
+      refactor:
+        - 'Extract validation logic into a helper function if the handler grows too long'
+        - 'Ensure error messages are user-friendly and consistent'
+    estimatedEffort: '1h 30min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Handle permission errors and edge cases in directory listing API'
+    description: >
+      Harden the directory listing API for production edge cases: permission-denied errors
+      on individual entries (skip silently), symlinks to directories (include or exclude based
+      on resolution), and very large directories (streaming or pagination if needed). Also
+      add stat() calls for updatedAt (mtime) on each entry.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Permission-denied on readdir child entries skipped without failing the request'
+      - 'Each entry includes updatedAt timestamp from fs.stat mtime'
+      - 'Symlinks to directories included when they resolve to accessible directories'
+      - 'Symlinks to files or broken symlinks excluded'
+      - 'API does not crash on directories with 1000+ entries'
+    tdd:
+      red:
+        - 'Write test: permission-denied entry skipped, other entries returned normally'
+        - 'Write test: each entry has an updatedAt ISO 8601 string'
+        - 'Write test: broken symlink excluded from results'
+      green:
+        - 'Add try-catch around stat/access calls per entry to skip on permission error'
+        - 'Add fs.stat to retrieve mtime for updatedAt field'
+        - 'Handle symlink resolution with fs.stat (follows symlinks) vs fs.lstat'
+      refactor:
+        - 'Ensure stat calls are parallelized with Promise.all for performance'
+        - 'Verify response time stays under 2s for directories with 1000 entries (NFR-4)'
+    estimatedEffort: '45min'
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Phase 3: React File Manager Dialog Component
+  # ──────────────────────────────────────────────────────────────────────────────
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Install @cubone/react-file-manager package'
+    description: >
+      Add @cubone/react-file-manager as a dependency in package.json and run pnpm install.
+      Verify the package installs correctly with its peer dependencies (react >=18) and that
+      pnpm build still succeeds. This is a prerequisite for creating the dialog component.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - '@cubone/react-file-manager listed in package.json dependencies'
+      - 'pnpm install completes without peer dependency warnings for react'
+      - 'pnpm build succeeds (package does not break the build)'
+      - 'Package exports FileManager component and required types'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Create ReactFileManagerDialog config and barrel files'
+    description: >
+      Create the component directory structure following the delete-feature-dialog pattern.
+      Define the ReactFileManagerDialogProps interface in the config file (open, onOpenChange,
+      onSelect, initialPath) and set up the barrel export in index.ts.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Directory exists: src/presentation/web/components/common/react-file-manager-dialog/'
+      - 'Config file exports ReactFileManagerDialogProps interface with open, onOpenChange, onSelect, initialPath'
+      - 'index.ts barrel exports the component and props type'
+      - 'Props match the established dialog pattern (open: boolean, onOpenChange: callback)'
+    tdd:
+      red:
+        - 'Write import test that verifies ReactFileManagerDialogProps can be imported from the config'
+      green:
+        - 'Create react-file-manager-dialog-config.ts with props interface'
+        - 'Create index.ts with barrel exports'
+      refactor:
+        - 'Ensure prop naming conventions match existing dialog components'
+    estimatedEffort: '15min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Implement ReactFileManagerDialog component'
+    description: >
+      Build the main dialog component that wraps @cubone/react-file-manager FileManager inside
+      a shadcn/ui Dialog. Use next/dynamic with ssr: false for the FileManager import. Manage
+      current path in state, fetch directory listing API on open and navigation, handle selection
+      via onFileOpen and onSelectionChange, show loading state with isLoading prop, include
+      "Select Folder" and "Cancel" buttons in the footer, display current path in the header,
+      and add a "Show hidden files" toggle. Handle API errors with toast notifications.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-7
+    acceptanceCriteria:
+      - 'FileManager loaded via next/dynamic with ssr: false (NFR-8, FR-12)'
+      - 'Dialog opens with directory listing fetched from /api/directory/list (FR-16)'
+      - 'Initial path is home directory when initialPath prop is not provided (FR-9)'
+      - 'Clicking a directory navigates into it and fetches new listing (FR-16)'
+      - 'Current path displayed in dialog header as breadcrumb text (FR-17)'
+      - '"Select Folder" button disabled until a directory is selected (FR-14)'
+      - '"Select Folder" calls onSelect(path) and closes dialog (FR-14)'
+      - '"Cancel" button calls onSelect(null) and closes dialog (FR-15)'
+      - 'Backdrop click and Escape key close the dialog (FR-15)'
+      - 'Loading state shown during API fetches (NFR-14)'
+      - '"Show hidden" toggle sends showHidden=true to API'
+      - 'API errors shown as toast notification (NFR-9)'
+      - 'FileManager permissions all set to false (no upload/delete/create/etc.)'
+      - 'Dialog minimum size 600x400px with responsive behavior (NFR-13)'
+    tdd:
+      red:
+        - 'Write test: dialog renders when open=true and calls API on mount'
+        - 'Write test: clicking cancel calls onSelect(null)'
+        - 'Write test: "Select Folder" button is disabled when no directory is selected'
+        - 'Write test: navigating into a directory triggers a new API fetch'
+        - 'Write test: API error triggers toast notification'
+        - 'Write test: show hidden toggle refetches with showHidden=true'
+      green:
+        - 'Create react-file-manager-dialog.tsx with dynamic FileManager import'
+        - 'Implement path state management and API fetching via useEffect + fetch'
+        - 'Wire FileManager props: files, isLoading, permissions, onFileOpen, onSelectionChange'
+        - 'Add Dialog wrapper with header (path display + hidden toggle), content, and footer (buttons)'
+        - 'Import @cubone/react-file-manager/dist/style.css alongside the dynamic component'
+      refactor:
+        - 'Extract API fetch logic into a custom hook (useDirectoryListing) if the component grows complex'
+        - 'Ensure error handling is consistent with app patterns (sonner toast)'
+    estimatedEffort: '2h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create Storybook story for ReactFileManagerDialog'
+    description: >
+      Create a Storybook story file for the dialog component with mock directory data.
+      Mock the /api/directory/list fetch calls to return static directory entries.
+      Include stories for: default (open with directory listing), loading state,
+      empty directory, and error state.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Story file exists at react-file-manager-dialog.stories.tsx'
+      - 'Default story shows the dialog open with mock directory entries'
+      - 'Loading story shows the dialog in loading state'
+      - 'Empty story shows the dialog with no entries'
+      - 'Story renders without SSR errors in Storybook'
+      - 'Story file follows existing meta/StoryObj pattern (see delete-feature-dialog.stories.tsx)'
+    tdd:
+      red:
+        - 'No TDD for stories — stories are visual verification artifacts'
+      green:
+        - 'Create react-file-manager-dialog.stories.tsx with MSW or fetch mock for API calls'
+        - 'Define meta with title "Composed/ReactFileManagerDialog"'
+        - 'Create Default, Loading, EmptyDirectory, and WithSelection story variants'
+      refactor:
+        - 'Ensure mock data is realistic (directory names, paths, timestamps)'
+    estimatedEffort: '45min'
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Phase 4: Pick-Folder Integration & Fallback Logic
+  # ──────────────────────────────────────────────────────────────────────────────
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Add fallback state management to AddRepositoryButton'
+    description: >
+      Modify AddRepositoryButton to manage the ReactFileManagerDialog open state. Add a
+      showReactPicker boolean state. Import the dialog component and render it conditionally.
+      The dialog's onSelect callback feeds into the existing onSelect prop. This task sets up
+      the plumbing without changing the click handler logic (that's task-12).
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'AddRepositoryButton has showReactPicker state (useState)'
+      - 'ReactFileManagerDialog rendered when showReactPicker is true'
+      - 'Dialog onSelect callback calls onSelect prop with selected path'
+      - 'Dialog onSelect(null) closes dialog without calling parent onSelect'
+      - 'Dialog onOpenChange(false) resets showReactPicker state'
+      - 'Existing click handler behavior unchanged (native picker still works)'
+    tdd:
+      red:
+        - 'Write test: when showReactPicker is triggered, dialog renders'
+        - 'Write test: dialog onSelect(path) calls parent onSelect'
+        - 'Write test: dialog onSelect(null) closes dialog without parent callback'
+      green:
+        - 'Add showReactPicker state to AddRepositoryButton'
+        - 'Import and render ReactFileManagerDialog conditionally'
+        - 'Wire onSelect and onOpenChange callbacks'
+      refactor:
+        - 'Ensure loading state and dialog state do not interfere with each other'
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Read feature flag in AddRepositoryButton'
+    description: >
+      Make the reactFileManager feature flag value available to the AddRepositoryButton
+      component. Since AddRepositoryButton is a client component, the flag value needs to
+      be passed as a prop from the parent server component or read from the feature flags
+      state. Determine the most appropriate approach following existing patterns.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-10
+    acceptanceCriteria:
+      - 'AddRepositoryButton can read the reactFileManager flag value'
+      - 'Flag value is consistent with what Settings UI shows'
+      - 'Component re-renders when flag changes (page navigation reload is acceptable)'
+    tdd:
+      red:
+        - 'Write test: component receives and uses useReactFileManager flag prop or context'
+      green:
+        - 'Add useReactFileManager prop to AddRepositoryButtonProps (or use feature flag context)'
+        - 'Thread flag value from parent server component through to AddRepositoryButton'
+      refactor:
+        - 'Follow the pattern used by other feature-flag-dependent components in the codebase'
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Implement pick-folder fallback and flag-based routing'
+    description: >
+      Modify the handleClick function in AddRepositoryButton to implement the core branching
+      logic. When reactFileManager flag is ON, set showReactPicker=true directly (skip native).
+      When flag is OFF, try the native pickFolder() — on success, call onSelect; on error,
+      set showReactPicker=true (fallback). On cancel (null return), do nothing (FR-21).
+      This is the most critical task — it connects all previous work into the final user flow.
+    state: Todo
+    dependencies:
+      - task-10
+      - task-11
+    acceptanceCriteria:
+      - 'Flag ON: clicking button opens React dialog directly, native picker not called (FR-19)'
+      - 'Flag OFF + native success: path returned to onSelect, no dialog (FR-18)'
+      - 'Flag OFF + native cancel: no fallback triggered, null handled gracefully (FR-21)'
+      - 'Flag OFF + native error: React dialog opens as fallback (FR-20)'
+      - 'Loading spinner shows during native picker attempt'
+      - 'Toast error shown if both native and React pickers fail (resolved question 6)'
+    tdd:
+      red:
+        - 'Write test: flag ON -> native picker NOT called, dialog opens'
+        - 'Write test: flag OFF -> native picker called'
+        - 'Write test: flag OFF + native error -> dialog opens as fallback'
+        - 'Write test: flag OFF + native cancel (null) -> NO fallback triggered'
+        - 'Write test: flag OFF + native success -> path returned via onSelect'
+      green:
+        - 'Add conditional check for reactFileManager flag at start of handleClick'
+        - 'When flag ON, setShowReactPicker(true) and return early'
+        - 'When flag OFF, wrap existing pickFolder() in try-catch'
+        - 'In catch block, set showReactPicker(true) instead of re-throwing'
+      refactor:
+        - 'Ensure loading state is properly managed across both paths (native and dialog)'
+        - 'Remove any redundant error handling that is now covered by fallback'
+    estimatedEffort: '1h'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'End-to-end validation and cross-cutting cleanup'
+    description: >
+      Run the full test suite (pnpm test), validate (pnpm validate), and build (pnpm build)
+      to ensure no regressions. Verify Storybook renders all new stories without errors.
+      Check that the feature flag toggle, directory listing API, dialog component, and
+      fallback integration all work together correctly. Fix any issues found.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-5
+      - task-9
+      - task-12
+    acceptanceCriteria:
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'pnpm test passes with all new and existing tests green'
+      - 'pnpm build succeeds without errors'
+      - 'Storybook builds and renders ReactFileManagerDialog stories'
+      - 'Feature flag toggle in Settings UI persists and takes effect'
+      - 'Directory listing API returns correct data for real filesystem paths'
+      - 'React file manager dialog opens, navigates, and selects directories'
+      - 'Fallback from native to React picker works when native fails'
+    tdd: null
+    estimatedEffort: '1h'
+
+totalEstimate: '8h 30min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 13 tasks across 4 phases, totaling approximately 8.5 hours
+  of development effort.
+
+  The work begins with **Phase 1 (Feature Flag Plumbing)** — extending the TypeSpec model,
+  wiring the flag through the resolution logic, and adding the Settings UI toggle. This is
+  the lowest-risk phase since it follows an established pattern exactly (adding a fourth flag
+  alongside skills, envDeploy, and debug).
+
+  **Phase 2 (Directory Listing API)** builds the server-side filesystem browsing endpoint.
+  This is self-contained and testable in isolation — the API route reads directories with
+  security validation (path traversal prevention, absolute path enforcement) and returns
+  filtered entries (directories only, hidden excluded by default). The API is the data source
+  that the React file manager dialog will consume.
+
+  **Phase 3 (Dialog Component)** is the largest phase — it installs the @cubone/react-file-manager
+  package, creates the component directory with all four required files (component, config,
+  stories, index), and implements the dialog with navigation, selection, loading states, and
+  hidden files toggle. The component is wrapped in shadcn/ui Dialog and loaded via dynamic
+  import with SSR disabled.
+
+  **Phase 4 (Integration)** wires everything together by modifying the existing
+  AddRepositoryButton to conditionally use either the native picker or the React dialog
+  based on the feature flag, with automatic fallback from native to React on error. This
+  phase has the most nuanced logic (distinguishing cancel from error for fallback decisions)
+  and touches the most sensitive existing code.
+
+  The final task validates the entire feature end-to-end by running the full test suite,
+  build, and manual verification.

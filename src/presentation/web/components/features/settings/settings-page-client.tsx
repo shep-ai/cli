@@ -351,6 +351,7 @@ export function SettingsPageClient({
     debug: false,
     githubImport: false,
     adoptBranch: false,
+    reactFileManager: false,
   };
 
   // Agent state
@@ -1428,6 +1429,18 @@ export function SettingsPageClient({
               checked={flags.adoptBranch}
               onChange={(v) => {
                 const newFlags = { ...flags, adoptBranch: v };
+                setFlags(newFlags);
+                save({ featureFlags: newFlags });
+              }}
+            />
+            <SwitchRow
+              label="React File Manager"
+              description="Use the built-in React file manager instead of the native OS folder picker"
+              id="flag-reactFileManager"
+              testId="switch-flag-reactFileManager"
+              checked={flags.reactFileManager}
+              onChange={(v) => {
+                const newFlags = { ...flags, reactFileManager: v };
                 setFlags(newFlags);
                 save({ featureFlags: newFlags });
               }}

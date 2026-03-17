@@ -146,6 +146,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     feature_flag_debug: 0,
     feature_flag_github_import: 0,
     feature_flag_adopt_branch: 0,
+    feature_flag_react_file_manager: 0,
     ...overrides,
   };
 }
