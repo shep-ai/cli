@@ -94,6 +94,8 @@ function createMockGitPrService(): IGitPrService {
     getMergeableStatus: vi.fn().mockResolvedValue(undefined),
     revParse: vi.fn().mockResolvedValue('mock-sha'),
     localMergeSquash: vi.fn().mockResolvedValue(undefined),
+    createGitHubRepo: vi.fn().mockResolvedValue('https://github.com/org/repo'),
+    addRemote: vi.fn().mockResolvedValue(undefined),
   };
 }
 

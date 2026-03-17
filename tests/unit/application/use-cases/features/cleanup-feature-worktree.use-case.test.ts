@@ -96,6 +96,8 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
       revParse: vi.fn(),
       localMergeSquash: vi.fn().mockResolvedValue(undefined),
+      createGitHubRepo: vi.fn(),
+      addRemote: vi.fn(),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(
