@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import path from 'node:path';
 import { SdlcLifecycle, PrStatus } from '@/domain/generated/output.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
@@ -518,18 +519,20 @@ describe('AdoptBranchUseCase', () => {
         repositoryPath: repoPath,
       });
 
+      // Get the worktree path from the mock
+      const worktreePath = mockWorktreeService.getWorktreePath('fix-login-bug', repoPath);
+
       // Verify spec initializer was called
       expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
-        '/home/user/.shep/repos/hash/wt/fix-login-bug',
+        worktreePath,
         'fix-login-bug',
         0, // No existing features
         '(adopted from existing branch)'
       );
 
-      // Verify specPath is set to returned path
-      expect(result.feature.specPath).toBe(
-        '/home/user/.shep/repos/hash/wt/fix-login-bug/specs/000-fix-login-bug'
-      );
+      // Verify specPath is set to returned path (platform-independent)
+      const expectedSpecPath = path.join(worktreePath, 'specs', '000-fix-login-bug');
+      expect(result.feature.specPath).toBe(expectedSpecPath);
     });
 
     it('should preserve existing spec directory without calling initialize', async () => {
@@ -541,13 +544,15 @@ describe('AdoptBranchUseCase', () => {
         repositoryPath: repoPath,
       });
 
+      // Get the worktree path from the mock
+      const worktreePath = mockWorktreeService.getWorktreePath('fix-login-bug', repoPath);
+
       // Verify spec initializer was NOT called
       expect(mockSpecInitializer.initialize).not.toHaveBeenCalled();
 
-      // Verify specPath is set to expected directory
-      expect(result.feature.specPath).toBe(
-        '/home/user/.shep/repos/hash/wt/fix-login-bug/specs/000-fix-login-bug'
-      );
+      // Verify specPath is set to expected directory (platform-independent)
+      const expectedSpecPath = path.join(worktreePath, 'specs', '000-fix-login-bug');
+      expect(result.feature.specPath).toBe(expectedSpecPath);
     });
   });
 
