@@ -1504,6 +1504,18 @@ export function SettingsPageClient({
                 save({ featureFlags: newFlags });
               }}
             />
+            <SwitchRow
+              label="GitHub Import"
+              description="Enable GitHub repository import in the web UI"
+              id="flag-githubImport"
+              testId="switch-flag-githubImport"
+              checked={flags.githubImport}
+              onChange={(v) => {
+                const newFlags = { ...flags, githubImport: v };
+                setFlags(newFlags);
+                save({ featureFlags: newFlags });
+              }}
+            />
           </SettingsSection>
           <SectionHint>
             Experimental features that are still under development. Enable at your own risk — they
