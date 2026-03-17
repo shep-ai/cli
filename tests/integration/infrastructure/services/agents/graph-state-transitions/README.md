@@ -29,25 +29,26 @@ graph LR
     A --> VA[validate_spec_analyze]:::validator
     VA --> R[requirements]:::interruptible
     R --> VR[validate_spec_requirements]:::validator
-    VR --> RI{iterate}:::iteration
-    RI -->|approve| RS[research]:::producer
-    RI -->|reject| R
+    VR --> RI{approve?}:::iteration
+    RI -->|yes| RS[research]:::producer
+    RI -->|no| R
     RS --> VRS[validate_research]:::validator
     VRS --> P[plan]:::interruptible
     P --> VP[validate_plan_tasks]:::validator
-    VP --> PI{iterate}:::iteration
-    PI -->|approve| I[implement]:::producer
-    PI -->|reject| P
+    VP --> PI{approve?}:::iteration
+    PI -->|yes| I[implement]:::producer
+    PI -->|no| P
     I --> M[merge]:::interruptible
-    M --> MI{iterate}:::iteration
-    MI -->|approve| E((End)):::startEnd
-    MI -->|reject| M
+    M --> MI{approve?}:::iteration
+    MI -->|yes| E((End)):::startEnd
+    MI -->|no| M
 
     classDef startEnd fill:#F8F9FA,stroke:#5F6368,stroke-width:2px,color:#1A1A2E
     classDef producer fill:#E8F0FE,stroke:#4285F4,stroke-width:1.5px,color:#1A1A2E
     classDef interruptible fill:#FFF3E0,stroke:#F4A226,stroke-width:2px,color:#1A1A2E
     classDef validator fill:#E8F5E9,stroke:#34A853,stroke-width:1px,color:#1A1A2E
     classDef iteration fill:#FCE4EC,stroke:#E91E63,stroke-width:1.5px,color:#1A1A2E
+    classDef reject fill:#FFCDD2,stroke:#E53935,stroke-width:1.5px,color:#1A1A2E
 ```
 
 **Legend**:
@@ -69,16 +70,20 @@ Non-interruptible nodes: `analyze`, `research`, `implement` (always proceed auto
 
 ```
 graph-state-transitions/
-├── README.md              # This file — full specification with diagrams
-├── CLAUDE.md              # Instructions for AI agents extending these tests
-├── setup.ts               # Test context factory (graph, executor, temp dirs)
-├── fixtures.ts            # Valid YAML fixtures for spec, research, plan, tasks
-├── helpers.ts             # Shared utilities (interrupt helpers, resume commands)
-├── approve-flow.test.ts   # Approval path tests (Tests 1, 5)
-├── reject-flow.test.ts    # Rejection iteration tests (Tests 2, 3, 4, 6, 11)
-├── gate-configuration.test.ts  # ApprovalGates combination tests (Tests 7, 8)
-├── merge-flow.test.ts     # Merge node gate tests (Tests 12-16)
-└── feedback-and-timing.test.ts # Feedback propagation and timing tests (Tests 9, 10)
+├── README.md                          # This file — full specification with diagrams
+├── CLAUDE.md                          # Instructions for AI agents extending these tests
+├── setup.ts                           # Test context factory (graph, executor, temp dirs)
+├── fixtures.ts                        # Valid YAML fixtures for spec, research, plan, tasks
+├── helpers.ts                         # Shared utilities (interrupt helpers, resume commands)
+├── approve-flow.test.ts               # Approval path tests (Tests 1, 5)
+├── reject-flow.test.ts                # Rejection iteration tests (Tests 2, 3, 4, 6, 11)
+├── reject-feedback-propagation.test.ts # Rejection feedback stored per-phase, propagated to prompts
+├── gate-configuration.test.ts         # ApprovalGates combination tests (Tests 7, 8)
+├── merge-flow.test.ts                 # Merge node gate tests (Tests 12-16)
+├── evidence-flow.test.ts              # Evidence sub-agent collection within implement node
+├── feedback-and-timing.test.ts        # Feedback propagation and timing tests (Tests 9, 10)
+├── resume-after-error.test.ts         # Resume from failed node (non-merge) with persistent checkpointer
+└── resume-after-error-merge.test.ts   # Resume from failed merge node — reject/approve/retry paths
 ```
 
 ## Test Cases
