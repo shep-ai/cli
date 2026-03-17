@@ -33,8 +33,6 @@ export interface NotificationSettingsSectionProps {
 
 export function NotificationSettingsSection({ notifications }: NotificationSettingsSectionProps) {
   const [inApp, setInApp] = useState(notifications.inApp.enabled);
-  const [browser, setBrowser] = useState(notifications.browser.enabled);
-  const [desktop, setDesktop] = useState(notifications.desktop.enabled);
   const [events, setEvents] = useState({ ...notifications.events });
   const [isPending, startTransition] = useTransition();
   const [showSaved, setShowSaved] = useState(false);
@@ -61,28 +59,20 @@ export function NotificationSettingsSection({ notifications }: NotificationSetti
   function buildFullPayload(
     overrides: {
       inApp?: boolean;
-      browser?: boolean;
-      desktop?: boolean;
       events?: typeof events;
     } = {}
   ) {
     return {
       notifications: {
         inApp: { enabled: overrides.inApp ?? inApp },
-        browser: { enabled: overrides.browser ?? browser },
-        desktop: { enabled: overrides.desktop ?? desktop },
         events: overrides.events ?? events,
       },
     };
   }
 
-  function handleChannelChange(
-    channel: 'inApp' | 'browser' | 'desktop',
-    setter: (v: boolean) => void,
-    value: boolean
-  ) {
-    setter(value);
-    save(buildFullPayload({ [channel]: value }));
+  function handleInAppChange(value: boolean) {
+    setInApp(value);
+    save(buildFullPayload({ inApp: value }));
   }
 
   function handleEventChange(key: string, value: boolean) {
@@ -118,25 +108,7 @@ export function NotificationSettingsSection({ notifications }: NotificationSetti
               id="notif-in-app"
               data-testid="switch-in-app"
               checked={inApp}
-              onCheckedChange={(v) => handleChannelChange('inApp', setInApp, v)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="notif-browser">Browser</Label>
-            <Switch
-              id="notif-browser"
-              data-testid="switch-browser"
-              checked={browser}
-              onCheckedChange={(v) => handleChannelChange('browser', setBrowser, v)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="notif-desktop">Desktop</Label>
-            <Switch
-              id="notif-desktop"
-              data-testid="switch-desktop"
-              checked={desktop}
-              onCheckedChange={(v) => handleChannelChange('desktop', setDesktop, v)}
+              onCheckedChange={handleInAppChange}
             />
           </div>
         </div>
