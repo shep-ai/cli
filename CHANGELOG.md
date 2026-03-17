@@ -1,3 +1,9 @@
+# [1.126.0](https://github.com/shep-ai/cli/compare/v1.125.0...v1.126.0) (2026-03-17)
+
+### Features
+
+- **web:** persist dev server state and fix ci watch bug ([#402](https://github.com/shep-ai/cli/issues/402)) ([d77838b](https://github.com/shep-ai/cli/commit/d77838b4bcf976b53997c5fbb54bf67adedad188))
+
 # [1.125.0](https://github.com/shep-ai/cli/compare/v1.124.0...v1.125.0) (2026-03-17)
 
 ### Features
