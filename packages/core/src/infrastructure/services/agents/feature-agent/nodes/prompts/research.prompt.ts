@@ -56,7 +56,8 @@ Use this YAML structure:
     - (list all technologies evaluated or needed)
 
   relatedLinks:
-    - (relevant documentation URLs discovered during research)
+    - title: '(Human-readable title for the resource)'
+      url: '(URL to external documentation or reference)'
 
   decisions:
     - title: '(Decision Title — e.g., "Database Schema Design")'

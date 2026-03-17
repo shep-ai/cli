@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: RelatedLink.yaml
+type: object
+properties:
+  title:
+    type: string
+    description: Human-readable title describing the linked resource
+  url:
+    type: string
+    description: URL to the external documentation, reference, or resource
+required:
+  - title
+  - url
+description: External link with title and URL
