@@ -1,3 +1,9 @@
+# [1.127.0](https://github.com/shep-ai/cli/compare/v1.126.0...v1.127.0) (2026-03-17)
+
+### Features
+
+- **domain:** add adopt-existing-branch to import git branches as tracked features ([#394](https://github.com/shep-ai/cli/issues/394)) ([db5119d](https://github.com/shep-ai/cli/commit/db5119d7ca9bcd754ac40b9b63a7f8dc9e2a1748))
+
 # [1.126.0](https://github.com/shep-ai/cli/compare/v1.125.0...v1.126.0) (2026-03-17)
 
 ### Features
