@@ -711,6 +711,26 @@ describe('DeleteFeatureUseCase', () => {
       await expect(useCase.execute('feat-123-full-uuid', { cleanup: true })).resolves.toBeDefined();
     });
 
+    it('should preserve deletedAt when updating pr.status after remote branch deletion', async () => {
+      const feature = createMockFeature({
+        pr: { number: 42, status: PrStatus.Open, url: 'https://github.com/test/repo/pull/42' },
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      // The pr.status update call should preserve the deletedAt set by softDelete
+      const updateCalls = (mockFeatureRepo.update as ReturnType<typeof vi.fn>).mock.calls;
+      const prUpdateCall = updateCalls.find(
+        (call: unknown[]) => (call[0] as Feature)?.pr?.status === PrStatus.Closed
+      );
+      expect(prUpdateCall).toBeDefined();
+      // deletedAt must be set (not undefined/null) to avoid un-soft-deleting the feature
+      expect((prUpdateCall![0] as Feature).deletedAt).toBeDefined();
+      expect((prUpdateCall![0] as Feature).deletedAt).toBeInstanceOf(Date);
+    });
+
     it('should not update pr.status when closePr is false', async () => {
       const feature = createMockFeature({
         pr: { number: 42, status: PrStatus.Open, url: 'https://github.com/test/repo/pull/42' },

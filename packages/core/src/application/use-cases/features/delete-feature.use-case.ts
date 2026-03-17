@@ -100,6 +100,10 @@ export class DeleteFeatureUseCase {
     });
     // Soft-delete: sets deletedAt, hiding from normal queries
     await this.featureRepo.softDelete(feature.id);
+    // Sync the in-memory feature object so subsequent update() calls
+    // (e.g. PR status update in cleanup) don't overwrite deleted_at back to null.
+    feature.lifecycle = SdlcLifecycle.Deleting;
+    feature.deletedAt = new Date();
   }
 
   /** Recursively cleanup all children (depth-first). */

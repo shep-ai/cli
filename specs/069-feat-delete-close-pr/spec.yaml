@@ -528,3 +528,10 @@ rejectionFeedback:
       you can do your tests with https://github.com/arielshad/bitch-repo/pull/1
     phase: merge
     timestamp: '2026-03-17T08:53:25.365Z'
+  - iteration: 4
+    message: >-
+      The remote branch and pr closed and deleted the local feature in shep
+      still visible (it should have been deleted and worktree removed based on
+      the flags selected)
+    phase: merge
+    timestamp: '2026-03-17T12:31:21.455Z'
