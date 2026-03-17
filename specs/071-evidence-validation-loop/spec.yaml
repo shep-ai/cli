@@ -34,14 +34,14 @@ openQuestions:
           node as an internal loop. Simpler graph topology, no new nodes needed,
           validation is transparent to the graph. Follows the pattern used in
           other nodes that handle their own retry logic internally.
-        selected: true
+        selected: false
       - option: Separate validate-evidence + retry-evidence nodes
         description: >-
           Extract evidence validation into a standalone node with conditional
           routing (similar to validate.node.ts + repair.node.ts pattern). More
           explicit in the graph visualization, better separation of concerns,
           but adds graph complexity and two new nodes.
-        selected: false
+        selected: true
     selectionRationale: >-
       Integrated approach is recommended because evidence collection is already
       a sub-process within the implement phase (not a top-level graph node), and
@@ -50,7 +50,7 @@ openQuestions:
       loop within createEvidenceNode, similar to how retryExecute works for
       agent execution failures. This keeps the graph topology simple while still
       providing robust validation.
-    answer: Integrated within evidence.node.ts
+    answer: Separate validate-evidence + retry-evidence nodes
   - question: What criteria should trigger a retry during evidence validation?
     resolved: true
     options:
@@ -89,13 +89,13 @@ openQuestions:
           (default 3 retries from validate.node.ts). Predictable behavior,
           prevents infinite loops, aligns with existing retry patterns in the
           codebase.
-        selected: true
+        selected: false
       - option: Configurable limit (settings-based)
         description: >-
           Allow users to configure max retry attempts via
           settings.workflow.evidenceRetries. More flexible but adds
           configuration complexity and requires settings schema updates.
-        selected: false
+        selected: true
       - option: Unlimited retries until success
         description: >-
           Keep retrying until evidence passes validation. Could lead to infinite
@@ -111,7 +111,7 @@ openQuestions:
       would be problematic. The graceful degradation requirement (FR-8) means we
       must eventually accept partial evidence and proceed to merge, making a
       fixed limit appropriate.
-    answer: Fixed limit (3 retries)
+    answer: Configurable limit (settings-based)
   - question: >-
       Should validation failures provide specific feedback to the agent for
       retry attempts?
@@ -156,14 +156,14 @@ openQuestions:
           Validate Evidence[] metadata AND verify files exist at the specified
           paths with non-zero size. Catches missing/empty files but does not
           inspect image contents or parse test output.
-        selected: true
+        selected: false
       - option: Deep content inspection
         description: >-
           Validate Evidence[] metadata, verify file existence, AND inspect file
           contents (parse images to verify valid format, parse test output to
           confirm passing tests). Most thorough but significantly more complex
           and slower.
-        selected: false
+        selected: true
     selectionRationale: >-
       File existence + metadata validation is recommended as the sweet spot
       between thoroughness and complexity. It catches the most common evidence
@@ -174,7 +174,7 @@ openQuestions:
       frameworks). The agent-generated descriptions and types are sufficient for
       determining evidence intent; file existence validation ensures the
       evidence is actually capturable and accessible.
-    answer: File existence + metadata validation
+    answer: Deep content inspection
   - question: >-
       What should happen when all retry attempts are exhausted and evidence is
       still insufficient?
@@ -290,8 +290,8 @@ content: >
   - [ ] Validation feedback is specific and actionable (lists missing evidence
   by task/type)
 
-  - [ ] Each evidence collection attempt is recorded as a separate phase activity
-  (evidence:attempt-N) with timing data
+  - [ ] Each evidence collection attempt is recorded as a separate phase
+  activity (evidence:attempt-N) with timing data
 
 
   ## Functional Requirements
@@ -407,9 +407,9 @@ content: >
 
 
   - **NFR-11**: Each evidence collection attempt (including retries) MUST be
-  recorded as a separate phase activity using recordPhaseStart('evidence:attempt-N')
-  and recordPhaseEnd() to enable timing analysis and visibility into retry loop
-  performance.
+  recorded as a separate phase activity using
+  recordPhaseStart('evidence:attempt-N') and recordPhaseEnd() to enable timing
+  analysis and visibility into retry loop performance.
 
 
   ## Product Questions & AI Recommendations
@@ -461,8 +461,8 @@ content: >
 
   |
   packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence.node.ts
-  | High | Must add validation logic and retry loop around evidence collection, with
-  each attempt tracked via recordPhaseStart('evidence:attempt-N') and
+  | High | Must add validation logic and retry loop around evidence collection,
+  with each attempt tracked via recordPhaseStart('evidence:attempt-N') and
   recordPhaseEnd() |
 
   |
@@ -587,7 +587,8 @@ content: >
   validationRetries or add evidenceRetries)
 
   6. Wrap each evidence collection attempt in
-  recordPhaseStart('evidence:attempt-N') / recordPhaseEnd() for activity tracking
+  recordPhaseStart('evidence:attempt-N') / recordPhaseEnd() for activity
+  tracking
 
   7. Write unit tests for validation logic (all validation rules, file checks,
   edge cases)

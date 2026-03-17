@@ -253,8 +253,8 @@ describe('Graph State Transitions › Resume After Error at Merge', () => {
     expect(executedNodes).not.toContain('research');
     expect(executedNodes).not.toContain('plan');
     expect(executedNodes).not.toContain('implement');
-    // Merge re-executes (commit/push/PR call) — may include evidence re-run
-    expect(executor.callCount).toBeLessThanOrEqual(2);
+    // Merge re-executes (1 call) + evidence may re-run (up to 3 calls) = up to 4
+    expect(executor.callCount).toBeLessThanOrEqual(4);
   });
 
   it('should resume from failed merge with rejection feedback via Command', async () => {
@@ -330,7 +330,8 @@ describe('Graph State Transitions › Resume After Error at Merge', () => {
     expect(executedNodes).not.toContain('research');
     expect(executedNodes).not.toContain('plan');
     expect(executedNodes).not.toContain('implement');
-    expect(executor.callCount).toBeLessThanOrEqual(2);
+    // Merge re-executes (1 call) + evidence may re-run (up to 3 calls) = up to 4
+    expect(executor.callCount).toBeLessThanOrEqual(4);
   });
 
   it('should resume from failed merge with plain re-invoke (no Command) — current Retry behavior', async () => {
@@ -358,7 +359,8 @@ describe('Graph State Transitions › Resume After Error at Merge', () => {
     expect(executedNodes).not.toContain('research');
     expect(executedNodes).not.toContain('plan');
     expect(executedNodes).not.toContain('implement');
-    expect(executor.callCount).toBeLessThanOrEqual(2);
+    // Merge re-executes (1 call) + evidence may re-run (up to 3 calls) = up to 4
+    expect(executor.callCount).toBeLessThanOrEqual(4);
   });
 
   it('should handle fail-at-merge then reject then approve cycle', async () => {
@@ -385,7 +387,8 @@ describe('Graph State Transitions › Resume After Error at Merge', () => {
     expect(executedNodes).not.toContain('research');
     expect(executedNodes).not.toContain('plan');
     expect(executedNodes).not.toContain('implement');
-    expect(executor.callCount).toBeLessThanOrEqual(2);
+    // Merge re-executes (1 call) + evidence may re-run (up to 3 calls) = up to 4
+    expect(executor.callCount).toBeLessThanOrEqual(4);
   });
 
   it('should resume from failed merge with gated merge (allowMerge=false) — should interrupt after recovery', async () => {
@@ -433,6 +436,7 @@ describe('Graph State Transitions › Resume After Error at Merge', () => {
     expect(executedNodes).not.toContain('research');
     expect(executedNodes).not.toContain('plan');
     expect(executedNodes).not.toContain('implement');
-    expect(executor.callCount).toBeLessThanOrEqual(2);
+    // Merge re-executes (1 call) + evidence may re-run (up to 3 calls) = up to 4
+    expect(executor.callCount).toBeLessThanOrEqual(4);
   });
 });

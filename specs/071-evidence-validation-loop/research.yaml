@@ -37,7 +37,7 @@ decisions:
     chosen: 'Internal validation loop within evidence.node.ts'
     rejected:
       - 'Separate validate-evidence + retry-evidence graph nodes — Would require restructuring the implement phase and adding two new nodes to the graph topology. Evidence collection is already a sub-process within the implement phase, not a top-level graph node. Adding new nodes would violate the principle that evidence is a sub-phase of implementation, not a standalone phase. The spec explicitly resolved this question in favor of the integrated approach.'
-      - 'Hybrid approach (validation node + internal retry) — Unnecessary complexity. If we're keeping evidence as a sub-process, there's no benefit to having a separate validation node. The validation and retry logic are tightly coupled to evidence collection and should live in the same module.'
+      - 'Hybrid approach (validation node + internal retry) — Unnecessary complexity. If we''re keeping evidence as a sub-process, there''s no benefit to having a separate validation node. The validation and retry logic are tightly coupled to evidence collection and should live in the same module.'
     rationale: >
       The integrated approach is architecturally sound because evidence collection
       is fundamentally a sub-phase within the implement node workflow, not a
@@ -196,7 +196,7 @@ decisions:
   - title: 'Phase Timing Tracking for Retry Attempts'
     chosen: 'Record each retry as separate phase activity (evidence:attempt-N)'
     rejected:
-      - 'Single phase activity for entire evidence collection (including retries) — Would not expose retry iteration count or per-attempt timing in the activities table. The spec FR-12 explicitly requires "each evidence collection attempt (initial + retries) MUST be recorded as a separate phase activity" to enable timing and iteration tracking. This was NOT an option in the spec resolution — it's a hard requirement from the rejection feedback.'
+      - 'Single phase activity for entire evidence collection (including retries) — Would not expose retry iteration count or per-attempt timing in the activities table. The spec FR-12 explicitly requires "each evidence collection attempt (initial + retries) MUST be recorded as a separate phase activity" to enable timing and iteration tracking. This was NOT an option in the spec resolution — it''s a hard requirement from the rejection feedback.'
       - 'Record retries as sub-phases within a parent activity — Would require extending the phase timing schema to support hierarchical activities. Adds complexity to the timing repository and UI rendering. The simpler approach is flat activities with iteration suffixes (evidence:attempt-1, evidence:attempt-2, etc.), following the existing pattern for rejected phases (requirements:2, requirements:3 after rejections).'
     rationale: >
       Separate phase activities for each attempt provide full visibility into retry

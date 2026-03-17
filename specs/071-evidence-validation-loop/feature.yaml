@@ -1,0 +1,40 @@
+feature:
+  id: 071-evidence-validation-loop
+  name: evidence-validation-loop
+  number: 71
+  branch: feat/071-evidence-validation-loop
+  lifecycle: research
+  createdAt: '2026-03-17T16:33:46Z'
+status:
+  phase: implementing-phase-5
+  progress:
+    completed: 10
+    total: 14
+    percentage: 71
+  currentTask: task-11
+  lastUpdated: '2026-03-17T18:28:27.456Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-17T16:33:46Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []
