@@ -1,0 +1,178 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: react-file-manager
+number: 069
+branch: feat/069-react-file-manager
+oneLiner: Add react-file-manager as fallback folder picker when native OS dialog (zenity) is unavailable, with feature flag toggle
+userQuery: >
+  Currently the system is using os file manager to open new repository,
+  there is edge case for example on arch linux there might be no file manager (zenity).
+  Add fallback to use https://github.com/Saifullah-dev/react-file-manager instead.
+  Also in the settings (under feature flags section) add a toggle to change the
+  file manager to use the react one instead of the os built in one.
+summary: >
+  Add @cubone/react-file-manager as an in-app fallback folder picker for platforms
+  where native OS dialogs (zenity on Linux) are unavailable. Introduce a new
+  "reactFileManager" feature flag in Settings so users can explicitly prefer the
+  React-based picker over the native OS one. The React picker will render as a
+  modal dialog in the web UI, backed by a server-side directory listing API.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - "@cubone/react-file-manager"
+  - React 19
+  - Next.js 16 (App Router, Server Actions)
+  - TypeSpec (domain model generation)
+  - shadcn/ui (Dialog, Switch)
+  - Tailwind CSS
+  - Vitest (unit tests)
+  - Storybook 8
+
+relatedLinks:
+  - https://github.com/Saifullah-dev/react-file-manager
+  - https://www.npmjs.com/package/@cubone/react-file-manager
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Should the React file manager also replace the file picker (pickFiles) or only the folder picker (pickFolder)?"
+  - "Should the fallback be automatic (detect zenity missing and switch) or manual (feature flag only)?"
+  - "What directory depth/permissions should the server-side listing API expose — full filesystem or scoped to home?"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The current folder picker implementation (`FolderDialogService`) relies on platform-specific
+  native OS commands: `osascript` on macOS, `zenity` on Linux, and PowerShell on Windows.
+  On minimal Linux distributions (e.g., Arch Linux, Alpine, headless servers), `zenity` may
+  not be installed, causing the folder picker to throw an error and leaving users unable to
+  add repositories through the web UI.
+
+  The feature request has two parts:
+  1. **Fallback**: When the native OS picker fails (e.g., zenity not found), fall back to an
+     in-app React-based file manager component (`@cubone/react-file-manager`).
+  2. **Feature flag**: Add a toggle in Settings > Feature Flags to let users explicitly prefer
+     the React file manager over the native OS dialog.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  This is a monorepo (`@shepai/cli`) using pnpm workspaces with strict Clean Architecture:
+
+  ```
+  packages/core/src/
+    domain/           → Core business logic, TypeSpec-generated models
+    application/      → Use cases, output port interfaces
+    infrastructure/   → External services (dialog services, DB, agents)
+  src/presentation/
+    cli/              → Commander-based CLI
+    tui/              → Inquirer-based TUI
+    web/              → Next.js 16 App Router web UI
+      components/
+        ui/           → Tier 0: shadcn/ui primitives
+        common/       → Tier 1: Reusable composed components
+        layouts/      → Tier 2: Page shells
+        features/     → Tier 3: Domain-specific features (settings, etc.)
+      app/
+        actions/      → Server actions (pick-folder, update-settings, etc.)
+        api/          → API routes (dialog/pick-files, etc.)
+      lib/            → Utilities (feature-flags.ts, etc.)
+  tsp/                → TypeSpec domain model definitions (source of truth)
+  specs/              → Feature specifications
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture** with inward dependency flow (domain ← application ← infrastructure ← presentation)
+  - **Dependency injection** via `tsyringe` container
+  - **TypeSpec-first** domain models — generated to `packages/core/src/domain/generated/output.ts`
+  - **Repository pattern** for all data access
+  - **Server actions** bridge web UI to backend services
+  - **Feature flags** stored in SQLite Settings singleton, resolved DB-first with env var fallback
+
+  ### Current Folder Picker Flow
+
+  ```
+  AddRepositoryButton (client component)
+    → pick-folder.ts (client wrapper)
+      → pickFolder() server action
+        → FolderDialogService.pickFolder()
+          → execSync("zenity --file-selection --directory ...")  [Linux]
+          → execSync("osascript ...")                            [macOS]
+          → execSync("powershell ...")                           [Windows]
+  ```
+
+  Key files:
+  - `packages/core/src/infrastructure/services/folder-dialog.service.ts` — Native OS dialog
+  - `src/presentation/web/app/actions/pick-folder.ts` — Server action wrapper
+  - `src/presentation/web/components/common/add-repository-button/pick-folder.ts` — Client wrapper
+  - `src/presentation/web/components/common/add-repository-button/add-repository-button.tsx` — UI button
+
+  ### Current Feature Flags System
+
+  - **TypeSpec model** (`tsp/domain/entities/settings.tsp`): `FeatureFlags { skills, envDeploy, debug }`
+  - **Resolution** (`src/presentation/web/lib/feature-flags.ts`): DB-primary, env var fallback
+  - **UI** (`src/presentation/web/components/features/settings/feature-flags-settings-section.tsx`): Toggle switches per flag
+  - **Persistence**: SQLite Settings singleton via `updateSettingsAction` server action
+
+  ### Relevant Technologies
+
+  - **React 19.2.4** + **Next.js 16.1.6** (App Router with server components/actions)
+  - **shadcn/ui** (Radix primitives + Tailwind) for UI components
+  - **@cubone/react-file-manager** — Target library for in-app file browsing
+  - **TypeSpec** for domain model generation
+  - **Vitest 4.0.18** for testing, **Storybook 8.6.15** for component stories
+
+  ## Success Criteria
+
+  - [ ] New `reactFileManager` boolean flag added to `FeatureFlags` TypeSpec model (default: `false`)
+  - [ ] Feature flag toggle appears in Settings > Feature Flags section
+  - [ ] When flag is enabled OR native picker fails, the React file manager opens in a modal dialog
+  - [ ] React file manager shows real filesystem directories via server-side API
+  - [ ] User can browse directories and select a folder, returning the path to `AddRepositoryButton`
+  - [ ] Native OS picker remains the default behavior when available and flag is off
+  - [ ] Unit tests cover: flag resolution, fallback logic, directory listing API
+  - [ ] Storybook stories for the React file manager modal component
+  - [ ] Works on macOS, Linux (with and without zenity), and Windows
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/settings.tsp` | Medium | Add `reactFileManager` boolean to `FeatureFlags` model |
+  | `packages/core/src/domain/generated/output.ts` | Low | Auto-regenerated from TypeSpec — no manual edits |
+  | `src/presentation/web/lib/feature-flags.ts` | Medium | Add resolution logic for new `reactFileManager` flag |
+  | `src/presentation/web/components/features/settings/feature-flags-settings-section.tsx` | Medium | Add toggle row for the new flag |
+  | `src/presentation/web/components/common/add-repository-button/` | High | Core integration point — conditionally use React picker vs native |
+  | `src/presentation/web/components/common/add-repository-button/pick-folder.ts` | High | Add fallback logic: try native → catch → open React picker |
+  | `src/presentation/web/app/actions/pick-folder.ts` | Medium | May need to expose "native picker available" check |
+  | `src/presentation/web/app/api/` (new route) | High | New API endpoint to list directory contents for React file manager |
+  | `src/presentation/web/components/common/` (new component) | High | New React file manager modal/dialog component |
+  | `packages/core/src/infrastructure/services/folder-dialog.service.ts` | Low | May add `isAvailable()` method to check if native picker works |
+
+  ## Dependencies
+
+  - **@cubone/react-file-manager** — New npm dependency for in-app file browsing UI
+  - **Node.js `fs` module** — Server-side directory listing for the API endpoint
+  - **Existing**: shadcn/ui Dialog, Settings update infrastructure, feature flags system
+
+  ## Size Estimate
+
+  **M** — This feature touches multiple layers (TypeSpec model, feature flags, server API, new React component,
+  integration with existing picker flow) but each change is well-scoped. The main complexity is:
+  1. Server-side directory listing API (new, but straightforward `fs.readdir`)
+  2. React file manager modal component (new component + Storybook story)
+  3. Fallback logic in the pick-folder flow (conditional branching)
+  4. TypeSpec model + feature flag plumbing (established pattern, low risk)
+
+  Estimated at 2-3 days of focused work.
+
+  ---
+
+  _Analysis complete — proceed with research phase_
