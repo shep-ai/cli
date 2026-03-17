@@ -27,7 +27,12 @@ export interface RepoGitInfo {
 // getGraphData() always reads from cache (zero git calls), and only spawns git
 // processes when the cache entry is older than the TTL.
 const GIT_INFO_TTL_MS = 30_000;
-const gitInfoCache = new Map<string, { sha: string; data: RepoGitInfo; checkedAt: number }>();
+
+type GitCacheEntry =
+  | { kind: 'repo'; sha: string; data: RepoGitInfo; checkedAt: number }
+  | { kind: 'not-a-repo'; checkedAt: number };
+
+const gitInfoCache = new Map<string, GitCacheEntry>();
 
 async function gitCommand(cwd: string, args: string[]): Promise<string | null> {
   try {
@@ -45,10 +50,14 @@ const FIELD_SEP = '\x1f'; // ASCII Unit Separator — safe in git output and chi
 async function refreshRepoGitInfo(repo: Repository): Promise<void> {
   try {
     const headSha = await gitCommand(repo.path, ['rev-parse', 'HEAD']);
-    if (!headSha) return;
+    if (!headSha) {
+      // Not a git repo (or bare/broken) — cache this so the UI can show it
+      gitInfoCache.set(repo.path, { kind: 'not-a-repo', checkedAt: Date.now() });
+      return;
+    }
 
     const cached = gitInfoCache.get(repo.path);
-    if (cached?.sha === headSha) {
+    if (cached?.kind === 'repo' && cached.sha === headSha) {
       // HEAD unchanged — just bump checkedAt
       cached.checkedAt = Date.now();
       return;
@@ -85,6 +94,7 @@ async function refreshRepoGitInfo(repo: Repository): Promise<void> {
     }
 
     gitInfoCache.set(repo.path, {
+      kind: 'repo',
       sha: headSha,
       checkedAt: Date.now(),
       data: {
@@ -99,27 +109,36 @@ async function refreshRepoGitInfo(repo: Repository): Promise<void> {
   }
 }
 
+export type GitInfoResult =
+  | { status: 'loading' }
+  | { status: 'ready'; data: RepoGitInfo }
+  | { status: 'not-a-repo' };
+
 /**
  * Return cached git info for a repo. If the cache is stale (> TTL),
  * kick off a fire-and-forget refresh so the NEXT call gets fresh data.
  * Never blocks getGraphData() with git subprocess calls.
  */
-function getRepoGitInfo(repo: Repository): RepoGitInfo | null {
+function getRepoGitInfo(repo: Repository): GitInfoResult {
   const cached = gitInfoCache.get(repo.path);
   const now = Date.now();
 
   if (!cached) {
-    // First time — trigger async refresh, return null for this call
+    // First time — trigger async refresh, return loading for this call
     void refreshRepoGitInfo(repo);
-    return null;
+    return { status: 'loading' };
   }
 
   if (now - cached.checkedAt >= GIT_INFO_TTL_MS) {
-    // Stale — trigger async refresh, return stale data immediately
+    // Stale — trigger async refresh, return current data immediately
     void refreshRepoGitInfo(repo);
   }
 
-  return cached.data;
+  if (cached.kind === 'not-a-repo') {
+    return { status: 'not-a-repo' };
+  }
+
+  return { status: 'ready', data: cached.data };
 }
 
 export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: Edge[] }> {
@@ -132,9 +151,13 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
   // Read git info from cache (zero git calls). Stale entries trigger
   // a fire-and-forget background refresh for the next poll cycle.
   const repoGitInfoMap = new Map<string, RepoGitInfo>();
+  const repoGitStatusMap = new Map<string, 'loading' | 'ready' | 'not-a-repo'>();
   for (const repo of repositories) {
-    const info = getRepoGitInfo(repo);
-    if (info) repoGitInfoMap.set(repo.path, info);
+    const result = getRepoGitInfo(repo);
+    repoGitStatusMap.set(repo.path, result.status);
+    if (result.status === 'ready') {
+      repoGitInfoMap.set(repo.path, result.data);
+    }
   }
 
   // PR/CI status is kept fresh by PrSyncWatcher (30s background poll).
@@ -153,6 +176,7 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
     commitEvidence: workflow.commitEvidence,
     ciWatchEnabled: workflow.ciWatchEnabled,
     repoGitInfo: repoGitInfoMap,
+    repoGitStatus: repoGitStatusMap,
   });
 
   // Enrich feature nodes with deployment status

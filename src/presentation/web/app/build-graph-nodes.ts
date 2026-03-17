@@ -45,6 +45,8 @@ export interface BuildGraphNodesOptions {
     string,
     { branch: string; commitMessage: string; committer: string; behindCount: number | null }
   >;
+  /** Git info resolution status keyed by repository path */
+  repoGitStatus?: Map<string, 'loading' | 'ready' | 'not-a-repo'>;
 }
 
 export function buildGraphNodes(
@@ -77,6 +79,7 @@ export function buildGraphNodes(
     coveredPaths.add(normalizedRepoPath);
     const repoNodeId = `repo-${repo.id}`;
     const gitInfo = options?.repoGitInfo?.get(repo.path);
+    const gitInfoStatus = options?.repoGitStatus?.get(repo.path) ?? 'loading';
     nodes.push({
       id: repoNodeId,
       type: 'repositoryNode',
@@ -87,6 +90,7 @@ export function buildGraphNodes(
         id: repo.id,
         createdAt:
           repo.createdAt instanceof Date ? repo.createdAt.getTime() : Number(repo.createdAt),
+        gitInfoStatus,
         ...(gitInfo && {
           branch: gitInfo.branch,
           commitMessage: gitInfo.commitMessage,

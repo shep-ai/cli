@@ -551,6 +551,7 @@ export function useControlCenterState(
         repositoryPath: path,
         id: tempId,
         createdAt: Date.now(),
+        gitInfoStatus: 'loading',
       });
 
       addRepository({ path, name: repoName })
