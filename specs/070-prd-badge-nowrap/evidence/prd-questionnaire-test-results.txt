@@ -1,0 +1,50 @@
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mcallbacks[2m > [22mapprove button calls onApprove with finalAction.id[32m 32[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mprogress bar[2m > [22mprogress bar width reflects selections/questions ratio[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mprogress bar[2m > [22mprogress bar hidden when no selections and not processing[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mprogress bar[2m > [22mprogress bar visible when selections exist[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mprocessing state[2m > [22misProcessing=true disables option buttons, nav buttons, and chat input[32m 64[2mms[22m[39m
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mdoes not render revision input when onReject is undefined[32m 33[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mrenders revision input on last step when onReject is provided[32m 45[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mrenders revision input on all steps when onReject is provided[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mrevision input is disabled when isRejecting is true[32m 45[2mms[22m[39m
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's play() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mrevision input is disabled when isProcessing is true[32m 48[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22msubmitting revision input calls onReject with feedback[32m 82[2mms[22m[39m
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22mreject functionality[2m > [22mapprove button is disabled when isRejecting is true[32m 48[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/prd-questionnaire/prd-questionnaire.test.tsx[2m > [22mPrdQuestionnaire[2m > [22maccessibility[2m > [22mchat input has aria-label attribute when onReject is provided[32m 10[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m24 passed[39m[22m[90m (24)[39m
+[2m   Start at [22m 14:42:27
+[2m   Duration [22m 2.35s[2m (transform 226ms, setup 197ms, import 554ms, tests 851ms, environment 624ms)[22m
+
