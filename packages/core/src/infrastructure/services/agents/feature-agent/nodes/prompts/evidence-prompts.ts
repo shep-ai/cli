@@ -14,6 +14,7 @@
 import { join, dirname, relative } from 'node:path';
 import { readSpecFile, buildCommitPushBlock } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
+import type { ValidationError } from '../evidence-output-parser.js';
 
 export interface EvidencePromptOptions {
   /** Whether to commit evidence to the worktree / feature branch */
@@ -225,4 +226,71 @@ If no evidence can be captured (e.g., no UI to screenshot, no tests to run), out
 - If a screenshot capture fails, document the failure reason in the evidence description and try alternative approaches before giving up
 - Do NOT capture evidence for documentation-only changes or spec files
 ${commitSection}`;
+}
+
+function formatValidationErrors(errors: ValidationError[]): string {
+  if (errors.length === 0) return '';
+
+  const uiErrors = errors.filter((e) => e.type === 'ui');
+  const completenessErrors = errors.filter((e) => e.type === 'completeness');
+  const fileErrors = errors.filter((e) => e.type === 'fileExistence');
+
+  const sections: string[] = [];
+
+  if (uiErrors.length > 0) {
+    sections.push(
+      `### Missing App-Level Screenshots\n\n${uiErrors.map((e) => `- ${e.message}`).join('\n')}`
+    );
+  }
+
+  if (completenessErrors.length > 0) {
+    sections.push(
+      `### Missing Evidence by Task Type\n\n${completenessErrors
+        .map((e) => `- ${e.message}`)
+        .join('\n')}`
+    );
+  }
+
+  if (fileErrors.length > 0) {
+    sections.push(`### File Issues\n\n${fileErrors.map((e) => `- ${e.message}`).join('\n')}`);
+  }
+
+  return sections.join('\n\n');
+}
+
+/**
+ * Build a retry prompt for evidence collection that augments the base evidence
+ * prompt with structured validation feedback listing specific failures.
+ *
+ * Follows the repair.node.ts pattern of passing validation errors into the
+ * retry prompt so the agent can focus on fixing specific gaps rather than
+ * recollecting all evidence blindly.
+ *
+ * When errors is empty, returns the base prompt without a feedback section.
+ */
+export function buildEvidenceRetryPrompt(
+  state: FeatureAgentState,
+  errors: ValidationError[],
+  options: EvidencePromptOptions = { commitEvidence: false }
+): string {
+  const basePrompt = buildEvidencePrompt(state, options);
+
+  if (errors.length === 0) return basePrompt;
+
+  const feedbackSection = `
+
+## VALIDATION FEEDBACK
+
+The previous evidence collection attempt was insufficient. Address the following missing evidence. Focus ONLY on fixing the listed gaps — do NOT recollect evidence that was already captured successfully.
+
+${formatValidationErrors(errors)}
+
+### Instructions
+
+- Review the issues above and capture the missing evidence
+- Focus on the specific gaps listed — do not re-capture evidence that already exists
+- Ensure new evidence files are saved to the correct paths
+- Output ALL evidence records (both previously captured and newly captured) in the JSON output block`;
+
+  return basePrompt + feedbackSection;
 }
