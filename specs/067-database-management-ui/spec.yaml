@@ -1,0 +1,259 @@
+name: database-management-ui
+number: 67
+branch: feat/067-database-management-ui
+oneLiner: phpMyAdmin-style database browser page with navbar integration
+userQuery: |
+  add phpmyadmin style db management page - add "Database" to navbar for it
+summary: >
+  Add a new "Database" page to the web UI that provides phpMyAdmin-style
+  browsing of the SQLite database. Includes table listing, row browsing with
+  pagination, column metadata display, and raw SQL query execution. Adds a
+  "Database" nav item to the app sidebar.
+phase: Requirements
+sizeEstimate: M
+relatedFeatures: []
+technologies:
+  - Next.js (App Router, server components, server actions)
+  - better-sqlite3 (synchronous SQLite driver)
+  - shadcn/ui (Card, Table, Tabs, ScrollArea, Input, Button, Badge)
+  - Tailwind CSS
+  - lucide-react (Database icon)
+  - React (client components with useState/useEffect)
+relatedLinks: []
+openQuestions: []
+content: >
+  ## Problem Statement
+
+
+  There is no way to inspect the Shep SQLite database from the web UI.
+  Developers
+
+  and power users who want to understand or debug the data stored by Shep must
+
+  resort to external tools (sqlite3 CLI, DB Browser). A built-in
+  phpMyAdmin-style
+
+  page would allow browsing tables, viewing rows, inspecting schema, and running
+
+  ad-hoc queries directly from the Shep web UI.
+
+
+  ## Success Criteria
+
+
+  - [ ] "Database" nav item with Database icon appears in the sidebar after
+  Settings
+
+  - [ ] Database page loads and lists all user tables (excluding sqlite_
+  internal tables)
+
+  - [ ] Each table entry shows its name and row count
+
+  - [ ] Selecting a table displays its rows in a paginated table (50 rows per
+  page)
+
+  - [ ] Pagination controls (previous/next/page number) work correctly
+
+  - [ ] Column metadata tab shows name, type, nullable, default value, and
+  primary key status
+
+  - [ ] Raw SQL query textarea accepts input and executes read-only queries on
+  submit
+
+  - [ ] Query results display in a table with column headers matching result
+  columns
+
+  - [ ] Query errors display a clear error message (not a crash)
+
+  - [ ] Long text values are truncated at 100 chars with expand capability
+
+  - [ ] BLOB values show byte length instead of raw binary
+
+  - [ ] All new components have colocated Storybook stories with realistic mock
+  data
+
+  - [ ] Storybook mocks exist for all new server actions
+
+  - [ ] Page works in both dev mode (port 3000) and production mode (port 4050)
+
+  - [ ] No new external dependencies added (all libraries already available)
+
+
+  ## Functional Requirements
+
+
+  - **FR-1: Table Listing** — Server action queries `SELECT name FROM
+  sqlite_master WHERE type='table'`
+    (excluding `sqlite_` prefixed tables) and returns table names with row counts via
+    `SELECT COUNT(*) FROM <table>`. Displayed as a clickable list/sidebar on the database page.
+
+  - **FR-2: Row Browser** — When a table is selected, fetch rows with `LIMIT 50
+  OFFSET ?` pagination.
+    Display in a shadcn Table component with column headers from the result set. Support
+    previous/next page navigation and display current page number and total row count.
+
+  - **FR-3: Column Metadata** — For the selected table, execute `PRAGMA
+  table_info(<table>)` to
+    retrieve column definitions. Display name, type, notnull flag, default value, and primary
+    key indicator in a metadata table or tab.
+
+  - **FR-4: SQL Query Runner** — A textarea input where users can type arbitrary
+  SQL. On submit,
+    execute via `db.prepare(query).all()` and display results in a dynamic table. Only SELECT
+    and PRAGMA statements are allowed — reject INSERT/UPDATE/DELETE/DROP/ALTER/CREATE with a
+    client-side validation message before execution.
+
+  - **FR-5: Query Error Handling** — If a query fails (syntax error, table not
+  found, etc.),
+    catch the error and display the SQLite error message in a styled error banner. Do not
+    crash the page or show a raw stack trace.
+
+  - **FR-6: Sidebar Navigation** — Add a `SidebarNavItem` with the `Database`
+  lucide icon,
+    label "Database", href "/database", positioned after the Settings nav item. Active state
+    derived from `usePathname()` matching `/database`.
+
+  - **FR-7: Value Display** — Text values longer than 100 characters are
+  truncated with "..."
+    in the table cell. BLOB values display as "(N bytes)" where N is the buffer length.
+    Clicking a truncated cell expands to show the full value.
+
+  - **FR-8: Table Search/Filter** — If more than 10 tables exist, show a search
+  input above
+    the table list to filter by name. This keeps the page usable for databases with many
+    migration-created tables.
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1: Performance** — Table listing and row fetching must complete within
+  200ms for
+    tables up to 100,000 rows. Pagination queries use indexed ROWID for efficient offset.
+
+  - **NFR-2: Security** — SQL query runner must validate input server-side to
+  reject write
+    operations (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE TABLE). Defense in depth:
+    validate both client-side and server-side.
+
+  - **NFR-3: Architecture Compliance** — Follow existing patterns: server
+  actions in
+    `app/actions/`, feature components in `components/features/database/`, page in
+    `app/database/page.tsx`. Use `getSQLiteConnection()` from the existing connection module.
+
+  - **NFR-4: Storybook Coverage** — Every new component must have a colocated
+  `.stories.tsx`
+    file with at least one story showing realistic data. Server action mocks must be added
+    to `.storybook/mocks/app/actions/`.
+
+  - **NFR-5: Responsiveness** — The database page must be usable on viewport
+  widths from
+    768px (tablet) and up. The table list should collapse or scroll on narrow viewports.
+
+  - **NFR-6: Accessibility** — Table components must use proper `<table>`,
+  `<thead>`,
+    `<tbody>`, `<th>`, `<td>` semantics. Query input must have a visible label. Error
+    messages must be announced to screen readers (aria-live region).
+
+  - **NFR-7: No External Dependencies** — All required libraries
+  (better-sqlite3, shadcn/ui,
+    lucide-react) are already installed. No new npm packages should be added.
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | Should SQL runner allow writes? | Read-only queries | Prevents
+  accidental data corruption; this is a debugging tool |
+
+  | 2 | Single page or nested routes? | Single page with client tabs | Instant
+  table switching, matches phpMyAdmin feel |
+
+  | 3 | Pagination size? | 50 rows per page | Standard DB browser default, good
+  perf/visibility balance |
+
+  | 4 | Feature-flagged? | Always visible | Low complexity, useful for all web
+  UI users |
+
+  | 5 | Nav item position? | After Settings | Least disruptive, signals
+  secondary/debug tool |
+
+  | 6 | Long value display? | Truncate with expand | Preserves table layout,
+  standard DB browser pattern |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | `src/presentation/web/app/database/` | High | New page route for the
+  database management UI |
+
+  | `src/presentation/web/components/features/database/` | High | New feature
+  components: table list, row browser, query runner, schema viewer |
+
+  | `src/presentation/web/app/actions/` | High | New server actions for listing
+  tables, fetching rows, running queries, getting schema |
+
+  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` | Low
+  | Add Database nav item with Database icon |
+
+  | `packages/core/src/infrastructure/persistence/sqlite/connection.ts` | Low |
+  May need to expose raw query capability or use existing connection |
+
+  | `.storybook/mocks/app/actions/` | Medium | Storybook mocks for new server
+  actions |
+
+
+  ## Dependencies
+
+
+  - **better-sqlite3** (already installed) — for raw SQL execution and PRAGMA
+  queries
+
+  - **shadcn/ui Table component** — for rendering query results
+
+  - **DI container** — server actions resolve database connection via existing
+  patterns
+
+  - **Existing SQLite connection singleton** — `getSQLiteConnection()` provides
+  the DB handle
+
+  - **lucide-react Database icon** — already available in the icon library
+
+
+  ## Size Estimate
+
+
+  **M** — This is primarily a presentation-layer feature. The database access
+  layer
+
+  (better-sqlite3) already exists with a singleton connection. The main work is:
+
+  (1) server actions for table/row/schema queries using SQLite PRAGMAs,
+
+  (2) client components for table browser, row viewer, and query runner,
+
+  (3) sidebar nav addition, (4) Storybook stories. No domain model changes or
+
+  migrations needed.
+
+
+  ---
+
+
+  _Requirements complete — proceed with research_
+rejectionFeedback:
+  - iteration: 1
+    message: |-
+      Failed to load database: require is not defined
+
+
+      Database page is borken, check using playwritght
+    phase: merge
+    timestamp: '2026-03-15T17:37:20.970Z'
