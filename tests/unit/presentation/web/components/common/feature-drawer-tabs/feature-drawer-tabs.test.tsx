@@ -73,6 +73,7 @@ const defaultFeatureNode: FeatureNodeData = {
   repositoryPath: '/home/user/repo',
   branch: 'feat/test',
   hasPlan: true,
+  hasAgentRun: true,
 };
 
 const sampleTimings: PhaseTimingData[] = [
@@ -129,6 +130,16 @@ describe('FeatureDrawerTabs', () => {
       expect(screen.getByRole('tab', { name: 'Activity' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: 'Log' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: 'Plan' })).toBeInTheDocument();
+    });
+
+    it('hides Log tab when hasAgentRun is not set (adopted features)', () => {
+      const { hasAgentRun: _, ...nodeWithoutRun } = defaultFeatureNode;
+      renderTabs({
+        featureNode: nodeWithoutRun as FeatureNodeData,
+      });
+      expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Activity' })).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: 'Log' })).not.toBeInTheDocument();
     });
 
     it('hides Plan tab when hasPlan is false', () => {

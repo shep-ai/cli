@@ -19,6 +19,7 @@ export const Default: Story = {
       skills: false,
       envDeploy: false,
       debug: false,
+      adoptBranch: false,
     },
   },
 };
@@ -29,6 +30,7 @@ export const AllEnabled: Story = {
       skills: true,
       envDeploy: true,
       debug: true,
+      adoptBranch: true,
     },
   },
 };
@@ -39,6 +41,7 @@ export const AllDisabled: Story = {
       skills: false,
       envDeploy: false,
       debug: false,
+      adoptBranch: false,
     },
   },
 };

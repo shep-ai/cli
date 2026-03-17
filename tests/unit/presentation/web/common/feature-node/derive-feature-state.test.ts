@@ -149,6 +149,11 @@ describe('deriveNodeState', () => {
       expect(deriveNodeState(feature)).toBe('done');
     });
 
+    it('returns action-required for Review lifecycle without agent run (adopted branch with open PR)', () => {
+      const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Review });
+      expect(deriveNodeState(feature)).toBe('action-required');
+    });
+
     it('returns running when no plan exists', () => {
       const feature = createMinimalFeature();
       expect(deriveNodeState(feature)).toBe('running');

@@ -59,6 +59,7 @@ describe('UpdateFeatureLifecycleUseCase', () => {
       findById: vi.fn().mockResolvedValue(makeFeature()),
       findByIdPrefix: vi.fn(),
       findBySlug: vi.fn(),
+      findByBranch: vi.fn(),
       list: vi.fn(),
       findByParentId: vi.fn(),
       update: vi.fn().mockResolvedValue(undefined),

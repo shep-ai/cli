@@ -96,6 +96,7 @@ function createMockFeatureRepository(): IFeatureRepository {
     findById: vi.fn().mockResolvedValue({ name: 'Quick Markdown File Creation' }),
     findByIdPrefix: vi.fn(),
     findBySlug: vi.fn(),
+    findByBranch: vi.fn(),
     list: vi.fn().mockResolvedValue([]),
     update: vi.fn(),
     delete: vi.fn(),

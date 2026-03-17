@@ -1,0 +1,594 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: adopt-existing-branch
+summary: >
+  Technical research for the adopt-existing-branch feature. Key decisions: create a new
+  AdoptBranchUseCase (not extend CreateFeatureUseCase), add addExisting() to IWorktreeService
+  for worktree creation without -b flag, add findByBranch() to IFeatureRepository for
+  duplicate detection, use synchronous local name derivation (no AI), and follow existing
+  parallel-route drawer pattern for the web UI. No TypeSpec or domain model changes needed.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - tsyringe (DI)
+  - Commander.js (CLI)
+  - Next.js (Web UI server actions + parallel routes)
+  - SQLite (persistence via IFeatureRepository)
+  - git worktree (branch isolation)
+  - React Flow (feature graph visualization)
+  - Vitest (testing framework)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Use Case Architecture — New AdoptBranchUseCase vs Extend CreateFeatureUseCase'
+    chosen: 'Create a new standalone AdoptBranchUseCase'
+    rejected:
+      - >-
+        Extend CreateFeatureUseCase with an adopt mode flag — The existing CreateFeatureUseCase
+        has a complex two-phase design (createRecord + initializeAndSpawn) with 11 injected
+        dependencies including MetadataGenerator, SlugResolver, ISpecInitializerService,
+        IFeatureAgentProcessService, AttachmentStorageService, and IAgentValidator. The adopt
+        flow needs none of these (no AI, no spec init, no agent spawn, no attachments). Adding
+        a conditional branch would increase complexity and violate SRP. The two flows share only
+        repository resolution and feature persistence — easily extracted if needed.
+      - >-
+        Add adopt logic to a shared base class — There is no use case base class in the codebase;
+        all use cases are standalone @injectable() classes with constructor injection. Introducing
+        inheritance would break the established pattern for minimal code reuse.
+    rationale: >
+      The adopt flow is fundamentally simpler than create: it needs only IFeatureRepository,
+      IRepositoryRepository, and IWorktreeService. It skips metadata generation, spec initialization,
+      agent spawning, attachment handling, parent feature validation, and slug collision resolution.
+      A standalone use case follows the existing pattern (e.g., StartFeatureUseCase, DeleteFeatureUseCase)
+      and keeps the codebase clean. The CreateFeatureUseCase (NFR-5) remains unchanged.
+
+  - title: 'Worktree Service Extension — addExisting() Method Design'
+    chosen: 'Add addExisting(repoPath, branch, worktreePath) method to IWorktreeService'
+    rejected:
+      - >-
+        Reuse existing create() method with a flag to skip -b — The create() method signature is
+        create(repoPath, branch, worktreePath, startPoint?) and always passes -b to create a new
+        branch. Adding a boolean flag (e.g., newBranch: false) would be a subtle behavioral change
+        that could break existing callers and makes the API less clear. The git commands are
+        fundamentally different: "git worktree add <path> -b <branch>" vs "git worktree add <path> <branch>".
+      - >-
+        Call git worktree add directly in the use case — This would bypass the service layer,
+        violating Clean Architecture. The use case (application layer) should not depend on
+        child_process or git commands directly.
+    rationale: >
+      The existing create() method always uses -b to create a new branch. The adopt flow needs
+      "git worktree add <path> <branch>" without -b, which attaches to an existing branch. A
+      separate addExisting() method clearly communicates intent, follows the existing service
+      interface pattern (IWorktreeService already has create, remove, list, exists, etc.), and
+      avoids modifying the create() signature. The implementation mirrors create() but with
+      different git args: ['worktree', 'add', worktreePath, branch] instead of
+      ['worktree', 'add', worktreePath, '-b', branch]. For remote-only branches, the method
+      accepts origin/<branch> as the branch argument, and git automatically sets up tracking.
+
+  - title: 'Duplicate Detection — Add findByBranch() to IFeatureRepository'
+    chosen: 'Add findByBranch(branch, repositoryPath) method to IFeatureRepository'
+    rejected:
+      - >-
+        Use list() with filters and iterate in the use case — The list() method supports
+        repositoryPath filter but not branch filter. Fetching all features and filtering in
+        memory is wasteful for large feature lists and pushes query logic into the use case
+        layer, violating the repository pattern.
+      - >-
+        Use findBySlug() for duplicate detection — The slug is derived from the branch name
+        but is not identical (e.g., fix/login-bug -> fix-login-bug slug). Two different branches
+        could theoretically produce the same slug. Branch-level uniqueness requires a branch-level
+        query. Also, findBySlug is scoped to repositoryPath, but the branch name itself should
+        be globally unique within a repo since git enforces branch name uniqueness.
+    rationale: >
+      The spec requires detecting if a branch is already tracked as a Feature (FR-6). The most
+      direct and efficient approach is a SQL query: "SELECT * FROM features WHERE branch = ? AND
+      repository_path = ? AND deleted_at IS NULL". This follows the existing pattern of
+      findBySlug(slug, repositoryPath) — a targeted query scoped to a repository. The SQLite
+      implementation is straightforward, and the interface addition is minimal (one new method).
+
+  - title: 'Feature Name Derivation — Local String Transformation vs AI'
+    chosen: 'Synchronous local string transformation from branch name'
+    rejected:
+      - >-
+        Use MetadataGenerator (AI-powered) — The spec's open questions initially considered AI
+        naming but resolved in favor of auto-derivation for speed. MetadataGenerator injects
+        IStructuredAgentCaller and makes an AI call that adds 2-5 seconds of latency. The adopt
+        flow should complete within 5 seconds total (NFR-1). AI naming also requires agent
+        infrastructure to be configured, which may not be the case for users who are adopting
+        branches without having set up Shep agents.
+      - >-
+        Prompt user interactively — Adds friction to what should be a fast, low-ceremony
+        operation. Users can rename features later if the auto-generated name is insufficient.
+    rationale: >
+      A pure function that strips common prefixes (feat/, fix/, chore/, etc.), replaces hyphens
+      and underscores with spaces, and title-cases each word produces reasonable names instantly.
+      Examples: fix/login-bug -> "Login Bug", feat/user-auth -> "User Auth",
+      my-cool-feature -> "My Cool Feature". This matches the spec's FR-9 exactly. The function
+      is deterministic, has zero dependencies, and is trivially testable. The MetadataGenerator's
+      local fallback already does something similar (slug extraction + title-casing), confirming
+      this pattern works well.
+
+  - title: 'Slug Derivation — Simple Normalization vs SlugResolver'
+    chosen: 'Simple synchronous slug normalization (no SlugResolver)'
+    rejected:
+      - >-
+        Use the existing SlugResolver service — SlugResolver checks 4 things for uniqueness:
+        DB slug, worktree existence, local branch, and remote branch. For adopt, the branch
+        already exists (that is the whole point), so branch/worktree existence checks would
+        always flag a collision and append a random suffix. SlugResolver is designed for the
+        create-new-branch flow where collisions indicate a naming conflict, not for adopt where
+        the branch pre-exists by definition.
+      - >-
+        Use the full branch name as the slug — Branch names with slashes (feat/login-bug) are
+        not valid URL slugs. Some normalization is always needed.
+    rationale: >
+      The slug is derived by lowercasing the full branch name and converting slashes and special
+      characters to hyphens (FR-10). Example: fix/login-bug -> fix-login-bug. Uniqueness is
+      validated via the existing findBySlug(slug, repositoryPath) — if a collision exists, it
+      means a feature with this slug already exists (which the duplicate detection via
+      findByBranch would have caught first). The SlugResolver's collision-resolution logic
+      (appending random hex suffixes) is inappropriate for adopt because the slug should
+      deterministically reflect the branch name.
+
+  - title: 'Web UI Entry Point — Parallel Route Drawer Pattern'
+    chosen: 'New /adopt parallel route with dedicated AdoptBranchDrawer component'
+    rejected:
+      - >-
+        Tab in existing create drawer — The create drawer has many fields (description, attachments,
+        agent settings, gates, repository selector, parent selector, fast/pending toggles) that
+        don't apply to adopt. Adding a tab would require conditionally hiding 80% of the form,
+        making the component even more complex (already 1,329 lines). The two flows have different
+        inputs: create needs a description, adopt needs a branch name.
+      - >-
+        Modal dialog instead of drawer — All existing feature interaction flows (create, show,
+        feature detail) use the drawer pattern via @drawer parallel routes. A modal would be
+        visually inconsistent and break the established UX pattern.
+    rationale: >
+      The existing pattern is clear: /create parallel route -> CreateDrawerPage (server component)
+      -> CreateDrawerClient (client component) -> FeatureCreateDrawer (form component). The adopt
+      flow follows the same structure: /adopt parallel route -> AdoptDrawerPage (server component)
+      -> AdoptDrawerClient (client component) -> AdoptBranchDrawer (form component). The adopt
+      drawer is much simpler — just a text input for branch name and a submit button. Navigation
+      via router.push('/adopt') from a new FAB action, with the existing shep:feature-created
+      custom event for optimistic UI updates.
+
+  - title: 'Server Action Pattern — Single-Phase vs Two-Phase'
+    chosen: 'Single-phase synchronous execution (no background phase)'
+    rejected:
+      - >-
+        Two-phase async like createFeature — CreateFeature uses two phases because Phase 2
+        involves slow operations (AI metadata generation, spec initialization, agent spawning).
+        Adopt has none of these — it only does branch validation, worktree creation (fast git
+        operation), and DB insert. All operations complete within 1-2 seconds. The two-phase
+        pattern adds complexity (fire-and-forget background task, error logging) that is
+        unnecessary for a fast synchronous flow.
+      - >-
+        Background job queue — Overkill for an operation that completes in under 2 seconds.
+        No long-running tasks to offload.
+    rationale: >
+      The adopt server action resolves AdoptBranchUseCase, calls execute(), and returns the
+      result. No fire-and-forget background task needed. The UI gets the complete feature
+      (with worktree path, lifecycle, etc.) in a single round-trip. Error handling follows
+      the existing { feature?, error? } pattern. This is simpler and more predictable than
+      the two-phase approach.
+
+  - title: 'CLI Command Registration — Subcommand Pattern'
+    chosen: 'New adopt.command.ts following existing feat subcommand pattern'
+    rejected:
+      - >-
+        Flag on existing new command (e.g., shep feat new --adopt <branch>) — Conceptually
+        wrong: adopt is not "new" — the branch already exists. The CLI should clearly
+        distinguish between creating a new feature and importing an existing branch. Overloading
+        "new" with conflicting semantics (new vs existing) would confuse users.
+      - >-
+        Top-level command (e.g., shep adopt <branch>) — Breaks the command group hierarchy.
+        All feature operations are under shep feat (new, ls, show, del, start, resume, etc.).
+        Adopt is a feature operation and belongs in the same group.
+    rationale: >
+      Following the established pattern: createAdoptCommand() factory function returning
+      new Command('adopt') with .argument('<branch>', 'Branch name to adopt') and
+      .option('-r, --repo <path>', 'Repository path'). Registered in feat/index.ts via
+      .addCommand(createAdoptCommand()). The action resolves AdoptBranchUseCase from the
+      DI container, executes it, and displays the result using messages/colors utilities.
+      This matches start.command.ts and del.command.ts in simplicity.
+
+  - title: 'DI Registration Pattern'
+    chosen: 'Singleton class registration + string token alias for web routes'
+    rejected:
+      - >-
+        Factory registration — Unnecessary complexity for a use case with no special construction
+        logic. All existing use cases use registerSingleton() for the class and register() with
+        useFactory for the string token alias. Factory registration is only used for repositories
+        that need the Database instance.
+      - >-
+        Manual instantiation without DI — Violates the project's DI convention and makes testing
+        harder. Every use case in the codebase uses @injectable() and constructor injection.
+    rationale: >
+      Two registrations needed in container.ts: (1) container.registerSingleton(AdoptBranchUseCase)
+      alongside the other feature use cases at ~line 345, and (2) container.register(
+      'AdoptBranchUseCase', { useFactory: (c) => c.resolve(AdoptBranchUseCase) }) for the web
+      route string token alias at ~line 399. This exactly follows the pattern used by
+      CreateFeatureUseCase, StartFeatureUseCase, etc.
+
+  - title: 'Repository Resolution — Reuse Existing Pattern'
+    chosen: 'Inline repository find-or-create in the use case (same as CreateFeatureUseCase)'
+    rejected:
+      - >-
+        Extract shared repository resolution to a service — The resolution logic is only 15 lines
+        (normalize path, findByPath, create if not found). Extracting to a shared service for
+        just two consumers (CreateFeatureUseCase + AdoptBranchUseCase) is premature abstraction.
+        If a third consumer appears, extraction becomes worthwhile.
+      - >-
+        Require repository to already exist — Would force users to run "shep repo add" before
+        "shep feat adopt", adding friction. CreateFeatureUseCase auto-creates repositories,
+        and adopt should too for consistency.
+    rationale: >
+      The pattern from CreateFeatureUseCase is: normalize path -> findByPath -> create with
+      randomUUID() if not found -> link via repositoryId. This is simple, well-tested, and
+      consistent. Duplicating 15 lines is preferable to introducing a shared abstraction for
+      two consumers. The repository entity is lightweight (id, name, path, timestamps).
+
+  - title: 'Feature Field Values for Adopted Features'
+    chosen: 'Minimal defaults with lifecycle=Maintain and no agent/spec references'
+    rejected:
+      - >-
+        Use lifecycle=Pending — Pending means "initialized but agent not yet spawned, user
+        will start it later". This implies the feature is waiting to begin autonomous work.
+        Adopted features are not waiting for anything — they are already being worked on
+        manually. Maintain is the correct terminal state meaning "agent permanently inactive."
+      - >-
+        Populate specPath with auto-created spec directory — The spec says specPath should be
+        undefined (FR-11). Adopted features come from external workflows that don't have Shep
+        spec directories. Creating an empty spec dir would be misleading and unnecessary.
+    rationale: >
+      Per FR-11, adopted features use: branch (verbatim), slug (derived), name (derived),
+      lifecycle=Maintain, userQuery="" (no user prompt), specPath=undefined, agentRunId=undefined,
+      worktreePath (computed or reused), messages=[], relatedArtifacts=[], approvalGates all false,
+      fast=false, push=false, openPr=false, description="" (no description). These are the minimum
+      viable field values that make the feature appear in lists and support all actions (open IDE,
+      open shell, etc.) without implying any autonomous behavior.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: >-
+      Should the addExisting() worktree method handle the case where git needs to
+      fetch the remote branch first, or should the use case handle fetching?
+    resolved: true
+    options:
+      - option: Use case handles fetch detection, passes origin/<branch> to addExisting()
+        description: >
+          The AdoptBranchUseCase checks branchExists() and remoteBranchExists() to determine
+          if the branch is local or remote-only. If remote-only, it passes "origin/<branch>"
+          as the branch argument to addExisting(). Git worktree add with a remote tracking
+          ref automatically creates a local branch that tracks the remote. This keeps
+          addExisting() simple (just runs git worktree add) and puts the branch-resolution
+          logic in the use case where it belongs.
+        selected: true
+      - option: addExisting() auto-detects and fetches remote branches
+        description: >
+          The addExisting() method itself checks if the branch is local or remote, and if
+          remote-only, runs git fetch origin <branch> before creating the worktree. This
+          hides complexity from the use case but makes the service method do too much (branch
+          detection + fetch + worktree creation), violating SRP.
+        selected: false
+      - option: Require explicit fetch before adopt
+        description: >
+          The use case runs an explicit "git fetch origin <branch>" command before calling
+          addExisting(). This is the most explicit approach but requires adding a fetch()
+          method to IWorktreeService that doesn't currently exist.
+        selected: false
+    selectionRationale: >
+      Git worktree add natively supports remote tracking refs (e.g., "git worktree add /path
+      origin/my-branch" creates a local branch tracking origin/my-branch). There is no need
+      for an explicit fetch step. The use case already has the branch-resolution logic
+      (checking branchExists and remoteBranchExists), so it is the natural place to decide
+      whether to use the bare branch name or origin/<branch>. The addExisting() method stays
+      minimal: just execute git worktree add with whatever arguments it receives.
+
+  - question: >-
+      How should the FAB (Floating Action Button) be updated to include the
+      Adopt action?
+    resolved: true
+    options:
+      - option: Add a third action to the existing FAB actions array
+        description: >
+          The FAB currently has two actions: "New Feature" (router.push('/create')) and
+          "Add Repository" (pickFolder). Add a third action: "Adopt Branch"
+          (router.push('/adopt')). The FAB supports any number of actions via the
+          actions prop array. This is the simplest change — one new entry in the
+          fabActions array in app-shell.tsx.
+        selected: true
+      - option: Add a button to the control center toolbar
+        description: >
+          Place an "Adopt" button in the control center header/toolbar area alongside
+          existing controls (theme toggle, sound toggle). This keeps the FAB clean but
+          requires modifying the toolbar layout, which may affect responsive design.
+        selected: false
+      - option: Add adopt as a context menu option on repository nodes
+        description: >
+          Right-clicking a repository node in the React Flow graph shows "Adopt Branch"
+          as an option. Discoverable only through context menu interaction, which many
+          users won't try. First-time discoverability is poor.
+        selected: false
+    selectionRationale: >
+      The FAB is the established entry point for creating features and adding repositories.
+      Adding "Adopt Branch" as a third FAB action is consistent, discoverable, and requires
+      minimal UI changes. The FloatingActionButton component already supports an arbitrary
+      number of actions via the actions array prop. Users will see "New Feature", "Adopt
+      Branch", and "Add Repository" in the expanded FAB menu.
+
+  - question: >-
+      Should the adopt drawer include a branch auto-complete/selector or just
+      a plain text input?
+    resolved: true
+    options:
+      - option: Plain text input with validation on submit
+        description: >
+          A simple text input where users type the branch name. Validation (branch exists,
+          not already adopted, not main) happens on form submission via the server action.
+          Simplest to implement, works well for users who know their branch name. Error
+          messages guide the user if the branch is invalid.
+        selected: true
+      - option: Combobox with branch auto-complete from git
+        description: >
+          A searchable combobox that fetches available branches (local + remote) and shows
+          them as suggestions. Better UX for discovery but requires a new API endpoint or
+          server action to list branches, adds complexity to the drawer component, and may
+          be slow for repos with many branches. Could be added as a v2 enhancement.
+        selected: false
+      - option: Two-step selector (local/remote toggle + branch list)
+        description: >
+          First select "Local" or "Remote", then show filtered branch list. Over-engineered
+          for v1, adds unnecessary interaction steps.
+        selected: false
+    selectionRationale: >
+      A plain text input is the fastest path to v1. Users adopting branches typically know
+      the branch name (they just created it in Claude Code or another tool). Server-side
+      validation provides clear error messages for all failure modes. A branch auto-complete
+      combobox can be added as a follow-up enhancement if users struggle with typing branch
+      names. The create drawer also uses a plain text input for the description, so this is
+      consistent with existing UX patterns.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Use Case Architecture — New AdoptBranchUseCase
+
+  **Chosen:** Create a new standalone AdoptBranchUseCase
+
+  **Rejected:**
+  - Extend CreateFeatureUseCase with adopt mode flag — CreateFeatureUseCase has 11 injected
+    dependencies (MetadataGenerator, SlugResolver, ISpecInitializerService, IAgentValidator, etc.)
+    none of which adopt needs. Adding conditional logic violates SRP.
+  - Shared base class — No use case base class exists in the codebase; all use cases are
+    standalone @injectable() classes. Introducing inheritance breaks the established pattern.
+
+  **Rationale:** The adopt flow needs only IFeatureRepository, IRepositoryRepository, and
+  IWorktreeService. It skips metadata generation, spec initialization, agent spawning, attachment
+  handling, and slug collision resolution. A standalone use case follows existing patterns
+  (StartFeatureUseCase, DeleteFeatureUseCase) and keeps CreateFeatureUseCase unchanged (NFR-5).
+
+  ### 2. Worktree Service Extension — addExisting() Method
+
+  **Chosen:** Add addExisting(repoPath, branch, worktreePath) to IWorktreeService
+
+  **Rejected:**
+  - Reuse create() with a flag — create() always passes -b to git, which creates a new branch.
+    The adopt flow needs "git worktree add <path> <branch>" without -b. A boolean flag makes
+    the API unclear and risks breaking existing callers.
+  - Call git directly in the use case — Violates Clean Architecture layering.
+
+  **Rationale:** The git commands are fundamentally different:
+  - create(): `git worktree add <path> -b <branch> [startPoint]` (new branch)
+  - addExisting(): `git worktree add <path> <branch>` (existing branch)
+
+  A separate method clearly communicates intent and follows the existing service interface
+  pattern. For remote-only branches, the use case passes origin/<branch> as the branch arg.
+
+  ### 3. Duplicate Detection — findByBranch()
+
+  **Chosen:** Add findByBranch(branch, repositoryPath) to IFeatureRepository
+
+  **Rejected:**
+  - Use list() and filter in memory — Wasteful for large feature sets, pushes query logic
+    into the use case layer.
+  - Use findBySlug() — Slug is derived from branch but not identical. Different branches
+    could theoretically produce the same slug.
+
+  **Rationale:** Direct SQL query "WHERE branch = ? AND repository_path = ?" is the most
+  efficient and accurate way to detect duplicates. Follows the findBySlug() pattern.
+
+  ### 4. Feature Name Derivation — Local String Transformation
+
+  **Chosen:** Synchronous local transformation (strip prefix, replace hyphens, title-case)
+
+  **Rejected:**
+  - MetadataGenerator (AI) — Adds 2-5s latency, requires agent configuration, overkill for
+    adopt's low-ceremony design.
+  - Interactive prompt — Adds friction to what should be a fast import operation.
+
+  **Rationale:** Pure function: strip common prefixes (feat/, fix/, chore/, etc.), replace
+  hyphens/underscores with spaces, title-case. Examples: fix/login-bug -> "Login Bug",
+  feat/user-auth -> "User Auth". Deterministic, zero dependencies, trivially testable.
+
+  ### 5. Slug Derivation — Simple Normalization
+
+  **Chosen:** Synchronous slug normalization (no SlugResolver)
+
+  **Rejected:**
+  - SlugResolver — Designed for create flow; checks branch/worktree existence which would
+    always flag collisions since the branch exists by definition in adopt.
+  - Full branch name as slug — Slashes in branch names are not valid URL slugs.
+
+  **Rationale:** Lowercase + convert slashes/special chars to hyphens. Example:
+  fix/login-bug -> fix-login-bug. Uniqueness validated via findBySlug().
+
+  ### 6. Web UI — Parallel Route Drawer
+
+  **Chosen:** /adopt parallel route with dedicated AdoptBranchDrawer
+
+  **Rejected:**
+  - Tab in create drawer — Create drawer is 1,329 lines with many fields (description,
+    attachments, gates, etc.) that don't apply to adopt.
+  - Modal dialog — Breaks the established drawer pattern.
+
+  **Rationale:** Follows /create pattern: /adopt parallel route -> AdoptDrawerPage ->
+  AdoptDrawerClient -> AdoptBranchDrawer. Simpler form (just branch input + submit).
+  Navigation via FAB action router.push('/adopt').
+
+  ### 7. Server Action — Single-Phase Synchronous
+
+  **Chosen:** Single-phase execution (no background phase)
+
+  **Rejected:**
+  - Two-phase like createFeature — CreateFeature's Phase 2 has slow operations (AI, agent
+    spawn). Adopt has none of these; it completes in 1-2 seconds.
+
+  **Rationale:** Adopt is fast: branch validation, worktree creation, DB insert. No
+  fire-and-forget needed. Returns complete feature in one round-trip.
+
+  ### 8. CLI Command — feat adopt Subcommand
+
+  **Chosen:** New adopt.command.ts in feat command group
+
+  **Rejected:**
+  - Flag on new command (--adopt) — Conceptually wrong; adopt is not "new".
+  - Top-level command (shep adopt) — Breaks feat group hierarchy.
+
+  **Rationale:** createAdoptCommand() factory following start.command.ts pattern.
+  Registered in feat/index.ts via .addCommand().
+
+  ### 9. DI Registration — Singleton + String Token Alias
+
+  **Chosen:** registerSingleton(AdoptBranchUseCase) + string token alias
+
+  **Rejected:**
+  - Factory registration — Unnecessary for a use case with no special construction.
+  - Manual instantiation — Violates DI convention.
+
+  **Rationale:** Two registrations: singleton for DI + string alias for web routes.
+  Exactly follows CreateFeatureUseCase/StartFeatureUseCase pattern.
+
+  ### 10. Repository Resolution — Inline Find-or-Create
+
+  **Chosen:** Inline repository find-or-create (same as CreateFeatureUseCase)
+
+  **Rejected:**
+  - Extract shared service — Only 15 lines of code, only 2 consumers. Premature abstraction.
+  - Require pre-existing repository — Adds friction; inconsistent with create flow.
+
+  **Rationale:** Normalize path -> findByPath -> create if not found. Simple, consistent,
+  well-tested pattern from CreateFeatureUseCase.
+
+  ### 11. Feature Field Values — Minimal Defaults with Maintain Lifecycle
+
+  **Chosen:** lifecycle=Maintain, no agent/spec references, empty collections
+
+  **Rejected:**
+  - lifecycle=Pending — Implies waiting for agent start; adopted features aren't waiting.
+  - Auto-create spec directory — Misleading for externally-managed branches.
+
+  **Rationale:** Per FR-11: lifecycle=Maintain (terminal, agent inactive), userQuery="",
+  specPath=undefined, agentRunId=undefined, all gates false, fast/push/openPr false.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | tsyringe | DI container | Use (existing) | All use cases use @injectable() + constructor injection |
+  | Commander.js | CLI framework | Use (existing) | All CLI commands use Command + .argument() + .action() |
+  | Next.js App Router | Web UI routing | Use (existing) | Parallel routes for drawer pattern already established |
+  | better-sqlite3 | Database | Use (existing) | All repositories use SQLite via IFeatureRepository |
+  | Vitest | Testing | Use (existing) | All tests use describe/it/expect/vi.fn() pattern |
+  | React Flow | Graph viz | Use (existing) | Adopted features appear as nodes; no custom node type needed |
+  | uuid (crypto.randomUUID) | ID generation | Use (existing) | All entities use randomUUID() for IDs |
+  | MetadataGenerator | AI naming | Reject | Adds latency + cost; adopt should be fast/deterministic |
+  | SlugResolver | Slug collision | Reject | Designed for create flow; would always flag false collisions in adopt |
+  | ISpecInitializerService | Spec scaffolding | Reject | Adopted features have no spec directory |
+  | IFeatureAgentProcessService | Agent spawning | Reject | Adopted features have no agent |
+
+  ## Security Considerations
+
+  ### Branch Name Validation
+  - Branch names are passed to git commands via execFile (not shell). The WorktreeService
+    uses execFile() which does not interpret shell metacharacters, preventing command injection.
+  - Branch names should be validated to exist in the repository before use.
+  - Main/master branch rejection (FR-7) prevents accidentally treating the default branch
+    as a feature.
+
+  ### Path Traversal
+  - Worktree paths are computed by getWorktreePath() using SHA256 hashing of the repo path
+    and branch slug. Users cannot control the worktree directory location.
+  - Repository paths are normalized (backslash conversion, trailing slash removal) before
+    storage and comparison.
+
+  ### Duplicate Prevention
+  - findByBranch() query prevents adopting the same branch twice.
+  - findBySlug() query prevents slug collisions.
+  - Both checks are scoped to repositoryPath for multi-repo safety.
+
+  ## Performance Implications
+
+  ### Adopt Operation Performance
+  - **Expected time:** 1-2 seconds for local branches, 3-5 seconds for remote branches
+    (includes git ls-remote network call)
+  - **No AI calls:** Unlike create, adopt does not invoke MetadataGenerator
+  - **No agent spawn:** Unlike create, adopt does not start a background process
+  - **Single DB write:** One INSERT for the feature record (+ possible INSERT for repository)
+  - **One git operation:** git worktree add (if worktree doesn't exist)
+
+  ### Database Impact
+  - One new row per adopt operation in the features table
+  - findByBranch() query should be fast with an index on (branch, repository_path)
+  - No schema migration needed — all feature columns already exist with nullable/default values
+
+  ### Worktree Impact
+  - Adopted features create worktrees in the same location as Shep-created features
+    (~/.shep/repos/<hash>/wt/<slug>)
+  - Worktree cleanup via existing delete flow works identically for adopted features
+
+  ## Architecture Notes
+
+  ### Clean Architecture Layer Mapping
+  - **Domain:** No changes. Feature entity and SdlcLifecycle.Maintain already exist.
+  - **Application:** New AdoptBranchUseCase, extended IFeatureRepository (findByBranch),
+    extended IWorktreeService (addExisting).
+  - **Infrastructure:** WorktreeService.addExisting() implementation,
+    SQLiteFeatureRepository.findByBranch() implementation, DI container registration.
+  - **Presentation/CLI:** New adopt.command.ts in feat command group.
+  - **Presentation/Web:** New server action, new /adopt parallel route, new drawer component,
+    FAB action addition.
+
+  ### Integration Points
+  - **Feature list (CLI + Web):** Adopted features appear in list with lifecycle=Maintain.
+    No special handling needed — existing list rendering handles Maintain state.
+  - **Feature actions:** Open IDE, open shell, deploy — all use worktreePath which is set
+    during adopt. No code changes needed in action handlers.
+  - **React Flow graph:** Adopted features appear as nodes connected to their repository.
+    The node uses the same FeatureNode component. No custom styling for v1.
+  - **SSE events:** The adopt server action dispatches shep:feature-created custom event
+    for optimistic UI updates, same as createFeature.
+  - **Delete flow:** DeleteFeatureUseCase and CleanupFeatureWorktreeUseCase work on adopted
+    features identically — they clean up the worktree and soft-delete the feature record.
+
+  ### Testing Strategy
+  - **Unit tests (AdoptBranchUseCase):** Mock IFeatureRepository, IRepositoryRepository,
+    IWorktreeService with vi.fn(). Test: happy path local, happy path remote, duplicate
+    rejection, main branch rejection, missing branch error, existing worktree reuse.
+  - **Unit tests (WorktreeService.addExisting):** Mock ExecFunction. Test: correct git args,
+    error handling, worktree info return.
+  - **Unit tests (name/slug derivation):** Pure function tests with various branch name formats.
+  - **Integration tests (CLI):** Use createCliRunner pattern with isolated SHEP_HOME and
+    temp git repository. Test: shep feat adopt <branch>, error cases, output format.
+  - **Component tests (Web):** Stories for AdoptBranchDrawer (required by MANDATORY rule).
+
+  ---
+
+  _Research complete — proceed to planning phase_

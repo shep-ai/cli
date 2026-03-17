@@ -135,6 +135,16 @@ function createUmzug(db: Database.Database): Umzug<Database.Database> {
  *
  * @param db - Database instance to run migrations on
  */
+/**
+ * Returns the total number of registered migrations (legacy + discovered).
+ * Exported for test assertions so they don't hardcode migration counts.
+ */
+export async function getTotalMigrationCount(): Promise<number> {
+  const migrationsDir = getMigrationsDir();
+  const newMigrations = await discoverNewMigrations(migrationsDir);
+  return LEGACY_MIGRATIONS.length + newMigrations.length;
+}
+
 export async function runSQLiteMigrations(db: Database.Database): Promise<void> {
   try {
     const umzug = createUmzug(db);

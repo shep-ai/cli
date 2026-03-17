@@ -345,7 +345,12 @@ export function SettingsPageClient({
   availableTerminals,
 }: SettingsPageClientProps) {
   const { showSaving, showSaved, save } = useSaveIndicator();
-  const featureFlags = settings.featureFlags ?? { skills: false, envDeploy: false, debug: false };
+  const featureFlags = settings.featureFlags ?? {
+    skills: false,
+    envDeploy: false,
+    debug: false,
+    adoptBranch: false,
+  };
 
   // Agent state
   const [agentType, setAgentType] = useState(settings.agent.type);
@@ -1398,6 +1403,18 @@ export function SettingsPageClient({
               checked={flags.debug}
               onChange={(v) => {
                 const newFlags = { ...flags, debug: v };
+                setFlags(newFlags);
+                save({ featureFlags: newFlags });
+              }}
+            />
+            <SwitchRow
+              label="Adopt Branch"
+              description="Import existing branches as tracked features"
+              id="flag-adoptBranch"
+              testId="switch-flag-adoptBranch"
+              checked={flags.adoptBranch}
+              onChange={(v) => {
+                const newFlags = { ...flags, adoptBranch: v };
                 setFlags(newFlags);
                 save({ featureFlags: newFlags });
               }}

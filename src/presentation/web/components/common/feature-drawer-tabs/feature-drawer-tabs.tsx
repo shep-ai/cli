@@ -55,7 +55,11 @@ const ALL_TABS: TabDef[] = [
 
 /** Compute which tabs are visible based on feature lifecycle + state. */
 function computeVisibleTabs(node: FeatureNodeData): FeatureTabKey[] {
-  const tabs: FeatureTabKey[] = ['overview', 'activity', 'log'];
+  const tabs: FeatureTabKey[] = ['overview', 'activity'];
+
+  if (node.hasAgentRun) {
+    tabs.push('log');
+  }
 
   if (node.hasPlan) {
     tabs.push('plan');

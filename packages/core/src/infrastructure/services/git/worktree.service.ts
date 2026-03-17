@@ -66,6 +66,26 @@ export class WorktreeService implements IWorktreeService {
     return created;
   }
 
+  async addExisting(repoPath: string, branch: string, worktreePath: string): Promise<WorktreeInfo> {
+    try {
+      await this.execFile('git', ['worktree', 'add', worktreePath, branch], { cwd: repoPath });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+
+    const worktrees = await this.list(repoPath);
+    const created =
+      worktrees.find((w) => w.branch === branch) ??
+      worktrees.find((w) => this.arePathsEquivalent(w.path, worktreePath));
+    if (!created) {
+      throw new WorktreeError(
+        'Worktree created but not found in list',
+        WorktreeErrorCode.GIT_ERROR
+      );
+    }
+    return created;
+  }
+
   async remove(repoPath: string, worktreePath: string, force?: boolean): Promise<void> {
     try {
       const args = ['worktree', 'remove'];
@@ -116,6 +136,29 @@ export class WorktreeService implements IWorktreeService {
       return stdout.trim().length > 0;
     } catch {
       return false;
+    }
+  }
+
+  async listBranches(repoPath: string): Promise<string[]> {
+    try {
+      const { stdout } = await this.execFile('git', ['branch', '-a', '--format=%(refname:short)'], {
+        cwd: repoPath,
+      });
+      const seen = new Set<string>();
+      const branches: string[] = [];
+      for (const line of stdout.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'origin/HEAD' || trimmed.startsWith('origin/HEAD ->')) continue;
+        // Strip "origin/" prefix for remote branches
+        const name = trimmed.startsWith('origin/') ? trimmed.slice('origin/'.length) : trimmed;
+        if (!seen.has(name)) {
+          seen.add(name);
+          branches.push(name);
+        }
+      }
+      return branches.sort();
+    } catch {
+      return [];
     }
   }
 

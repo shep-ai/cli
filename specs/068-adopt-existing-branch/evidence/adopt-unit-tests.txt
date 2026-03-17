@@ -1,0 +1,101 @@
+Adopt Branch Feature — Unit Test Results
+==========================================
+Run: vitest run --reporter=verbose --project node
+Date: 2026-03-16
+
+Test Files: 3 passed (3)
+Tests:      60 passed (60)
+Duration:   237ms
+
+── branch-name-utils.test.ts (33 tests) ──────────────────────────────
+
+  branch-name-utils > deriveName
+    ✓ should strip feat/ prefix and title-case
+    ✓ should strip fix/ prefix and title-case
+    ✓ should strip chore/ prefix and title-case
+    ✓ should strip refactor/ prefix and title-case
+    ✓ should strip docs/ prefix and title-case
+    ✓ should strip test/ prefix and title-case
+    ✓ should strip ci/ prefix and title-case
+    ✓ should strip build/ prefix and title-case
+    ✓ should strip perf/ prefix and title-case
+    ✓ should strip style/ prefix and title-case
+    ✓ should strip revert/ prefix and title-case
+    ✓ should strip hotfix/ prefix and title-case
+    ✓ should strip release/ prefix and title-case
+    ✓ should handle branch names without a known prefix
+    ✓ should handle nested slashes after prefix strip
+    ✓ should handle underscores by replacing with spaces
+    ✓ should handle mixed hyphens and underscores
+    ✓ should handle consecutive special characters
+    ✓ should handle already-clean single word
+    ✓ should return the original branch if prefix strip results in empty string
+    ✓ should only strip the first matching prefix
+    ✓ should handle branch names with dots
+
+  branch-name-utils > deriveSlug
+    ✓ should convert slashes to hyphens and lowercase
+    ✓ should preserve the full branch name (including prefix) in slug
+    ✓ should return the branch as-is when already a valid slug
+    ✓ should handle nested slashes
+    ✓ should convert dots to hyphens
+    ✓ should convert underscores to hyphens
+    ✓ should collapse consecutive hyphens
+    ✓ should trim leading and trailing hyphens
+    ✓ should lowercase uppercase characters
+    ✓ should handle single word branch
+    ✓ should handle branch with mixed special characters
+
+── adopt.command.test.ts (12 tests) ──────────────────────────────────
+
+  adopt command > command structure
+    ✓ returns a Commander Command instance
+    ✓ has name "adopt"
+    ✓ requires a branch argument
+    ✓ has a -r/--repo option
+
+  adopt command > successful adoption
+    ✓ calls use case with branch name and cwd as default repo
+    ✓ calls use case with branch name and custom repo path
+    ✓ displays success message with feature metadata
+    ✓ uses spinner during execution
+    ✓ does not set process.exitCode on success
+
+    Sample CLI output:
+      ID:        abc12345
+      Name:      Login Bug
+      Branch:    fix/login-bug
+      Status:    Maintain
+      Worktree:  /home/user/.shep/repos/abc/wt/fix-login-bug
+
+  adopt command > error handling
+    ✓ displays error message and sets exitCode on failure
+    ✓ wraps non-Error exceptions in an Error
+    ✓ does not display success message on failure
+
+── adopt-branch.use-case.test.ts (15 tests) ──────────────────────────
+
+  AdoptBranchUseCase > happy path — local branch
+    ✓ should create a feature for a local branch with correct field values
+    ✓ should call branchExists to validate the branch
+    ✓ should create a worktree via addExisting
+    ✓ should persist the feature via featureRepo.create
+    ✓ should preserve the branch name verbatim
+
+  AdoptBranchUseCase > repository resolution
+    ✓ should reuse an existing repository when findByPath returns one
+    ✓ should create a new repository when findByPath returns null
+
+  AdoptBranchUseCase > remote branch support
+    ✓ should use origin/<branch> when branch exists only on remote
+    ✓ should throw when branch does not exist locally or on remote
+    ✓ should include helpful suggestions in the branch-not-found error
+
+  AdoptBranchUseCase > validation guards
+    ✓ should reject adoption of the "main" branch
+    ✓ should reject adoption of the "master" branch
+    ✓ should reject duplicate adoption with existing feature details
+    ✓ should reject when slug collides with existing feature
+
+  AdoptBranchUseCase > existing worktree reuse
+    ✓ should reuse existing worktree without calling addExisting

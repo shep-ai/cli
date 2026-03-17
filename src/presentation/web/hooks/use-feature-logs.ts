@@ -53,8 +53,12 @@ export function useFeatureLogs(featureId: string | null | undefined): UseFeature
     });
 
     es.addEventListener('error', (event: MessageEvent) => {
-      const data: { error: string } = JSON.parse(event.data);
-      setError(data.error);
+      try {
+        const data: { error: string } = JSON.parse(event.data);
+        setError(data.error);
+      } catch {
+        setError(event.data ? String(event.data) : 'Log stream unavailable');
+      }
     });
 
     es.onerror = () => {

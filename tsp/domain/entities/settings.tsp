@@ -463,6 +463,9 @@ model FeatureFlags {
 
   @doc("Enable debug UI elements and verbose client-side logging")
   debug: boolean = false;
+
+  @doc("Enable adopt branch feature to import existing branches as tracked features")
+  adoptBranch: boolean = false;
 }
 
 /**

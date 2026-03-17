@@ -503,12 +503,17 @@ describe('SQLiteSettingsRepository', () => {
   describe('feature flags', () => {
     it('should initialize settings with featureFlags and load them back', async () => {
       const settings = createTestSettings();
-      settings.featureFlags = { skills: true, envDeploy: false, debug: true };
+      settings.featureFlags = { skills: true, envDeploy: false, debug: true, adoptBranch: false };
 
       await repository.initialize(settings);
       const loaded = await repository.load();
 
-      expect(loaded?.featureFlags).toEqual({ skills: true, envDeploy: false, debug: true });
+      expect(loaded?.featureFlags).toEqual({
+        skills: true,
+        envDeploy: false,
+        debug: true,
+        adoptBranch: false,
+      });
     });
 
     it('should initialize settings without featureFlags and load defaults', async () => {
@@ -517,35 +522,46 @@ describe('SQLiteSettingsRepository', () => {
       await repository.initialize(settings);
       const loaded = await repository.load();
 
-      expect(loaded?.featureFlags).toEqual({ skills: false, envDeploy: false, debug: false });
+      expect(loaded?.featureFlags).toEqual({
+        skills: false,
+        envDeploy: false,
+        debug: false,
+        adoptBranch: false,
+      });
     });
 
     it('should update featureFlags and persist changes', async () => {
       const settings = createTestSettings();
       await repository.initialize(settings);
 
-      settings.featureFlags = { skills: true, envDeploy: true, debug: false };
+      settings.featureFlags = { skills: true, envDeploy: true, debug: false, adoptBranch: true };
       settings.updatedAt = new Date('2025-01-02T00:00:00Z');
       await repository.update(settings);
 
       const loaded = await repository.load();
-      expect(loaded?.featureFlags).toEqual({ skills: true, envDeploy: true, debug: false });
+      expect(loaded?.featureFlags).toEqual({
+        skills: true,
+        envDeploy: true,
+        debug: false,
+        adoptBranch: true,
+      });
     });
 
     it('should store feature flag booleans as INTEGER 0/1', async () => {
       const settings = createTestSettings();
-      settings.featureFlags = { skills: true, envDeploy: false, debug: true };
+      settings.featureFlags = { skills: true, envDeploy: false, debug: true, adoptBranch: false };
 
       await repository.initialize(settings);
 
       const row = db
         .prepare(
-          'SELECT feature_flag_skills, feature_flag_env_deploy, feature_flag_debug FROM settings WHERE id = ?'
+          'SELECT feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_adopt_branch FROM settings WHERE id = ?'
         )
         .get('singleton') as Record<string, number>;
       expect(row.feature_flag_skills).toBe(1);
       expect(row.feature_flag_env_deploy).toBe(0);
       expect(row.feature_flag_debug).toBe(1);
+      expect(row.feature_flag_adopt_branch).toBe(0);
     });
   });
 

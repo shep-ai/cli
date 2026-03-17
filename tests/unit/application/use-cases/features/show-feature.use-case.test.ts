@@ -45,6 +45,7 @@ describe('ShowFeatureUseCase', () => {
       findById: vi.fn().mockResolvedValue(createMockFeature('feat-1')),
       findByIdPrefix: vi.fn().mockResolvedValue(null),
       findBySlug: vi.fn(),
+      findByBranch: vi.fn(),
       list: vi.fn(),
       findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),

@@ -66,6 +66,22 @@ export interface IWorktreeService {
   ): Promise<WorktreeInfo>;
 
   /**
+   * Create a worktree for an already-existing branch (no -b flag).
+   *
+   * Unlike create(), this does not create a new branch. It attaches a worktree
+   * to a branch that already exists locally or as a remote tracking ref.
+   * For remote-only branches, pass "origin/<branch>" as the branch argument
+   * so that git automatically sets up local tracking.
+   *
+   * @param repoPath - Path to the git repository
+   * @param branch - Existing branch name or remote tracking ref (e.g., "origin/my-branch")
+   * @param worktreePath - Path for the new worktree directory
+   * @returns Information about the created worktree
+   * @throws WorktreeError with appropriate code
+   */
+  addExisting(repoPath: string, branch: string, worktreePath: string): Promise<WorktreeInfo>;
+
+  /**
    * Remove an existing worktree.
    *
    * @param repoPath - Absolute path to the main repository (used as cwd for git)
@@ -118,6 +134,17 @@ export interface IWorktreeService {
    * @returns Computed worktree path (e.g., /repo/.worktrees/branch-name)
    */
   getWorktreePath(repoPath: string, branch: string): string;
+
+  /**
+   * List all local and remote branch names in a repository.
+   *
+   * Returns unique branch names (without remote prefixes like "origin/").
+   * Excludes HEAD pointers and the current branch marker.
+   *
+   * @param repoPath - Path to the git repository
+   * @returns Array of branch name strings
+   */
+  listBranches(repoPath: string): Promise<string[]>;
 
   /**
    * Prune stale worktree entries whose directories no longer exist.

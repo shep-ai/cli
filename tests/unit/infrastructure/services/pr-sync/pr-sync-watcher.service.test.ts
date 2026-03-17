@@ -63,6 +63,7 @@ function createMockFeatureRepository(features: Feature[] = []): IFeatureReposito
     findById: vi.fn(),
     findByIdPrefix: vi.fn(),
     findBySlug: vi.fn(),
+    findByBranch: vi.fn(),
     findByParentId: vi.fn().mockResolvedValue([]),
     list: vi.fn().mockResolvedValue(features),
     update: vi.fn(),

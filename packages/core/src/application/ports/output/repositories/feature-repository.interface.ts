@@ -65,6 +65,18 @@ export interface IFeatureRepository {
   findBySlug(slug: string, repositoryPath: string): Promise<Feature | null>;
 
   /**
+   * Find a feature by its branch name within a repository (excludes soft-deleted).
+   *
+   * Used for duplicate adoption detection — ensures a branch is not already
+   * tracked as a feature before adopting it.
+   *
+   * @param branch - The exact git branch name
+   * @param repositoryPath - The repository path to scope the search
+   * @returns The feature or null if not found
+   */
+  findByBranch(branch: string, repositoryPath: string): Promise<Feature | null>;
+
+  /**
    * List features with optional filters.
    * Excludes soft-deleted features unless includeDeleted is true.
    *

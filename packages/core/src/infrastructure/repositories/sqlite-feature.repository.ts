@@ -95,6 +95,19 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
     return fromDatabase(row);
   }
 
+  async findByBranch(branch: string, repositoryPath: string): Promise<Feature | null> {
+    const stmt = this.db.prepare(
+      "SELECT * FROM features WHERE branch = ? AND REPLACE(repository_path, '\\', '/') = ? AND deleted_at IS NULL"
+    );
+    const row = stmt.get(branch, repositoryPath.replace(/\\/g, '/')) as FeatureRow | undefined;
+
+    if (!row) {
+      return null;
+    }
+
+    return fromDatabase(row);
+  }
+
   async list(filters?: FeatureListFilters): Promise<Feature[]> {
     const conditions: string[] = [];
     const params: unknown[] = [];
