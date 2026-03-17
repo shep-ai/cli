@@ -1,0 +1,159 @@
+name: hide-ci-status
+number: 071
+branch: feat/hide-ci-status
+oneLiner: Add user setting to hide CI status badges in web UI
+summary: >
+  Add a user preference to the Settings entity (WorkflowConfig) to hide CI status badges
+  from the web UI feature drawer and merge review components. When enabled, the CI status
+  row will be hidden while preserving the underlying data and functionality.
+phase: Analysis
+sizeEstimate: S
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (domain model definition)
+  - React (web UI components)
+  - Next.js (web application framework)
+  - SQLite (settings persistence)
+  - tsyringe (dependency injection)
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The CI status badge is currently always visible in the web UI's feature drawer (overview tab)
+  and merge review drawer when PR data exists. Users may want to hide this information to reduce
+  visual clutter or because they monitor CI status through other means (GitHub notifications,
+  external dashboards, etc.). Currently, there is no way to hide the CI status display without
+  losing the underlying data.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  This is a monorepo using pnpm workspaces with three main areas:
+
+  - **packages/core/** - Core business logic following Clean Architecture
+    - `domain/` - TypeSpec-generated domain models (entities, value objects, enums)
+    - `application/` - Use cases and port interfaces
+    - `infrastructure/` - Concrete implementations (repositories, services, agents)
+    - `presentation/` - CLI, TUI presentation logic
+
+  - **src/presentation/web/** - Next.js web UI (separate from core package)
+    - `components/` - React components (shadcn/ui + custom)
+    - `app/` - Next.js 14 App Router pages and API routes
+    - `lib/` - Utility functions
+
+  - **tsp/** - TypeSpec domain model definitions (source of truth)
+    - `domain/entities/settings.tsp` - Settings entity definition
+    - `common/enums/workflow.tsp` - CiStatus enum
+    - `domain/value-objects/pull-request.tsp` - PullRequest model
+
+  ### Architecture Patterns
+
+  **Clean Architecture (4 layers):**
+  - Domain → Application → Infrastructure ← Presentation
+  - Dependencies point inward (domain has zero dependencies)
+  - TypeSpec-first: domain models defined in `tsp/`, generated to TypeScript
+  - Repository pattern with port interfaces in application layer
+  - Dependency injection via tsyringe
+
+  **Settings Service:**
+  - Global singleton pattern (`initializeSettings()` → `getSettings()`)
+  - SQLite persistence via `SQLiteSettingsRepository`
+  - Settings entity defined in TypeSpec, has nested configs:
+    - `models: ModelConfiguration` - AI model selection
+    - `user: UserProfile` - User identity
+    - `environment: EnvironmentConfig` - Editor/shell preferences
+    - `system: SystemConfig` - Auto-update, logging
+    - `agent: AgentConfig` - Agent type and auth
+    - `notifications: NotificationPreferences` - Notification channels
+    - `workflow: WorkflowConfig` - **PR/CI/approval gate settings**
+    - `featureFlags?: FeatureFlags` - Runtime feature toggles
+
+  **Web UI Component Structure:**
+  - React 19 with Next.js 14 App Router
+  - shadcn/ui component library (Badge, Card, Switch, etc.)
+  - Client components marked with 'use client'
+  - Storybook stories required for all components
+
+  ### Relevant Technologies
+
+  - **TypeSpec** (0.60.x) - Domain model definition language
+    - Compile: `pnpm tsp:compile` → generates `packages/core/src/domain/generated/output.ts`
+    - Never edit generated files directly
+
+  - **React 19 / Next.js 14** - Web UI framework
+    - App Router with Server Actions for mutations
+    - Client components for interactivity
+    - Server components for data fetching
+
+  - **SQLite (better-sqlite3)** - Settings and feature persistence
+    - Singleton Settings row (constraint: id = 'singleton')
+    - Mapper layer converts camelCase ↔ snake_case
+
+  - **tsyringe** - Dependency injection container
+    - Requires `reflect-metadata` import
+    - Repository interfaces registered in DI container
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | tsp/domain/entities/settings.tsp | Medium | Add `hideCiStatus?: boolean` field to WorkflowConfig model |
+  | packages/core/src/domain/generated/output.ts | Low | Auto-generated from TypeSpec (run `pnpm tsp:compile`) |
+  | packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts | Medium | Add `hide_ci_status` column mapping to toDatabase/fromDatabase functions |
+  | src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx | Low | Conditionally render CI status row based on settings.workflow.hideCiStatus |
+  | src/presentation/web/components/common/merge-review/merge-review.tsx | Low | Conditionally render CI status row based on settings.workflow.hideCiStatus |
+  | src/presentation/web/components/features/settings/workflow-settings-section.tsx | Low | Add Switch component for "Hide CI Status" preference |
+  | src/presentation/web/app/actions/get-feature-drawer-data.ts | Low | Pass hideCiStatus flag from settings to client |
+  | src/presentation/web/app/actions/get-merge-review-data.ts | Low | Pass hideCiStatus flag from settings to client |
+  | tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx | Low | Add test case for hidden CI status |
+  | tests/unit/presentation/web/components/common/merge-review/merge-review.test.tsx | Low | Add test case for hidden CI status |
+  | tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx | Low | Add test for hideCiStatus switch |
+  | Database migration | High | Add `hide_ci_status` INTEGER column to settings table (default: 0 = show) |
+
+  ## Dependencies
+
+  - **Existing infrastructure:**
+    - Settings entity (TypeSpec model + SQLite repository)
+    - Settings service singleton (`getSettings()` accessor)
+    - WorkflowConfig nested within Settings
+    - Server Actions pattern (`updateSettingsAction`)
+    - Settings mapper layer (TypeScript ↔ SQLite conversion)
+
+  - **Existing components:**
+    - CiStatusBadge component (`src/presentation/web/components/common/ci-status-badge/`)
+    - FeaturePrInfo section in overview-tab.tsx (lines 209-254)
+    - PR metadata card in merge-review.tsx (lines 227-279)
+    - WorkflowSettingsSection component with Switch controls
+
+  - **Testing utilities:**
+    - Vitest for unit/integration tests
+    - React Testing Library for component tests
+    - In-memory SQLite for repository tests
+
+  ## Size Estimate
+
+  **S** — This is a small feature (hours, not days):
+
+  - **Scope:** Single boolean field addition to existing Settings entity
+  - **Complexity:** Low - straightforward conditional rendering, no new logic
+  - **Files touched:** ~11 files (1 TypeSpec, 1 mapper, 2 components, 1 settings UI, 2 server actions, ~4 test files, 1 migration)
+  - **Risk:** Very low - purely additive, no breaking changes, existing data unaffected
+  - **Testing:** Simple boolean state tests, no edge cases
+  - **No new dependencies:** Uses existing patterns (Settings entity, WorkflowConfig, Switch component)
+
+  The implementation is straightforward because:
+  1. Settings infrastructure already exists (TypeSpec → SQLite → singleton service)
+  2. Components already conditionally render sections (same pattern as `pr.mergeable === false`)
+  3. No business logic changes - just hide/show UI based on user preference
+  4. Server Actions pattern already established for settings updates
+
+  ---
+
+  _Analysis complete — ready for research phase_
