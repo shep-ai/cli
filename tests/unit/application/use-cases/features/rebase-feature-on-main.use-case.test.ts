@@ -23,7 +23,7 @@ function createMockFeatureRepo(): IFeatureRepository {
     findByParentId: vi.fn().mockResolvedValue([]),
     delete: vi.fn(),
     softDelete: vi.fn(),
-  };
+  } as unknown as IFeatureRepository;
 }
 
 function createMockGitPrService(): IGitPrService {
@@ -67,7 +67,7 @@ function createMockWorktreeService(): IWorktreeService {
     getWorktreePath: vi.fn().mockReturnValue('/repo/.worktrees/feat-x'),
     prune: vi.fn(),
     ensureGitRepository: vi.fn(),
-  };
+  } as unknown as IWorktreeService;
 }
 
 function createMockConflictResolution(): ConflictResolutionService {
