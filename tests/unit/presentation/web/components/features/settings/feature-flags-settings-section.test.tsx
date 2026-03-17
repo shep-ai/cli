@@ -12,7 +12,7 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-const defaultFlags = { skills: false, envDeploy: false, debug: false };
+const defaultFlags = { skills: false, envDeploy: false, debug: false, databaseBrowser: false };
 
 describe('FeatureFlagsSettingsSection', () => {
   beforeEach(() => {
@@ -20,14 +20,16 @@ describe('FeatureFlagsSettingsSection', () => {
     mockUpdateSettingsAction.mockResolvedValue({ success: true });
   });
 
-  it('renders 3 feature flag toggles with descriptions', () => {
+  it('renders 4 feature flag toggles with descriptions', () => {
     render(<FeatureFlagsSettingsSection featureFlags={defaultFlags} />);
     expect(screen.getByTestId('switch-flag-skills')).toBeDefined();
     expect(screen.getByTestId('switch-flag-envDeploy')).toBeDefined();
     expect(screen.getByTestId('switch-flag-debug')).toBeDefined();
+    expect(screen.getByTestId('switch-flag-databaseBrowser')).toBeDefined();
     expect(screen.getByText('Skills')).toBeDefined();
     expect(screen.getByText('Deployments')).toBeDefined();
     expect(screen.getByText('Debug')).toBeDefined();
+    expect(screen.getByText('Database Browser')).toBeDefined();
   });
 
   it('renders description text for each flag', () => {

@@ -499,12 +499,22 @@ describe('SQLiteSettingsRepository', () => {
   describe('feature flags', () => {
     it('should initialize settings with featureFlags and load them back', async () => {
       const settings = createTestSettings();
-      settings.featureFlags = { skills: true, envDeploy: false, debug: true };
+      settings.featureFlags = {
+        skills: true,
+        envDeploy: false,
+        debug: true,
+        databaseBrowser: false,
+      };
 
       await repository.initialize(settings);
       const loaded = await repository.load();
 
-      expect(loaded?.featureFlags).toEqual({ skills: true, envDeploy: false, debug: true });
+      expect(loaded?.featureFlags).toEqual({
+        skills: true,
+        envDeploy: false,
+        debug: true,
+        databaseBrowser: false,
+      });
     });
 
     it('should initialize settings without featureFlags and load defaults', async () => {
@@ -513,24 +523,44 @@ describe('SQLiteSettingsRepository', () => {
       await repository.initialize(settings);
       const loaded = await repository.load();
 
-      expect(loaded?.featureFlags).toEqual({ skills: false, envDeploy: false, debug: false });
+      expect(loaded?.featureFlags).toEqual({
+        skills: false,
+        envDeploy: false,
+        debug: false,
+        databaseBrowser: false,
+      });
     });
 
     it('should update featureFlags and persist changes', async () => {
       const settings = createTestSettings();
       await repository.initialize(settings);
 
-      settings.featureFlags = { skills: true, envDeploy: true, debug: false };
+      settings.featureFlags = {
+        skills: true,
+        envDeploy: true,
+        debug: false,
+        databaseBrowser: false,
+      };
       settings.updatedAt = new Date('2025-01-02T00:00:00Z');
       await repository.update(settings);
 
       const loaded = await repository.load();
-      expect(loaded?.featureFlags).toEqual({ skills: true, envDeploy: true, debug: false });
+      expect(loaded?.featureFlags).toEqual({
+        skills: true,
+        envDeploy: true,
+        debug: false,
+        databaseBrowser: false,
+      });
     });
 
     it('should store feature flag booleans as INTEGER 0/1', async () => {
       const settings = createTestSettings();
-      settings.featureFlags = { skills: true, envDeploy: false, debug: true };
+      settings.featureFlags = {
+        skills: true,
+        envDeploy: false,
+        debug: true,
+        databaseBrowser: false,
+      };
 
       await repository.initialize(settings);
 

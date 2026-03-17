@@ -487,6 +487,10 @@ export type FeatureFlags = {
    * Enable debug UI elements and verbose client-side logging
    */
   debug: boolean;
+  /**
+   * Enable the Database browser page in the web UI
+   */
+  databaseBrowser: boolean;
 };
 
 /**

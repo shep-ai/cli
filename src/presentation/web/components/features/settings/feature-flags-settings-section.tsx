@@ -13,15 +13,17 @@ const FLAG_DESCRIPTIONS: Record<keyof FeatureFlags, string> = {
   skills: 'Enable Skills navigation and functionality in the web UI',
   envDeploy: 'Enable environment deployment features in the web UI',
   debug: 'Enable debug UI elements and verbose client-side logging',
+  databaseBrowser: 'Enable the Database browser page for inspecting SQLite data',
 };
 
 const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
   skills: 'Skills',
   envDeploy: 'Deployments',
   debug: 'Debug',
+  databaseBrowser: 'Database Browser',
 };
 
-const FLAG_KEYS: (keyof FeatureFlags)[] = ['skills', 'envDeploy', 'debug'];
+const FLAG_KEYS: (keyof FeatureFlags)[] = ['skills', 'envDeploy', 'debug', 'databaseBrowser'];
 
 export interface FeatureFlagsSettingsSectionProps {
   featureFlags: FeatureFlags;

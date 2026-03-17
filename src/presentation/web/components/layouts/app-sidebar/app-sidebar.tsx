@@ -118,12 +118,14 @@ export function AppSidebar({
             href="/settings"
             active={pathname === '/settings'}
           />
-          <SidebarNavItem
-            icon={Database}
-            label="Database"
-            href="/database"
-            active={pathname === '/database'}
-          />
+          {featureFlags.databaseBrowser ? (
+            <SidebarNavItem
+              icon={Database}
+              label="Database"
+              href="/database"
+              active={pathname === '/database'}
+            />
+          ) : null}
         </SidebarMenu>
       </SidebarHeader>
 

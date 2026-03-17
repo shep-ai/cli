@@ -400,6 +400,9 @@ model FeatureFlags {
 
   @doc("Enable debug UI elements and verbose client-side logging")
   debug: boolean = false;
+
+  @doc("Enable the Database browser page in the web UI")
+  databaseBrowser: boolean = false;
 }
 
 /**

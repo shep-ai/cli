@@ -14,8 +14,13 @@ properties:
     type: boolean
     default: false
     description: Enable debug UI elements and verbose client-side logging
+  databaseBrowser:
+    type: boolean
+    default: false
+    description: Enable the Database browser page in the web UI
 required:
   - skills
   - envDeploy
   - debug
+  - databaseBrowser
 description: Feature flag toggles for runtime feature control
