@@ -92,6 +92,8 @@ describe('AdoptBranchUseCase', () => {
       localMergeSquash: vi.fn().mockResolvedValue(undefined),
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
       getFailureLogs: vi.fn().mockResolvedValue(''),
+      createGitHubRepo: vi.fn().mockResolvedValue('https://github.com/org/repo'),
+      addRemote: vi.fn().mockResolvedValue(undefined),
     };
 
     useCase = new AdoptBranchUseCase(
