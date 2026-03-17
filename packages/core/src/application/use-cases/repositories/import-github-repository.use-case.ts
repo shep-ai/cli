@@ -89,7 +89,10 @@ export class ImportGitHubRepositoryUseCase {
       return input.dest;
     }
 
-    const baseDir = input.defaultCloneDir ?? join(homedir(), 'repos');
+    let baseDir = input.defaultCloneDir ?? join(homedir(), 'repos');
+    if (baseDir.startsWith('~/')) {
+      baseDir = join(homedir(), baseDir.slice(2));
+    }
     return join(baseDir, repoName);
   }
 }

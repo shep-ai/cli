@@ -1,7 +1,4 @@
-export async function importGitHubRepository(input: {
-  url: string;
-  dest?: string;
-}): Promise<{
+export async function importGitHubRepository(input: { url: string; dest?: string }): Promise<{
   repository?: { id: string; name: string; path: string; remoteUrl?: string };
   error?: string;
 }> {
