@@ -95,6 +95,7 @@ describe('ListToolsUseCase', () => {
       checkAvailability: vi.fn(),
       getInstallCommand: vi.fn(),
       executeInstall: vi.fn(),
+      listAvailableTerminals: vi.fn(),
     };
 
     useCase = new ListToolsUseCase(mockService);

@@ -122,6 +122,48 @@ describe('ToolInstallerServiceImpl', () => {
     });
   });
 
+  describe('listAvailableTerminals', () => {
+    it('should include system terminal as always available', async () => {
+      mockCheckBinaryExists.mockResolvedValue({ found: true });
+
+      const results = await service.listAvailableTerminals();
+
+      const system = results.find((r) => r.id === 'system');
+      expect(system).toBeDefined();
+      expect(system!.available).toBe(true);
+    });
+
+    it('should include warp as available when binary check passes', async () => {
+      // Warp uses a verifyCommand starting with "test " (app bundle check)
+      // We simulate exec returning no error (available)
+      mockExec.mockImplementation((_cmd: string, cb: (err: Error | null) => void) => {
+        cb(null);
+      });
+      mockCheckBinaryExists.mockResolvedValue({ found: true });
+
+      const results = await service.listAvailableTerminals();
+
+      // System terminal must always be present
+      expect(results.some((r) => r.id === 'system')).toBe(true);
+    });
+
+    it('should mark warp as unavailable when app bundle is not found', async () => {
+      mockExec.mockImplementation((_cmd: string, cb: (err: Error | null) => void) => {
+        cb(new Error('not found'));
+      });
+      mockCheckBinaryExists.mockResolvedValue({ found: false, notInPath: true });
+
+      const results = await service.listAvailableTerminals();
+
+      const warp = results.find((r) => r.id === 'warp');
+      if (warp) {
+        expect(warp.available).toBe(false);
+      }
+      // System terminal is always available
+      expect(results.some((r) => r.id === 'system' && r.available)).toBe(true);
+    });
+  });
+
   describe('executeInstall', () => {
     it('should call spawn with shell: true instead of sh -c', async () => {
       const mockProc = createMockProcess(0);

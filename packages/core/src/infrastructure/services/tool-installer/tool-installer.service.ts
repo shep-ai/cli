@@ -15,7 +15,10 @@
 import { injectable } from 'tsyringe';
 import { exec, spawn } from 'node:child_process';
 import { platform } from 'node:os';
-import type { IToolInstallerService } from '../../../application/ports/output/services/tool-installer.service.js';
+import type {
+  IToolInstallerService,
+  AvailableTerminalEntry,
+} from '../../../application/ports/output/services/tool-installer.service.js';
 import type {
   ToolInstallationStatus,
   ToolInstallCommand,
@@ -26,7 +29,7 @@ import {
   createMissingStatus,
   createErrorStatus,
 } from '../../../domain/value-objects/tool-installation-status.js';
-import { TOOL_METADATA, type ToolMetadata } from './tool-metadata.js';
+import { TOOL_METADATA, getTerminalEntries, type ToolMetadata } from './tool-metadata.js';
 import { checkBinaryExists } from './binary-exists.js';
 
 /**
@@ -199,6 +202,50 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
         cleanup(`Installation error: ${err.message}`);
       });
     });
+  }
+
+  /**
+   * List all terminal emulators supported on the current platform with availability status.
+   * TOOL_METADATA is loaded in the Node.js CLI context, so this is safe to call from the
+   * DI container even when the Next.js standalone bundle cannot resolve tools/ via import.meta.url.
+   */
+  async listAvailableTerminals(): Promise<AvailableTerminalEntry[]> {
+    const currentPlatform = platform();
+    const entries = getTerminalEntries();
+    const results: AvailableTerminalEntry[] = [];
+
+    for (const [id, meta] of entries) {
+      if (
+        meta.platforms &&
+        !meta.platforms.includes(currentPlatform as 'linux' | 'darwin' | 'win32')
+      ) {
+        continue;
+      }
+
+      if (id === 'system-terminal') {
+        results.unshift({ id: 'system', name: meta.name, available: true });
+        continue;
+      }
+
+      const binary = typeof meta.binary === 'string' ? meta.binary : meta.binary[currentPlatform];
+      if (!binary) continue;
+
+      let available = false;
+      if (meta.verifyCommand.startsWith('test ')) {
+        available = await runVerifyCommand(meta.verifyCommand);
+      } else {
+        const result = await checkBinaryExists(binary);
+        available = result.found;
+      }
+
+      results.push({ id, name: meta.name, available });
+    }
+
+    if (!results.some((r) => r.id === 'system')) {
+      results.unshift({ id: 'system', name: 'System Terminal', available: true });
+    }
+
+    return results;
   }
 
   /**
