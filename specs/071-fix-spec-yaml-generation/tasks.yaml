@@ -39,7 +39,7 @@ tasks:
   - id: task-2
     phaseId: phase-1
     title: 'Unit tests for safeYamlDump edge cases'
-    description: 'Create comprehensive test suite covering edge cases: single quotes (contractions like "it'\''s"), double quotes (nested "quoted text"), mixed quotes, newlines, special chars (colons, hashes, braces), nested objects, arrays, empty strings, null values, and round-trip consistency (serialize → parse → equals original).'
+    description: "Create comprehensive test suite covering edge cases: single quotes (contractions like \"it's\"), double quotes (nested \"quoted text\"), mixed quotes, newlines, special chars (colons, hashes, braces), nested objects, arrays, empty strings, null values, and round-trip consistency (serialize → parse → equals original)."
     state: Todo
     dependencies:
       - task-1
@@ -50,8 +50,8 @@ tasks:
       - 'All tests pass'
     tdd:
       red:
-        - 'Write test for single quote: safeYamlDump({ text: "it'\''s working" }) then parse and assert equals original'
-        - 'Write test for double quote: safeYamlDump({ text: "say \"hello\"" }) then parse and assert equals original'
+        - "Write test for single quote: safeYamlDump({ text: \"it's working\" }) then parse and assert equals original"
+        - "Write test for double quote: safeYamlDump({ text: \"say \\\"hello\\\"\" }) then parse and assert equals original"
         - 'Write test for newlines: safeYamlDump({ text: "line1\nline2" }) then parse and assert equals original'
         - 'Write test for special chars: safeYamlDump({ text: "key: value" }) then parse and assert colon is literal'
         - 'Write test for nested object: safeYamlDump({ parent: { child: "value" } }) then parse and assert structure preserved'
@@ -204,7 +204,7 @@ tasks:
     acceptanceCriteria:
       - 'YAML Output Rules section added to analyze.prompt.ts'
       - 'Section includes all three rules (quoting, escaping, block scalars)'
-      - 'Concrete before/after example included (e.g., text: it'\''s broken → text: "it'\''s broken")'
+      - "Concrete before/after example included (e.g., text: it's broken → text: \"it's broken\")"
       - 'Existing prompt structure preserved (no breaking changes to agent output format)'
     tdd:
       red:
@@ -213,7 +213,7 @@ tasks:
       green:
         - 'Add YAML Output Rules section after output structure instructions'
         - 'Include three rules with bullet points'
-        - 'Add example: "Example: text: it'\''s broken → text: \"it'\''s broken\" or use text: | (newline) it'\''s broken"'
+        - "Add example: \"Example: text: it's broken → text: \\\"it's broken\\\" or use text: | (newline) it's broken\""
       refactor:
         - 'Ensure formatting is consistent with existing prompt style (indentation, line breaks)'
     estimatedEffort: '30min'
@@ -302,7 +302,7 @@ tasks:
         - 'Write test that prompt includes at least 3 examples (count occurrences of "→" or "Before:" markers)'
       green:
         - 'Add YAML Escaping Rules section to buildRepairPrompt return value'
-        - 'Include examples: (1) "don'\''t" → "don'\''t" or use "don'\''t", (2) title: it'\''s broken → title: "it'\''s broken", (3) content: (multi-line) → content: | (newline) (indented multi-line)'
+        - 'Include examples: (1) unescaped quote to escaped quote, (2) unquoted string with special char to double-quoted string, (3) multi-line content to block scalar'
       refactor:
         - 'Extract examples to template string for readability'
         - 'Ensure examples align with phase prompt guidance (consistency)'

@@ -21,6 +21,7 @@ vi.mock('js-yaml', () => ({
 
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
   writeSpecFileAtomic: vi.fn(),
+  safeYamlDump: vi.fn(),
 }));
 
 vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () => ({
@@ -29,11 +30,14 @@ vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () =
 
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
-import { writeSpecFileAtomic } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import {
+  writeSpecFileAtomic,
+  safeYamlDump,
+} from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockYamlLoad = vi.mocked(yaml.load);
-const mockYamlDump = vi.mocked(yaml.dump);
+const mockSafeYamlDump = vi.mocked(safeYamlDump);
 const mockWriteSpecFileAtomic = vi.mocked(writeSpecFileAtomic);
 
 function createMockRunRepository() {
@@ -130,7 +134,7 @@ describe('RejectAgentRunUseCase (iteration support)', () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
     mockReadFileSync.mockReturnValue('yaml-content');
     mockYamlLoad.mockReturnValue({ openQuestions: [] });
-    mockYamlDump.mockReturnValue('updated-yaml');
+    mockSafeYamlDump.mockReturnValue('updated-yaml');
 
     const result = await useCase.execute('run-001', 'Please add error handling');
 
@@ -144,11 +148,11 @@ describe('RejectAgentRunUseCase (iteration support)', () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
     mockReadFileSync.mockReturnValue('yaml-content');
     mockYamlLoad.mockReturnValue({ openQuestions: [] });
-    mockYamlDump.mockReturnValue('updated-yaml');
+    mockSafeYamlDump.mockReturnValue('updated-yaml');
 
     await useCase.execute('run-001', 'Add validation');
 
-    const dumpCall = mockYamlDump.mock.calls[0][0] as any;
+    const dumpCall = mockSafeYamlDump.mock.calls[0][0] as any;
     expect(dumpCall.rejectionFeedback).toHaveLength(1);
     expect(dumpCall.rejectionFeedback[0].iteration).toBe(1);
     expect(dumpCall.rejectionFeedback[0].message).toBe('Add validation');
@@ -166,7 +170,7 @@ describe('RejectAgentRunUseCase (iteration support)', () => {
         { iteration: 2, message: 'Second fix', timestamp: '2026-01-02T00:00:00.000Z' },
       ],
     });
-    mockYamlDump.mockReturnValue('updated-yaml');
+    mockSafeYamlDump.mockReturnValue('updated-yaml');
 
     const result = await useCase.execute('run-001', 'Third fix');
 
@@ -186,7 +190,7 @@ describe('RejectAgentRunUseCase (iteration support)', () => {
         { iteration: 4, message: 'Fix 4', timestamp: '' },
       ],
     });
-    mockYamlDump.mockReturnValue('updated-yaml');
+    mockSafeYamlDump.mockReturnValue('updated-yaml');
 
     const result = await useCase.execute('run-001', 'Fix 5');
 
@@ -198,7 +202,7 @@ describe('RejectAgentRunUseCase (iteration support)', () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
     mockReadFileSync.mockReturnValue('yaml-content');
     mockYamlLoad.mockReturnValue({ openQuestions: [] });
-    mockYamlDump.mockReturnValue('updated-yaml');
+    mockSafeYamlDump.mockReturnValue('updated-yaml');
 
     await useCase.execute('run-001', 'Fix something');
 
@@ -213,7 +217,7 @@ describe('RejectAgentRunUseCase (iteration support)', () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
     mockReadFileSync.mockReturnValue('yaml-content');
     mockYamlLoad.mockReturnValue({ openQuestions: [] });
-    mockYamlDump.mockReturnValue('updated-yaml');
+    mockSafeYamlDump.mockReturnValue('updated-yaml');
 
     await useCase.execute('run-001', 'Fix something');
 
@@ -288,7 +292,7 @@ describe('RejectAgentRunUseCase (iteration support)', () => {
     ]);
     mockReadFileSync.mockReturnValue('yaml-content');
     mockYamlLoad.mockReturnValue({ openQuestions: [] });
-    mockYamlDump.mockReturnValue('updated-yaml');
+    mockSafeYamlDump.mockReturnValue('updated-yaml');
 
     await useCase.execute('run-001', 'Fix something');
 

@@ -9,7 +9,7 @@
  * @module output
  */
 
-import yaml from 'js-yaml';
+import { safeYamlDump } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import { TableFormatter, type DatabaseMeta } from './tables.js';
 
 export type OutputFormat = 'table' | 'json' | 'yaml';
@@ -50,6 +50,6 @@ export class OutputFormatter {
    * Formats data as YAML
    */
   static formatAsYAML(data: unknown): string {
-    return yaml.dump(data, { indent: 2, lineWidth: -1 });
+    return safeYamlDump(data);
   }
 }

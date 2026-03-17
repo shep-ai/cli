@@ -20,6 +20,7 @@ import {
   buildExecutorOptions,
   shouldInterrupt,
   safeYamlLoad,
+  safeYamlDump,
   retryExecute,
   getCompletedPhases,
   markPhaseComplete,
@@ -75,11 +76,7 @@ function updateFeatureProgress(
       lastUpdatedBy: 'feature-agent:implement',
     };
 
-    writeFileSync(
-      join(specDir, 'feature.yaml'),
-      yaml.dump(data, { indent: 2, lineWidth: -1 }),
-      'utf-8'
-    );
+    writeFileSync(join(specDir, 'feature.yaml'), safeYamlDump(data), 'utf-8');
   } catch (err) {
     log.error(`Failed to update feature.yaml: ${err instanceof Error ? err.message : String(err)}`);
   }

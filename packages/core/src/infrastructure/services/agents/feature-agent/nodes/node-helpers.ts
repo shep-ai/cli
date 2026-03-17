@@ -323,11 +323,7 @@ export function clearCompletedPhase(specDir: string, phaseId: string, log?: Node
       ? status.completedPhases.filter((p: string) => p !== phaseId)
       : [];
     data.status = { ...status, completedPhases };
-    writeFileSync(
-      join(specDir, 'feature.yaml'),
-      yaml.dump(data, { indent: 2, lineWidth: -1 }),
-      'utf-8'
-    );
+    writeFileSync(join(specDir, 'feature.yaml'), safeYamlDump(data), 'utf-8');
   } catch (err) {
     log?.error(
       `Failed to clear completed phase: ${err instanceof Error ? err.message : String(err)}`
@@ -364,11 +360,7 @@ export function markPhaseComplete(specDir: string, phaseId: string, log?: NodeLo
       completedPhases.push(phaseId);
     }
     data.status = { ...status, completedPhases };
-    writeFileSync(
-      join(specDir, 'feature.yaml'),
-      yaml.dump(data, { indent: 2, lineWidth: -1 }),
-      'utf-8'
-    );
+    writeFileSync(join(specDir, 'feature.yaml'), safeYamlDump(data), 'utf-8');
   } catch (err) {
     log?.error(
       `Failed to mark phase complete: ${err instanceof Error ? err.message : String(err)}`

@@ -17,7 +17,10 @@ import type { IPhaseTimingRepository } from '../../ports/output/agents/phase-tim
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
 import type { PrdApprovalPayload } from '../../../domain/generated/output.js';
-import { writeSpecFileAtomic } from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import {
+  writeSpecFileAtomic,
+  safeYamlDump,
+} from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import { computeWorktreePath } from '../../../infrastructure/services/ide-launchers/compute-worktree-path.js';
 
 @injectable()
@@ -78,7 +81,7 @@ export class ApproveAgentRunUseCase {
           }
         }
 
-        writeSpecFileAtomic(specDir, 'spec.yaml', yaml.dump(spec));
+        writeSpecFileAtomic(specDir, 'spec.yaml', safeYamlDump(spec));
       } catch {
         // Non-fatal: selection update failure should not block approval
       }

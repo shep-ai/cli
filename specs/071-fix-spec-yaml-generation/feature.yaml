@@ -1,0 +1,37 @@
+feature:
+  id: 071-fix-spec-yaml-generation
+  name: fix-spec-yaml-generation
+  number: 71
+  branch: feat/071-fix-spec-yaml-generation
+  lifecycle: research
+  createdAt: '2026-03-17T17:22:08Z'
+status:
+  phase: implementing-phase-2
+  progress:
+    completed: 2
+    total: 15
+    percentage: 13
+  currentTask: task-3
+  lastUpdated: '2026-03-17T18:00:37.183Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-17T17:22:08Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []
