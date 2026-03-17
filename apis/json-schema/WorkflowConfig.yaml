@@ -52,6 +52,9 @@ properties:
     minimum: -2147483648
     maximum: 2147483647
     description: "Maximum number of evidence collection retry attempts when validation fails (default: 3)"
+  hideCiStatus:
+    type: boolean
+    description: "Hide CI status badges from UI (default: true)"
 required:
   - openPrOnImplementationComplete
   - approvalGateDefaults
