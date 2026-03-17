@@ -292,7 +292,7 @@ describe('GitPrService', () => {
 
       await service.mergePr('/repo', 42);
 
-      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--squash', '--auto'], {
+      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--squash'], {
         cwd: '/repo',
       });
     });
@@ -305,7 +305,7 @@ describe('GitPrService', () => {
 
       await service.mergePr('/repo', 42, 'rebase');
 
-      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--rebase', '--auto'], {
+      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--rebase'], {
         cwd: '/repo',
       });
     });

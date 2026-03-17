@@ -207,7 +207,7 @@ export class GitPrService implements IGitPrService {
 
   async mergePr(cwd: string, prNumber: number, strategy: MergeStrategy = 'squash'): Promise<void> {
     try {
-      await this.execFile('gh', ['pr', 'merge', String(prNumber), `--${strategy}`, '--auto'], {
+      await this.execFile('gh', ['pr', 'merge', String(prNumber), `--${strategy}`], {
         cwd,
       });
     } catch (error) {

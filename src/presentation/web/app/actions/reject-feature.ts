@@ -2,12 +2,7 @@
 
 import { resolve } from '@/lib/server-container';
 import type { RejectAgentRunUseCase } from '@shepai/core/application/use-cases/agents/reject-agent-run.use-case';
-import type { ResumeFeatureUseCase } from '@shepai/core/application/use-cases/features/resume-feature.use-case';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
-import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
-import { AgentRunStatus } from '@shepai/core/domain/generated/output';
-
-const ERROR_STATUSES = new Set<string>([AgentRunStatus.failed, AgentRunStatus.interrupted]);
 
 export async function rejectFeature(
   featureId: string,
@@ -39,15 +34,10 @@ export async function rejectFeature(
       return { rejected: false, error: 'Feature has no agent run' };
     }
 
-    const runRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
-    const run = await runRepo.findById(feature.agentRunId);
-
-    if (run && ERROR_STATUSES.has(run.status)) {
-      const resumeUseCase = resolve<ResumeFeatureUseCase>('ResumeFeatureUseCase');
-      await resumeUseCase.execute(featureId, { promptPrefix: feedback });
-      return { rejected: true, iteration: 1 };
-    }
-
+    // Always use RejectAgentRunUseCase — it handles waitingApproval, failed,
+    // and interrupted statuses. This ensures rejection feedback is propagated
+    // via Command({update: {_approvalAction, _rejectionFeedback}}) so the
+    // graph node receives the feedback on resume.
     const rejectUseCase = resolve<RejectAgentRunUseCase>('RejectAgentRunUseCase');
     const result = await rejectUseCase.execute(feature.agentRunId, feedback, attachments);
 

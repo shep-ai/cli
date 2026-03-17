@@ -42,10 +42,15 @@ export class ApproveAgentRunUseCase {
       return { approved: false, reason: 'Agent run not found' };
     }
 
-    if (run.status !== AgentRunStatus.waitingApproval) {
+    const APPROVABLE_STATUSES = new Set([
+      AgentRunStatus.waitingApproval,
+      AgentRunStatus.failed,
+      AgentRunStatus.interrupted,
+    ]);
+    if (!APPROVABLE_STATUSES.has(run.status)) {
       return {
         approved: false,
-        reason: `Agent run is not waiting for approval (status: ${run.status})`,
+        reason: `Agent run is not in an approvable state (status: ${run.status})`,
       };
     }
 

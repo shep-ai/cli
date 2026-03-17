@@ -29,18 +29,25 @@ graph LR
     A --> VA[validate_spec_analyze]:::validator
     VA --> R[requirements]:::interruptible
     R --> VR[validate_spec_requirements]:::validator
-    VR --> RS[research]:::producer
+    VR --> RI{iterate}:::iteration
+    RI -->|approve| RS[research]:::producer
+    RI -->|reject| R
     RS --> VRS[validate_research]:::validator
     VRS --> P[plan]:::interruptible
     P --> VP[validate_plan_tasks]:::validator
-    VP --> I[implement]:::producer
+    VP --> PI{iterate}:::iteration
+    PI -->|approve| I[implement]:::producer
+    PI -->|reject| P
     I --> M[merge]:::interruptible
-    M --> E((End)):::startEnd
+    M --> MI{iterate}:::iteration
+    MI -->|approve| E((End)):::startEnd
+    MI -->|reject| M
 
     classDef startEnd fill:#F8F9FA,stroke:#5F6368,stroke-width:2px,color:#1A1A2E
     classDef producer fill:#E8F0FE,stroke:#4285F4,stroke-width:1.5px,color:#1A1A2E
     classDef interruptible fill:#FFF3E0,stroke:#F4A226,stroke-width:2px,color:#1A1A2E
     classDef validator fill:#E8F5E9,stroke:#34A853,stroke-width:1px,color:#1A1A2E
+    classDef iteration fill:#FCE4EC,stroke:#E91E63,stroke-width:1.5px,color:#1A1A2E
 ```
 
 **Legend**:
@@ -48,6 +55,7 @@ graph LR
 - Blue nodes: Producer nodes (execute agent, no interrupt)
 - Orange nodes: Interruptible nodes (gated by `ApprovalGates`)
 - Green nodes: Validation nodes (schema checks)
+- Pink diamonds: Iteration points (approve → continue, reject → re-execute the block)
 
 Interrupt-capable nodes (controlled by `ApprovalGates`):
 
