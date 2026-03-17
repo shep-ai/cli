@@ -110,7 +110,19 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
           return;
         }
 
-        const result = await getDeploymentStatus(targetId);
+        let result;
+        try {
+          result = await getDeploymentStatus(targetId);
+        } catch (err) {
+          log.warn(`poll fetch failed for "${targetId}":`, err);
+          // Treat fetch failure as deployment gone — clear UI
+          if (mountedRef.current) {
+            setStatus(null);
+            setUrl(null);
+            stopPolling();
+          }
+          return;
+        }
 
         if (!mountedRef.current) return;
 
