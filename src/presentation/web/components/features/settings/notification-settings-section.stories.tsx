@@ -45,7 +45,7 @@ export const Default: Story = {
   args: {
     notifications: {
       inApp: { enabled: true },
-      browser: { enabled: true },
+      browser: { enabled: false },
       desktop: { enabled: false },
       events: allEvents,
     },
@@ -56,8 +56,8 @@ export const AllEnabled: Story = {
   args: {
     notifications: {
       inApp: { enabled: true },
-      browser: { enabled: true },
-      desktop: { enabled: true },
+      browser: { enabled: false },
+      desktop: { enabled: false },
       events: allEvents,
     },
   },

@@ -37,14 +37,16 @@ describe('NotificationSettingsSection', () => {
     mockUpdateSettingsAction.mockResolvedValue({ success: true });
   });
 
-  it('renders 3 channel toggles with correct labels', () => {
+  it('renders in-app channel toggle', () => {
     render(<NotificationSettingsSection notifications={defaultNotifications} />);
     expect(screen.getByTestId('switch-in-app')).toBeDefined();
-    expect(screen.getByTestId('switch-browser')).toBeDefined();
-    expect(screen.getByTestId('switch-desktop')).toBeDefined();
     expect(screen.getByText('In-App')).toBeDefined();
-    expect(screen.getByText('Browser')).toBeDefined();
-    expect(screen.getByText('Desktop')).toBeDefined();
+  });
+
+  it('does not render unimplemented browser and desktop toggles', () => {
+    render(<NotificationSettingsSection notifications={defaultNotifications} />);
+    expect(screen.queryByTestId('switch-browser')).toBeNull();
+    expect(screen.queryByTestId('switch-desktop')).toBeNull();
   });
 
   it('renders 11 event type toggles', () => {
