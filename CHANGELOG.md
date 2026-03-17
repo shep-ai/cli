@@ -1,3 +1,10 @@
+# [1.128.0](https://github.com/shep-ai/cli/compare/v1.127.3...v1.128.0) (2026-03-17)
+
+
+### Features
+
+* **domain:** add github repository import via url or interactive browse ([#404](https://github.com/shep-ai/cli/issues/404)) ([42a2231](https://github.com/shep-ai/cli/commit/42a22314ab8d00b42ae6e380426523d35679631e))
+
 ## [1.127.3](https://github.com/shep-ai/cli/compare/v1.127.2...v1.127.3) (2026-03-17)
 
 
