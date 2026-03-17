@@ -44,6 +44,7 @@ export interface IPhaseTimingRepository {
         | 'durationApiMs'
         | 'exitCode'
         | 'errorMessage'
+        | 'prompt'
       >
     >
   ): Promise<void>;

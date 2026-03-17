@@ -59,10 +59,14 @@ export function createFastImplementNode(executor: IAgentExecutor) {
     }
 
     const startTime = Date.now();
-    const timingId = await recordPhaseStart('fast-implement');
+    const prompt = buildFastImplementPrompt(state);
+    const timingId = await recordPhaseStart('fast-implement', {
+      prompt,
+      modelId: state.model,
+      agentType: executor.agentType,
+    });
 
     try {
-      const prompt = buildFastImplementPrompt(state);
       const options = buildExecutorOptions(state);
 
       log.info(`Executing agent at cwd=${options.cwd}`);
@@ -87,7 +91,16 @@ export function createFastImplementNode(executor: IAgentExecutor) {
         log.info('Evidence collection disabled via settings — skipping');
       }
 
-      await recordPhaseEnd(timingId, durationMs);
+      await recordPhaseEnd(timingId, durationMs, {
+        inputTokens: result.usage?.inputTokens,
+        outputTokens: result.usage?.outputTokens,
+        cacheCreationInputTokens: result.usage?.cacheCreationInputTokens,
+        cacheReadInputTokens: result.usage?.cacheReadInputTokens,
+        costUsd: result.usage?.costUsd,
+        numTurns: result.usage?.numTurns,
+        durationApiMs: result.usage?.durationApiMs,
+        exitCode: 'success',
+      });
 
       // Mark phase complete so resume from error skips re-execution
       markPhaseComplete(state.specDir, 'fast-implement', log);
@@ -109,7 +122,10 @@ export function createFastImplementNode(executor: IAgentExecutor) {
       const elapsed = (durationMs / 1000).toFixed(1);
       log.error(`${message} (after ${elapsed}s)`);
 
-      await recordPhaseEnd(timingId, durationMs);
+      await recordPhaseEnd(timingId, durationMs, {
+        exitCode: 'error',
+        errorMessage: message.slice(0, 1000),
+      });
 
       // Throw so LangGraph does NOT checkpoint this node as "completed".
       throw new Error(`[fast-implement] ${message}`);

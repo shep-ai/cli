@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Loader2,
   AlertCircle,
@@ -17,6 +17,8 @@ import {
   Timer,
   ArrowDownToLine,
   ArrowUpFromLine,
+  Copy,
+  Check,
 } from 'lucide-react';
 import type {
   PhaseTimingData,
@@ -101,6 +103,10 @@ const NODE_TO_PHASE: Record<string, string> = {
   research: 'Researching',
   plan: 'Planning',
   implement: 'Implementing',
+  'fast-implement': 'Fast Implement',
+  evidence: 'Evidence',
+  validate: 'Validating',
+  repair: 'Repairing',
   merge: 'Merging',
 };
 
@@ -562,8 +568,19 @@ function NodeTimingRow({
       ? (timing.inputTokens ?? 0) + (timing.outputTokens ?? 0)
       : null;
 
+  const [copied, setCopied] = useState(false);
+  const handleCopyPrompt = useCallback(() => {
+    if (!timing.prompt) return;
+    navigator.clipboard.writeText(timing.prompt).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [timing.prompt]);
+
   return (
-    <div className={`relative flex flex-col gap-0.5 px-3 py-1.5 ${isSubPhase ? 'ml-4' : ''}`}>
+    <div
+      className={`group/phase relative flex flex-col gap-0.5 px-3 py-1.5 ${isSubPhase ? 'ml-4' : ''}`}
+    >
       <div data-testid={`timing-bar-${timing.phase}`} className="flex items-center gap-2">
         {/* Timeline dot */}
         <div className="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center">
@@ -586,6 +603,22 @@ function NodeTimingRow({
         >
           {label}
         </span>
+
+        {/* Copy prompt button — appears on hover */}
+        {timing.prompt ? (
+          <button
+            type="button"
+            onClick={handleCopyPrompt}
+            className="text-muted-foreground/50 hover:text-foreground/70 -ml-1 shrink-0 opacity-0 transition-opacity group-hover/phase:opacity-100"
+            title="Copy prompt to clipboard"
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-500" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+          </button>
+        ) : null}
 
         {/* Progress bar */}
         <div

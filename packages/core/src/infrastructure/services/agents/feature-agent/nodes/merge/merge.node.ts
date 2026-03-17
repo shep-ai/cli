@@ -33,6 +33,7 @@ import {
   recordPhaseStart,
   recordPhaseEnd,
   recordApprovalWaitStart,
+  updatePhasePrompt,
 } from '../../phase-timing-context.js';
 import { updateNodeLifecycle } from '../../lifecycle-context.js';
 import { buildCommitPushPrPrompt } from '../prompts/merge-prompts.js';
@@ -175,6 +176,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
           baseBranch,
           repoUrl
         );
+        await updatePhasePrompt(mergeTimingId, commitPushPrPrompt);
         const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
           logger: log,
         });

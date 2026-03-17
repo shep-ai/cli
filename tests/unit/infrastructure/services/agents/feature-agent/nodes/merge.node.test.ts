@@ -88,6 +88,7 @@ vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js'
   recordPhaseStart: mockRecordPhaseStart,
   recordPhaseEnd: mockRecordPhaseEnd,
   recordApprovalWaitStart: mockRecordApprovalWaitStart,
+  updatePhasePrompt: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock lifecycle context
