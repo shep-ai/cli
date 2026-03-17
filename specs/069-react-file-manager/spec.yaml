@@ -15,9 +15,12 @@ summary: >
   Add @cubone/react-file-manager as an in-app fallback folder picker for platforms
   where native OS dialogs (zenity on Linux) are unavailable. Introduce a new
   "reactFileManager" feature flag in Settings so users can explicitly prefer the
-  React-based picker over the native OS one. The React picker will render as a
-  modal dialog in the web UI, backed by a server-side directory listing API.
-phase: Analysis
+  React-based picker over the native OS one. The React picker renders as a modal
+  dialog in the web UI, displaying only directories from a server-side directory
+  listing API. When the flag is off, the native picker is attempted first and the
+  React picker activates automatically on failure. When the flag is on, the React
+  picker is used directly, bypassing the native dialog entirely.
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -32,6 +35,7 @@ technologies:
   - Tailwind CSS
   - Vitest (unit tests)
   - Storybook 8
+  - "Node.js fs/promises (directory listing API)"
 
 relatedLinks:
   - https://github.com/Saifullah-dev/react-file-manager
@@ -39,9 +43,176 @@ relatedLinks:
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - "Should the React file manager also replace the file picker (pickFiles) or only the folder picker (pickFolder)?"
-  - "Should the fallback be automatic (detect zenity missing and switch) or manual (feature flag only)?"
-  - "What directory depth/permissions should the server-side listing API expose — full filesystem or scoped to home?"
+  - question: "How should the fallback trigger — try native first then catch, or pre-check availability?"
+    resolved: true
+    options:
+      - option: "Try-catch fallback"
+        description: >
+          Attempt native picker first; if it throws (e.g., zenity not found), catch the error
+          and open the React picker instead. Simpler implementation, no pre-flight check needed.
+          Downside: brief delay on failure before the React picker appears (~200-500ms for the
+          failed execSync call).
+        selected: true
+      - option: "Pre-check availability"
+        description: >
+          Add an isAvailable() method to FolderDialogService that checks if the native command
+          exists (e.g., `which zenity`). If unavailable, skip directly to React picker. Avoids
+          the failed-exec delay but adds complexity and another shell call. Also requires
+          caching the result to avoid repeated checks.
+        selected: false
+    selectionRationale: >
+      Try-catch is simpler, more robust (catches all failure modes, not just missing binary),
+      and the delay from a failed execSync is negligible in practice. Pre-checking adds
+      complexity and can miss failure modes beyond a missing binary (e.g., display server
+      issues, permission errors). The try-catch approach also naturally handles edge cases
+      where the binary exists but fails for other reasons.
+    answer: "Try-catch fallback"
+
+  - question: "Should the React file manager show files alongside directories, or directories only?"
+    resolved: true
+    options:
+      - option: "Directories only"
+        description: >
+          Filter the API response to only return directories. The file manager component
+          would only display folders, making the UI cleaner for the folder-selection use case.
+          Requires filtering on the server side since @cubone/react-file-manager does not
+          have a native folder-only mode.
+        selected: true
+      - option: "Files and directories"
+        description: >
+          Show both files and directories in the browser. Users see full filesystem contents
+          like a real file manager. More familiar but potentially confusing since only folders
+          can actually be selected. Files would be displayed but not selectable.
+        selected: false
+    selectionRationale: >
+      The purpose of this picker is folder selection for adding repositories. Showing files
+      adds visual noise and creates confusion about what can be selected. Filtering to
+      directories only on the server side is trivial (check dirent.isDirectory()) and results
+      in a cleaner, more focused UX.
+    answer: "Directories only"
+
+  - question: "What should the starting directory be when the React file manager opens?"
+    resolved: true
+    options:
+      - option: "User home directory"
+        description: >
+          Start at os.homedir() (e.g., /home/user or /Users/user). This is the most common
+          starting point for repository locations and follows the convention of most file
+          managers. Predictable and platform-independent via Node.js os module.
+        selected: true
+      - option: "Root directory"
+        description: >
+          Start at / (Unix) or C:\ (Windows). Shows the full filesystem but users almost
+          always need to navigate deep into their home directory, making this less convenient.
+        selected: false
+      - option: "Current working directory"
+        description: >
+          Start at process.cwd(). This is where the shep CLI was launched from, which is
+          likely a project directory. Good for power users but may be confusing if shep
+          was launched from an unexpected location.
+        selected: false
+    selectionRationale: >
+      User home directory is the most natural starting point. Most git repositories live
+      under ~/projects, ~/repos, ~/code, or similar subdirectories of home. This matches
+      the behavior of native OS file dialogs which typically default to home or recent
+      locations.
+    answer: "User home directory"
+
+  - question: "How should the directory listing API handle permission-denied errors for restricted directories?"
+    resolved: true
+    options:
+      - option: "Skip inaccessible entries silently"
+        description: >
+          When readdir encounters a permission error on a child entry, skip that entry and
+          return the rest. The user simply won't see directories they can't access. Clean
+          UX with no error noise.
+        selected: true
+      - option: "Show inaccessible entries as disabled"
+        description: >
+          Return all entries but mark inaccessible ones with a flag. The UI renders them
+          greyed out or with a lock icon. More informative but adds complexity to both
+          the API response format and the UI rendering.
+        selected: false
+      - option: "Return error for the entire request"
+        description: >
+          If any entry is inaccessible, fail the whole listing. Too aggressive — a single
+          restricted directory would block browsing entirely.
+        selected: false
+    selectionRationale: >
+      Silently skipping inaccessible entries provides the cleanest UX. Users don't need
+      to see directories they can't access anyway. This is the standard behavior of most
+      file managers and avoids unnecessary complexity in both the API and UI layers.
+    answer: "Skip inaccessible entries silently"
+
+  - question: "Should hidden files/directories (dotfiles) be shown in the React file manager?"
+    resolved: true
+    options:
+      - option: "Hidden by default, no toggle"
+        description: >
+          Filter out dotfiles/dotdirs (names starting with .) on the server side. Keeps
+          the UI clean and focused. Most users selecting a repo path don't need to see
+          .config, .local, .cache, etc. Simplest implementation.
+        selected: true
+      - option: "Hidden by default with toggle"
+        description: >
+          Filter dotfiles by default but add a "Show hidden" checkbox in the dialog header.
+          More flexible for power users who keep repos in dotfile directories. Adds a small
+          UI element and API query parameter.
+        selected: false
+      - option: "Always show hidden"
+        description: >
+          Show all entries including dotfiles. Matches raw filesystem view but clutters
+          the UI significantly, especially in home directories.
+        selected: false
+    selectionRationale: >
+      Hidden directories are rarely repository locations and they add significant clutter
+      especially in home directories (.cache, .local, .config, .npm, etc.). Hiding them
+      by default with no toggle keeps the implementation simple. A toggle can be added
+      in a future iteration if users request it.
+    answer: "Hidden by default, no toggle"
+
+  - question: "What should happen when the user opens the folder picker and both native and React pickers fail?"
+    resolved: true
+    options:
+      - option: "Toast error notification"
+        description: >
+          Show a toast/alert with a user-friendly error message explaining that no folder
+          picker is available. Follows the existing error handling pattern in the app.
+          Non-blocking — user can dismiss and try again or navigate elsewhere.
+        selected: true
+      - option: "Inline error in the button area"
+        description: >
+          Display an error message near the Add Repository button. More contextual but
+          requires additional UI state management in the button component.
+        selected: false
+    selectionRationale: >
+      Toast notifications are the established error pattern in the app and provide a clean,
+      non-intrusive way to inform the user. The React picker is a pure client-side component
+      backed by an API, so total failure is extremely unlikely (it would require the API
+      itself to be unreachable), making this primarily a defensive measure.
+    answer: "Toast error notification"
+
+  - question: "Should the directory listing API support path traversal outside the server filesystem?"
+    resolved: true
+    options:
+      - option: "Restrict to absolute paths with traversal prevention"
+        description: >
+          Validate that the requested path is absolute, resolve it to remove any ../ components,
+          and confirm it points to an actual directory. Prevents path traversal attacks while
+          allowing full filesystem browsing. Essential security measure.
+        selected: true
+      - option: "Restrict to user home directory subtree"
+        description: >
+          Only allow browsing within os.homedir() and its subdirectories. More restrictive
+          but prevents browsing system directories. Could be frustrating for users with repos
+          in /opt, /srv, or other non-home locations.
+        selected: false
+    selectionRationale: >
+      The native OS file dialog allows browsing the entire filesystem, so the React picker
+      should match that capability. Path traversal prevention (resolving ../ and validating
+      the result is a real directory) provides security without limiting functionality.
+      Restricting to home would break legitimate use cases.
+    answer: "Restrict to absolute paths with traversal prevention"
 
 # Markdown content (the actual spec)
 content: |
@@ -131,15 +302,135 @@ content: |
 
   ## Success Criteria
 
-  - [ ] New `reactFileManager` boolean flag added to `FeatureFlags` TypeSpec model (default: `false`)
-  - [ ] Feature flag toggle appears in Settings > Feature Flags section
-  - [ ] When flag is enabled OR native picker fails, the React file manager opens in a modal dialog
-  - [ ] React file manager shows real filesystem directories via server-side API
-  - [ ] User can browse directories and select a folder, returning the path to `AddRepositoryButton`
-  - [ ] Native OS picker remains the default behavior when available and flag is off
-  - [ ] Unit tests cover: flag resolution, fallback logic, directory listing API
-  - [ ] Storybook stories for the React file manager modal component
+  - [ ] New `reactFileManager` boolean flag added to `FeatureFlags` TypeSpec model with default `false`
+  - [ ] TypeSpec compiles successfully and `output.ts` includes the new flag field
+  - [ ] Feature flag toggle labeled "React File Manager" appears in Settings > Feature Flags section
+  - [ ] Toggling the flag persists to the database and is resolved correctly on reload
+  - [ ] Environment variable fallback `NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER` works when DB value is unset
+  - [ ] When flag is OFF and native picker succeeds: native picker is used (no change to current behavior)
+  - [ ] When flag is OFF and native picker fails: React file manager modal opens automatically as fallback
+  - [ ] When flag is ON: React file manager modal opens directly, native picker is not attempted
+  - [ ] React file manager modal shows only directories (no files) from the real filesystem
+  - [ ] Starting directory is user's home directory
+  - [ ] Hidden directories (dotfiles) are excluded from listings
+  - [ ] User can navigate into subdirectories by clicking them
+  - [ ] User can navigate to parent directories
+  - [ ] User can select a directory and confirm selection, returning the absolute path
+  - [ ] User can cancel/close the modal without selecting, returning null
+  - [ ] Selected folder path is passed to `AddRepositoryButton.onSelect` callback correctly
+  - [ ] Directory listing API validates paths are absolute and resolves traversal attempts
+  - [ ] Directory listing API returns appropriate error for non-existent paths
+  - [ ] Directory listing API skips inaccessible entries without failing the entire request
+  - [ ] Component is loaded via dynamic import with `ssr: false` to avoid SSR hydration issues
+  - [ ] Unit tests cover: feature flag resolution, fallback trigger logic, directory listing API validation
+  - [ ] Storybook story exists for the React file manager modal with mock directory data
   - [ ] Works on macOS, Linux (with and without zenity), and Windows
+
+  ## Functional Requirements
+
+  ### Feature Flag (FR-1 through FR-4)
+
+  - **FR-1**: Add a `reactFileManager` boolean field (default: `false`) to the `FeatureFlags` model in `tsp/domain/entities/settings.tsp` and regenerate the TypeSpec output.
+
+  - **FR-2**: Add a toggle row for "React File Manager" in the Settings > Feature Flags section, following the existing pattern (FLAG_KEYS, FLAG_LABELS, FLAG_DESCRIPTIONS mappings). Description: "Use the built-in React file manager instead of the native OS folder picker."
+
+  - **FR-3**: Support environment variable fallback via `NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER` in the feature flag resolution logic, matching the existing pattern (DB value takes precedence, env var as fallback).
+
+  - **FR-4**: The flag value must be readable from both server actions (for pick-folder logic) and client components (for conditional UI rendering).
+
+  ### Directory Listing API (FR-5 through FR-10)
+
+  - **FR-5**: Create a new API route at `src/presentation/web/app/api/directory/list/route.ts` that accepts a `path` query parameter (GET) and returns a JSON array of directory entries.
+
+  - **FR-6**: Each directory entry in the API response must include: `name` (string), `path` (absolute string), `isDirectory` (boolean, always true since we filter), and `updatedAt` (ISO 8601 string from fs.stat mtime).
+
+  - **FR-7**: The API must only return directories — filter out all regular files, symlinks to files, and other non-directory entries using `dirent.isDirectory()`.
+
+  - **FR-8**: The API must exclude hidden entries (names starting with `.`) from the response.
+
+  - **FR-9**: When the `path` parameter is omitted, the API defaults to `os.homedir()`.
+
+  - **FR-10**: The API must handle errors gracefully: return 400 for non-absolute paths, 404 for non-existent paths, and 200 with an empty array if the directory exists but contains no visible subdirectories.
+
+  ### React File Manager Modal (FR-11 through FR-17)
+
+  - **FR-11**: Create a new component `react-file-manager-dialog` in `src/presentation/web/components/common/` following the established dialog pattern (component tsx, config ts, stories tsx, index ts).
+
+  - **FR-12**: The dialog must wrap `@cubone/react-file-manager`'s `FileManager` component inside a shadcn/ui `Dialog`, loaded via Next.js `dynamic()` import with `ssr: false`.
+
+  - **FR-13**: The dialog must accept props: `open` (boolean), `onOpenChange` (callback), and `onSelect` (callback receiving the selected absolute path string or null).
+
+  - **FR-14**: The dialog must display a "Select Folder" confirmation button in the footer. This button is disabled until the user clicks on (highlights) a directory entry. Clicking "Select Folder" calls `onSelect` with the selected directory's absolute path and closes the dialog.
+
+  - **FR-15**: The dialog must display a "Cancel" button that calls `onSelect(null)` and closes the dialog. Clicking the dialog backdrop or pressing Escape also cancels.
+
+  - **FR-16**: When the dialog opens, it fetches the directory listing from the API for the initial path (home directory). When the user navigates into a subdirectory, it fetches that subdirectory's listing. Loading state must be displayed during fetches.
+
+  - **FR-17**: The dialog header must display the current directory path as breadcrumb-style text so the user knows where they are in the filesystem.
+
+  ### Pick-Folder Integration (FR-18 through FR-21)
+
+  - **FR-18**: Modify the `AddRepositoryButton` component to support two picker modes: native (current behavior) and React file manager. The mode is determined by the `reactFileManager` feature flag.
+
+  - **FR-19**: When `reactFileManager` flag is ON: clicking the Add Repository button opens the React file manager dialog directly. The native picker is not invoked.
+
+  - **FR-20**: When `reactFileManager` flag is OFF: clicking the Add Repository button attempts the native picker first. If the native picker throws an error (any error, not just "not found"), the React file manager dialog opens as fallback. If the native picker succeeds or the user cancels it, no fallback is triggered.
+
+  - **FR-21**: When the native picker is cancelled by the user (returns null path without error), do NOT trigger the React fallback — this is intentional user action, not a failure.
+
+  ## Non-Functional Requirements
+
+  ### Security (NFR-1 through NFR-3)
+
+  - **NFR-1**: The directory listing API must validate that the requested path is an absolute path. Relative paths must be rejected with HTTP 400.
+
+  - **NFR-2**: The directory listing API must resolve the path using `path.resolve()` to normalize away any `../` traversal sequences before performing the filesystem read. The resolved path must be used for all operations.
+
+  - **NFR-3**: The directory listing API must not expose file contents, only directory names and metadata (name, path, isDirectory, updatedAt). No file reading capability.
+
+  ### Performance (NFR-4 through NFR-6)
+
+  - **NFR-4**: Directory listing API responses must complete within 2 seconds for directories with up to 1000 entries. Use `fs.readdir` with `withFileTypes: true` to avoid separate stat calls per entry.
+
+  - **NFR-5**: The @cubone/react-file-manager component must be lazy-loaded (dynamic import) to avoid increasing the initial page bundle size. It should only be fetched when the dialog is about to open.
+
+  - **NFR-6**: The fallback from native picker failure to React picker opening must feel seamless — the user should see a loading indicator (the existing button spinner) during the native attempt, and the React dialog should open promptly after failure without an error flash.
+
+  ### Compatibility (NFR-7 through NFR-9)
+
+  - **NFR-7**: The React file manager dialog must render correctly on macOS, Linux, and Windows. Path separators displayed in the UI must match the host OS convention.
+
+  - **NFR-8**: The `@cubone/react-file-manager` component must be imported with SSR disabled (`dynamic(() => import(...), { ssr: false })`) to prevent server-side rendering errors (known SSR incompatibility with ReactCurrentOwner).
+
+  - **NFR-9**: The feature must degrade gracefully: if the @cubone/react-file-manager package fails to load (e.g., corrupted install), the error should be caught and displayed as a toast rather than crashing the page.
+
+  ### Maintainability (NFR-10 through NFR-12)
+
+  - **NFR-10**: The React file manager dialog component must follow the established component patterns: colocated directory with component, config, stories, and index files. Must follow the existing Tier 1 (common component) conventions.
+
+  - **NFR-11**: The directory listing API must follow the established API route patterns in the codebase (NextResponse.json, consistent error handling, async handler functions).
+
+  - **NFR-12**: All new code must have corresponding unit tests (Vitest) covering: API route input validation, feature flag resolution for the new flag, and fallback trigger logic in the pick-folder flow.
+
+  ### User Experience (NFR-13 through NFR-15)
+
+  - **NFR-13**: The React file manager dialog must have a minimum size of 600x400px and scale responsively on smaller screens. On mobile viewports, it should use full-width/full-height layout.
+
+  - **NFR-14**: The dialog must show a loading skeleton or spinner while directory contents are being fetched, providing visual feedback that the system is working.
+
+  - **NFR-15**: The feature flag description in Settings must clearly explain the behavior: that enabling it replaces the native OS folder picker with the built-in browser-based one, and that it also serves as automatic fallback when the native picker is unavailable.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should the fallback trigger — try native first then catch, or pre-check availability? | Try-catch fallback | Simpler, catches all failure modes (not just missing binary), negligible delay from failed execSync |
+  | 2 | Should the React file manager show files alongside directories, or directories only? | Directories only | Purpose is folder selection; showing files adds noise and confusion about what's selectable |
+  | 3 | What should the starting directory be? | User home directory | Most repos live under home; matches native OS dialog convention |
+  | 4 | How should the API handle permission-denied errors? | Skip inaccessible entries silently | Cleanest UX; standard file manager behavior; no error noise for dirs user can't access |
+  | 5 | Should hidden files/directories (dotfiles) be shown? | Hidden by default, no toggle | Dotfiles are rarely repo locations and add significant clutter; toggle can be added later |
+  | 6 | What should happen when both native and React pickers fail? | Toast error notification | Follows existing error patterns; total React picker failure is extremely unlikely |
+  | 7 | Should the API restrict browsing to home directory or allow full filesystem? | Full filesystem with path traversal prevention | Matches native picker capability; restricting to home breaks legitimate use cases |
 
   ## Affected Areas
 
@@ -148,31 +439,31 @@ content: |
   | `tsp/domain/entities/settings.tsp` | Medium | Add `reactFileManager` boolean to `FeatureFlags` model |
   | `packages/core/src/domain/generated/output.ts` | Low | Auto-regenerated from TypeSpec — no manual edits |
   | `src/presentation/web/lib/feature-flags.ts` | Medium | Add resolution logic for new `reactFileManager` flag |
-  | `src/presentation/web/components/features/settings/feature-flags-settings-section.tsx` | Medium | Add toggle row for the new flag |
-  | `src/presentation/web/components/common/add-repository-button/` | High | Core integration point — conditionally use React picker vs native |
-  | `src/presentation/web/components/common/add-repository-button/pick-folder.ts` | High | Add fallback logic: try native → catch → open React picker |
-  | `src/presentation/web/app/actions/pick-folder.ts` | Medium | May need to expose "native picker available" check |
-  | `src/presentation/web/app/api/` (new route) | High | New API endpoint to list directory contents for React file manager |
-  | `src/presentation/web/components/common/` (new component) | High | New React file manager modal/dialog component |
-  | `packages/core/src/infrastructure/services/folder-dialog.service.ts` | Low | May add `isAvailable()` method to check if native picker works |
+  | `src/presentation/web/components/features/settings/feature-flags-settings-section.tsx` | Medium | Add toggle row for the new flag with label and description |
+  | `src/presentation/web/components/common/add-repository-button/add-repository-button.tsx` | High | Core integration point — conditionally use React picker vs native, manage dialog state |
+  | `src/presentation/web/components/common/add-repository-button/pick-folder.ts` | High | Add fallback logic: try native → catch → signal to open React picker |
+  | `src/presentation/web/app/actions/pick-folder.ts` | Medium | Expose result type that distinguishes user-cancel from error (for fallback decision) |
+  | `src/presentation/web/app/api/directory/list/route.ts` (new) | High | New API endpoint to list directory contents for React file manager |
+  | `src/presentation/web/components/common/react-file-manager-dialog/` (new) | High | New React file manager modal/dialog component with Storybook story |
+  | `packages/core/src/infrastructure/services/folder-dialog.service.ts` | Low | No changes needed — try-catch in the server action handles failures |
 
   ## Dependencies
 
-  - **@cubone/react-file-manager** — New npm dependency for in-app file browsing UI
-  - **Node.js `fs` module** — Server-side directory listing for the API endpoint
-  - **Existing**: shadcn/ui Dialog, Settings update infrastructure, feature flags system
+  - **@cubone/react-file-manager** — New npm dependency (v1.35.0+) for in-app file browsing UI
+  - **Node.js `fs/promises` module** — Server-side directory listing (readdir with withFileTypes)
+  - **Node.js `os` module** — Get user home directory for default starting path
+  - **Node.js `path` module** — Path resolution, normalization, traversal prevention
+  - **Existing**: shadcn/ui Dialog, Settings update infrastructure, feature flags system, toast notifications
 
   ## Size Estimate
 
   **M** — This feature touches multiple layers (TypeSpec model, feature flags, server API, new React component,
   integration with existing picker flow) but each change is well-scoped. The main complexity is:
-  1. Server-side directory listing API (new, but straightforward `fs.readdir`)
+  1. Server-side directory listing API (new, but straightforward `fs.readdir` with validation)
   2. React file manager modal component (new component + Storybook story)
-  3. Fallback logic in the pick-folder flow (conditional branching)
+  3. Fallback logic in the pick-folder flow (conditional branching based on flag + try-catch)
   4. TypeSpec model + feature flag plumbing (established pattern, low risk)
-
-  Estimated at 2-3 days of focused work.
 
   ---
 
-  _Analysis complete — proceed with research phase_
+  _Requirements complete — proceed with research phase_
