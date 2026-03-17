@@ -669,3 +669,15 @@ rejectionFeedback:
     message: this feature should be supported in the ui
     phase: merge
     timestamp: '2026-03-16T16:23:29.217Z'
+  - iteration: 4
+    message: >-
+      Clicked on  rebase on main and I got
+
+      Failed to sync 'main' with remote: Command failed: git fetch origin
+      main:main fatal: refusing to fetch into branch 'refs/heads/main' checked
+      out at '/Users/arielshadkhan/Code/cli'
+
+
+      also the rebase should be agentic
+    phase: merge
+    timestamp: '2026-03-17T13:16:40.133Z'

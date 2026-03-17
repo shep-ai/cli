@@ -786,14 +786,21 @@ export class GitPrService implements IGitPrService {
         // On the base branch — use git pull --ff-only
         await this.execFile('git', ['pull', '--ff-only', 'origin', baseBranch], { cwd });
       } else {
-        // On a different branch — use git fetch to update the base branch ref without switching
-        await this.execFile('git', ['fetch', 'origin', `${baseBranch}:${baseBranch}`], { cwd });
+        // On a different branch — fetch the remote ref only (updates origin/<baseBranch>).
+        // We intentionally do NOT update the local <baseBranch> ref because it may be
+        // checked out in another worktree, which causes git to refuse the update with:
+        //   "fatal: refusing to fetch into branch 'refs/heads/main' checked out at ..."
+        await this.execFile('git', ['fetch', 'origin', baseBranch], { cwd });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const cause = error instanceof Error ? error : undefined;
 
-      if (message.includes('non-fast-forward') || message.includes('diverged')) {
+      if (
+        message.includes('non-fast-forward') ||
+        message.includes('Not possible to fast-forward') ||
+        message.includes('diverged')
+      ) {
         throw new GitPrError(
           `Cannot fast-forward '${baseBranch}': local branch has diverged from remote. ` +
             `Resolve the divergence manually with 'git checkout ${baseBranch} && git reset --hard origin/${baseBranch}' ` +
@@ -846,9 +853,13 @@ export class GitPrService implements IGitPrService {
       );
     }
 
-    // Rebase onto the base branch
+    // Rebase onto origin/<baseBranch> (the remote-tracking ref).
+    // We use origin/<baseBranch> rather than the local <baseBranch> because:
+    // 1. syncMain fetches origin/<baseBranch> — it's always up-to-date
+    // 2. The local <baseBranch> may be checked out in another worktree and stale
+    const rebaseTarget = `origin/${baseBranch}`;
     try {
-      await this.execFile('git', ['rebase', baseBranch], { cwd });
+      await this.execFile('git', ['rebase', rebaseTarget], { cwd });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const cause = error instanceof Error ? error : undefined;

@@ -139,22 +139,22 @@ describe('GitPrService — syncMain (integration)', () => {
     dirs.length = 0;
   });
 
-  it('should fast-forward main when upstream has new commits (from feature branch)', async () => {
+  it('should fetch latest main when upstream has new commits (from feature branch)', async () => {
     // Add an upstream commit to main
     await addUpstreamCommit(bareDir, 'upstream.ts', '// upstream\n', 'chore: upstream change');
 
     // Currently on main, switch to feature branch
     await git(cloneDir, ['checkout', featureBranch]);
 
-    // Get local main's commit count before sync
-    const { stdout: beforeLog } = await git(cloneDir, ['log', 'main', '--oneline']);
+    // Get origin/main commit count before sync
+    const { stdout: beforeLog } = await git(cloneDir, ['log', 'origin/main', '--oneline']);
     const beforeCount = beforeLog.trim().split('\n').length;
 
-    // Sync main from the feature branch (uses git fetch origin main:main)
+    // Sync main from the feature branch (uses git fetch origin main → updates origin/main)
     await service.syncMain(cloneDir, 'main');
 
-    // After sync, main should have the upstream commit
-    const { stdout: afterLog } = await git(cloneDir, ['log', 'main', '--oneline']);
+    // After sync, origin/main should have the upstream commit
+    const { stdout: afterLog } = await git(cloneDir, ['log', 'origin/main', '--oneline']);
     const afterCount = afterLog.trim().split('\n').length;
     expect(afterCount).toBe(beforeCount + 1);
 
@@ -191,7 +191,23 @@ describe('GitPrService — syncMain (integration)', () => {
     expect(log.trim().split('\n')).toHaveLength(1); // Only initial commit
   });
 
-  it('should throw SYNC_FAILED when local main has diverged from remote', async () => {
+  it('should throw SYNC_FAILED when on main and local main has diverged from remote', async () => {
+    // Add upstream commit
+    await addUpstreamCommit(bareDir, 'upstream.ts', '// upstream\n', 'chore: upstream');
+
+    // Add a local-only commit on main (creates divergence)
+    // Stay on main so the pull --ff-only path is used (which detects divergence)
+    writeFileSync(join(cloneDir, 'local-only.ts'), '// local\n');
+    await git(cloneDir, ['add', 'local-only.ts']);
+    await git(cloneDir, ['commit', '-m', 'chore: local-only commit']);
+
+    // Sync should fail because local main diverged (uses git pull --ff-only)
+    const error = await service.syncMain(cloneDir, 'main').catch((e) => e);
+    expect(error).toBeInstanceOf(GitPrError);
+    expect(error.code).toBe(GitPrErrorCode.SYNC_FAILED);
+  });
+
+  it('should succeed from feature branch even when local main has diverged (fetches origin/main only)', async () => {
     // Add upstream commit
     await addUpstreamCommit(bareDir, 'upstream.ts', '// upstream\n', 'chore: upstream');
 
@@ -200,13 +216,11 @@ describe('GitPrService — syncMain (integration)', () => {
     await git(cloneDir, ['add', 'local-only.ts']);
     await git(cloneDir, ['commit', '-m', 'chore: local-only commit']);
 
-    // Switch to feature branch so we use the fetch path
+    // Switch to feature branch — uses git fetch origin main (not main:main)
     await git(cloneDir, ['checkout', featureBranch]);
 
-    // Sync should fail because local main diverged
-    const error = await service.syncMain(cloneDir, 'main').catch((e) => e);
-    expect(error).toBeInstanceOf(GitPrError);
-    expect(error.code).toBe(GitPrErrorCode.SYNC_FAILED);
+    // Sync should succeed because we only update origin/main, not local main
+    await expect(service.syncMain(cloneDir, 'main')).resolves.toBeUndefined();
   });
 
   it('should be idempotent — calling sync twice succeeds', async () => {
@@ -258,11 +272,12 @@ describe('GitPrService — rebaseOnMain (integration)', () => {
       '// upstream change\n',
       'chore: non-conflicting upstream change'
     );
-    // Switch off main before fetching (git fetch origin main:main fails if main is checked out)
+    // Switch off main before fetching
     await git(cloneDir, ['checkout', featureBranch]);
-    await git(cloneDir, ['fetch', 'origin', 'main:main']);
+    // Fetch origin to update origin/main (rebaseOnMain uses origin/<baseBranch>)
+    await git(cloneDir, ['fetch', 'origin', 'main']);
 
-    // Rebase feature onto main
+    // Rebase feature onto main (internally rebases onto origin/main)
     await service.rebaseOnMain(cloneDir, featureBranch, 'main');
 
     // Verify we're on the feature branch
@@ -290,9 +305,9 @@ describe('GitPrService — rebaseOnMain (integration)', () => {
       '// Main branch version of feature\nexport const main = true;\n',
       'chore: modify feature.ts on main'
     );
-    // Switch off main before fetching (cannot fetch into checked-out branch)
+    // Switch off main and fetch to update origin/main
     await git(cloneDir, ['checkout', featureBranch]);
-    await git(cloneDir, ['fetch', 'origin', 'main:main']);
+    await git(cloneDir, ['fetch', 'origin', 'main']);
 
     // The feature branch already has feature.ts with different content
     // Rebase should detect the conflict
@@ -324,7 +339,7 @@ describe('GitPrService — rebaseOnMain (integration)', () => {
     // Create a conflict
     await addUpstreamCommit(bareDir, 'feature.ts', '// Main version\n', 'chore: conflict on main');
     await git(cloneDir, ['checkout', featureBranch]);
-    await git(cloneDir, ['fetch', 'origin', 'main:main']);
+    await git(cloneDir, ['fetch', 'origin', 'main']);
 
     // Attempt rebase — will fail with REBASE_CONFLICT
     await service.rebaseOnMain(cloneDir, featureBranch, 'main').catch(() => {
@@ -343,7 +358,7 @@ describe('GitPrService — rebaseOnMain (integration)', () => {
     // Add upstream commit
     await addUpstreamCommit(bareDir, 'upstream.ts', '// upstream\n', 'chore: upstream');
     await git(cloneDir, ['checkout', featureBranch]);
-    await git(cloneDir, ['fetch', 'origin', 'main:main']);
+    await git(cloneDir, ['fetch', 'origin', 'main']);
 
     await service.rebaseOnMain(cloneDir, featureBranch, 'main');
 
@@ -401,7 +416,7 @@ describe('GitPrService — helper methods (integration)', () => {
     // Set up a conflict
     await addUpstreamCommit(bareDir, 'feature.ts', '// Main version\n', 'chore: conflict on main');
     await git(cloneDir, ['checkout', featureBranch]);
-    await git(cloneDir, ['fetch', 'origin', 'main:main']);
+    await git(cloneDir, ['fetch', 'origin', 'main']);
 
     // Attempt rebase — will fail
     await service.rebaseOnMain(cloneDir, featureBranch, 'main').catch(() => {
@@ -422,7 +437,7 @@ describe('GitPrService — helper methods (integration)', () => {
       'chore: conflict on main'
     );
     await git(cloneDir, ['checkout', featureBranch]);
-    await git(cloneDir, ['fetch', 'origin', 'main:main']);
+    await git(cloneDir, ['fetch', 'origin', 'main']);
 
     // Attempt rebase — will fail with conflict
     await service.rebaseOnMain(cloneDir, featureBranch, 'main').catch(() => {
@@ -460,8 +475,8 @@ describe('GitPrService — helper methods (integration)', () => {
 
     // Set up a conflict
     await addUpstreamCommit(bareDir, 'feature.ts', '// Main version\n', 'chore: conflict');
-    // Already on feature branch, so fetch is safe
-    await git(cloneDir, ['fetch', 'origin', 'main:main']);
+    // Fetch to update origin/main
+    await git(cloneDir, ['fetch', 'origin', 'main']);
 
     // Attempt rebase — fails
     await service.rebaseOnMain(cloneDir, featureBranch, 'main').catch(() => {

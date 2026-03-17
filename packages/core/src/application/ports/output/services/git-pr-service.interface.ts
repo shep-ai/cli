@@ -380,9 +380,12 @@ export interface IGitPrService {
   // --- Rebase & Sync operations ---
 
   /**
-   * Fast-forward the local base branch to match its remote counterpart.
+   * Sync the remote-tracking ref for the base branch.
    * If currently on the base branch, uses `git pull --ff-only`.
-   * If on a different branch, uses `git fetch origin <baseBranch>:<baseBranch>`.
+   * If on a different branch (including worktrees), uses `git fetch origin <baseBranch>`
+   * which updates `origin/<baseBranch>` without touching the local branch ref.
+   * This avoids the "refusing to fetch into branch checked out at..." error
+   * when the local base branch is checked out in another worktree.
    *
    * @param cwd - Working directory path
    * @param baseBranch - The base branch to sync (e.g. "main")
@@ -392,14 +395,16 @@ export interface IGitPrService {
   syncMain(cwd: string, baseBranch: string): Promise<void>;
 
   /**
-   * Rebase the feature branch onto the latest base branch.
+   * Rebase the feature branch onto `origin/<baseBranch>`.
+   * Uses the remote-tracking ref (not the local branch) to avoid issues
+   * when the local base branch is checked out in another worktree.
    * Checks for dirty worktree before starting. Detects conflict state
    * from git exit code and stderr — throws REBASE_CONFLICT if conflicts
    * are encountered (caller is responsible for resolution or abort).
    *
    * @param cwd - Working directory path
    * @param featureBranch - The feature branch to rebase
-   * @param baseBranch - The base branch to rebase onto
+   * @param baseBranch - The base branch name (rebase target will be origin/<baseBranch>)
    * @throws GitPrError with GIT_ERROR code if the worktree is dirty
    * @throws GitPrError with REBASE_CONFLICT code if conflicts are detected
    * @throws GitPrError with BRANCH_NOT_FOUND code if a branch does not exist

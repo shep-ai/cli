@@ -33,16 +33,16 @@ describe('GitPrService — Rebase & Sync', () => {
   // syncMain
   // -----------------------------------------------------------------------
   describe('syncMain', () => {
-    it('should use git fetch origin main:main when on a feature branch', async () => {
+    it('should use git fetch origin main when on a feature branch', async () => {
       vi.mocked(mockExec)
         // rev-parse --abbrev-ref HEAD → feature branch
         .mockResolvedValueOnce({ stdout: 'feat/my-feature\n', stderr: '' })
-        // git fetch origin main:main → success
+        // git fetch origin main → success
         .mockResolvedValueOnce({ stdout: '', stderr: '' });
 
       await service.syncMain('/repo', 'main');
 
-      expect(mockExec).toHaveBeenCalledWith('git', ['fetch', 'origin', 'main:main'], {
+      expect(mockExec).toHaveBeenCalledWith('git', ['fetch', 'origin', 'main'], {
         cwd: '/repo',
       });
     });
@@ -228,7 +228,7 @@ describe('GitPrService — Rebase & Sync', () => {
       });
     });
 
-    it('should call git rebase with the base branch', async () => {
+    it('should call git rebase with origin/<baseBranch> as target', async () => {
       vi.mocked(mockExec)
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
@@ -236,7 +236,7 @@ describe('GitPrService — Rebase & Sync', () => {
 
       await service.rebaseOnMain('/repo', 'feat/my-feature', 'main');
 
-      expect(mockExec).toHaveBeenCalledWith('git', ['rebase', 'main'], { cwd: '/repo' });
+      expect(mockExec).toHaveBeenCalledWith('git', ['rebase', 'origin/main'], { cwd: '/repo' });
     });
 
     it('should still throw REBASE_CONFLICT even if getConflictedFiles fails', async () => {
