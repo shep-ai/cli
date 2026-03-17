@@ -54,7 +54,7 @@ export function GitHubImportDialog({
           <DialogDescription>Clone a GitHub repository and add it to Shep.</DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="url" className="w-full">
+        <Tabs defaultValue="url" className="min-w-0">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="url">URL</TabsTrigger>
             <TabsTrigger value="browse">Browse</TabsTrigger>
