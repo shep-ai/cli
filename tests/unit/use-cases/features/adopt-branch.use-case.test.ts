@@ -605,5 +605,120 @@ describe('AdoptBranchUseCase', () => {
       expect(createCall.threadId).toBeDefined();
       expect(createCall.id).not.toBe(createCall.threadId); // Different UUIDs
     });
+
+    it('should set threadId as a valid UUID format', async () => {
+      await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      const createCall = vi.mocked(mockAgentRunRepo.create).mock.calls[0][0];
+      // UUID v4 regex pattern
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      expect(createCall.threadId).toMatch(uuidRegex);
+    });
+
+    it('should set featureId to match Feature.id', async () => {
+      const result = await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      const createCall = vi.mocked(mockAgentRunRepo.create).mock.calls[0][0];
+      expect(createCall.featureId).toBe(result.feature.id);
+    });
+
+    it('should set status to pending (not running or other states)', async () => {
+      await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      const createCall = vi.mocked(mockAgentRunRepo.create).mock.calls[0][0];
+      expect(createCall.status).toBe('pending');
+    });
+
+    it('should set prompt to exact literal "(adopted from existing branch)"', async () => {
+      await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      const createCall = vi.mocked(mockAgentRunRepo.create).mock.calls[0][0];
+      expect(createCall.prompt).toBe('(adopted from existing branch)');
+    });
+
+    it('should create AgentRun before Feature (correct persistence order)', async () => {
+      await useCase.execute({
+        branchName: 'fix/login-bug',
+        repositoryPath: repoPath,
+      });
+
+      // Get the order of calls
+      const agentRunCreateCall = vi.mocked(mockAgentRunRepo.create).mock.invocationCallOrder[0];
+      const featureCreateCall = vi.mocked(mockFeatureRepo.create).mock.invocationCallOrder[0];
+
+      // AgentRun should be created before Feature
+      expect(agentRunCreateCall).toBeLessThan(featureCreateCall);
+    });
+  });
+
+  describe('error handling', () => {
+    it('should propagate error when spec initialization fails', async () => {
+      const { existsSync } = await import('node:fs');
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(mockSpecInitializer.initialize).mockRejectedValue(
+        new Error('Failed to create spec directory')
+      );
+
+      await expect(
+        useCase.execute({
+          branchName: 'fix/login-bug',
+          repositoryPath: repoPath,
+        })
+      ).rejects.toThrow('Failed to create spec directory');
+
+      // Verify no DB writes occurred
+      expect(mockAgentRunRepo.create).not.toHaveBeenCalled();
+      expect(mockFeatureRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('should propagate error when AgentRun creation fails', async () => {
+      const { existsSync } = await import('node:fs');
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(mockAgentRunRepo.create).mockRejectedValue(new Error('Database connection failed'));
+
+      await expect(
+        useCase.execute({
+          branchName: 'fix/login-bug',
+          repositoryPath: repoPath,
+        })
+      ).rejects.toThrow('Database connection failed');
+
+      // Verify spec was initialized (happens before AgentRun creation)
+      expect(mockSpecInitializer.initialize).toHaveBeenCalled();
+
+      // Verify Feature was not created
+      expect(mockFeatureRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('should handle missing models.default without throwing error', async () => {
+      vi.mocked(getSettings).mockReturnValue({
+        agent: { type: 'gemini-cli' },
+        models: undefined,
+      } as any);
+
+      // Should not throw
+      await expect(
+        useCase.execute({
+          branchName: 'fix/login-bug',
+          repositoryPath: repoPath,
+        })
+      ).resolves.toBeDefined();
+
+      // Verify AgentRun was created with modelId=undefined
+      const createCall = vi.mocked(mockAgentRunRepo.create).mock.calls[0][0];
+      expect(createCall.modelId).toBeUndefined();
+    });
   });
 });
