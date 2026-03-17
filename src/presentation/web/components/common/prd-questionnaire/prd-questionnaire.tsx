@@ -110,7 +110,7 @@ export function PrdQuestionnaire({
                     </span>
                     <div className="flex-1">
                       <div className="mb-0.5 flex items-center gap-2">
-                        <span className="text-foreground min-w-0 text-xs font-semibold">
+                        <span className="text-foreground min-w-0 truncate text-xs font-semibold">
                           {opt.label}
                         </span>
                         {opt.recommended ? (

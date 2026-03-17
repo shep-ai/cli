@@ -123,6 +123,13 @@ describe('PrdQuestionnaire', () => {
       expect(badge).toHaveClass('shrink-0');
     });
 
+    it('option label has truncate class to limit max length', () => {
+      render(<PrdQuestionnaire {...defaultProps} />);
+
+      const label = screen.getByText('Pain Point');
+      expect(label).toHaveClass('truncate');
+    });
+
     it('renders New badge when isNew=true', () => {
       render(<PrdQuestionnaire {...defaultProps} />);
 
