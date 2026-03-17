@@ -7,7 +7,7 @@ summary: >
   evidence actually proves the tasks were completed successfully. This feature adds a validation step
   with visual inspection logic and a retry loop to ensure evidence quality meets acceptance criteria
   before proceeding to the merge phase.
-phase: Analysis
+phase: Requirements
 sizeEstimate: M
 
 relatedFeatures: []
@@ -22,7 +22,87 @@ technologies:
 
 relatedLinks: []
 
-openQuestions: []
+openQuestions:
+  - question: 'Should the validation loop be implemented as a separate node pair (validate-evidence + retry-evidence) or integrated within the existing evidence.node.ts?'
+    resolved: true
+    options:
+      - option: 'Integrated within evidence.node.ts'
+        description: 'Add validation and retry logic directly into the existing evidence node as an internal loop. Simpler graph topology, no new nodes needed, validation is transparent to the graph. Follows the pattern used in other nodes that handle their own retry logic internally.'
+        selected: true
+      - option: 'Separate validate-evidence + retry-evidence nodes'
+        description: 'Extract evidence validation into a standalone node with conditional routing (similar to validate.node.ts + repair.node.ts pattern). More explicit in the graph visualization, better separation of concerns, but adds graph complexity and two new nodes.'
+        selected: false
+    selectionRationale: 'Integrated approach is recommended because evidence collection is already a sub-process within the implement phase (not a top-level graph node), and adding new graph nodes would require restructuring the implement phase. The validation/retry loop can be implemented efficiently as an internal loop within createEvidenceNode, similar to how retryExecute works for agent execution failures. This keeps the graph topology simple while still providing robust validation.'
+    answer: 'Integrated within evidence.node.ts'
+
+  - question: 'What criteria should trigger a retry during evidence validation?'
+    resolved: true
+    options:
+      - option: 'UI-only validation (app screenshots)'
+        description: 'Only retry if UI evidence lacks app-level screenshots (current validateUiEvidenceHasAppProof logic). Simple to implement, addresses the primary pain point mentioned in the problem statement (Storybook-only screenshots).'
+        selected: false
+      - option: 'Comprehensive validation (UI + completeness)'
+        description: 'Validate both UI evidence quality (app screenshots required) AND evidence completeness (at least one evidence record per task type). Ensures evidence truly proves all tasks were completed, not just UI tasks.'
+        selected: true
+    selectionRationale: 'Comprehensive validation is recommended because the problem statement explicitly mentions "ensure the captured evidence actually proves the tasks were completed successfully" - this requires validating completeness across all task types (UI, backend, CLI), not just checking for Storybook-only screenshots. The validation should check: (1) UI tasks require app-level screenshots, (2) Tasks with tests require TestOutput evidence, (3) CLI tasks require TerminalRecording evidence, (4) All completed tasks have at least one piece of evidence.'
+    answer: 'Comprehensive validation (UI + completeness)'
+
+  - question: 'How many retry attempts should be allowed before accepting degraded evidence?'
+    resolved: true
+    options:
+      - option: 'Fixed limit (3 retries)'
+        description: 'Use a fixed retry limit matching the validation/repair pattern (default 3 retries from validate.node.ts). Predictable behavior, prevents infinite loops, aligns with existing retry patterns in the codebase.'
+        selected: true
+      - option: 'Configurable limit (settings-based)'
+        description: 'Allow users to configure max retry attempts via settings.workflow.evidenceRetries. More flexible but adds configuration complexity and requires settings schema updates.'
+        selected: false
+      - option: 'Unlimited retries until success'
+        description: 'Keep retrying until evidence passes validation. Could lead to infinite loops if evidence collection fundamentally cannot succeed (e.g., dev server fails to start).'
+        selected: false
+    selectionRationale: 'Fixed limit of 3 retries is recommended because it matches the established pattern in validate.node.ts (default 3 retries before throwing error) and provides a reasonable balance between quality assurance and preventing infinite loops. Evidence collection can fail for environmental reasons (browser automation issues, dev server crashes), so unlimited retries would be problematic. The graceful degradation requirement (FR-8) means we must eventually accept partial evidence and proceed to merge, making a fixed limit appropriate.'
+    answer: 'Fixed limit (3 retries)'
+
+  - question: 'Should validation failures provide specific feedback to the agent for retry attempts?'
+    resolved: true
+    options:
+      - option: 'Generic retry prompt'
+        description: 'Re-run the evidence collection with the same prompt. Simple implementation but gives the agent no context about what failed, likely to repeat the same mistakes.'
+        selected: false
+      - option: 'Structured validation feedback'
+        description: 'Augment the retry prompt with specific validation errors (e.g., "Missing app-level screenshot for task-3", "No TestOutput evidence for backend tasks"). Helps the agent focus on fixing specific gaps rather than re-collecting all evidence blindly.'
+        selected: true
+    selectionRationale: 'Structured validation feedback is recommended because it enables targeted fixes rather than blind retries. If validation detects "UI task X has no app-level screenshot", the retry prompt should explicitly state this so the agent can focus on capturing that specific screenshot rather than re-collecting all evidence. This follows the repair.node.ts pattern where validation errors are passed to the repair prompt. The feedback should be specific and actionable (list missing evidence by task, identify Storybook-only screenshots that need app-level replacements).'
+    answer: 'Structured validation feedback'
+
+  - question: 'Should the validation loop inspect actual file contents or trust the Evidence[] metadata?'
+    resolved: true
+    options:
+      - option: 'Metadata-only validation'
+        description: 'Validate Evidence[] records (check types, descriptions, paths) without reading the actual files. Fast, simple, trusts the agent followed instructions. Does not catch corrupt images or empty files.'
+        selected: false
+      - option: 'File existence + metadata validation'
+        description: 'Validate Evidence[] metadata AND verify files exist at the specified paths with non-zero size. Catches missing/empty files but does not inspect image contents or parse test output.'
+        selected: true
+      - option: 'Deep content inspection'
+        description: 'Validate Evidence[] metadata, verify file existence, AND inspect file contents (parse images to verify valid format, parse test output to confirm passing tests). Most thorough but significantly more complex and slower.'
+        selected: false
+    selectionRationale: 'File existence + metadata validation is recommended as the sweet spot between thoroughness and complexity. It catches the most common evidence quality issues (missing files, empty files, incorrect paths) without adding the complexity of image parsing or test output analysis. Deep content inspection would require adding dependencies (image parsers, test output parsers) and handling diverse formats (PNG vs JPEG, different test frameworks). The agent-generated descriptions and types are sufficient for determining evidence intent; file existence validation ensures the evidence is actually capturable and accessible.'
+    answer: 'File existence + metadata validation'
+
+  - question: 'What should happen when all retry attempts are exhausted and evidence is still insufficient?'
+    resolved: true
+    options:
+      - option: 'Throw error and block merge'
+        description: 'Fail the evidence phase and prevent progression to merge. Ensures evidence quality but violates FR-8 graceful degradation requirement.'
+        selected: false
+      - option: 'Log warnings and proceed with partial evidence'
+        description: 'Accept whatever evidence was captured (even if validation fails), log detailed warnings to messages[], and proceed to merge. Preserves FR-8 graceful degradation while providing visibility into evidence quality issues.'
+        selected: true
+      - option: 'Trigger human-in-the-loop approval'
+        description: 'Use LangGraph interrupt() to pause execution and request human review/approval of insufficient evidence before proceeding. Gives user control but adds interaction overhead for every evidence failure.'
+        selected: false
+    selectionRationale: 'Log warnings and proceed with partial evidence is recommended because the problem statement explicitly preserves FR-8 graceful degradation ("evidence failures never block the merge"). The purpose of the validation loop is to improve evidence quality through retries, not to enforce evidence as a hard requirement. After exhausting retries, the system should capture detailed validation failures in state.messages[] (visible in TUI and PR body), proceed to merge with whatever evidence was collected, and rely on human reviewers to assess whether the evidence sufficiently proves completion. This maintains the current "evidence is best-effort" philosophy while adding quality-improvement retries.'
+    answer: 'Log warnings and proceed with partial evidence'
 
 content: |
   ## Problem Statement
@@ -40,83 +120,114 @@ content: |
   - Evidence failures never block the merge (FR-8 graceful degradation), but there's no retry before giving up
 
   This creates a gap where evidence collection may succeed technically (files captured, JSON parsed)
-  but fail qualitatively (screenshots don't show the feature, tests don't prove the bug fix).
+  but fail qualitatively (screenshots don't show the feature, tests don't prove the bug fix, tasks lack
+  any evidence at all).
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] Evidence collection includes a validation step that inspects Evidence[] for quality and completeness
+  - [ ] Validation checks UI evidence requires app-level screenshots (not just Storybook)
+  - [ ] Validation checks completeness (each task type has appropriate evidence)
+  - [ ] Validation verifies evidence files exist at specified paths with non-zero size
+  - [ ] Failed validation triggers retry with structured feedback about what's missing
+  - [ ] Retry loop has a maximum attempt limit (3 retries) to prevent infinite loops
+  - [ ] After exhausting retries, system proceeds with partial evidence and logs detailed warnings
+  - [ ] All validation logic has comprehensive unit test coverage (>90%)
+  - [ ] Integration tests cover retry scenarios (validation failure → retry → success)
+  - [ ] Integration tests cover exhausted retries scenario (validation failure → 3 retries → proceed with warnings)
+  - [ ] Evidence validation preserves FR-8 graceful degradation (never blocks merge)
+  - [ ] Validation feedback is specific and actionable (lists missing evidence by task/type)
 
-  The repository follows Clean Architecture with four layers:
-  - **domain/** — TypeSpec-generated domain models including Evidence type (tsp/domain/value-objects/evidence.tsp)
-  - **application/** — Use cases and port interfaces (agent executors, repositories)
-  - **infrastructure/** — Agent system implementation using LangGraph StateGraphs
-  - **presentation/** — CLI, TUI, Web UI
+  ## Functional Requirements
 
-  Evidence collection is implemented in the agent system at:
-  - `packages/core/src/infrastructure/services/agents/feature-agent/`
+  - **FR-1**: The evidence collection phase MUST include a validation step that runs after parseEvidenceRecords to inspect the quality and completeness of captured evidence.
 
-  ### Architecture Patterns
+  - **FR-2**: Evidence validation MUST check that UI-related tasks (tasks that modify components, styles, markup, or any visual code) have at least one Screenshot evidence record with app-level proof (description or path contains app-level indicators, NOT Storybook-only).
 
-  **LangGraph State-Based Workflow:**
-  - Nodes are pure async functions that process and update typed state
-  - Evidence flows through the FeatureAgentState annotation (state.ts:84-88)
-  - Evidence is populated by the evidence.node.ts within the implement phase
-  - Current flow: analyze → requirements → research → plan → implement (includes evidence sub-agent) → merge
-  - Validation nodes exist for other phases (validate.node.ts, repair.node.ts)
+  - **FR-3**: Evidence validation MUST check that tasks with test requirements have at least one TestOutput evidence record.
 
-  **Validation/Repair Pattern:**
-  - The graph already implements a validate → repair → validate loop for YAML artifacts
-  - validate.node.ts: reads YAML, runs schema validation, returns errors
-  - repair.node.ts: sends broken YAML + errors to executor for fixing
-  - routeValidation(): conditional edge routes to repair on failure, successor on success
-  - Max retries (default 3) before throwing error
-  - This pattern can be adapted for evidence validation
+  - **FR-4**: Evidence validation MUST check that CLI-related tasks have at least one TerminalRecording evidence record.
 
-  **Evidence System Components:**
-  - evidence.node.ts: Creates evidence node, invokes agent, parses output
-  - evidence-prompts.ts: Builds prompt with mandatory screenshot rules, storage instructions
-  - evidence-output-parser.ts: Extracts Evidence[] from fenced JSON code block
-  - validateUiEvidenceHasAppProof: Checks for Storybook-only vs app-level screenshots
-  - State channel: evidence (Annotation<Evidence[]> with reducer)
+  - **FR-5**: Evidence validation MUST verify that each Evidence record's file exists at the specified path and has non-zero file size (detect missing/empty files).
 
-  ### Relevant Technologies
+  - **FR-6**: When validation detects insufficient evidence, the system MUST retry evidence collection up to a maximum of 3 attempts (configurable MAX_EVIDENCE_RETRIES constant).
 
-  - **LangGraph**: StateGraph, Annotation, conditional edges, interrupt() for HITL approval
-  - **TypeScript**: Strict typing with TypeSpec-generated domain models
-  - **Node.js + fs**: File operations for reading evidence files
-  - **Playwright**: Used in prompts for screenshot capture automation
-  - **Better-SQLite3**: State persistence (though evidence validation is in-memory during graph execution)
-  - **Vitest**: Testing framework — evidence-flow.test.ts validates evidence state propagation
+  - **FR-7**: Each retry attempt MUST augment the evidence prompt with structured validation feedback listing specific failures (e.g., "Missing app-level screenshot for task-3 (UI task)", "No TestOutput evidence for backend tasks [task-5, task-7]").
+
+  - **FR-8**: After exhausting all retry attempts, the system MUST proceed to the next phase with whatever evidence was captured (graceful degradation) and log detailed validation warnings to state.messages[].
+
+  - **FR-9**: Validation warnings MUST be specific and actionable, identifying which tasks lack evidence and what evidence types are missing.
+
+  - **FR-10**: The validation loop MUST track retry attempts in state (reuse validationRetries or add evidenceRetries channel) and include retry count in log messages.
+
+  - **FR-11**: The system MUST preserve all captured evidence across retries (append to evidence[] rather than replacing) to avoid losing partially successful evidence on retry.
+
+  - **FR-12**: Evidence validation MUST NOT block the merge phase under any circumstances (preserve FR-8 graceful degradation from original spec).
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Evidence validation logic MUST execute in <500ms for typical evidence sets (10-20 records) to avoid adding significant latency to the evidence phase.
+
+  - **NFR-2**: Validation feedback MUST be human-readable and useful for debugging (avoid cryptic error codes, use plain language descriptions).
+
+  - **NFR-3**: The validation implementation MUST follow the existing validation patterns in the codebase (similar structure to validateUiEvidenceHasAppProof in evidence-output-parser.ts).
+
+  - **NFR-4**: All validation functions MUST be pure and side-effect-free (validation should not modify state, only return validation results).
+
+  - **NFR-5**: Retry logic MUST reuse existing helpers (retryExecute, createNodeLogger, markPhaseComplete) to maintain consistency with other nodes.
+
+  - **NFR-6**: Evidence validation MUST have comprehensive unit test coverage (>90% branch coverage) with tests for all validation rules and edge cases.
+
+  - **NFR-7**: Integration tests MUST cover the full retry flow (initial failure → retry with feedback → success) and exhausted retries scenario.
+
+  - **NFR-8**: Validation error messages MUST be logged at ERROR level when retries are exhausted, and at WARN level for intermediate retry attempts.
+
+  - **NFR-9**: The implementation MUST NOT introduce breaking changes to the Evidence type or evidence state channel.
+
+  - **NFR-10**: File existence checks MUST handle async file system operations gracefully and catch ENOENT/permission errors without crashing.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should the validation loop be implemented as a separate node pair or integrated within evidence.node.ts? | Integrated within evidence.node.ts | Evidence is already a sub-process within implement phase; adding graph nodes would require restructuring. Internal loop is simpler and follows existing retry patterns. |
+  | 2 | What criteria should trigger a retry? | Comprehensive validation (UI + completeness) | Problem statement requires proving "tasks were completed successfully" — this needs completeness checks across all task types, not just UI screenshot validation. |
+  | 3 | How many retry attempts before accepting degraded evidence? | Fixed limit (3 retries) | Matches established validate.node.ts pattern, prevents infinite loops, balances quality with practicality. Environmental failures (dev server, browser) make unlimited retries problematic. |
+  | 4 | Should validation failures provide specific feedback for retries? | Structured validation feedback | Enables targeted fixes rather than blind retries. Follows repair.node.ts pattern of passing validation errors to repair prompt for focused remediation. |
+  | 5 | Should validation inspect actual file contents or trust metadata? | File existence + metadata validation | Sweet spot between thoroughness and complexity. Catches missing/empty files without requiring image parsers or test output parsers. Agent descriptions are sufficient for intent. |
+  | 6 | What happens when retries are exhausted and evidence is insufficient? | Log warnings and proceed with partial evidence | Preserves FR-8 graceful degradation requirement. Validation loop improves quality through retries but doesn't enforce evidence as hard requirement. Humans review PR evidence quality. |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
   | packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence.node.ts | High | Must add validation logic and retry loop around evidence collection |
-  | packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.ts | High | Need to add validation function to inspect Evidence[] records for quality/completeness |
-  | packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts | Medium | May need to enhance prompt when retrying with feedback about insufficient evidence |
-  | packages/core/src/infrastructure/services/agents/feature-agent/state.ts | Medium | May need to add state channels for validation retries, errors, feedback |
-  | packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts | Low | Evidence node is called within implement node (not a standalone graph node), so no graph topology changes unless we extract evidence to its own node |
+  | packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.ts | High | Need to add validation function to inspect Evidence[] records for quality/completeness and file existence |
+  | packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts | Medium | Must enhance prompt when retrying with structured validation feedback |
+  | packages/core/src/infrastructure/services/agents/feature-agent/state.ts | Low | May reuse existing validationRetries channel or add evidenceRetries if separate tracking needed |
   | tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts | High | Must add tests for validation logic, retry loop, max attempts handling |
-  | tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts | Medium | Add tests for new validation function |
-  | tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts | Medium | Update tests to cover retry scenarios |
-  | docs/architecture/agent-system.md | Low | Update if evidence becomes a standalone node or adds significant new workflow |
+  | tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts | High | Add tests for new validation function (comprehensive validation, file checks) |
+  | tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts | Medium | Update tests to cover retry scenarios and exhausted retries |
 
   ## Dependencies
 
   **Existing Code:**
   - validate.node.ts and repair.node.ts patterns (validation/repair loop template)
   - evidence.node.ts (current evidence collection implementation)
-  - evidence-output-parser.ts (parsing and basic UI validation)
-  - node-helpers.ts (retryExecute, createNodeLogger, buildExecutorOptions, markPhaseComplete, getCompletedPhases)
-  - state.ts (FeatureAgentAnnotation for state channels)
+  - evidence-output-parser.ts (parseEvidenceRecords, validateUiEvidenceHasAppProof)
+  - node-helpers.ts (retryExecute, createNodeLogger, buildExecutorOptions, markPhaseComplete, getCompletedPhases, readSpecFile)
+  - state.ts (FeatureAgentAnnotation for state channels, existing validationRetries)
 
   **Libraries:**
-  - @langchain/langgraph (StateGraph, Annotation, interrupt, Command)
-  - Node.js fs/path for file inspection
+  - @langchain/langgraph (StateGraph, Annotation)
+  - Node.js fs/promises for async file existence checks (fs.stat, fs.access)
+  - Node.js path for path manipulation
   - Vitest for testing
 
   **No external API dependencies** — validation is local inspection of captured evidence files and records.
+
+  **Task Data Source:**
+  - tasks.yaml (already read by buildEvidencePrompt) — will need to parse to map evidence to tasks for completeness validation
 
   ## Size Estimate
 
@@ -128,18 +239,20 @@ content: |
   - Requires careful design of validation logic (what makes evidence "sufficient"?)
   - Need to add retry loop with max attempts and feedback mechanism
   - Must handle edge cases (missing files, corrupt images, insufficient screenshots)
-  - Requires comprehensive unit and integration test coverage
+  - Requires comprehensive unit and integration test coverage (12 success criteria items)
   - Must preserve graceful degradation (FR-8) — evidence validation can retry but ultimately cannot block merge
-  - No new infrastructure (graph already supports validate/repair pattern, evidence already flows through state)
+  - No new infrastructure (graph already supports validation patterns, evidence already flows through state)
+  - File existence checks add async I/O complexity but no new dependencies
 
   **Scope Breakdown:**
-  1. Add validation function to evidence-output-parser.ts (inspect Evidence[] for completeness)
-  2. Refactor evidence.node.ts to run validation → retry loop (similar to validate/repair pattern)
-  3. Enhance evidence prompt to include retry feedback when validation fails
-  4. Add state channels for validation retries/errors if needed (or reuse validationRetries pattern)
-  5. Write unit tests for validation logic and retry behavior
-  6. Update integration tests to cover retry scenarios
-  7. Update documentation if evidence becomes a standalone workflow step
+  1. Add comprehensive validation function to evidence-output-parser.ts (inspect Evidence[] for completeness, UI app-level proof, file existence)
+  2. Parse tasks.yaml to build task-type map for completeness validation
+  3. Refactor evidence.node.ts to run validation → retry loop (internal loop, not new graph nodes)
+  4. Build structured validation feedback for retry prompts (augment buildEvidencePrompt with validation errors)
+  5. Add MAX_EVIDENCE_RETRIES constant and retry tracking (reuse validationRetries or add evidenceRetries)
+  6. Write unit tests for validation logic (all validation rules, file checks, edge cases)
+  7. Write unit tests for retry behavior (attempt counting, feedback generation, graceful degradation)
+  8. Update integration tests to cover retry scenarios and exhausted retries
+  9. Add detailed logging for validation failures and retry attempts
 
-  This is not Small because it requires non-trivial logic to determine evidence sufficiency, and not Large
-  because it builds on existing patterns and doesn't require new graph nodes or external integrations.
+  This is not Small because it requires non-trivial logic to determine evidence sufficiency across multiple dimensions (UI proof, completeness, file existence), async file I/O, and structured feedback generation. It's not Large because it builds on existing patterns, doesn't require new graph nodes or external integrations, and validation logic is pure/testable.
