@@ -39,6 +39,18 @@ describe('AdoptBranchUseCase', () => {
     updatedAt: new Date(),
   };
 
+  // Platform-aware worktree path for cross-platform testing
+  const mockWorktreePath = path.join(
+    path.sep === '\\' ? 'C:' : '/',
+    'home',
+    'user',
+    '.shep',
+    'repos',
+    'hash',
+    'wt',
+    'fix-login-bug'
+  );
+
   beforeEach(() => {
     // Mock getSettings with default values
     vi.mocked(getSettings).mockReturnValue({
@@ -71,18 +83,6 @@ describe('AdoptBranchUseCase', () => {
       restore: vi.fn().mockResolvedValue(undefined),
       update: vi.fn().mockResolvedValue(undefined),
     };
-
-    // Platform-aware worktree path for cross-platform testing
-    const mockWorktreePath = path.join(
-      path.sep === '\\' ? 'C:' : '/',
-      'home',
-      'user',
-      '.shep',
-      'repos',
-      'hash',
-      'wt',
-      'fix-login-bug'
-    );
 
     mockWorktreeService = {
       create: vi.fn().mockResolvedValue({ path: '/wt', head: 'abc', branch: 'b', isMain: false }),
@@ -170,7 +170,7 @@ describe('AdoptBranchUseCase', () => {
       expect(result.feature.userQuery).toBe('');
       // After feature 071, adopted features now have specPath and agentRunId
       expect(result.feature.specPath).toBe(
-        '/home/user/.shep/repos/hash/wt/fix-login-bug/specs/000-fix-login-bug'
+        path.join(mockWorktreePath, 'specs', '000-fix-login-bug')
       );
       expect(result.feature.agentRunId).toBeDefined();
       expect(result.feature.messages).toEqual([]);
@@ -201,7 +201,7 @@ describe('AdoptBranchUseCase', () => {
       expect(mockWorktreeService.addExisting).toHaveBeenCalledWith(
         repoPath,
         'fix/login-bug',
-        '/home/user/.shep/repos/hash/wt/fix-login-bug'
+        mockWorktreePath
       );
     });
 
@@ -342,7 +342,7 @@ describe('AdoptBranchUseCase', () => {
       });
 
       expect(mockWorktreeService.addExisting).not.toHaveBeenCalled();
-      expect(result.feature.worktreePath).toBe('/home/user/.shep/repos/hash/wt/fix-login-bug');
+      expect(result.feature.worktreePath).toBe(mockWorktreePath);
       expect(mockFeatureRepo.create).toHaveBeenCalled();
     });
   });
