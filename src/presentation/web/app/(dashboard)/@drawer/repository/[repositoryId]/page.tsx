@@ -1,6 +1,7 @@
 import { resolve } from '@/lib/server-container';
 import type { IRepositoryRepository } from '@shepai/core/application/ports/output/repositories/repository-repository.interface';
 import { RepositoryDrawerClient } from '@/components/common/control-center-drawer/repository-drawer-client';
+import { fetchRepoGitInfo } from '@/app/(dashboard)/get-graph-data';
 
 /** Skip static pre-rendering since we need runtime DI container. */
 export const dynamic = 'force-dynamic';
@@ -18,9 +19,22 @@ export default async function RepositoryDrawerPage({ params }: RepositoryDrawerP
 
     if (!repository) return null;
 
+    const gitInfo = await fetchRepoGitInfo(repository);
+
     return (
       <RepositoryDrawerClient
-        data={{ name: repository.name, repositoryPath: repository.path, id: repository.id }}
+        data={{
+          name: repository.name,
+          repositoryPath: repository.path,
+          id: repository.id,
+          createdAt: repository.createdAt ? new Date(repository.createdAt).getTime() : undefined,
+          ...(gitInfo && {
+            branch: gitInfo.branch,
+            commitMessage: gitInfo.commitMessage,
+            committer: gitInfo.committer,
+            behindCount: gitInfo.behindCount,
+          }),
+        }}
       />
     );
   } catch {
