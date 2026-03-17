@@ -29,6 +29,7 @@ import {
   recordPhaseStart,
   recordPhaseEnd,
   recordApprovalWaitStart,
+  updatePhasePrompt,
 } from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
 import {
@@ -97,7 +98,16 @@ export function createImplementNode(executor: IAgentExecutor) {
     const messages: string[] = [];
 
     // Record top-level implement phase timing (sub-phases are recorded individually below)
-    const implementTimingId = await recordPhaseStart('implement');
+    const implementTimingId = await recordPhaseStart('implement', {
+      modelId: state.model,
+      agentType: executor.agentType,
+    });
+    // Accumulate token usage across all sub-phases for the top-level timing
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let totalCostUsd = 0;
+    let totalNumTurns = 0;
+    let totalDurationApiMs = 0;
 
     try {
       // --- Parse plan & tasks ---
@@ -166,26 +176,38 @@ export function createImplementNode(executor: IAgentExecutor) {
         const options = buildExecutorOptions(state);
         const promptContext = { isLastPhase, phaseIndex: i, totalPhases };
         const phaseStartTime = Date.now();
-        const phaseTimingId = await recordPhaseStart(`implement:${phase.id}`);
+        const phaseTimingId = await recordPhaseStart(`implement:${phase.id}`, {
+          modelId: state.model,
+          agentType: executor.agentType,
+        });
+
+        // Collect usage from all executor calls in this phase
+        let phaseInputTokens = 0;
+        let phaseOutputTokens = 0;
+        let phaseCostUsd = 0;
+        let phaseNumTurns = 0;
+        let phaseDurationApiMs = 0;
 
         if (phase.parallel && phaseTasks.length > 1) {
           // Parallel: one executor call per task
           log.info(`Spawning ${phaseTasks.length} parallel executor calls`);
 
+          // Build all prompts up front so we can record them before execution
+          const taskPrompts = phaseTasks.map((task) => {
+            const singleTaskPhase: PlanPhase = {
+              ...phase,
+              taskIds: [task.id],
+            };
+            return buildImplementPhasePrompt(state, singleTaskPhase, [task], promptContext);
+          });
+          await updatePhasePrompt(phaseTimingId, taskPrompts.join('\n\n---\n\n'));
+
           const results = await Promise.all(
-            phaseTasks.map((task) => {
-              const singleTaskPhase: PlanPhase = {
-                ...phase,
-                taskIds: [task.id],
-              };
-              const prompt = buildImplementPhasePrompt(
-                state,
-                singleTaskPhase,
-                [task],
-                promptContext
+            phaseTasks.map((task, idx) => {
+              log.info(
+                `  [parallel] Task ${task.id}: "${task.title}" — ${taskPrompts[idx].length} chars`
               );
-              log.info(`  [parallel] Task ${task.id}: "${task.title}" — ${prompt.length} chars`);
-              return retryExecute(executor, prompt, options, retryOpts);
+              return retryExecute(executor, taskPrompts[idx], options, retryOpts);
             })
           );
 
@@ -193,17 +215,42 @@ export function createImplementNode(executor: IAgentExecutor) {
             log.info(
               `  [parallel] Task ${phaseTasks[j].id} complete (${results[j].result.length} chars)`
             );
+            phaseInputTokens += results[j].usage?.inputTokens ?? 0;
+            phaseOutputTokens += results[j].usage?.outputTokens ?? 0;
+            phaseCostUsd += results[j].usage?.costUsd ?? 0;
+            phaseNumTurns += results[j].usage?.numTurns ?? 0;
+            phaseDurationApiMs += results[j].usage?.durationApiMs ?? 0;
           }
         } else {
           // Sequential: single executor call with all phase tasks
           const prompt = buildImplementPhasePrompt(state, phase, phaseTasks, promptContext);
+          await updatePhasePrompt(phaseTimingId, prompt);
           log.info(`Executing phase prompt — ${prompt.length} chars`);
           const result = await retryExecute(executor, prompt, options, retryOpts);
           log.info(`Phase complete (${result.result.length} chars)`);
+          phaseInputTokens = result.usage?.inputTokens ?? 0;
+          phaseOutputTokens = result.usage?.outputTokens ?? 0;
+          phaseCostUsd = result.usage?.costUsd ?? 0;
+          phaseNumTurns = result.usage?.numTurns ?? 0;
+          phaseDurationApiMs = result.usage?.durationApiMs ?? 0;
         }
 
+        // Accumulate into top-level totals
+        totalInputTokens += phaseInputTokens;
+        totalOutputTokens += phaseOutputTokens;
+        totalCostUsd += phaseCostUsd;
+        totalNumTurns += phaseNumTurns;
+        totalDurationApiMs += phaseDurationApiMs;
+
         const phaseDurationMs = Date.now() - phaseStartTime;
-        await recordPhaseEnd(phaseTimingId, phaseDurationMs);
+        await recordPhaseEnd(phaseTimingId, phaseDurationMs, {
+          inputTokens: phaseInputTokens || undefined,
+          outputTokens: phaseOutputTokens || undefined,
+          costUsd: phaseCostUsd || undefined,
+          numTurns: phaseNumTurns || undefined,
+          durationApiMs: phaseDurationApiMs || undefined,
+          exitCode: 'success',
+        });
 
         completedTasks += phaseTasks.length;
         markPhaseComplete(state.specDir, phase.id, log);
@@ -245,7 +292,14 @@ export function createImplementNode(executor: IAgentExecutor) {
       messages.push(`[implement] Evidence: ${evidence.length} record(s) captured`);
 
       // Record top-level implement phase completion
-      await recordPhaseEnd(implementTimingId, Date.now() - startTime);
+      await recordPhaseEnd(implementTimingId, Date.now() - startTime, {
+        inputTokens: totalInputTokens || undefined,
+        outputTokens: totalOutputTokens || undefined,
+        costUsd: totalCostUsd || undefined,
+        numTurns: totalNumTurns || undefined,
+        durationApiMs: totalDurationApiMs || undefined,
+        exitCode: 'success',
+      });
 
       if (shouldInterrupt('implement', state.approvalGates)) {
         log.info('Interrupting for human approval');
@@ -265,7 +319,15 @@ export function createImplementNode(executor: IAgentExecutor) {
       log.error(`${message} (after ${elapsed}s)`);
 
       // Record phase end even on failure so timing shows duration, not "running"
-      await recordPhaseEnd(implementTimingId, Date.now() - startTime);
+      await recordPhaseEnd(implementTimingId, Date.now() - startTime, {
+        inputTokens: totalInputTokens || undefined,
+        outputTokens: totalOutputTokens || undefined,
+        costUsd: totalCostUsd || undefined,
+        numTurns: totalNumTurns || undefined,
+        durationApiMs: totalDurationApiMs || undefined,
+        exitCode: 'error',
+        errorMessage: message.slice(0, 1000),
+      });
 
       // Throw so LangGraph does NOT checkpoint this node as "completed".
       // The worker catch block marks the run as failed, and on resume

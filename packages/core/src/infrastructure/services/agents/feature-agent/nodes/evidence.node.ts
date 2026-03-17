@@ -62,11 +62,15 @@ export function createEvidenceNode(executor: IAgentExecutor) {
     }
 
     const startTime = Date.now();
-    const timingId = await recordPhaseStart('evidence');
+    const commitEvidence = hasSettings() && getSettings().workflow.commitEvidence;
+    const prompt = buildEvidencePrompt(state, { commitEvidence });
+    const timingId = await recordPhaseStart('evidence', {
+      prompt,
+      modelId: state.model,
+      agentType: executor.agentType,
+    });
 
     try {
-      const commitEvidence = hasSettings() && getSettings().workflow.commitEvidence;
-      const prompt = buildEvidencePrompt(state, { commitEvidence });
       const options = buildExecutorOptions(state);
 
       log.info(`Executing agent at cwd=${options.cwd}`);
@@ -97,7 +101,16 @@ export function createEvidenceNode(executor: IAgentExecutor) {
         }
       }
 
-      await recordPhaseEnd(timingId, durationMs);
+      await recordPhaseEnd(timingId, durationMs, {
+        inputTokens: result.usage?.inputTokens,
+        outputTokens: result.usage?.outputTokens,
+        cacheCreationInputTokens: result.usage?.cacheCreationInputTokens,
+        cacheReadInputTokens: result.usage?.cacheReadInputTokens,
+        costUsd: result.usage?.costUsd,
+        numTurns: result.usage?.numTurns,
+        durationApiMs: result.usage?.durationApiMs,
+        exitCode: 'success',
+      });
       markPhaseComplete(state.specDir, 'evidence', log);
 
       return {
@@ -121,7 +134,10 @@ export function createEvidenceNode(executor: IAgentExecutor) {
       const elapsed = (durationMs / 1000).toFixed(1);
       log.error(`Evidence collection failed: ${message} (${elapsed}s)`);
 
-      await recordPhaseEnd(timingId, durationMs);
+      await recordPhaseEnd(timingId, durationMs, {
+        exitCode: 'error',
+        errorMessage: message.slice(0, 1000),
+      });
 
       throw new Error(`[evidence] ${message}`);
     }

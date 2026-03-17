@@ -124,6 +124,8 @@ export interface PhaseEndMetadata {
   durationApiMs?: number;
   exitCode?: string;
   errorMessage?: string;
+  /** Prompt can be recorded at end time when it's built after recordPhaseStart */
+  prompt?: string;
 }
 
 /**
@@ -155,6 +157,7 @@ export async function recordPhaseEnd(
       ...(metadata?.durationApiMs != null && { durationApiMs: BigInt(metadata.durationApiMs) }),
       ...(metadata?.exitCode != null && { exitCode: metadata.exitCode }),
       ...(metadata?.errorMessage != null && { errorMessage: metadata.errorMessage }),
+      ...(metadata?.prompt != null && { prompt: metadata.prompt }),
     });
   } catch {
     // Swallow — timing update failure is non-fatal
@@ -191,6 +194,21 @@ export async function recordLifecycleEvent(
     });
   } catch {
     // Swallow — lifecycle event recording is non-fatal
+  }
+}
+
+/**
+ * Update a phase timing record with the prompt text.
+ * Useful when the prompt is built after recordPhaseStart (e.g. merge node).
+ * No-op if timingId is null or context is not set.
+ */
+export async function updatePhasePrompt(timingId: string | null, prompt: string): Promise<void> {
+  if (!timingId || !contextRepository) return;
+
+  try {
+    await contextRepository.update(timingId, { prompt });
+  } catch {
+    // Swallow — prompt update failure is non-fatal
   }
 }
 
