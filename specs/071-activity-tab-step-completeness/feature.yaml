@@ -1,0 +1,33 @@
+feature:
+  id: 071-activity-tab-step-completeness
+  name: activity-tab-step-completeness
+  number: 71
+  branch: feat/071-activity-tab-step-completeness
+  lifecycle: research
+  createdAt: '2026-03-17T16:10:33Z'
+status:
+  phase: research
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-17T16:10:33Z'
+  lastUpdatedBy: feature-agent
+  completedPhases:
+    - fast-implement
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-17T16:10:33Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

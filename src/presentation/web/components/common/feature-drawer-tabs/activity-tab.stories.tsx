@@ -594,3 +594,131 @@ export const FullLifecycle: Story = {
     error: null,
   },
 };
+
+/**
+ * Waiting for approval (live) — simulates the case where the agent has completed
+ * a phase and is currently waiting for user approval. The "awaiting" sub-row shows
+ * a pulsing amber indicator with a live-ticking timer.
+ *
+ * This covers the bug where the second merge iteration (after rejection + fixes)
+ * did not show any approval wait indicator.
+ */
+export const WaitingForApproval: Story = {
+  args: {
+    timings: [
+      {
+        agentRunId: 'run-1',
+        phase: 'run:started',
+        startedAt: new Date(Date.now() - 120000).toISOString(),
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'analyze',
+        startedAt: new Date(Date.now() - 119000).toISOString(),
+        completedAt: new Date(Date.now() - 105000).toISOString(),
+        durationMs: 14000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'implement',
+        startedAt: new Date(Date.now() - 105000).toISOString(),
+        completedAt: new Date(Date.now() - 60000).toISOString(),
+        durationMs: 45000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'merge',
+        startedAt: new Date(Date.now() - 60000).toISOString(),
+        completedAt: new Date(Date.now() - 30000).toISOString(),
+        durationMs: 30000,
+        // waitingApprovalAt set but approvalWaitMs absent = currently waiting
+        waitingApprovalAt: new Date(Date.now() - 30000).toISOString(),
+      },
+    ],
+    loading: false,
+    error: null,
+  },
+};
+
+/**
+ * Second iteration waiting for approval — simulates the exact reported bug:
+ * after rejecting the merge step, the agent fixed things and is now waiting
+ * for merge approval again in iteration 2. The activity tab must show the
+ * "awaiting" indicator for merge:2.
+ */
+export const SecondIterationWaitingForApproval: Story = {
+  args: {
+    timings: [
+      // Iteration 1
+      {
+        agentRunId: 'run-1',
+        phase: 'run:started',
+        startedAt: new Date(Date.now() - 300000).toISOString(),
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'analyze',
+        startedAt: new Date(Date.now() - 299000).toISOString(),
+        completedAt: new Date(Date.now() - 285000).toISOString(),
+        durationMs: 14000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'implement',
+        startedAt: new Date(Date.now() - 285000).toISOString(),
+        completedAt: new Date(Date.now() - 240000).toISOString(),
+        durationMs: 45000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'merge',
+        startedAt: new Date(Date.now() - 240000).toISOString(),
+        completedAt: new Date(Date.now() - 210000).toISOString(),
+        durationMs: 30000,
+        waitingApprovalAt: new Date(Date.now() - 210000).toISOString(),
+        approvalWaitMs: 15000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'run:rejected',
+        startedAt: new Date(Date.now() - 195000).toISOString(),
+        durationMs: 0,
+      },
+      // Iteration 2
+      {
+        agentRunId: 'run-1',
+        phase: 'run:resumed',
+        startedAt: new Date(Date.now() - 180000).toISOString(),
+        durationMs: 0,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'implement:2',
+        startedAt: new Date(Date.now() - 180000).toISOString(),
+        completedAt: new Date(Date.now() - 60000).toISOString(),
+        durationMs: 120000,
+      },
+      {
+        agentRunId: 'run-1',
+        phase: 'merge:2',
+        startedAt: new Date(Date.now() - 60000).toISOString(),
+        completedAt: new Date(Date.now() - 30000).toISOString(),
+        durationMs: 30000,
+        // Currently waiting — approvalWaitMs absent
+        waitingApprovalAt: new Date(Date.now() - 30000).toISOString(),
+      },
+    ],
+    rejectionFeedback: [
+      {
+        iteration: 1,
+        message: 'The PR has merge conflicts — rebase on main first',
+        phase: 'merge',
+        timestamp: new Date(Date.now() - 195000).toISOString(),
+      },
+    ],
+    loading: false,
+    error: null,
+  },
+};

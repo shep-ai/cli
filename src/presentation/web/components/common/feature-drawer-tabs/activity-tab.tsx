@@ -45,13 +45,22 @@ function hasRunningPhase(timings: PhaseTimingData[]): boolean {
   return timings.some((t) => !t.phase.startsWith('run:') && !t.completedAt && t.startedAt);
 }
 
-/** Hook that ticks every second while there are running phases. */
+/** Returns true if any non-lifecycle phase is currently waiting for approval. */
+function hasWaitingForApprovalPhase(timings: PhaseTimingData[]): boolean {
+  return timings.some(
+    (t) => !t.phase.startsWith('run:') && !!t.waitingApprovalAt && !t.approvalWaitMs
+  );
+}
+
+/** Hook that ticks every second while there are running or approval-waiting phases. */
 function useTickingNow(timings: PhaseTimingData[] | null): number {
   const [now, setNow] = useState(Date.now);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const running = timings ? hasRunningPhase(timings) : false;
+    const running = timings
+      ? hasRunningPhase(timings) || hasWaitingForApprovalPhase(timings)
+      : false;
     if (running) {
       // Tick every second
       intervalRef.current = setInterval(() => setNow(Date.now()), 1000);
@@ -636,9 +645,11 @@ function NodeTimingRow({
         ) : null}
       </div>
 
-      {/* Approval wait sub-row */}
-      {timing.approvalWaitMs != null && timing.approvalWaitMs > 0 ? (
-        <ApprovalWaitRow timing={timing} maxDurationMs={maxDurationMs} />
+      {/* Approval wait sub-row — shown while actively waiting (waitingApprovalAt set, approvalWaitMs null)
+          or after approval is resolved (approvalWaitMs > 0) */}
+      {(timing.approvalWaitMs != null && timing.approvalWaitMs > 0) ||
+      (timing.waitingApprovalAt && !timing.approvalWaitMs) ? (
+        <ApprovalWaitRow timing={timing} maxDurationMs={maxDurationMs} now={now} />
       ) : null}
     </div>
   );
@@ -647,11 +658,17 @@ function NodeTimingRow({
 function ApprovalWaitRow({
   timing,
   maxDurationMs,
+  now,
 }: {
   timing: PhaseTimingData;
   maxDurationMs: number;
+  now: number;
 }) {
-  const waitMs = timing.approvalWaitMs ?? 0;
+  // isWaiting = approval requested but not yet resolved (live state)
+  const isWaiting = !!timing.waitingApprovalAt && !timing.approvalWaitMs;
+  const waitMs = isWaiting
+    ? Math.max(0, now - new Date(String(timing.waitingApprovalAt)).getTime())
+    : (timing.approvalWaitMs ?? 0);
   const barPercent = maxDurationMs > 0 ? Math.max(2, (waitMs / maxDurationMs) * 100) : 2;
 
   return (
@@ -659,13 +676,29 @@ function ApprovalWaitRow({
       data-testid={`approval-wait-${timing.phase}`}
       className="ml-[26px] flex items-center gap-2 rounded-md bg-amber-50/50 px-1.5 py-1 dark:bg-amber-950/20"
     >
-      <Timer className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-      <span className="text-muted-foreground w-16 shrink-0 text-xs">approval</span>
-      <div className="bg-muted h-1.5 min-w-0 flex-1 overflow-hidden rounded-full">
-        <div
-          className="h-full rounded-full bg-amber-500"
-          style={{ width: `${Math.min(barPercent, 100)}%` }}
-        />
+      <Timer
+        className={`h-3.5 w-3.5 shrink-0 text-amber-500 ${isWaiting ? 'animate-pulse' : ''}`}
+      />
+      <span className="text-muted-foreground w-16 shrink-0 text-xs">
+        {isWaiting ? 'awaiting' : 'approval'}
+      </span>
+      <div className="bg-muted relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full">
+        {isWaiting ? (
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{
+              backgroundImage:
+                'linear-gradient(90deg, transparent 0%, rgb(245 158 11) 50%, transparent 100%)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 1.5s ease-in-out infinite',
+            }}
+          />
+        ) : (
+          <div
+            className="h-full rounded-full bg-amber-500"
+            style={{ width: `${Math.min(barPercent, 100)}%` }}
+          />
+        )}
       </div>
       <span className="text-muted-foreground w-14 shrink-0 text-right text-xs tabular-nums">
         {formatDuration(waitMs)}

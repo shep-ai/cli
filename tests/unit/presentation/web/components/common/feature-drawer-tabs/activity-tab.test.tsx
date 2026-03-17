@@ -167,6 +167,86 @@ describe('ActivityTab', () => {
       // Analyze has no approvalWaitMs
       expect(screen.queryByTestId('approval-wait-analyze')).not.toBeInTheDocument();
     });
+
+    it('renders live awaiting indicator when waitingApprovalAt is set but approvalWaitMs is null', () => {
+      const timings: PhaseTimingData[] = [
+        { agentRunId: run1Id, phase: 'run:started', startedAt: '2024-01-01T00:00:00.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'merge',
+          startedAt: '2024-01-01T00:00:00.000Z',
+          completedAt: '2024-01-01T00:00:10.000Z',
+          durationMs: 10000,
+          waitingApprovalAt: '2024-01-01T00:00:10.000Z',
+          // approvalWaitMs intentionally absent — agent is currently waiting
+        },
+      ];
+      renderActivityTab({ timings });
+      const waitRow = screen.getByTestId('approval-wait-merge');
+      expect(waitRow).toBeInTheDocument();
+      // Live waiting shows "awaiting" label, not "approval"
+      expect(within(waitRow).getByText('awaiting')).toBeInTheDocument();
+    });
+
+    it('renders live awaiting indicator for second iteration merge phase', () => {
+      // Simulates the bug: after rejection, merge:2 is waiting for approval
+      const timings: PhaseTimingData[] = [
+        { agentRunId: run1Id, phase: 'run:started', startedAt: '2024-01-01T00:00:00.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'merge',
+          startedAt: '2024-01-01T00:00:00.000Z',
+          completedAt: '2024-01-01T00:00:10.000Z',
+          durationMs: 10000,
+          waitingApprovalAt: '2024-01-01T00:00:10.000Z',
+          approvalWaitMs: 5000,
+        },
+        { agentRunId: run1Id, phase: 'run:rejected', startedAt: '2024-01-01T00:00:15.000Z' },
+        { agentRunId: run1Id, phase: 'run:resumed', startedAt: '2024-01-01T00:00:20.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'merge:2',
+          startedAt: '2024-01-01T00:00:20.000Z',
+          completedAt: '2024-01-01T00:00:30.000Z',
+          durationMs: 10000,
+          waitingApprovalAt: '2024-01-01T00:00:30.000Z',
+          // approvalWaitMs absent — currently waiting in iteration 2
+        },
+      ];
+      renderActivityTab({
+        timings,
+        rejectionFeedback: [{ iteration: 1, message: 'fix the tests', phase: 'merge' }],
+      });
+
+      // First merge iteration shows resolved approval wait with "approval" label
+      const waitRow1 = screen.getByTestId('approval-wait-merge');
+      expect(within(waitRow1).getByText('approval')).toBeInTheDocument();
+      expect(within(waitRow1).getByText('5s')).toBeInTheDocument();
+
+      // Second merge iteration shows live "awaiting" label
+      const waitRow2 = screen.getByTestId('approval-wait-merge:2');
+      expect(waitRow2).toBeInTheDocument();
+      expect(within(waitRow2).getByText('awaiting')).toBeInTheDocument();
+    });
+
+    it('shows approval label (not awaiting) once approvalWaitMs is resolved', () => {
+      const timings: PhaseTimingData[] = [
+        { agentRunId: run1Id, phase: 'run:started', startedAt: '2024-01-01T00:00:00.000Z' },
+        {
+          agentRunId: run1Id,
+          phase: 'merge',
+          startedAt: '2024-01-01T00:00:00.000Z',
+          completedAt: '2024-01-01T00:00:10.000Z',
+          durationMs: 10000,
+          waitingApprovalAt: '2024-01-01T00:00:10.000Z',
+          approvalWaitMs: 8000,
+        },
+      ];
+      renderActivityTab({ timings });
+      const waitRow = screen.getByTestId('approval-wait-merge');
+      expect(within(waitRow).getByText('approval')).toBeInTheDocument();
+      expect(within(waitRow).getByText('8s')).toBeInTheDocument();
+    });
   });
 
   describe('summary totals', () => {
