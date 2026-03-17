@@ -46,6 +46,10 @@ import type { IDaemonService } from '../../application/ports/output/services/dae
 import { DaemonPidService } from '../services/daemon/daemon-pid.service.js';
 import type { IDeploymentService } from '../../application/ports/output/services/deployment-service.interface.js';
 import { DeploymentService } from '../services/deployment/deployment.service.js';
+import type { IDevEnvironmentAgent } from '../../application/ports/output/services/dev-environment-agent.interface.js';
+import { DevEnvironmentAgentService } from '../services/deployment/dev-environment-agent.service.js';
+import type { IAgentDeploymentService } from '../../application/ports/output/services/agent-deployment-service.interface.js';
+import { AgentDeploymentService } from '../services/deployment/agent-deployment.service.js';
 import { AttachmentStorageService } from '../services/attachment-storage.service.js';
 
 // Agent infrastructure interfaces and implementations
@@ -295,6 +299,25 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: (c) => {
       const runRepository = c.resolve<IAgentRunRepository>('IAgentRunRepository');
       return new FeatureAgentProcessService(runRepository);
+    },
+  });
+
+  // Register agent-based deployment services
+  container.register<IDevEnvironmentAgent>('IDevEnvironmentAgent', {
+    useFactory: (c) => {
+      const caller = c.resolve<IStructuredAgentCaller>('IStructuredAgentCaller');
+      return new DevEnvironmentAgentService({ structuredAgentCaller: caller });
+    },
+  });
+
+  container.register<IAgentDeploymentService>('IAgentDeploymentService', {
+    useFactory: (c) => {
+      const devEnvAgent = c.resolve<IDevEnvironmentAgent>('IDevEnvironmentAgent');
+      const deploySvc = c.resolve<IDeploymentService>('IDeploymentService');
+      return new AgentDeploymentService({
+        devEnvironmentAgent: devEnvAgent,
+        deploymentService: deploySvc,
+      });
     },
   });
 

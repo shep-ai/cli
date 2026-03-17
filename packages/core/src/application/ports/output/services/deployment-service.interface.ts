@@ -32,6 +32,14 @@ export interface DeploymentStatus {
   url: string | null;
 }
 
+/** Options for overriding the default dev script detection. */
+export interface DeploymentStartOptions {
+  /** Shell command to run instead of auto-detecting from package.json. */
+  command?: string;
+  /** Working directory relative to targetPath (defaults to "."). */
+  cwd?: string;
+}
+
 /**
  * Port interface for managing local dev server deployments.
  *
@@ -49,10 +57,11 @@ export interface IDeploymentService {
    *
    * @param targetId - Unique identifier for the deployment target (featureId or repositoryId)
    * @param targetPath - Absolute filesystem path to the directory to run the dev server in
+   * @param options - Optional: override the auto-detected command
    * @returns The initial deployment state (always Booting on success)
    * @throws Error if no dev script is found in package.json or the process fails to spawn
    */
-  start(targetId: string, targetPath: string): void;
+  start(targetId: string, targetPath: string, options?: DeploymentStartOptions): void;
 
   /**
    * Stop a running deployment gracefully.

@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const mockStart = vi.fn();
+const mockDeploy = vi.fn();
 const mockResolve = vi.fn();
 vi.mock('@/lib/server-container', () => ({
   resolve: (token: string) => mockResolve(token),
@@ -35,25 +35,26 @@ describe('deployFeature server action', () => {
     vi.clearAllMocks();
     mockComputeWorktreePath.mockReturnValue(MOCK_WORKTREE_PATH);
     mockExistsSync.mockReturnValue(true);
+    mockDeploy.mockResolvedValue({ success: true, state: 'Booting' });
     mockResolve.mockImplementation((token: string) => {
       if (token === 'IFeatureRepository') {
         return { findById: vi.fn().mockResolvedValue(MOCK_FEATURE) };
       }
-      if (token === 'IDeploymentService') {
-        return { start: mockStart };
+      if (token === 'IAgentDeploymentService') {
+        return { deploy: mockDeploy };
       }
       return {};
     });
   });
 
-  it('resolves feature, computes worktree path, and calls service.start', async () => {
+  it('resolves feature, computes worktree path, and calls agentDeploymentService.deploy', async () => {
     const result = await deployFeature('feat-123');
 
     expect(mockResolve).toHaveBeenCalledWith('IFeatureRepository');
-    expect(mockResolve).toHaveBeenCalledWith('IDeploymentService');
+    expect(mockResolve).toHaveBeenCalledWith('IAgentDeploymentService');
     expect(mockComputeWorktreePath).toHaveBeenCalledWith('/home/user/project', 'feat/my-feature');
     expect(mockExistsSync).toHaveBeenCalledWith(MOCK_WORKTREE_PATH);
-    expect(mockStart).toHaveBeenCalledWith('feat-123', MOCK_WORKTREE_PATH);
+    expect(mockDeploy).toHaveBeenCalledWith('feat-123', MOCK_WORKTREE_PATH);
     expect(result).toEqual({ success: true, state: 'Booting' });
   });
 
@@ -61,7 +62,7 @@ describe('deployFeature server action', () => {
     const result = await deployFeature('');
 
     expect(result).toEqual({ success: false, error: 'featureId is required' });
-    expect(mockStart).not.toHaveBeenCalled();
+    expect(mockDeploy).not.toHaveBeenCalled();
   });
 
   it('returns error when feature is not found', async () => {
@@ -69,8 +70,8 @@ describe('deployFeature server action', () => {
       if (token === 'IFeatureRepository') {
         return { findById: vi.fn().mockResolvedValue(null) };
       }
-      if (token === 'IDeploymentService') {
-        return { start: mockStart };
+      if (token === 'IAgentDeploymentService') {
+        return { deploy: mockDeploy };
       }
       return {};
     });
@@ -78,7 +79,7 @@ describe('deployFeature server action', () => {
     const result = await deployFeature('nonexistent-id');
 
     expect(result).toEqual({ success: false, error: 'Feature not found: nonexistent-id' });
-    expect(mockStart).not.toHaveBeenCalled();
+    expect(mockDeploy).not.toHaveBeenCalled();
   });
 
   it('returns error when worktree directory does not exist', async () => {
@@ -89,26 +90,38 @@ describe('deployFeature server action', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('does not exist');
     expect(result.error).toContain(MOCK_WORKTREE_PATH);
-    expect(mockStart).not.toHaveBeenCalled();
+    expect(mockDeploy).not.toHaveBeenCalled();
   });
 
-  it('returns error when service.start throws', async () => {
-    mockStart.mockImplementation(() => {
-      throw new Error('No dev script found in package.json');
+  it('returns error when agent reports repo is not deployable', async () => {
+    mockDeploy.mockResolvedValue({
+      success: false,
+      error: 'This is a CLI utility with no web server',
+      analysis: { reason: 'CLI utility — no server to start' },
     });
 
     const result = await deployFeature('feat-123');
 
     expect(result).toEqual({
       success: false,
-      error: 'No dev script found in package.json',
+      error: 'This is a CLI utility with no web server',
+      reason: 'CLI utility — no server to start',
+    });
+  });
+
+  it('returns error when deploy throws', async () => {
+    mockDeploy.mockRejectedValue(new Error('Agent unavailable'));
+
+    const result = await deployFeature('feat-123');
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Agent unavailable',
     });
   });
 
   it('returns generic error for non-Error throws', async () => {
-    mockStart.mockImplementation(() => {
-      throw 'unexpected';
-    });
+    mockDeploy.mockRejectedValue('unexpected');
 
     const result = await deployFeature('feat-123');
 

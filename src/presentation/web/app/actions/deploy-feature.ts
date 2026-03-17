@@ -5,14 +5,14 @@ import { resolve } from '@/lib/server-container';
 import { createDeploymentLogger } from '@shepai/core/infrastructure/services/deployment/deployment-logger';
 import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
-import type { IDeploymentService } from '@shepai/core/application/ports/output/services/deployment-service.interface';
-import { DeploymentState } from '@shepai/core/domain/generated/output';
+import type { IAgentDeploymentService } from '@shepai/core/application/ports/output/services/agent-deployment-service.interface';
+import type { DeploymentState } from '@shepai/core/domain/generated/output';
 
 const log = createDeploymentLogger('[deployFeature]');
 
 export async function deployFeature(
   featureId: string
-): Promise<{ success: boolean; error?: string; state?: DeploymentState }> {
+): Promise<{ success: boolean; error?: string; state?: DeploymentState; reason?: string }> {
   log.info(`called — featureId="${featureId}"`);
 
   if (!featureId?.trim()) {
@@ -41,12 +41,17 @@ export async function deployFeature(
       return { success: false, error: `Worktree path does not exist: ${worktreePath}` };
     }
 
-    log.info('worktree path exists, calling deploymentService.start()');
-    const deploymentService = resolve<IDeploymentService>('IDeploymentService');
-    deploymentService.start(featureId, worktreePath);
+    log.info('worktree path exists, calling agentDeploymentService.deploy()');
+    const agentDeploymentService = resolve<IAgentDeploymentService>('IAgentDeploymentService');
+    const result = await agentDeploymentService.deploy(featureId, worktreePath);
 
-    log.info('start() returned successfully — state=Booting');
-    return { success: true, state: DeploymentState.Booting };
+    if (!result.success) {
+      log.warn(`agent deployment returned not-deployable: ${result.error}`);
+      return { success: false, error: result.error, reason: result.analysis?.reason };
+    }
+
+    log.info('deploy() returned successfully — state=Booting');
+    return { success: true, state: result.state };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to deploy feature';
     log.error(`error: ${message}`, error);
