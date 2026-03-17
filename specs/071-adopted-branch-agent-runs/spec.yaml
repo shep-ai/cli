@@ -1,0 +1,199 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: adopted-branch-agent-runs
+number: 071
+branch: feat/071-adopted-branch-agent-runs
+oneLiner: Adopted branches lack agent run support - cannot start, resume, or reject iterations
+summary: >
+  Adopted branches (via `shep feat adopt`) create Feature entities without AgentRun records,
+  breaking the agent execution flow. The feature cannot be started, resumed, or iterated via
+  rejection feedback because StartFeatureUseCase, ResumeFeatureUseCase, and RejectAgentRunUseCase
+  all require feature.agentRunId to be populated.
+
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures:
+  []
+
+technologies:
+  - TypeScript
+  - SQLite (better-sqlite3)
+  - TypeSpec (domain modeling)
+  - tsyringe (dependency injection)
+  - LangGraph (agent workflow orchestration)
+
+relatedLinks:
+  []
+
+openQuestions:
+  []
+
+content: |
+  ## Problem Statement
+
+  When a user adopts an existing git branch via `shep feat adopt <branch>`, the system creates a Feature entity and worktree but does **not** create an associated AgentRun record. This breaks the entire agent execution flow:
+
+  1. **Cannot start the feature**: `StartFeatureUseCase` requires `feature.agentRunId` (line 53-56) and throws "No agent run found" when missing
+  2. **Cannot resume after interruption**: `ResumeFeatureUseCase` also requires `feature.agentRunId` (line 54-56)
+  3. **Cannot process rejection feedback**: `RejectAgentRunUseCase` expects an agent run to attach rejection feedback and spawn the resume worker
+  4. **No agent execution history**: Without an AgentRun, there's no tracking of agent status, phase timings, or lifecycle events
+
+  The root cause is in `AdoptBranchUseCase` (packages/core/src/application/use-cases/features/adopt-branch.use-case.ts) which creates only a Feature entity, while the normal feature creation flow in `CreateFeatureUseCase` creates both Feature **and** AgentRun records and links them via `agentRunId`.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  This is a monorepo using pnpm workspaces with Clean Architecture:
+
+  ```
+  packages/core/src/
+  ├── domain/           # TypeSpec-generated domain models (Feature, AgentRun, etc.)
+  ├── application/      # Use cases and port interfaces
+  │   ├── use-cases/
+  │   │   ├── features/ # Feature lifecycle use cases
+  │   │   └── agents/   # Agent execution use cases
+  │   └── ports/output/ # Interface definitions (repositories, services)
+  ├── infrastructure/   # Concrete implementations
+  │   ├── repositories/ # SQLite persistence
+  │   ├── services/
+  │   │   └── agents/   # LangGraph-based agent system
+  │   └── di/           # tsyringe container
+  └── presentation/     # CLI, TUI, Web UI
+  ```
+
+  Key directories:
+  - `tsp/` - TypeSpec domain model definitions (source of truth)
+  - `packages/core/src/domain/generated/output.ts` - Generated domain types (never edit directly)
+  - `tests/unit/` and `tests/integration/` - Test suites following TDD practices
+  - `specs/NNN-feature-name/` - Spec-driven development artifacts
+
+  ### Architecture Patterns
+
+  **Clean Architecture (Hexagonal)**:
+  - Dependencies flow inward: Presentation → Application → Domain ← Infrastructure
+  - Application layer defines output ports (interfaces)
+  - Infrastructure layer provides adapters (implementations)
+  - Domain layer is pure business logic with zero external dependencies
+
+  **Repository Pattern**:
+  - All persistence through repository interfaces: `IFeatureRepository`, `IAgentRunRepository`
+  - SQLite implementations with soft delete support
+  - Dependency injection via tsyringe container
+
+  **TypeSpec-First Domain Modeling**:
+  - Domain models defined in `tsp/` directory
+  - Run `pnpm tsp:compile` to generate TypeScript types
+  - Generated code is read-only - all changes go through TypeSpec files
+
+  **Agent System (LangGraph)**:
+  - State-driven workflow using LangGraph StateGraphs
+  - Background process execution via `FeatureAgentProcessService`
+  - Agent-agnostic execution through `IAgentExecutor` interface
+  - Settings-driven agent resolution (mandatory - no hardcoding)
+
+  **TDD Mandatory**:
+  - RED → GREEN → REFACTOR cycle required
+  - Tests written first before implementation
+  - Unit tests in `tests/unit/`, integration tests in `tests/integration/`
+
+  ### Relevant Technologies
+
+  | Technology       | Usage                                     | Files                                   |
+  | ---------------- | ----------------------------------------- | --------------------------------------- |
+  | TypeScript       | Primary language                          | All `.ts` files                         |
+  | TypeSpec         | Domain modeling DSL                       | `tsp/` directory                        |
+  | better-sqlite3   | SQLite database driver                    | `infrastructure/persistence/sqlite/`    |
+  | tsyringe         | Dependency injection container            | `infrastructure/di/container.ts`        |
+  | LangGraph        | Agent workflow orchestration              | `infrastructure/services/agents/`       |
+  | Vitest           | Test framework                            | `vitest.config.ts`, `tests/`            |
+  | Commander        | CLI framework                             | `presentation/cli/commands/`            |
+  | Next.js          | Web UI framework                          | `presentation/web/`                     |
+
+  ## Affected Areas
+
+  | Area                                                                  | Impact | Reasoning                                                                                     |
+  | --------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+  | `packages/core/src/application/use-cases/features/adopt-branch.use-case.ts` | High   | Must be modified to create AgentRun record and link it to the Feature                         |
+  | `packages/core/src/application/use-cases/features/start-feature.use-case.ts` | Medium | Currently validates agentRunId presence - may need to handle adopted features gracefully      |
+  | `packages/core/src/application/use-cases/features/resume-feature.use-case.ts` | Medium | Currently requires agentRunId - may need to handle adopted features gracefully                |
+  | `packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts` | Medium | Expects agentRunId to exist for rejection feedback - may need validation                      |
+  | `tsp/domain/entities/feature.tsp`                                     | Low    | May need documentation clarification that agentRunId is always required for active features   |
+  | `tests/unit/use-cases/features/adopt-branch.use-case.test.ts`        | High   | Must add test cases for AgentRun creation and linking                                        |
+  | `tests/unit/application/use-cases/agents/run-agent.use-case.test.ts` | Low    | May need additional test coverage for adopted branches                                       |
+
+  ## Dependencies
+
+  ### Existing Code Dependencies
+
+  1. **IAgentRunRepository** (`application/ports/output/agents/agent-run-repository.interface.ts`)
+     - Interface for creating and persisting AgentRun records
+     - Concrete implementation: `AgentRunRepository` (infrastructure/repositories/agent-run.repository.ts)
+
+  2. **IAgentValidator** (`application/ports/output/agents/agent-validator.interface.ts`)
+     - Validates that the configured agent type is available
+     - Used by CreateFeatureUseCase before creating AgentRun
+
+  3. **getSettings()** (`infrastructure/services/settings.service.ts`)
+     - Retrieves current agent type, model config, and approval gates
+     - Required for populating AgentRun.agentType and AgentRun.modelId
+
+  4. **AgentType enum** (`domain/generated/output.ts`)
+     - TypeSpec-generated enum: claude-code, cursor, gemini-cli, etc.
+     - Used for AgentRun.agentType field
+
+  5. **AgentRunStatus enum** (`domain/generated/output.ts`)
+     - TypeSpec-generated enum: pending, running, completed, failed, interrupted, waiting_approval
+     - Initial status should be 'pending' (agent not yet spawned)
+
+  6. **CreateFeatureUseCase** (`application/use-cases/features/create/create-feature.use-case.ts`)
+     - Reference implementation for creating Feature + AgentRun together
+     - Lines 156-210 show the pattern to follow
+
+  ### Library Dependencies
+
+  All required libraries are already installed:
+  - `tsyringe` (dependency injection)
+  - `better-sqlite3` (SQLite)
+  - `js-yaml` (YAML parsing for spec files)
+  - `uuid` (node:crypto randomUUID)
+
+  ### Infrastructure Dependencies
+
+  - SQLite tables `features` and `agent_runs` already exist
+  - Migration system supports schema evolution
+  - No new migrations needed - existing schema supports this feature
+
+  ## Size Estimate
+
+  **M (Medium - days)** - Estimated 1-2 days of work
+
+  **Reasoning**:
+
+  1. **Core Implementation (4-6 hours)**:
+     - Modify AdoptBranchUseCase to create AgentRun record (~2 hours)
+     - Update use cases to handle edge cases gracefully (~2 hours)
+     - Write comprehensive unit tests (TDD required) (~2 hours)
+
+  2. **Integration Testing (2-3 hours)**:
+     - End-to-end tests for adopt → start → reject flow
+     - Test coverage for edge cases (missing agentRunId, invalid states)
+
+  3. **Documentation & Validation (1-2 hours)**:
+     - Update inline code documentation
+     - Validate no breaking changes to existing features
+     - Run full test suite and fix any regressions
+
+  **Complexity Factors**:
+  - Simple scope: one file modification, well-defined pattern to follow
+  - Low risk: CreateFeatureUseCase provides reference implementation
+  - Moderate testing: need comprehensive coverage of edge cases
+  - No schema changes: existing tables support the solution
+
+  **Not XL because**:
+  - No new infrastructure components needed
+  - No API changes required
+  - No multi-system coordination
+  - Pattern already exists in CreateFeatureUseCase
