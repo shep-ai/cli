@@ -27,7 +27,7 @@ const FileManager = dynamic(
 
 function FileManagerSkeleton() {
   return (
-    <div className="flex h-[400px] w-full items-center justify-center">
+    <div className="flex h-full w-full items-center justify-center">
       <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
     </div>
   );
@@ -147,19 +147,22 @@ export function ReactFileManagerDialog({
         }
       }}
     >
-      <DialogContent className="max-w-3xl" onCloseAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent
+        className="flex h-[95dvh] max-w-[95vw] flex-col"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Select Folder</DialogTitle>
           <DialogDescription className="truncate font-mono text-xs">
             {currentPath || 'Loading...'}
           </DialogDescription>
         </DialogHeader>
-        <div className="h-[400px] w-full overflow-hidden rounded-md border">
+        <div className="shep-file-manager min-h-0 flex-1 overflow-hidden rounded-md border">
           <FileManager
             key={currentPath}
             files={toFileManagerFiles(entries)}
             isLoading={isLoading}
-            height="400px"
+            height="100%"
             width="100%"
             layout="list"
             enableFilePreview={false}
