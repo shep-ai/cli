@@ -1,0 +1,25 @@
+=== shep repo --help ===
+
+Usage: shep repo [options] [command]
+
+Manage tracked repositories
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  ls              List tracked repositories
+  show <id>       Display details of a tracked repository
+  add [options]   Import a GitHub repository (clone and register)
+  help [command]  display help for command
+
+=== shep repo add --help ===
+
+Usage: shep repo add [options]
+
+Import a GitHub repository (clone and register)
+
+Options:
+  --url <url>    GitHub repository URL or owner/repo shorthand
+  --dest <path>  Override clone destination directory
+  -h, --help     display help for command

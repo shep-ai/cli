@@ -142,7 +142,7 @@ filesToModify:
   # Domain model (TypeSpec)
   - tsp/domain/entities/repository.tsp
   - tsp/domain/entities/settings.tsp
-  - packages/core/src/domain/generated/output.ts  # regenerated via tsp:compile
+  - packages/core/src/domain/generated/output.ts # regenerated via tsp:compile
 
   # Persistence mapper
   - packages/core/src/infrastructure/persistence/sqlite/mappers/repository.mapper.ts

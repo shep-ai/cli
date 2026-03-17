@@ -1,0 +1,192 @@
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > successful import > should clone and register a repository with a valid URL 5ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > successful import > should use dest when provided 2ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > successful import > should use defaultCloneDir/repoName when dest is not provided 1ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > successful import > should fall back to ~/repos/repoName when no dest or defaultCloneDir 1ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > successful import > should call AddRepositoryUseCase with the cloned path 1ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > successful import > should update repository with normalized remoteUrl after registration 0ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > URL normalization > should normalize remoteUrl to lowercase and strip .git suffix 13ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > duplicate detection > should return existing repo when remoteUrl is already tracked 1ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > error handling > should throw GitHubUrlParseError for invalid URL 4ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > error handling > should throw GitHubAuthError when not authenticated 1ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > error handling > should call checkAuth before cloning 1ms
+ ✓  node  tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts > ImportGitHubRepositoryUseCase > clone options > should pass cloneOptions through to cloneRepository 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > checkAuth() > should succeed when gh auth status exits 0 3ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > checkAuth() > should throw GitHubAuthError when gh auth status fails 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > checkAuth() > should throw GitHubAuthError with specific message when gh is not installed 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > listUserRepositories() > should parse JSON output from gh repo list 2ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > listUserRepositories() > should pass --limit flag 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > listUserRepositories() > should use default limit of 30 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > listUserRepositories() > should pass --match flag when search is provided 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > listUserRepositories() > should throw GitHubRepoListError on failure 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > listUserRepositories() > should throw GitHubRepoListError when gh is not installed 13ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should parse https://github.com/owner/repo 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should parse https://github.com/owner/repo.git 12ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should parse git@github.com:owner/repo.git 10ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should parse owner/repo shorthand 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should throw GitHubUrlParseError for non-GitHub URLs 7ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should throw GitHubUrlParseError for malformed input 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should throw GitHubUrlParseError for empty input 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should throw GitHubUrlParseError for whitespace-only input 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should handle URLs with trailing whitespace 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > parseGitHubUrl() > should handle owner/repo with dots and underscores 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > cloneRepository() > should spawn gh with correct args 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > cloneRepository() > should resolve on exit code 0 4ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > cloneRepository() > should reject with GitHubCloneError on non-zero exit 6ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > cloneRepository() > should call onProgress with stderr data 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > cloneRepository() > should reject with GitHubCloneError for path traversal in destination 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > cloneRepository() > should clean up partial clone on failure 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.test.ts > GitHubRepositoryService > cloneRepository() > should handle spawn error event 0ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > command structure > returns a Commander Command instance 4ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > command structure > has name "add" 0ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > command structure > has a --url option 0ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > command structure > has a --dest option 0ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > with --url flag > resolves import use case and calls execute with url 3ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > with --url flag > passes defaultCloneDir from settings 1ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > with --url flag > passes --dest to use case 0ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > with --url flag > does not call the wizard when --url is provided 0ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > without --url flag (interactive) > calls wizard then executes use case with wizard result 1ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > without --url flag (interactive) > passes wizard dest to use case when no --dest flag 0ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > without --url flag (interactive) > prefers --dest flag over wizard dest 0ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > error handling > catches GitHubAuthError and shows auth instructions 0ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > error handling > catches GitHubUrlParseError and shows URL format help 2ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > error handling > catches GitHubCloneError and shows clone failure message 5ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > error handling > handles unexpected errors with generic message 17ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > error handling > handles ExitPromptError gracefully without error message 3ms
+ ✓  node  tests/unit/presentation/cli/commands/repo/add.command.test.ts > add command > success output > shows repo name and path on success 1ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > URL input path > should return URL when user selects URL input path 2ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > URL input path > should validate URL input with parseGitHubUrl 1ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > URL input path > should reject invalid URL input via validate function 1ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > URL input path > should reject empty URL input 1ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > URL input path > should trim whitespace from URL input 0ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > Browse path > should return nameWithOwner when user selects browse path 0ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > Browse path > should call listUseCase with limit 30 1ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > Browse path > should display repos with name, visibility badge, and description 0ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > Browse path > should throw error when no repos are found 2ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > Destination override > should include dest when user provides a destination 0ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > Destination override > should omit dest when user leaves destination empty 0ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > Prompt flow > should call prompts in the correct order for URL path 0ms
+ ✓  node  tests/unit/presentation/tui/wizards/github-import.wizard.test.ts > githubImportWizard > Prompt flow > should use shepTheme for all prompts 26ms
+ ✓  node  tests/unit/infrastructure/services/external/github-issue.service.test.ts > GitHubIssueFetcher > fetchGitHubIssue() > should fetch issue with owner/repo#number format 6ms
+ ✓  node  tests/unit/infrastructure/services/external/github-issue.service.test.ts > GitHubIssueFetcher > fetchGitHubIssue() > should fetch issue with plain #number format (current repo) 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-issue.service.test.ts > GitHubIssueFetcher > fetchGitHubIssue() > should fetch issue with plain number format 71ms
+ ✓  node  tests/unit/infrastructure/services/external/github-issue.service.test.ts > GitHubIssueFetcher > fetchGitHubIssue() > should throw IssueNotFoundError when issue does not exist 3ms
+ ✓  node  tests/unit/infrastructure/services/external/github-issue.service.test.ts > GitHubIssueFetcher > fetchGitHubIssue() > should throw IssueServiceUnavailableError when gh CLI is not installed 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-issue.service.test.ts > GitHubIssueFetcher > fetchGitHubIssue() > should handle issue with no labels 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.evidence.test.ts > buildCommitPushPrPrompt — evidence rendering > should use absolute raw.githubusercontent.com URLs when repoUrl is provided 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.evidence.test.ts > buildCommitPushPrPrompt — evidence rendering > should convert SSH remote URLs to raw.githubusercontent.com URLs 0ms
+ ✓  node  tests/unit/application/use-cases/repositories/list-github-repositories.use-case.test.ts > ListGitHubRepositoriesUseCase > should call checkAuth before listing repos 2ms
+ ✓  node  tests/unit/application/use-cases/repositories/list-github-repositories.use-case.test.ts > ListGitHubRepositoriesUseCase > should return repos from service 1ms
+ ✓  node  tests/unit/application/use-cases/repositories/list-github-repositories.use-case.test.ts > ListGitHubRepositoriesUseCase > should pass search and limit options to service 1ms
+ ✓  node  tests/unit/application/use-cases/repositories/list-github-repositories.use-case.test.ts > ListGitHubRepositoriesUseCase > should call listUserRepositories with undefined when no options provided 1ms
+ ✓  node  tests/unit/application/use-cases/repositories/list-github-repositories.use-case.test.ts > ListGitHubRepositoriesUseCase > should propagate GitHubAuthError when not authenticated 13ms
+ ✓  node  tests/unit/application/use-cases/repositories/list-github-repositories.use-case.test.ts > ListGitHubRepositoriesUseCase > should propagate GitHubRepoListError when listing fails 1ms
+ ✓  node  tests/unit/application/ports/external-issue-fetcher.interface.test.ts > IExternalIssueFetcher type contracts > should define ExternalIssue source as github or jira 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > toDatabase > should map all fields to snake_case columns 2ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > toDatabase > should convert Date objects to unix milliseconds 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > fromDatabase > should map all columns to camelCase fields 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > fromDatabase > should convert unix milliseconds back to Date objects 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > soft delete (deletedAt) > toDatabase should map deletedAt Date to unix milliseconds 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > soft delete (deletedAt) > toDatabase should map undefined deletedAt to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > soft delete (deletedAt) > fromDatabase should map deleted_at integer to Date 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > soft delete (deletedAt) > fromDatabase should map null deleted_at to undefined 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > remoteUrl mapping > toDatabase should map remoteUrl to remote_url column 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > remoteUrl mapping > toDatabase should map undefined remoteUrl to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > remoteUrl mapping > fromDatabase should map remote_url to remoteUrl 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > remoteUrl mapping > fromDatabase should map null remote_url to undefined 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > round-trip > should preserve all data through toDatabase -> fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > round-trip > should preserve deletedAt through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > round-trip > should preserve remoteUrl through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > round-trip > should preserve undefined remoteUrl through round-trip 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubAuthError > should be an instance of Error 1ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubAuthError > should set name to GitHubAuthError 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubAuthError > should set the message 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubAuthError > should accept an optional cause 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubAuthError > should work without a cause 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubAuthError > should maintain instanceof via Object.setPrototypeOf 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubCloneError > should be an instance of Error 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubCloneError > should set name to GitHubCloneError 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubCloneError > should accept an optional cause for error chaining 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubCloneError > should maintain instanceof via Object.setPrototypeOf 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubUrlParseError > should be an instance of Error 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubUrlParseError > should set name to GitHubUrlParseError 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubUrlParseError > should accept an optional cause 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubUrlParseError > should maintain instanceof via Object.setPrototypeOf 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubRepoListError > should be an instance of Error 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubRepoListError > should set name to GitHubRepoListError 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubRepoListError > should accept an optional cause for error chaining 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubRepoListError > should maintain instanceof via Object.setPrototypeOf 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubRepo type > should accept all required fields 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > GitHubRepo type > should accept private repos 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > ParsedGitHubUrl type > should hold owner, repo, and nameWithOwner 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > ListUserRepositoriesOptions type > should accept limit and search 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > ListUserRepositoriesOptions type > should allow all fields to be omitted 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > CloneOptions type > should accept an onProgress callback 1ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > CloneOptions type > should allow onProgress to be omitted 0ms
+ ✓  node  tests/unit/application/ports/output/services/github-repository-service.interface.test.ts > IGitHubRepositoryService > should be implementable with all four methods 1ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-repo-browser.test.tsx > GitHubRepoBrowser > renders loading skeleton initially 82ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-repo-browser.test.tsx > GitHubRepoBrowser > displays repo list after fetch 44ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-repo-browser.test.tsx > GitHubRepoBrowser > shows public and private badges 30ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-repo-browser.test.tsx > GitHubRepoBrowser > calls onSelect when repo clicked 346ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > renders input with placeholder 100ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > renders label 60ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-repo-browser.test.tsx > GitHubRepoBrowser > filters repos via search input 431ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-repo-browser.test.tsx > GitHubRepoBrowser > shows error state on fetch failure 12ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-repo-browser.test.tsx > GitHubRepoBrowser > shows empty state when no repos match 8ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-repo-browser.test.tsx > GitHubRepoBrowser > shows error state when fetch throws 11ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > calls onSubmit with valid GitHub URL (HTTPS) 514ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > calls onSubmit with valid GitHub URL (shorthand) 182ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > calls onSubmit with valid GitHub URL (SSH) 222ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > shows error for invalid URL format 132ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > shows error for empty input on submit 40ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > submits on Enter key press 57ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > disables input when loading 12ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-url-input.test.tsx > GitHubUrlInput > clears error when user types 54ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-import-dialog.test.tsx > GitHubImportDialog > renders dialog with two tabs when open 492ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-import-dialog.test.tsx > GitHubImportDialog > does not render when closed 10ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-import-dialog.test.tsx > GitHubImportDialog > URL tab submission triggers import action 266ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-import-dialog.test.tsx > GitHubImportDialog > Browse tab selection triggers import action 137ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > renders button that opens popover on click 549ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > popover shows "Local folder" and "From GitHub" options 125ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-import-dialog.test.tsx > GitHubImportDialog > shows error on import failure 290ms
+ ✓  web  tests/unit/presentation/web/components/common/github-import-dialog/github-import-dialog.test.tsx > GitHubImportDialog > closes dialog on successful import 146ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > "Local folder" calls pickFolder and onSelect 208ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > "From GitHub" opens GitHubImportDialog 183ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > popover closes after selecting local folder 317ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts > importGitHubRepository > returns error when url is empty 2ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts > importGitHubRepository > returns error when url is whitespace 1ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts > importGitHubRepository > returns repository on successful import 2ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts > importGitHubRepository > passes dest option to use case 1ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts > importGitHubRepository > returns error string on GitHubAuthError 0ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts > importGitHubRepository > returns error string on GitHubUrlParseError 0ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts > importGitHubRepository > returns error string on GitHubCloneError 0ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts > importGitHubRepository > returns generic error for other Error instances 0ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts > importGitHubRepository > returns fallback error for non-Error throws 0ms
+ ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts > listGitHubRepositories > returns repos array on success 3ms
+ ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts > listGitHubRepositories > passes search filter to use case 1ms
+ ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts > listGitHubRepositories > passes limit option to use case 1ms
+ ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts > listGitHubRepositories > passes both search and limit options 1ms
+ ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts > listGitHubRepositories > returns error on GitHubAuthError 0ms
+ ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts > listGitHubRepositories > returns error message for other Error instances 0ms
+ ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts > listGitHubRepositories > returns fallback error for non-Error throws 0ms
+
+================================================
+FEATURE-SPECIFIC TEST SUMMARY
+================================================
+
+  github-repository-service.interface: 26 tests passed
+  import-github-repository.use-case: 12 tests passed
+  list-github-repositories.use-case: 6 tests passed
+  github-repository.service: 52 tests passed
+  repository.mapper: 16 tests passed
+  add.command: 17 tests passed
+  github-import.wizard: 13 tests passed
+  import-github-repository: 21 tests passed
+  list-github-repositories: 13 tests passed
+  add-repository-button: 5 tests passed
+  github-import-dialog: 24 tests passed
+  github-url-input: 10 tests passed
+  github-repo-browser: 8 tests passed
+
+TOTAL: 170 feature-related tests — ALL PASSING
+
+Full test suite: 325 test files, 4215 tests — ALL PASSING

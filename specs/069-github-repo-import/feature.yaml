@@ -1,0 +1,42 @@
+feature:
+  id: 069-github-repo-import
+  name: github-repo-import
+  number: 69
+  branch: feat/069-github-repo-import
+  lifecycle: research
+  createdAt: '2026-03-16T16:49:44Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 22
+    total: 22
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-17T07:38:58.281Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - phase-5
+    - phase-6
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-16T16:49:44Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []
