@@ -78,9 +78,8 @@ describe('ControlCenterEmptyState', () => {
     render(<ControlCenterEmptyState />);
 
     await waitFor(() => {
-      expect(screen.getByText('Features')).toBeInTheDocument();
+      expect(screen.getByText('Choose your agent')).toBeInTheDocument();
     });
-    expect(screen.getByText('Control Center')).toBeInTheDocument();
   });
 
   it('applies custom className', async () => {

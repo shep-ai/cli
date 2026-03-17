@@ -505,6 +505,23 @@ export const DeploymentReadyNoUrl: Story = {
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
+export const DeploymentWithFastModeAndAgent: Story = {
+  args: {
+    name: 'Full Stack App',
+    description: 'Next.js app with all inline icons',
+    featureId: '#d4',
+    lifecycle: 'deploy',
+    state: 'done',
+    progress: 100,
+    runtime: '22m',
+    fastMode: true,
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
+    deployment: { status: DeploymentState.Ready, url: 'http://localhost:3000' },
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
 const interactiveInitialNodes: FeatureNodeType[] = [
   {
     id: 'node-1',

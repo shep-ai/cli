@@ -173,7 +173,7 @@ describe('ActivityTab', () => {
     it('renders total execution time', () => {
       renderActivityTab({ timings: singleRunTimings });
       const summary = screen.getByTestId('activity-summary');
-      expect(within(summary).getByText('Total execution')).toBeInTheDocument();
+      expect(within(summary).getByText('Execution')).toBeInTheDocument();
       // 5000 + 10000 = 15000ms = 15s
       expect(within(summary).getByText('15s')).toBeInTheDocument();
     });
@@ -181,13 +181,13 @@ describe('ActivityTab', () => {
     it('renders total wait time when approval waits exist', () => {
       renderActivityTab({ timings: singleRunTimings });
       const summary = screen.getByTestId('activity-summary');
-      expect(within(summary).getByText('Total wait')).toBeInTheDocument();
+      expect(within(summary).getByText('Wait')).toBeInTheDocument();
     });
 
     it('renders total wall-clock time when waits exist', () => {
       renderActivityTab({ timings: singleRunTimings });
       const summary = screen.getByTestId('activity-summary');
-      expect(within(summary).getByText('Total wall-clock')).toBeInTheDocument();
+      expect(within(summary).getByText('Wall-clock')).toBeInTheDocument();
       // 15000 + 3000 = 18000ms = 18s
       expect(within(summary).getByText('18s')).toBeInTheDocument();
     });

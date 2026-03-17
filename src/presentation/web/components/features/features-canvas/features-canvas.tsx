@@ -189,7 +189,7 @@ export function FeaturesCanvas({
             overlayExiting ? 'opacity-0' : 'animate-in fade-in opacity-100 duration-200'
           )}
         >
-          <div className="pointer-events-auto">{overlayContent}</div>
+          <div className="pointer-events-auto h-full w-full">{overlayContent}</div>
         </div>
       ) : null}
     </div>

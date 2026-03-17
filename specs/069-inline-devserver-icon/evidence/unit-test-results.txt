@@ -1,0 +1,121 @@
+
+> @shepai/cli@1.122.2 test:unit /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-inline-devserver-icon
+> vitest run tests/unit -- tests/unit/presentation/web/common/feature-node/feature-node.test.tsx
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-inline-devserver-icon[39m
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT spawn a new process when daemon is already alive
+[22m[39m
+ℹ Shep is already running at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT write daemon.json when daemon is already alive
+[22m[39m
+ℹ Shep is already running at http://localhost:4050
+
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-registry.service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 205[2mms[22m[39m
+[2026-03-16T17:00:58.983Z] [analyze] Starting...
+[2026-03-16T17:00:58.986Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:58.986Z] [analyze] Prompt length: 3245 chars
+[2026-03-16T17:00:58.987Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:58.990Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-16T17:00:58.990Z] [validate:spec.yaml] Validation passed
+[2026-03-16T17:00:58.992Z] [requirements] Starting...
+[2026-03-16T17:00:58.992Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:58.992Z] [requirements] Prompt length: 4574 chars
+[2026-03-16T17:00:58.992Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:58.992Z] [requirements] Interrupting for human approval
+[2026-03-16T17:00:58.998Z] [analyze] Starting...
+[2026-03-16T17:00:58.998Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:58.999Z] [analyze] Prompt length: 3245 chars
+[2026-03-16T17:00:58.999Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:59.000Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-16T17:00:59.000Z] [validate:spec.yaml] Validation passed
+[2026-03-16T17:00:59.002Z] [requirements] Starting...
+[2026-03-16T17:00:59.002Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:59.002Z] [requirements] Prompt length: 4574 chars
+[2026-03-16T17:00:59.002Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:59.005Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-16T17:00:59.005Z] [validate:spec.yaml] Validation passed
+[2026-03-16T17:00:59.008Z] [research] Starting...
+[2026-03-16T17:00:59.008Z] [research] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:59.008Z] [research] Prompt length: 4520 chars
+[2026-03-16T17:00:59.008Z] [research] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:59.009Z] [validate:research.yaml] Validating research.yaml
+[2026-03-16T17:00:59.009Z] [validate:research.yaml] Validation passed
+[2026-03-16T17:00:59.013Z] [plan] Starting...
+[2026-03-16T17:00:59.013Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:59.013Z] [plan] Prompt length: 5371 chars
+[2026-03-16T17:00:59.013Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:59.016Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-16T17:00:59.017Z] [validate:plan+tasks] Validation passed
+[2026-03-16T17:00:59.019Z] [implement] Starting implementation phase orchestration
+[2026-03-16T17:00:59.019Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-16T17:00:59.020Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-16T17:00:59.020Z] [implement] Phase complete (20 chars)
+[2026-03-16T17:00:59.021Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-16T17:00:59.021Z] [implement] Collecting evidence (sub-agent)
+[2026-03-16T17:00:59.021Z] [implement] Parsed 0 evidence record(s)
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/executors/gemini-cli-executor.test.ts [2m([22m[2m43 tests[22m[2m)[22m[33m 320[2mms[22m[39m
+[2026-03-16T17:00:59.030Z] [analyze] Starting...
+[2026-03-16T17:00:59.030Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:59.030Z] [analyze] Prompt length: 3284 chars
+[2026-03-16T17:00:59.030Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:59.031Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-16T17:00:59.031Z] [validate:spec.yaml] Validation passed
+[2026-03-16T17:00:59.031Z] [requirements] Starting...
+[2026-03-16T17:00:59.032Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:59.032Z] [requirements] Prompt length: 4613 chars
+[2026-03-16T17:00:59.032Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:59.032Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-16T17:00:59.032Z] [validate:spec.yaml] Validation passed
+[2026-03-16T17:00:59.033Z] [research] Starting...
+[2026-03-16T17:00:59.033Z] [research] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:59.033Z] [research] Prompt length: 4559 chars
+[2026-03-16T17:00:59.033Z] [research] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:59.034Z] [validate:research.yaml] Validating research.yaml
+[2026-03-16T17:00:59.034Z] [validate:research.yaml] Validation passed
+[2026-03-16T17:00:59.034Z] [plan] Starting...
+[2026-03-16T17:00:59.034Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:59.034Z] [plan] Prompt length: 5449 chars
+[2026-03-16T17:00:59.034Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-16T17:00:59.035Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-16T17:00:59.035Z] [validate:plan+tasks] Validation passed
+[2026-03-16T17:00:59.036Z] [implement] Starting implementation phase orchestration
+[2026-03-16T17:00:59.036Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-16T17:00:59.036Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-16T17:00:59.036Z] [implement] Phase complete (20 chars)
+[2026-03-16T17:00:59.036Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-16T17:00:59.036Z] [implement] Collecting evidence (sub-agent)
+[2026-03-16T17:00:59.036Z] [implement] Parsed 0 evidence record(s)
+[2026-03-16T17:00:59.039Z] [analyze] Starting...
+[2026-03-16T17:00:59.039Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:59.039Z] [analyze] Prompt length: 3245 chars
+[2026-03-16T17:00:59.039Z] [analyze] ERROR: Executor failed (after 0.0s)
+[2026-03-16T17:00:59.041Z] [analyze] Starting...
+[2026-03-16T17:00:59.041Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-16T17:00:59.041Z] [analyze] Prompt length: 3245 chars
+[2026-03-16T17:00:59.041Z] [analyze] Complete (20 chars, 0.0s)
+--- SUMMARY (from full run) ---
+       [33m[2m✓[22m[39m shows attachment chip after dropping a valid file [33m 584[2mms[22m[39m
+       [33m[2m✓[22m[39m shows inline error for files exceeding 10 MB without calling upload API [33m 608[2mms[22m[39m
+       [33m[2m✓[22m[39m shows inline error for disallowed file extensions [33m 465[2mms[22m[39m
+       [33m[2m✓[22m[39m applies drag-over class on dragenter and removes it on dragleave [33m 605[2mms[22m[39m
+       [33m[2m✓[22m[39m shows attachment chip after pasting an image from clipboard [33m 605[2mms[22m[39m
+       [33m[2m✓[22m[39m includes sessionId in the upload request [33m 389[2mms[22m[39m
+       [33m[2m✓[22m[39m includes sessionId in submitted payload [33m 3455[2mms[22m[39m
+       [33m[2m✓[22m[39m shows repository combobox when repositoryPath is empty and repositories provided [33m 355[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is disabled when no repo selected and repositoryPath is empty [33m 2254[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repo is selected via combobox [33m 2888[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repositoryPath is provided (canvas flow) [33m 1613[2mms[22m[39m
+       [33m[2m✓[22m[39m handleSubmit includes selectedRepoPath in payload [33m 1138[2mms[22m[39m
+       [33m[2m✓[22m[39m shows empty state message when no repos match search [33m 356[2mms[22m[39m
+       [33m[2m✓[22m[39m can submit feature after adding new repo via combobox [33m 394[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m313 passed[39m[22m[90m (313)[39m
+[2m      Tests [22m [1m[32m4063 passed[39m[22m[90m (4063)[39m
+[2m   Start at [22m 19:00:59
+[2m   Duration [22m 82.49s[2m (transform 15.22s, setup 98.67s, import 91.02s, tests 191.78s, environment 259.07s)[22m
+

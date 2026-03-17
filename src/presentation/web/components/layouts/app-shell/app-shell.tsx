@@ -45,7 +45,7 @@ function AppShellInner({ children }: AppShellProps) {
   // Subscribe to agent lifecycle events and dispatch toast/browser notifications
   useNotifications();
 
-  const { features } = useSidebarFeaturesContext();
+  const { features, hasRepositories } = useSidebarFeaturesContext();
   const handleNewFeature = useCallback(() => {
     guardedNavigate(() => router.push('/create'));
   }, [router, guardedNavigate]);
@@ -127,7 +127,9 @@ function AppShellInner({ children }: AppShellProps) {
             <ThemeToggle />
           </div>
           <main className="h-full">{children}</main>
-          {isControlCenterRoute(pathname) && <FloatingActionButton actions={fabActions} />}
+          {isControlCenterRoute(pathname) && hasRepositories ? (
+            <FloatingActionButton actions={fabActions} />
+          ) : null}
           <GitHubImportDialog
             open={githubDialogOpen}
             onOpenChange={setGithubDialogOpen}

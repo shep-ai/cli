@@ -334,6 +334,19 @@ export function FeatureDrawerTabs({
     }
   }, [sseEvents, featureId, refreshTab]);
 
+  // Poll activity data while the feature is actively running.
+  // SSE events only fire on state transitions (phase completed, lifecycle changed),
+  // so during a long-running phase there are no events and the data goes stale.
+  // Poll every 5s when the feature is in a working state to keep data fresh.
+  const isFeatureActive = featureNode.state === 'running' || featureNode.state === 'creating';
+  useEffect(() => {
+    if (!isFeatureActive) return;
+    const interval = setInterval(() => {
+      refreshTab('activity' as LazyTabKey);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isFeatureActive, refreshTab]);
+
   const handleTabChange = useCallback(
     (value: string) => {
       const tab = value as FeatureTabKey;

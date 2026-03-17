@@ -369,53 +369,67 @@ describe('FeatureNode', () => {
     });
   });
 
-  describe('deployment indicator', () => {
+  describe('deployment indicator (inline icon)', () => {
     it('does not render indicator when no deployment data', () => {
       renderFeatureNode();
       expect(screen.queryByTestId('feature-node-deployment-indicator')).not.toBeInTheDocument();
     });
 
-    it('renders booting indicator with "Deploying..." text', () => {
+    it('renders booting indicator as inline icon button', () => {
       renderFeatureNode({
         deployment: { status: DeploymentState.Booting },
       });
       const indicator = screen.getByTestId('feature-node-deployment-indicator');
       expect(indicator).toBeInTheDocument();
-      expect(screen.getByText('Deploying...')).toBeInTheDocument();
+      expect(indicator.tagName).toBe('BUTTON');
+      expect(indicator).toHaveAttribute('aria-label', 'Deploying');
     });
 
-    it('applies blue styling for booting state', () => {
-      renderFeatureNode({
-        deployment: { status: DeploymentState.Booting },
-      });
-      const indicator = screen.getByTestId('feature-node-deployment-indicator');
-      expect(indicator.className).toContain('bg-blue-50');
-      expect(indicator.className).toContain('text-blue-700');
-    });
-
-    it('renders ready indicator with "Live" text when no url', () => {
+    it('renders ready indicator as inline icon button', () => {
       renderFeatureNode({
         deployment: { status: DeploymentState.Ready },
       });
       const indicator = screen.getByTestId('feature-node-deployment-indicator');
       expect(indicator).toBeInTheDocument();
-      expect(screen.getByText('Live')).toBeInTheDocument();
+      expect(indicator.tagName).toBe('BUTTON');
+      expect(indicator).toHaveAttribute('aria-label', 'Open dev server');
     });
 
-    it('renders ready indicator with url when provided', () => {
+    it('opens url in new tab when ready deployment icon is clicked', () => {
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
       renderFeatureNode({
         deployment: { status: DeploymentState.Ready, url: 'http://localhost:3000' },
       });
-      expect(screen.getByText('http://localhost:3000')).toBeInTheDocument();
+      const indicator = screen.getByTestId('feature-node-deployment-indicator');
+      fireEvent.click(indicator);
+      expect(openSpy).toHaveBeenCalledWith(
+        'http://localhost:3000',
+        '_blank',
+        'noopener,noreferrer'
+      );
+      openSpy.mockRestore();
     });
 
-    it('applies green styling for ready state', () => {
+    it('does not open url when deployment is booting', () => {
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+      renderFeatureNode({
+        deployment: { status: DeploymentState.Booting },
+      });
+      const indicator = screen.getByTestId('feature-node-deployment-indicator');
+      fireEvent.click(indicator);
+      expect(openSpy).not.toHaveBeenCalled();
+      openSpy.mockRestore();
+    });
+
+    it('does not open url when ready but no url provided', () => {
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
       renderFeatureNode({
         deployment: { status: DeploymentState.Ready },
       });
       const indicator = screen.getByTestId('feature-node-deployment-indicator');
-      expect(indicator.className).toContain('bg-green-50');
-      expect(indicator.className).toContain('text-green-700');
+      fireEvent.click(indicator);
+      expect(openSpy).not.toHaveBeenCalled();
+      openSpy.mockRestore();
     });
   });
 
