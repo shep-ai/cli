@@ -117,9 +117,9 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
   async restore(id: string): Promise<void> {
     const now = Date.now();
     const stmt = this.db.prepare(
-      'UPDATE repositories SET deleted_at = NULL, updated_at = ? WHERE id = ?'
+      'UPDATE repositories SET deleted_at = NULL, created_at = ?, updated_at = ? WHERE id = ?'
     );
-    stmt.run(now, id);
+    stmt.run(now, now, id);
   }
 
   static normalizeRemoteUrl(url: string): string {

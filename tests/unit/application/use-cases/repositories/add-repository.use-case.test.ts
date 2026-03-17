@@ -89,6 +89,30 @@ describe('AddRepositoryUseCase', () => {
     );
   });
 
+  it('should restore soft-deleted repository with fresh createdAt', async () => {
+    const oldDate = new Date('2024-01-01');
+    const deleted: Repository = {
+      id: 'deleted-id',
+      name: 'my-project',
+      path: '/Users/test/my-project',
+      createdAt: oldDate,
+      updatedAt: oldDate,
+      deletedAt: new Date('2025-06-01'),
+    };
+    vi.mocked(mockRepo.findByPathIncludingDeleted).mockResolvedValue(deleted);
+
+    const before = Date.now();
+    const result = await useCase.execute({ path: '/Users/test/my-project' });
+
+    expect(mockRepo.restore).toHaveBeenCalledWith('deleted-id');
+    expect(mockRepo.create).not.toHaveBeenCalled();
+    expect(result.id).toBe('deleted-id');
+    expect(result.deletedAt).toBeUndefined();
+    // createdAt must be reset to now so the repo sorts below existing repos on the canvas
+    expect(result.createdAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(result.updatedAt.getTime()).toBeGreaterThanOrEqual(before);
+  });
+
   it('should deduplicate paths with different slash styles', async () => {
     const existing: Repository = {
       id: 'existing-id',

@@ -23,6 +23,12 @@ export interface RepoGitInfo {
   behindCount: number | null;
 }
 
+// Cache git info per repo — refreshed every GIT_INFO_TTL_MS via background-style check.
+// getGraphData() always reads from cache (zero git calls), and only spawns git
+// processes when the cache entry is older than the TTL.
+const GIT_INFO_TTL_MS = 30_000;
+const gitInfoCache = new Map<string, { sha: string; data: RepoGitInfo; checkedAt: number }>();
+
 async function gitCommand(cwd: string, args: string[]): Promise<string | null> {
   try {
     const opts = IS_WINDOWS ? { cwd, windowsHide: true } : { cwd };
@@ -33,23 +39,38 @@ async function gitCommand(cwd: string, args: string[]): Promise<string | null> {
   }
 }
 
-async function fetchRepoGitInfo(repo: Repository): Promise<RepoGitInfo | null> {
+const FIELD_SEP = '\x1f'; // ASCII Unit Separator — safe in git output and child_process
+
+/** Refresh git info for a single repo (spawns git processes). */
+async function refreshRepoGitInfo(repo: Repository): Promise<void> {
   try {
-    const [currentBranch, commitMessage, committer] = await Promise.all([
+    const headSha = await gitCommand(repo.path, ['rev-parse', 'HEAD']);
+    if (!headSha) return;
+
+    const cached = gitInfoCache.get(repo.path);
+    if (cached?.sha === headSha) {
+      // HEAD unchanged — just bump checkedAt
+      cached.checkedAt = Date.now();
+      return;
+    }
+
+    // HEAD changed — fetch branch + subject & author in parallel
+    const [currentBranch, logLine] = await Promise.all([
       gitCommand(repo.path, ['symbolic-ref', '--short', 'HEAD']),
-      gitCommand(repo.path, ['log', '-1', '--format=%s']),
-      gitCommand(repo.path, ['log', '-1', '--format=%an']),
+      gitCommand(repo.path, ['log', '-1', `--format=%s${FIELD_SEP}%an`]),
     ]);
+    if (!currentBranch) return;
 
-    if (!currentBranch) return null;
+    const [commitMessage, committer] = (logLine ?? '').split(FIELD_SEP);
 
-    // Try to determine the default branch to compute behind count
+    // Behind count
     let behindCount: number | null = null;
-    const defaultBranch = await gitCommand(repo.path, [
+    const defaultBranchRef = await gitCommand(repo.path, [
       'symbolic-ref',
       '--short',
       'refs/remotes/origin/HEAD',
-    ]).then((ref) => ref?.replace('origin/', '') ?? null);
+    ]);
+    const defaultBranch = defaultBranchRef?.replace('origin/', '') ?? null;
 
     if (defaultBranch && currentBranch !== defaultBranch) {
       const behind = await gitCommand(repo.path, [
@@ -59,19 +80,46 @@ async function fetchRepoGitInfo(repo: Repository): Promise<RepoGitInfo | null> {
       ]);
       behindCount = behind !== null ? parseInt(behind, 10) : null;
       if (isNaN(behindCount!)) behindCount = null;
-    } else if (!defaultBranch || currentBranch === defaultBranch) {
+    } else {
       behindCount = 0;
     }
 
-    return {
-      branch: currentBranch,
-      commitMessage: commitMessage ?? 'unknown',
-      committer: committer ?? 'unknown',
-      behindCount,
-    };
+    gitInfoCache.set(repo.path, {
+      sha: headSha,
+      checkedAt: Date.now(),
+      data: {
+        branch: currentBranch,
+        commitMessage: commitMessage ?? 'unknown',
+        committer: committer ?? 'unknown',
+        behindCount,
+      },
+    });
   } catch {
+    // ignore — stale cache is better than no data
+  }
+}
+
+/**
+ * Return cached git info for a repo. If the cache is stale (> TTL),
+ * kick off a fire-and-forget refresh so the NEXT call gets fresh data.
+ * Never blocks getGraphData() with git subprocess calls.
+ */
+function getRepoGitInfo(repo: Repository): RepoGitInfo | null {
+  const cached = gitInfoCache.get(repo.path);
+  const now = Date.now();
+
+  if (!cached) {
+    // First time — trigger async refresh, return null for this call
+    void refreshRepoGitInfo(repo);
     return null;
   }
+
+  if (now - cached.checkedAt >= GIT_INFO_TTL_MS) {
+    // Stale — trigger async refresh, return stale data immediately
+    void refreshRepoGitInfo(repo);
+  }
+
+  return cached.data;
 }
 
 export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: Edge[] }> {
@@ -81,14 +129,13 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
 
   const [features, repositories] = await Promise.all([listFeatures.execute(), listRepos.execute()]);
 
-  // Fetch git info (branch, commit, behind count) for each repository
+  // Read git info from cache (zero git calls). Stale entries trigger
+  // a fire-and-forget background refresh for the next poll cycle.
   const repoGitInfoMap = new Map<string, RepoGitInfo>();
-  await Promise.all(
-    repositories.map(async (repo) => {
-      const info = await fetchRepoGitInfo(repo);
-      if (info) repoGitInfoMap.set(repo.path, info);
-    })
-  );
+  for (const repo of repositories) {
+    const info = getRepoGitInfo(repo);
+    if (info) repoGitInfoMap.set(repo.path, info);
+  }
 
   // PR/CI status is kept fresh by PrSyncWatcher (30s background poll).
   // No live GitHub calls here — use cached DB values for fast response.
