@@ -28,17 +28,21 @@ const {
   mockRecordPhaseStart,
   mockRecordPhaseEnd,
   mockBuildEvidencePrompt,
+  mockBuildEvidenceRetryPrompt,
   mockParseEvidenceRecords,
   mockValidateUiEvidenceHasAppProof,
+  mockValidateEvidence,
   mockIsGraphBubbleUp,
   mockHasSettings,
   mockGetSettings,
+  mockReadSpecFile,
 } = vi.hoisted(() => ({
   mockGetCompletedPhases: vi.fn().mockReturnValue([]),
   mockMarkPhaseComplete: vi.fn(),
   mockRecordPhaseStart: vi.fn().mockResolvedValue('timing-456'),
   mockRecordPhaseEnd: vi.fn().mockResolvedValue(undefined),
   mockBuildEvidencePrompt: vi.fn().mockReturnValue('evidence collection prompt'),
+  mockBuildEvidenceRetryPrompt: vi.fn().mockReturnValue('evidence retry prompt with feedback'),
   mockParseEvidenceRecords: vi.fn().mockReturnValue([]),
   mockValidateUiEvidenceHasAppProof: vi.fn().mockReturnValue({
     valid: true,
@@ -47,9 +51,11 @@ const {
     hasOnlyStorybookScreenshots: false,
     warnings: [],
   }),
+  mockValidateEvidence: vi.fn().mockResolvedValue({ valid: true, errors: [] }),
   mockIsGraphBubbleUp: vi.fn().mockReturnValue(false),
   mockHasSettings: vi.fn().mockReturnValue(true),
   mockGetSettings: vi.fn().mockReturnValue({ workflow: { commitEvidence: false } }),
+  mockReadSpecFile: vi.fn().mockReturnValue(''),
 }));
 
 // Mock LangGraph
@@ -66,6 +72,7 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', 
   }),
   getCompletedPhases: mockGetCompletedPhases,
   markPhaseComplete: mockMarkPhaseComplete,
+  readSpecFile: mockReadSpecFile,
   retryExecute: vi
     .fn()
     .mockImplementation(
@@ -96,12 +103,14 @@ vi.mock('@/infrastructure/services/agents/feature-agent/lifecycle-context.js', (
 // Mock evidence prompt builder
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.js', () => ({
   buildEvidencePrompt: mockBuildEvidencePrompt,
+  buildEvidenceRetryPrompt: mockBuildEvidenceRetryPrompt,
 }));
 
 // Mock evidence output parser
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.js', () => ({
   parseEvidenceRecords: mockParseEvidenceRecords,
   validateUiEvidenceHasAppProof: mockValidateUiEvidenceHasAppProof,
+  validateEvidence: mockValidateEvidence,
 }));
 
 // Mock settings service
@@ -114,6 +123,7 @@ import { createEvidenceNode } from '@/infrastructure/services/agents/feature-age
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import { EvidenceType, type Evidence } from '@/domain/generated/output.js';
+import type { ValidationError } from '@/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.js';
 
 function createMockExecutor(): IAgentExecutor {
   return {
@@ -146,6 +156,7 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
     push: false,
     openPr: false,
     evidence: [],
+    evidenceRetries: 0,
     ...overrides,
   } as FeatureAgentState;
 }
@@ -346,7 +357,13 @@ describe('createEvidenceNode', () => {
       const node = createEvidenceNode(executor);
       await node(baseState());
 
-      expect(mockRecordPhaseStart).toHaveBeenCalledWith('evidence', expect.any(Object));
+      expect(mockRecordPhaseStart).toHaveBeenCalledWith(
+        'evidence:attempt-1',
+        expect.objectContaining({
+          prompt: 'evidence collection prompt',
+          agentType: 'claude-code',
+        })
+      );
       expect(mockRecordPhaseEnd).toHaveBeenCalledWith(
         'timing-456',
         expect.any(Number),
@@ -385,7 +402,10 @@ describe('createEvidenceNode', () => {
       const node = createEvidenceNode(executor);
       await expect(node(baseState())).rejects.toThrow('Execution failed');
 
-      expect(mockRecordPhaseStart).toHaveBeenCalledWith('evidence', expect.any(Object));
+      expect(mockRecordPhaseStart).toHaveBeenCalledWith(
+        'evidence:attempt-1',
+        expect.any(Object)
+      );
       expect(mockRecordPhaseEnd).toHaveBeenCalledWith(
         'timing-456',
         expect.any(Number),
@@ -506,6 +526,325 @@ describe('createEvidenceNode', () => {
       expect(result._needsReexecution).toBe(false);
       // _approvalAction should not be set (evidence doesn't use approval gates)
       expect(result._approvalAction).toBeUndefined();
+    });
+  });
+
+  // --- Evidence validation retry loop ---
+  describe('evidence validation retry loop', () => {
+    const validationErrors: ValidationError[] = [
+      {
+        type: 'ui',
+        taskId: 'task-1',
+        taskTitle: 'Add toggle component',
+        message: "Missing app-level screenshot for task-1 (UI task 'Add toggle component').",
+      },
+    ];
+
+    const tasksYaml = `tasks:
+  - id: task-1
+    title: Add toggle component
+    description: Add toggle component to settings page
+    acceptanceCriteria: []`;
+
+    beforeEach(() => {
+      // Default: tasks.yaml content available for validation
+      mockReadSpecFile.mockImplementation((specDir: string, filename: string) => {
+        if (filename === 'tasks.yaml') return tasksYaml;
+        return '';
+      });
+    });
+
+    it('should call validateEvidence after parsing evidence on first attempt', async () => {
+      mockParseEvidenceRecords.mockReturnValueOnce(sampleEvidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: true, errors: [] });
+
+      const node = createEvidenceNode(executor);
+      await node(baseState());
+
+      expect(mockValidateEvidence).toHaveBeenCalledWith(sampleEvidence, expect.any(Array));
+    });
+
+    it('should not retry when validation passes on first attempt', async () => {
+      mockParseEvidenceRecords.mockReturnValueOnce(sampleEvidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: true, errors: [] });
+
+      const node = createEvidenceNode(executor);
+      await node(baseState());
+
+      // Agent should only be called once (no retry)
+      expect(executor.execute).toHaveBeenCalledTimes(1);
+      // Single phase activity recorded
+      expect(mockRecordPhaseStart).toHaveBeenCalledTimes(1);
+      expect(mockRecordPhaseStart).toHaveBeenCalledWith(
+        'evidence:attempt-1',
+        expect.any(Object)
+      );
+      expect(mockRecordPhaseEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it('should retry when validation fails on first attempt and succeed on second', async () => {
+      const attempt1Evidence: Evidence[] = [
+        {
+          type: EvidenceType.TestOutput,
+          capturedAt: '2026-03-09T12:00:00Z',
+          description: 'Test results only',
+          relativePath: '.shep/evidence/tests.txt',
+        },
+      ];
+      const attempt2Evidence: Evidence[] = [
+        {
+          type: EvidenceType.Screenshot,
+          capturedAt: '2026-03-09T12:01:00Z',
+          description: 'App: settings page with toggle',
+          relativePath: '.shep/evidence/app-settings.png',
+        },
+      ];
+
+      // First attempt: parse returns insufficient evidence, validation fails
+      mockParseEvidenceRecords.mockReturnValueOnce(attempt1Evidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+
+      // Second attempt: parse returns good evidence, validation passes
+      mockParseEvidenceRecords.mockReturnValueOnce(attempt2Evidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: true, errors: [] });
+
+      const node = createEvidenceNode(executor);
+      await node(baseState());
+
+      // Agent called twice
+      expect(executor.execute).toHaveBeenCalledTimes(2);
+      // Two phase activities recorded
+      expect(mockRecordPhaseStart).toHaveBeenCalledTimes(2);
+      expect(mockRecordPhaseStart).toHaveBeenNthCalledWith(
+        1,
+        'evidence:attempt-1',
+        expect.any(Object)
+      );
+      expect(mockRecordPhaseStart).toHaveBeenNthCalledWith(
+        2,
+        'evidence:attempt-2',
+        expect.any(Object)
+      );
+      expect(mockRecordPhaseEnd).toHaveBeenCalledTimes(2);
+    });
+
+    it('should use buildEvidenceRetryPrompt with validation errors on retry', async () => {
+      mockParseEvidenceRecords.mockReturnValueOnce([]);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+
+      mockParseEvidenceRecords.mockReturnValueOnce(sampleEvidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: true, errors: [] });
+
+      const node = createEvidenceNode(executor);
+      const state = baseState();
+      await node(state);
+
+      // First attempt uses base prompt
+      expect(mockBuildEvidencePrompt).toHaveBeenCalled();
+      // Second attempt uses retry prompt with validation errors
+      expect(mockBuildEvidenceRetryPrompt).toHaveBeenCalledWith(
+        state,
+        validationErrors,
+        expect.objectContaining({ commitEvidence: false })
+      );
+      // Second executor call uses the retry prompt
+      expect(executor.execute).toHaveBeenNthCalledWith(2, 'evidence retry prompt with feedback');
+    });
+
+    it('should gracefully degrade after exhausting all 3 retry attempts', async () => {
+      const insufficientEvidence: Evidence[] = [
+        {
+          type: EvidenceType.TestOutput,
+          capturedAt: '2026-03-09T12:00:00Z',
+          description: 'Test results only',
+          relativePath: '.shep/evidence/tests.txt',
+        },
+      ];
+
+      // All 3 attempts fail validation
+      for (let i = 0; i < 3; i++) {
+        mockParseEvidenceRecords.mockReturnValueOnce(insufficientEvidence);
+        mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+      }
+
+      const node = createEvidenceNode(executor);
+      const result = await node(baseState());
+
+      // Should NOT throw — graceful degradation
+      expect(result.currentNode).toBe('evidence');
+      // Returns whatever evidence was captured
+      expect(result.evidence).toBeDefined();
+      // Includes validation warning messages
+      expect(result.messages!.some((m) => m.includes('Validation failed'))).toBe(true);
+      // Agent called 3 times (initial + 2 retries)
+      expect(executor.execute).toHaveBeenCalledTimes(3);
+      // 3 phase activities recorded
+      expect(mockRecordPhaseStart).toHaveBeenCalledTimes(3);
+      expect(mockRecordPhaseStart).toHaveBeenNthCalledWith(
+        1,
+        'evidence:attempt-1',
+        expect.any(Object)
+      );
+      expect(mockRecordPhaseStart).toHaveBeenNthCalledWith(
+        2,
+        'evidence:attempt-2',
+        expect.any(Object)
+      );
+      expect(mockRecordPhaseStart).toHaveBeenNthCalledWith(
+        3,
+        'evidence:attempt-3',
+        expect.any(Object)
+      );
+      expect(mockRecordPhaseEnd).toHaveBeenCalledTimes(3);
+    });
+
+    it('should record phase end after each attempt regardless of success or failure', async () => {
+      mockParseEvidenceRecords.mockReturnValueOnce([]);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+
+      mockParseEvidenceRecords.mockReturnValueOnce(sampleEvidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: true, errors: [] });
+
+      const node = createEvidenceNode(executor);
+      await node(baseState());
+
+      // recordPhaseEnd called after each attempt
+      expect(mockRecordPhaseEnd).toHaveBeenCalledTimes(2);
+      // Both calls pass a timing ID, duration, and metadata
+      expect(mockRecordPhaseEnd).toHaveBeenNthCalledWith(
+        1,
+        'timing-456',
+        expect.any(Number),
+        expect.any(Object)
+      );
+      expect(mockRecordPhaseEnd).toHaveBeenNthCalledWith(
+        2,
+        'timing-456',
+        expect.any(Number),
+        expect.any(Object)
+      );
+    });
+
+    it('should update evidenceRetries state with attempt count', async () => {
+      mockParseEvidenceRecords.mockReturnValueOnce([]);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+
+      mockParseEvidenceRecords.mockReturnValueOnce(sampleEvidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: true, errors: [] });
+
+      const node = createEvidenceNode(executor);
+      const result = await node(baseState());
+
+      // evidenceRetries should reflect the number of attempts
+      expect(result.evidenceRetries).toBe(2);
+    });
+
+    it('should preserve evidence from all attempts (accumulate reducer)', async () => {
+      const attempt1Evidence: Evidence[] = [
+        {
+          type: EvidenceType.TestOutput,
+          capturedAt: '2026-03-09T12:00:00Z',
+          description: 'Test results',
+          relativePath: '.shep/evidence/tests.txt',
+        },
+      ];
+      const attempt2Evidence: Evidence[] = [
+        {
+          type: EvidenceType.Screenshot,
+          capturedAt: '2026-03-09T12:01:00Z',
+          description: 'App: settings page screenshot',
+          relativePath: '.shep/evidence/app-settings.png',
+        },
+      ];
+
+      mockParseEvidenceRecords.mockReturnValueOnce(attempt1Evidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+
+      mockParseEvidenceRecords.mockReturnValueOnce(attempt2Evidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: true, errors: [] });
+
+      const node = createEvidenceNode(executor);
+      const result = await node(baseState());
+
+      // Evidence from both attempts should be in the result
+      expect(result.evidence).toHaveLength(2);
+      expect(result.evidence).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ description: 'Test results' }),
+          expect.objectContaining({ description: 'App: settings page screenshot' }),
+        ])
+      );
+    });
+
+    it('should call markPhaseComplete only once after loop completes', async () => {
+      // Two attempts: fail then succeed
+      mockParseEvidenceRecords.mockReturnValueOnce([]);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+
+      mockParseEvidenceRecords.mockReturnValueOnce(sampleEvidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: true, errors: [] });
+
+      const node = createEvidenceNode(executor);
+      await node(baseState());
+
+      expect(mockMarkPhaseComplete).toHaveBeenCalledTimes(1);
+      expect(mockMarkPhaseComplete).toHaveBeenCalledWith(
+        '/tmp/specs',
+        'evidence',
+        expect.anything()
+      );
+    });
+
+    it('should call markPhaseComplete after exhausting retries (graceful degradation)', async () => {
+      for (let i = 0; i < 3; i++) {
+        mockParseEvidenceRecords.mockReturnValueOnce([]);
+        mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+      }
+
+      const node = createEvidenceNode(executor);
+      await node(baseState());
+
+      // markPhaseComplete should still be called even after exhausted retries
+      expect(mockMarkPhaseComplete).toHaveBeenCalledTimes(1);
+      expect(mockMarkPhaseComplete).toHaveBeenCalledWith(
+        '/tmp/specs',
+        'evidence',
+        expect.anything()
+      );
+    });
+
+    it('should respect configurable max retries from settings', async () => {
+      // Configure 2 retries (instead of default 3)
+      mockGetSettings.mockReturnValue({ workflow: { commitEvidence: false, evidenceRetries: 2 } });
+
+      mockParseEvidenceRecords.mockReturnValueOnce([]);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+
+      mockParseEvidenceRecords.mockReturnValueOnce([]);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+
+      const node = createEvidenceNode(executor);
+      await node(baseState());
+
+      // Only 2 attempts (not 3)
+      expect(executor.execute).toHaveBeenCalledTimes(2);
+      expect(mockRecordPhaseStart).toHaveBeenCalledTimes(2);
+    });
+
+    it('should log ERROR level warnings when retries are exhausted', async () => {
+      for (let i = 0; i < 3; i++) {
+        mockParseEvidenceRecords.mockReturnValueOnce([]);
+        mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+      }
+
+      const node = createEvidenceNode(executor);
+      const result = await node(baseState());
+
+      // Messages should contain error-level validation warnings
+      const warningMessages = result.messages!.filter(
+        (m) => m.includes('Validation failed') || m.includes('Warning')
+      );
+      expect(warningMessages.length).toBeGreaterThan(0);
     });
   });
 });
