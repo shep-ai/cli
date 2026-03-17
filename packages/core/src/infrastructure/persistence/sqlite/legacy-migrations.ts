@@ -564,8 +564,8 @@ function toRunnableMigration(def: LegacyMigrationDef): RunnableMigration<Databas
 }
 
 /**
- * All 34 legacy migrations as umzug-compatible RunnableMigration objects.
- * Ordered by version number (001–034) for deterministic execution.
+ * All 35 legacy migrations as umzug-compatible RunnableMigration objects.
+ * Ordered by version number (001–035) for deterministic execution.
  */
 export const LEGACY_MIGRATIONS: RunnableMigration<Database.Database>[] =
   MIGRATION_DEFS.map(toRunnableMigration);

@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { GitHubImportDialog } from '@/components/common/github-import-dialog';
-import { pickFolder } from './pick-folder';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
+import { ReactFileManagerDialog } from '@/components/common/react-file-manager-dialog';
+import { pickFolder } from './pick-folder';
 import type { Repository } from '@shepai/core/domain/generated/output';
 
 export interface AddRepositoryButtonProps {
@@ -20,16 +21,27 @@ export function AddRepositoryButton({ onSelect, onGitHubImport }: AddRepositoryB
   const [loading, setLoading] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [githubDialogOpen, setGithubDialogOpen] = useState(false);
+  const [showReactPicker, setShowReactPicker] = useState(false);
+  const { reactFileManager: useReactFileManager } = featureFlags;
 
   async function handleLocalFolder() {
     setPopoverOpen(false);
     if (loading) return;
+
+    if (useReactFileManager) {
+      setShowReactPicker(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const path = await pickFolder();
       if (path) {
         onSelect?.(path);
       }
+    } catch {
+      // Native picker failed — fall back to React file manager
+      setShowReactPicker(true);
     } finally {
       setLoading(false);
     }
@@ -45,6 +57,13 @@ export function AddRepositoryButton({ onSelect, onGitHubImport }: AddRepositoryB
     if (repository.path) {
       onSelect?.(repository.path);
     }
+  }
+
+  function handleReactPickerSelect(path: string | null) {
+    if (path) {
+      onSelect?.(path);
+    }
+    setShowReactPicker(false);
   }
 
   return (
@@ -104,6 +123,15 @@ export function AddRepositoryButton({ onSelect, onGitHubImport }: AddRepositoryB
           onImportComplete={handleImportComplete}
         />
       ) : null}
+      <ReactFileManagerDialog
+        open={showReactPicker}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowReactPicker(false);
+          }
+        }}
+        onSelect={handleReactPickerSelect}
+      />
     </>
   );
 }

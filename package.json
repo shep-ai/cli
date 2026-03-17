@@ -173,6 +173,7 @@
   },
   "packageManager": "pnpm@10.30.0",
   "dependencies": {
+    "@cubone/react-file-manager": "^1.35.0",
     "@inquirer/prompts": "^8.2.0",
     "@langchain/core": "^1.1.22",
     "@langchain/langgraph": "^1.1.4",
