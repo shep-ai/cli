@@ -13,6 +13,15 @@ apis/
 coverage/
 src/presentation/web/next-env.d.ts
 
+# Spec artifacts (auto-generated YAML, evidence PNGs, auto-generated MD)
+specs/
+
+# Claude Code skills (third-party, not our code)
+.claude/skills/
+
+# Markdown (formatting not enforced — prettier only for code)
+*.md
+
 # POC / static docs (formatting not enforced)
 docs/poc/
 
