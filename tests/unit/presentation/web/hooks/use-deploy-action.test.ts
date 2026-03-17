@@ -116,7 +116,7 @@ describe('useDeployAction', () => {
       expect(result.current.deployError).toBe('No dev script found');
     });
 
-    it('auto-clears deployError after 5 seconds', async () => {
+    it('persists deployError until retry clears it', async () => {
       mockDeployFeature.mockResolvedValue({ success: false, error: 'No dev script found' });
 
       const { result } = renderHook(() => useDeployAction(featureInput));
@@ -127,8 +127,17 @@ describe('useDeployAction', () => {
 
       expect(result.current.deployError).toBe('No dev script found');
 
+      // Error persists after time passes (no auto-clear)
       act(() => {
-        vi.advanceTimersByTime(5000);
+        vi.advanceTimersByTime(10000);
+      });
+
+      expect(result.current.deployError).toBe('No dev script found');
+
+      // Retry clears the error
+      mockDeployFeature.mockResolvedValue({ success: true, state: DeploymentState.Booting });
+      await act(async () => {
+        await result.current.deploy();
       });
 
       expect(result.current.deployError).toBeNull();
