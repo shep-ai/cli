@@ -532,3 +532,10 @@ content: >
   - Web UI components + stories: ~1.5 days
 
   - Integration tests + polish: ~0.5 day
+rejectionFeedback:
+  - iteration: 1
+    message: |-
+      Clicking on new repository opens file browser,
+      to import remote repository we need to have a seperate button
+    phase: merge
+    timestamp: '2026-03-17T08:14:36.196Z'
