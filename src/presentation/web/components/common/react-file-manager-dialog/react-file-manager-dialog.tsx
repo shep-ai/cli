@@ -34,10 +34,16 @@ function FileManagerSkeleton() {
 }
 
 function toFileManagerFiles(entries: DirectoryEntry[]) {
+  // The @cubone/react-file-manager component filters visible files by matching
+  // file.path === currentPath + "/" + file.name. Since we dynamically fetch
+  // directory contents on each navigation, we present all entries at the
+  // FileManager's root level by using path = "/" + name. The real absolute
+  // path is preserved in a custom `absolutePath` field for selection/navigation.
   return entries.map((entry) => ({
     name: entry.name,
     isDirectory: true as const,
-    path: entry.path,
+    path: `/${entry.name}`,
+    absolutePath: entry.path,
     updatedAt: entry.updatedAt,
   }));
 }
@@ -94,16 +100,20 @@ export function ReactFileManagerDialog({
 
   const handleFileOpen = useCallback(
     (file: FileManagerFile) => {
-      if (file.isDirectory && file.path) {
-        loadDirectory(file.path);
+      // Use absolutePath (real filesystem path) for navigation, not the
+      // virtual path used by the FileManager tree.
+      const realPath = (file as Record<string, unknown>).absolutePath as string | undefined;
+      if (file.isDirectory && realPath) {
+        loadDirectory(realPath);
       }
     },
     [loadDirectory]
   );
 
   const handleSelectionChange = useCallback((files: FileManagerFile[]) => {
-    if (files.length === 1 && files[0].isDirectory && files[0].path) {
-      setSelectedPath(files[0].path);
+    if (files.length === 1 && files[0].isDirectory) {
+      const realPath = (files[0] as Record<string, unknown>).absolutePath as string | undefined;
+      setSelectedPath(realPath ?? null);
     } else {
       setSelectedPath(null);
     }
@@ -146,6 +156,7 @@ export function ReactFileManagerDialog({
         </DialogHeader>
         <div className="h-[400px] w-full overflow-hidden rounded-md border">
           <FileManager
+            key={currentPath}
             files={toFileManagerFiles(entries)}
             isLoading={isLoading}
             height="400px"
@@ -163,6 +174,7 @@ export function ReactFileManagerDialog({
             }}
             onFileOpen={handleFileOpen}
             onSelectionChange={handleSelectionChange}
+            onRefresh={() => loadDirectory(currentPath)}
           />
         </div>
         <DialogFooter>

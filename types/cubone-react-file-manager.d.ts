@@ -46,6 +46,7 @@ declare module '@cubone/react-file-manager' {
     formatDate?: (date: string) => string;
     initialPath?: string;
     onSelect?: (file: FileManagerFile) => void;
+    onRefresh?: () => void;
   }
 
   export const FileManager: ComponentType<FileManagerProps>;

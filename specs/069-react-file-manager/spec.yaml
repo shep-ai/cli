@@ -796,3 +796,11 @@ rejectionFeedback:
       passing
     phase: merge
     timestamp: '2026-03-17T16:18:59.465Z'
+  - iteration: 3
+    message: >-
+      Look at the evidence the feature is broken we dont see actual fodlers and
+      files
+
+      http://localhost:4050/api/evidence?path=%2FUsers%2Farielshadkhan%2F.shep%2Frepos%2Ffbfd7efb528913ed%2Fevidence%2F93477d9d-b205-4e47-98ba-9c3e5df402b4%2Fapp-react-file-manager-dialog.png
+    phase: merge
+    timestamp: '2026-03-17T17:17:44.542Z'
