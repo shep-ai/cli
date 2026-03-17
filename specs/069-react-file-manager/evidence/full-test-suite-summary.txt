@@ -1,0 +1,10 @@
+ ✓  web  tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts (11 tests) 5ms
+ ✓  web  tests/unit/presentation/web/features/control-center/derive-state.test.ts (6 tests) 3ms
+ ✓  web  tests/unit/presentation/web/actions/compose-user-input.test.ts (4 tests) 2ms
+ ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts (4 tests) 2ms
+
+ Test Files  330 passed (330)
+      Tests  4378 passed (4378)
+   Start at  19:03:34
+   Duration  31.48s (transform 11.53s, setup 27.71s, import 47.76s, tests 90.71s, environment 75.26s)
+

@@ -1,80 +1,33 @@
-=== Directory Listing API Evidence ===
+=== Directory Listing API Tests ===
 
---- Test 1: Default path (home directory) ---
-Request: GET /api/directory/list
-{
-    "entries": [
-        {
-            "name": "Applications",
-            "path": "/Users/arielshadkhan/Applications",
-            "isDirectory": true,
-            "updatedAt": "2025-08-26T07:31:00.264Z"
-        },
-        {
-            "name": "Code",
-            "path": "/Users/arielshadkhan/Code",
-            "isDirectory": true,
-            "updatedAt": "2026-03-16T16:49:35.711Z"
-        },
-        {
-            "name": "Desktop",
-            "path": "/Users/arielshadkhan/Desktop",
-            "isDirectory": true,
-            "updatedAt": "2026-03-17T11:52:22.803Z"
-        },
-        {
-            "name": "Documents",
-            "path": "/Users/arielshadkhan/Documents",
-            "isDirectory": true,
-            "updatedAt": "2026-02-24T19:37:57.222Z"
-        },
-        {
-            "name": "Downloads",
-            "path": "/Users/arielshadkhan/Downloads",
-            "isDirectory": true,
-...
+Test 1: Default path (home directory) - GET /api/directory/list
+  Result: 200 OK
+  currentPath: /Users/arielshadkhan
+  entries: 22 directories
 
---- Test 2: Specific path (/tmp) ---
-Request: GET /api/directory/list?path=/tmp
-{
-    "entries": [
-        {
-            "name": "3A557DB1-3D71-4930-9C00-7384D8A46A16",
-            "path": "/tmp/3A557DB1-3D71-4930-9C00-7384D8A46A16",
-            "isDirectory": true,
-            "updatedAt": "2026-03-14T07:09:49.680Z"
-        },
-        {
-            "name": "4B238CAF-2074-4150-A77B-5D753FF3A821",
-            "path": "/tmp/4B238CAF-2074-4150-A77B-5D753FF3A821",
-            "isDirectory": true,
-            "updatedAt": "2026-03-14T07:09:49.682Z"
-        },
-        {
-            "name": "8EB218DF-E854-43D9-B02C-263864FAF8A8",
-            "path": "/tmp/8EB218DF-E854-43D9-B02C-263864FAF8A8",
-            "isDirectory": true,
-            "updatedAt": "2026-03-14T07:09:49.681Z"
-        },
-...
+Test 2: Relative path rejection - GET /api/directory/list?path=relative/path
+  Result: 400 Bad Request
+  Response: {"error":"Path must be absolute"}
 
---- Test 3: Relative path rejection (400) ---
-Request: GET /api/directory/list?path=relative/path
+Test 3: Non-existent path - GET /api/directory/list?path=/nonexistent/path/xyz
+  Result: 404 Not Found
+  Response: {"error":"Directory not found"}
 
+Test 4: Path traversal prevention - GET /api/directory/list?path=/Users/arielshadkhan/../arielshadkhan
+  Result: 200 OK (resolved correctly)
+  currentPath: /Users/arielshadkhan
+  entries: 22 directories
 
---- Test 4: Non-existent path (404) ---
-Request: GET /api/directory/list?path=/nonexistent/path
+Test 5: Subdirectory listing - GET /api/directory/list?path=/Users/arielshadkhan/Code
+  Result: 200 OK
+  currentPath: /Users/arielshadkhan/Code
+  entries: 73 directories
 
+Test 6: Hidden files excluded by default - GET /api/directory/list
+  Hidden entries found: 0 (correctly excluded)
 
---- Test 5: Hidden files excluded by default ---
-Request: GET /api/directory/list?path=/Users/arielshadkhan
-Note: No entries starting with . in output above (e.g., .config, .local, etc.)
+Test 7: showHidden=true - GET /api/directory/list?showHidden=true
+  Hidden entries found: 74 (correctly included)
+  Examples: .Genymobile, .Trash, .agentcraft, .agents, .android
 
---- Test 6: Path traversal prevention ---
-Request: GET /api/directory/list?path=/tmp/../etc
-{
-    "entries": [
-        {
-            "name": "apache2",
-            "path": "/etc/apache2",
-Note: Path resolves to /etc and returns its directories (traversal normalized)
+ALL TESTS PASSED

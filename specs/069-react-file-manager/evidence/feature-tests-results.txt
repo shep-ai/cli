@@ -1,0 +1,66 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-react-file-manager
+
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > getCommand() > returns osascript command for darwin 1ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > getCommand() > returns zenity command for linux 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > getCommand() > returns powershell command for win32 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > getCommand() > returns null for unsupported platforms 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — macOS (darwin) > returns the selected folder path 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — macOS (darwin) > trims trailing whitespace and newlines 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — macOS (darwin) > calls exec with osascript command and utf-8 encoding 1ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — macOS (darwin) > returns null when user cancels (exit code 1) 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — Linux > returns the selected folder path 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — Linux > calls exec with zenity command 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — Linux > returns null when user cancels (exit code 1) 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — Windows (win32) > returns the selected folder path 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — Windows (win32) > calls exec with powershell command 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > pickFolder() — Windows (win32) > returns null when user cancels (exit code 1) 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > error handling > throws for unsupported platforms 1ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > error handling > returns null when exec returns empty string 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > error handling > returns null when exec returns only whitespace 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > error handling > re-throws unexpected exec errors (non exit-code-1) 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > error handling > re-throws non-exec errors 0ms
+ ✓  node  tests/unit/infrastructure/services/folder-dialog.service.test.ts > FolderDialogService > constructor defaults > creates service with default deps when none provided 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > returns DB values when settings has featureFlags 1ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > falls back to env vars when featureFlags is undefined 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > falls back to env vars when settings not initialized 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > falls back to env vars when hasSettings throws 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > defaults envDeploy to true when no settings and no env vars 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > debug flag returns false when not in DB (no env var fallback) 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > returns reactFileManager from DB when settings exist 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > defaults reactFileManager to false when no settings and no env var 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > reactFileManager falls back to NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER env var 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > getFeatureFlags > reactFileManager env var fallback accepts "1" as truthy 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > featureFlags (backward-compatible const) > exposes skills via getter that calls getFeatureFlags 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > featureFlags (backward-compatible const) > exposes envDeploy via getter 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > featureFlags (backward-compatible const) > exposes debug via getter 0ms
+ ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts > featureFlags (backward-compatible const) > exposes reactFileManager via getter 0ms
+ ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts > pickFolder server action > returns selected path when user picks a folder 1ms
+ ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts > pickFolder server action > returns null path when user cancels the dialog 0ms
+ ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts > pickFolder server action > returns error message on service failure 0ms
+ ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts > pickFolder server action > returns generic error message for non-Error throws 0ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/feature-flags-settings-section.test.tsx > FeatureFlagsSettingsSection > renders 6 feature flag toggles with descriptions 32ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/feature-flags-settings-section.test.tsx > FeatureFlagsSettingsSection > renders description text for each flag 8ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/feature-flags-settings-section.test.tsx > FeatureFlagsSettingsSection > does not render a save button (auto-saves on change) 6ms
+ ✓  web  tests/unit/presentation/web/components/features/settings/feature-flags-settings-section.test.tsx > FeatureFlagsSettingsSection > renders title 4ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > renders button that opens popover on click 98ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > popover shows "Local folder" and "From GitHub" options 25ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > "Local folder" calls pickFolder and onSelect 42ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > "From GitHub" opens GitHubImportDialog 47ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > popover closes after selecting local folder 36ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > feature flag reactFileManager OFF (native picker with fallback) > calls native pickFolder when local folder is clicked 35ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > feature flag reactFileManager OFF (native picker with fallback) > calls onSelect with path when native picker succeeds 35ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > feature flag reactFileManager OFF (native picker with fallback) > does not trigger fallback when native picker is cancelled (null) 33ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > feature flag reactFileManager OFF (native picker with fallback) > opens React file manager dialog as fallback when native picker throws 34ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > feature flag reactFileManager OFF (native picker with fallback) > calls onSelect when folder is selected in fallback dialog 42ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > feature flag reactFileManager OFF (native picker with fallback) > closes dialog without calling onSelect when fallback dialog is cancelled 43ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > feature flag reactFileManager ON (direct React picker) > opens React file manager dialog directly without calling native picker 32ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > feature flag reactFileManager ON (direct React picker) > calls onSelect with path when folder is selected in direct dialog 42ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > feature flag reactFileManager ON (direct React picker) > does not call onSelect when dialog is cancelled 41ms
+ ✓  web  tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx > AddRepositoryButton > dialog state management > resets showReactPicker when dialog closes 42ms
+
+ Test Files  5 passed (5)
+      Tests  57 passed (57)
+   Start at  19:03:32
+   Duration  1.47s (transform 258ms, setup 436ms, import 538ms, tests 689ms, environment 1.37s)
+
