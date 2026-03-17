@@ -94,9 +94,7 @@ jobs:
         shell: pwsh
         run: |
           irm 'https://cursor.com/install?win32=true' | iex
-          # Do NOT add cursor-agent to PATH — shep resolves node.exe directly
-          # via resolveCursorBinary(). Having agent.cmd on PATH can trigger
-          # Windows "Open with" dialogs or internal cursor self-invocation issues.
+          echo "$env:LOCALAPPDATA\cursor-agent" >> $env:GITHUB_PATH
 
       # ─────────────────────────────────────────────────────────────────────
       # 3. Clone sheep repo (target for feature creation)
