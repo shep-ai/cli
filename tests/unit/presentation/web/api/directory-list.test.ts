@@ -12,6 +12,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import path from 'node:path';
 
+// Platform-safe home directory — on Windows path.resolve('/home/testuser') becomes 'D:\home\testuser'
+const HOME_DIR = path.resolve('/home/testuser');
+
 // --- Mocks ---
 
 const mockReaddir = vi.fn();
@@ -25,7 +28,7 @@ vi.mock('node:fs/promises', () => ({
 }));
 
 vi.mock('node:os', () => ({
-  homedir: () => '/home/testuser',
+  homedir: () => path.resolve('/home/testuser'),
 }));
 
 // --- Helpers ---
@@ -80,21 +83,21 @@ describe('GET /api/directory/list', () => {
         .mockResolvedValueOnce(makeStat(new Date('2026-03-10T08:00:00Z')))
         .mockResolvedValueOnce(makeStat(new Date('2026-03-12T14:00:00Z')));
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser' }));
+      const response = await routeModule.GET(makeRequest({ path: HOME_DIR }));
       const body = await response.json();
 
       expect(response.status).toBe(200);
-      expect(body.currentPath).toBe('/home/testuser');
+      expect(body.currentPath).toBe(HOME_DIR);
       expect(body.entries).toHaveLength(2);
       expect(body.entries[0]).toEqual({
         name: 'projects',
-        path: path.join('/home/testuser', 'projects'),
+        path: path.join(HOME_DIR, 'projects'),
         isDirectory: true,
         updatedAt: '2026-03-10T08:00:00.000Z',
       });
       expect(body.entries[1]).toEqual({
         name: 'documents',
-        path: path.join('/home/testuser', 'documents'),
+        path: path.join(HOME_DIR, 'documents'),
         isDirectory: true,
         updatedAt: '2026-03-12T14:00:00.000Z',
       });
@@ -108,20 +111,20 @@ describe('GET /api/directory/list', () => {
       const body = await response.json();
 
       expect(response.status).toBe(200);
-      expect(body.currentPath).toBe('/home/testuser');
-      expect(mockReaddir).toHaveBeenCalledWith('/home/testuser', { withFileTypes: true });
+      expect(body.currentPath).toBe(HOME_DIR);
+      expect(mockReaddir).toHaveBeenCalledWith(HOME_DIR, { withFileTypes: true });
     });
 
     it('returns empty entries array for an empty directory', async () => {
       mockReaddir.mockResolvedValueOnce([]);
       mockStat.mockResolvedValueOnce(makeStat());
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser/empty' }));
+      const response = await routeModule.GET(makeRequest({ path: path.join(HOME_DIR, 'empty') }));
       const body = await response.json();
 
       expect(response.status).toBe(200);
       expect(body.entries).toEqual([]);
-      expect(body.currentPath).toBe('/home/testuser/empty');
+      expect(body.currentPath).toBe(path.join(HOME_DIR, 'empty'));
     });
   });
 
@@ -139,7 +142,7 @@ describe('GET /api/directory/list', () => {
         .mockResolvedValueOnce(makeStat())
         .mockResolvedValueOnce(makeStat());
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser/project' }));
+      const response = await routeModule.GET(makeRequest({ path: path.join(HOME_DIR, 'project') }));
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -161,7 +164,7 @@ describe('GET /api/directory/list', () => {
         .mockResolvedValueOnce(makeStat()) // access check
         .mockResolvedValueOnce(makeStat());
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser' }));
+      const response = await routeModule.GET(makeRequest({ path: HOME_DIR }));
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -177,9 +180,7 @@ describe('GET /api/directory/list', () => {
         .mockResolvedValueOnce(makeStat())
         .mockResolvedValueOnce(makeStat());
 
-      const response = await routeModule.GET(
-        makeRequest({ path: '/home/testuser', showHidden: 'true' })
-      );
+      const response = await routeModule.GET(makeRequest({ path: HOME_DIR, showHidden: 'true' }));
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -210,14 +211,14 @@ describe('GET /api/directory/list', () => {
       mockStat.mockResolvedValueOnce(makeStat());
 
       const response = await routeModule.GET(
-        makeRequest({ path: '/home/testuser/projects/../documents' })
+        makeRequest({ path: path.join(HOME_DIR, 'projects', '..', 'documents') })
       );
       const body = await response.json();
 
       expect(response.status).toBe(200);
-      expect(body.currentPath).toBe(path.resolve('/home/testuser/projects/../documents'));
+      expect(body.currentPath).toBe(path.resolve(HOME_DIR, 'projects', '..', 'documents'));
       expect(mockReaddir).toHaveBeenCalledWith(
-        path.resolve('/home/testuser/projects/../documents'),
+        path.resolve(HOME_DIR, 'projects', '..', 'documents'),
         { withFileTypes: true }
       );
     });
@@ -227,7 +228,9 @@ describe('GET /api/directory/list', () => {
       err.code = 'ENOENT';
       mockStat.mockRejectedValueOnce(err);
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser/nonexistent' }));
+      const response = await routeModule.GET(
+        makeRequest({ path: path.join(HOME_DIR, 'nonexistent') })
+      );
       const body = await response.json();
 
       expect(response.status).toBe(404);
@@ -237,7 +240,9 @@ describe('GET /api/directory/list', () => {
     it('returns 400 when path points to a file, not a directory', async () => {
       mockStat.mockResolvedValueOnce({ mtime: new Date(), isDirectory: () => false });
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser/file.txt' }));
+      const response = await routeModule.GET(
+        makeRequest({ path: path.join(HOME_DIR, 'file.txt') })
+      );
       const body = await response.json();
 
       expect(response.status).toBe(400);
@@ -259,7 +264,7 @@ describe('GET /api/directory/list', () => {
         .mockRejectedValueOnce(Object.assign(new Error('EACCES'), { code: 'EACCES' })) // restricted
         .mockResolvedValueOnce(makeStat(new Date('2026-03-12T14:00:00Z'))); // also-accessible
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser' }));
+      const response = await routeModule.GET(makeRequest({ path: HOME_DIR }));
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -277,7 +282,7 @@ describe('GET /api/directory/list', () => {
         .mockResolvedValueOnce(makeStat()) // access check
         .mockResolvedValueOnce(makeStat(mtime));
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser' }));
+      const response = await routeModule.GET(makeRequest({ path: HOME_DIR }));
       const body = await response.json();
 
       expect(body.entries[0].updatedAt).toBe('2026-01-15T12:00:00.000Z');
@@ -296,7 +301,7 @@ describe('GET /api/directory/list', () => {
         .mockResolvedValueOnce({ mtime: new Date(), isDirectory: () => true }) // symlink-to-dir (stat follows symlinks)
         .mockResolvedValueOnce({ mtime: new Date(), isDirectory: () => false }); // symlink-to-file
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser' }));
+      const response = await routeModule.GET(makeRequest({ path: HOME_DIR }));
       const body = await response.json();
 
       expect(body.entries).toHaveLength(2);
@@ -314,7 +319,7 @@ describe('GET /api/directory/list', () => {
         .mockResolvedValueOnce(makeStat()) // good-dir
         .mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' })); // broken symlink
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser' }));
+      const response = await routeModule.GET(makeRequest({ path: HOME_DIR }));
       const body = await response.json();
 
       expect(body.entries).toHaveLength(1);
@@ -325,7 +330,7 @@ describe('GET /api/directory/list', () => {
       mockStat.mockResolvedValueOnce(makeStat());
       mockReaddir.mockRejectedValueOnce(new Error('Unexpected IO error'));
 
-      const response = await routeModule.GET(makeRequest({ path: '/home/testuser' }));
+      const response = await routeModule.GET(makeRequest({ path: HOME_DIR }));
       const body = await response.json();
 
       expect(response.status).toBe(500);
