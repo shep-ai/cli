@@ -33,6 +33,7 @@ describe('getFeatureFlags', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        databaseBrowser: false,
       },
     });
 
@@ -44,6 +45,7 @@ describe('getFeatureFlags', () => {
     expect(flags.githubImport).toBe(false);
     expect(flags.adoptBranch).toBe(false);
     expect(flags.reactFileManager).toBe(false);
+    expect(flags.databaseBrowser).toBe(false);
   });
 
   it('falls back to env vars when featureFlags is undefined', () => {
@@ -109,6 +111,7 @@ describe('getFeatureFlags', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        databaseBrowser: false,
       },
     });
 
@@ -171,6 +174,7 @@ describe('featureFlags (backward-compatible const)', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        databaseBrowser: false,
       },
     });
 
@@ -188,6 +192,7 @@ describe('featureFlags (backward-compatible const)', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        databaseBrowser: false,
       },
     });
 
@@ -205,6 +210,7 @@ describe('featureFlags (backward-compatible const)', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        databaseBrowser: false,
       },
     });
 
