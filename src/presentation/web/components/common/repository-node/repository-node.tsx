@@ -338,7 +338,9 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 text-xs">
-              {isDeploymentActive ? (
+              {deployAction.deployError ? (
+                <span className="truncate text-xs text-red-500">{deployAction.deployError}</span>
+              ) : isDeploymentActive ? (
                 <>
                   <span className="mr-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-green-500" />
                   {deployAction.url ? (
