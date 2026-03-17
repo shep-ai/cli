@@ -175,7 +175,7 @@ describe('CursorExecutorService', () => {
       expect(result.result).toBe('Analysis complete. Found 3 files.');
       expect(result.sessionId).toBe('sess-abc-123');
       expect(mockSpawn).toHaveBeenCalledWith(
-        'agent',
+        'cursor-agent',
         expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'json']),
         expect.any(Object)
       );
@@ -328,7 +328,7 @@ describe('CursorExecutorService', () => {
       await executePromise;
 
       expect(mockSpawn).toHaveBeenCalledWith(
-        'agent',
+        'cursor-agent',
         expect.arrayContaining(['-p', 'My prompt']),
         expect.any(Object)
       );
@@ -349,7 +349,7 @@ describe('CursorExecutorService', () => {
       await executePromise;
 
       expect(mockSpawn).toHaveBeenCalledWith(
-        'agent',
+        'cursor-agent',
         expect.arrayContaining(['--resume', 'prev-session-id']),
         expect.any(Object)
       );
@@ -370,7 +370,7 @@ describe('CursorExecutorService', () => {
       await executePromise;
 
       expect(mockSpawn).toHaveBeenCalledWith(
-        'agent',
+        'cursor-agent',
         expect.arrayContaining(['--model', 'sonnet-4.6']),
         expect.any(Object)
       );
@@ -388,7 +388,7 @@ describe('CursorExecutorService', () => {
       await executePromise;
 
       expect(mockSpawn).toHaveBeenCalledWith(
-        'agent',
+        'cursor-agent',
         expect.arrayContaining(['--yolo']),
         expect.any(Object)
       );
@@ -455,7 +455,7 @@ describe('CursorExecutorService', () => {
       await executePromise;
 
       expect(mockSpawn).toHaveBeenCalledWith(
-        'agent',
+        'cursor-agent',
         expect.any(Array),
         expect.objectContaining({ cwd: '/some/project' })
       );

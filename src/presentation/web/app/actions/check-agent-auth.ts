@@ -40,7 +40,7 @@ const AGENT_TOOL_MAP: Record<string, string> = {
 
 const AGENT_BINARY_MAP: Record<string, string> = {
   'claude-code': 'claude',
-  cursor: 'agent',
+  cursor: 'cursor-agent',
   'gemini-cli': 'gemini',
 };
 

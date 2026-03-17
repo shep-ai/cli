@@ -10,14 +10,12 @@
  * process state (clean up dead PIDs, re-adopt live ones).
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import type Database from 'better-sqlite3';
-// NOTE: We intentionally do NOT use tree-kill here. tree-kill traverses
-// /proc to find child processes which can accidentally kill parent processes
-// (including the Shep web UI). Instead, we use process.kill(-pid) to send
-// signals to the process GROUP (since we spawn with detached: true, the
-// child gets its own process group via setsid()).
+// On Unix we use process.kill(-pid) to send signals to the process GROUP
+// (detached: true puts the child in its own group via setsid()).
+// On Windows, negative PIDs are not supported — use taskkill /T for tree kill.
 import { DeploymentState } from '@/domain/generated/output.js';
 import type {
   IDeploymentService,
@@ -28,6 +26,7 @@ import { detectDevScript } from './detect-dev-script.js';
 import { createDeploymentLogger } from './deployment-logger.js';
 import { parsePort } from './parse-port.js';
 import { LogRingBuffer } from './log-ring-buffer.js';
+import { IS_WINDOWS } from '../../platform.js';
 
 const log = createDeploymentLogger('[DeploymentService]');
 const POLL_INTERVAL_MS = 200;
@@ -67,6 +66,19 @@ const defaultDeps: DeploymentServiceDeps = {
   spawn,
   detectDevScript,
   kill: (pid, signal) => {
+    if (IS_WINDOWS) {
+      // On Windows, negative PIDs are not supported. Use taskkill /T to
+      // kill the entire process tree (shell + child dev server).
+      try {
+        execFileSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
+          stdio: 'ignore',
+          windowsHide: true,
+        });
+      } catch {
+        // Process already dead
+      }
+      return;
+    }
     try {
       // Kill the entire process group (negative PID) — safe because
       // detached: true puts the child in its own group via setsid().
@@ -191,6 +203,7 @@ export class DeploymentService implements IDeploymentService {
       cwd: targetPath,
       detached: true,
       stdio: ['ignore', 'pipe', 'pipe'] as const,
+      ...(IS_WINDOWS ? { windowsHide: true } : {}),
     });
 
     if (!child.pid) {
