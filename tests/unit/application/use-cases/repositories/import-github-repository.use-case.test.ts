@@ -7,6 +7,7 @@
  */
 
 import 'reflect-metadata';
+import { join } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ImportGitHubRepositoryUseCase } from '@/application/use-cases/repositories/import-github-repository.use-case.js';
 import type { IGitHubRepositoryService } from '@/application/ports/output/services/github-repository-service.interface.js';
@@ -115,7 +116,7 @@ describe('ImportGitHubRepositoryUseCase', () => {
 
       expect(mockGitHubService.cloneRepository).toHaveBeenCalledWith(
         'octocat/my-project',
-        '/home/user/repos/my-project',
+        join('/home/user/repos', 'my-project'),
         undefined
       );
     });
@@ -125,9 +126,9 @@ describe('ImportGitHubRepositoryUseCase', () => {
         url: 'https://github.com/octocat/my-project',
       });
 
-      // The clone destination should end with /my-project
+      // The clone destination should end with the repo name (platform-agnostic separator)
       const cloneCall = vi.mocked(mockGitHubService.cloneRepository).mock.calls[0];
-      expect(cloneCall[1]).toMatch(/\/my-project$/);
+      expect(cloneCall[1]).toMatch(/[/\\]my-project$/);
     });
 
     it('should call AddRepositoryUseCase with the cloned path', async () => {
