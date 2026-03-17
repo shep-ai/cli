@@ -16,6 +16,7 @@ import {
   GitCommitHorizontal,
   ArrowDown,
   User,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
@@ -369,11 +370,19 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                   <TooltipTrigger asChild>
                     <span className="ml-auto flex items-center">
                       <ActionButton
-                        label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                        label={
+                          deployAction.deployError
+                            ? 'Retry'
+                            : isDeploymentActive
+                              ? 'Stop Dev Server'
+                              : 'Start Dev Server'
+                        }
                         onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
                         loading={deployAction.deployLoading || deployAction.stopLoading}
-                        error={!!deployAction.deployError}
-                        icon={isDeploymentActive ? Square : Play}
+                        error={false}
+                        icon={
+                          deployAction.deployError ? RotateCcw : isDeploymentActive ? Square : Play
+                        }
                         iconOnly
                         variant="ghost"
                         size="icon-xs"

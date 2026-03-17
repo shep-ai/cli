@@ -27,7 +27,6 @@ export interface DeployActionState {
 
 const log = createLogger('[useDeployAction]');
 
-const ERROR_CLEAR_DELAY = 5000;
 const POLL_INTERVAL = 3000;
 
 export function useDeployAction(input: DeployActionInput | null): DeployActionState {
@@ -37,7 +36,6 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
   const [status, setStatus] = useState<DeploymentState | null>(null);
   const [url, setUrl] = useState<string | null>(null);
 
-  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
   const statusRef = useRef(status);
@@ -86,7 +84,6 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
@@ -186,8 +183,6 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
       `deploy() — targetType="${input.targetType}", targetId="${input.targetId}", repositoryPath="${input.repositoryPath}"`
     );
 
-    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
-
     setDeployLoading(true);
     setDeployError(null);
 
@@ -208,7 +203,6 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
         const errorMessage = result.error ?? 'An unexpected error occurred';
         log.warn(`deploy failed: ${errorMessage}`);
         setDeployError(errorMessage);
-        errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
       } else {
         log.info(`deploy succeeded — initial state=${result.state}, starting polling`);
         setStatus(result.state ?? null);
@@ -220,7 +214,6 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       log.error(`deploy threw exception: ${errorMessage}`, err);
       setDeployError(errorMessage);
-      errorTimerRef.current = setTimeout(() => setDeployError(null), ERROR_CLEAR_DELAY);
     } finally {
       if (mountedRef.current) {
         setDeployLoading(false);
