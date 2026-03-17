@@ -477,7 +477,12 @@ describe('RepositoryNode', () => {
 
   describe('commit info display', () => {
     it('renders commit message when commitMessage is provided', () => {
-      renderNode({ ...defaultData, commitMessage: 'feat: add login page', committer: 'Jane Doe' });
+      renderNode({
+        ...defaultData,
+        branch: 'main',
+        commitMessage: 'feat: add login page',
+        committer: 'Jane Doe',
+      });
 
       expect(screen.getByTestId('repository-node-commit-info')).toBeInTheDocument();
       expect(screen.getByTestId('repository-node-commit-message')).toHaveTextContent(
@@ -486,7 +491,12 @@ describe('RepositoryNode', () => {
     });
 
     it('renders committer name when committer is provided', () => {
-      renderNode({ ...defaultData, commitMessage: 'fix: typo', committer: 'John Smith' });
+      renderNode({
+        ...defaultData,
+        branch: 'main',
+        commitMessage: 'fix: typo',
+        committer: 'John Smith',
+      });
 
       expect(screen.getByTestId('repository-node-committer')).toHaveTextContent('John Smith');
     });
