@@ -175,7 +175,7 @@ const meta: Meta<typeof PrdQuestionnaire> = {
   },
   decorators: [
     (Story) => (
-      <div style={{ height: '600px', width: '400px', border: '1px solid var(--color-border)' }}>
+      <div style={{ height: '600px', width: '760px', border: '1px solid var(--color-border)' }}>
         <Story />
       </div>
     ),
@@ -304,4 +304,126 @@ export const RejectingState: Story = {
     onReject: fn().mockName('onReject'),
     isRejecting: true,
   },
+};
+
+/** Real-world LLM provider question — reproduces exact label text from the reported bug. Badge must stay on one line. */
+export const LlmProviderQuestion: Story = {
+  render: () => (
+    <InteractiveQuestionnaire
+      data={{
+        question: 'Review Feature Requirements',
+        context: 'Testing badge nowrap with real-world LLM provider labels.',
+        questions: [
+          {
+            id: 'llm-provider',
+            question: 'Which LLM provider should be the primary AI engine?',
+            type: 'select' as const,
+            options: [
+              {
+                id: 'claude-primary',
+                label:
+                  'Claude (Anthropic) as primary for all AI tasks including vision/OCR, OpenAI as fallback LLM',
+                rationale:
+                  'Claude is used as the primary engine for all AI tasks: structured reasoning, signal interpretation, opportunity scoring, AND vision/OCR for flyer image extraction.',
+                recommended: true,
+              },
+              {
+                id: 'split',
+                label: 'Claude (Anthropic) for reasoning, OpenAI Vision for OCR',
+                rationale:
+                  'Split responsibilities: Claude for text reasoning tasks, OpenAI Vision API specifically for OCR/image analysis.',
+              },
+              {
+                id: 'single',
+                label: 'Single provider only (Claude OR OpenAI for everything)',
+                rationale:
+                  'Simplifies implementation — one SDK, one billing relationship, one prompt format.',
+              },
+            ],
+          },
+        ],
+        finalAction: mockFinalAction,
+      }}
+    />
+  ),
+};
+
+/** Pathological overflow — label with no natural word break (repeating token). Verifies button does not overflow panel. */
+export const RepeatingLabelOverflow: Story = {
+  render: () => (
+    <InteractiveQuestionnaire
+      data={{
+        question: 'Where should the dark-mode preference be persisted?',
+        context: 'Testing overflow containment with no-break label text.',
+        questions: [
+          {
+            id: 'storage',
+            question: 'Where should the dark-mode preference be persisted?',
+            type: 'select' as const,
+            options: [
+              {
+                id: 'localstorage',
+                label:
+                  'localStorage only localStorage only localStorage only localStorage only localStorage only localStorage only',
+                rationale:
+                  'Store the theme preference in localStorage. Zero backend changes, instant read on page load, and no need for API round-trips.',
+                recommended: true,
+              },
+              {
+                id: 'sqlite',
+                label: 'SQLite settings via backend API',
+                rationale:
+                  'Persist the preference in the Shep SQLite settings store alongside other settings. Syncs across devices but requires API changes and a settings migration — out of scope for this feature.',
+              },
+            ],
+          },
+        ],
+        finalAction: mockFinalAction,
+      }}
+    />
+  ),
+};
+
+/** Long labels — verifies that AI Recommended badge stays on one line even with very long option labels. Uses 640px width to match real panel width. */
+export const LongLabels: Story = {
+  render: () => (
+    <InteractiveQuestionnaire
+      data={{
+        question: 'Review Feature Requirements',
+        context: 'Testing badge nowrap behavior with long option labels.',
+        questions: [
+          {
+            id: 'long-label',
+            question:
+              'Which deployment strategy should we use for the distributed microservices architecture?',
+            type: 'select' as const,
+            options: [
+              {
+                id: 'opt-long-1',
+                label:
+                  'Blue-Green Deployment with Automated Canary Analysis and Progressive Rollout',
+                rationale:
+                  'Minimizes downtime and risk by running two identical production environments',
+                recommended: true,
+              },
+              {
+                id: 'opt-long-2',
+                label:
+                  'Rolling Update with Health Check Verification and Automatic Rollback on Failure',
+                rationale: 'Gradually replaces instances with zero-downtime deployment',
+              },
+              {
+                id: 'opt-long-3',
+                label:
+                  'Feature Flags with Percentage-Based Gradual Rollout to Target User Segments',
+                rationale: 'Enables targeted rollout and instant rollback via configuration',
+                isNew: true,
+              },
+            ],
+          },
+        ],
+        finalAction: mockFinalAction,
+      }}
+    />
+  ),
 };

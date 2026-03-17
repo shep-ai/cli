@@ -18,9 +18,13 @@ function ProductDecisionCard({ item, index }: { item: ProductDecisionItem; index
           <div className="min-w-0 flex-1">
             <h3 className="text-foreground text-sm leading-tight font-semibold">{item.question}</h3>
             <div className="mt-1 flex items-center gap-2">
-              <p className="text-muted-foreground text-xs">{item.selectedOption}</p>
+              <p className="text-muted-foreground min-w-0 truncate text-xs">
+                {item.selectedOption}
+              </p>
               {item.wasRecommended ? (
-                <Badge className="px-1.5 py-0 text-[10px]">AI Recommended</Badge>
+                <Badge className="shrink-0 px-1.5 py-0 text-[10px] whitespace-nowrap">
+                  AI Recommended
+                </Badge>
               ) : null}
             </div>
           </div>

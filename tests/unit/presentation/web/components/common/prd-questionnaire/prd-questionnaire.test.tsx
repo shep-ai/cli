@@ -115,6 +115,22 @@ describe('PrdQuestionnaire', () => {
       expect(badges.length).toBeGreaterThanOrEqual(1);
     });
 
+    it('AI Recommended badge has whitespace-nowrap class and is in a shrink-0 wrapper', () => {
+      render(<PrdQuestionnaire {...defaultProps} />);
+
+      const badge = screen.getAllByText('AI Recommended')[0];
+      expect(badge).toHaveClass('whitespace-nowrap');
+      // badge sits inside a shrink-0 flex wrapper so it never shrinks
+      expect(badge.closest('.shrink-0')).toBeInTheDocument();
+    });
+
+    it('option label has wrap-break-word class to wrap long labels', () => {
+      render(<PrdQuestionnaire {...defaultProps} />);
+
+      const label = screen.getByText('Pain Point');
+      expect(label).toHaveClass('wrap-break-word');
+    });
+
     it('renders New badge when isNew=true', () => {
       render(<PrdQuestionnaire {...defaultProps} />);
 
