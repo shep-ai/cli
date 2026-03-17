@@ -145,6 +145,54 @@ export function safeYamlLoad(content: string): unknown {
 }
 
 /**
+ * Serialization options for safeYamlDump.
+ * - indent: 2 spaces (consistent with codebase style)
+ * - lineWidth: -1 (disable line wrapping to preserve agent-written formatting)
+ * - quotingType: '"' (use double quotes for all quoted strings)
+ * - forceQuotes: true (quote all string values to prevent YAML parse errors from unescaped special characters)
+ */
+const SAFE_YAML_DUMP_OPTIONS = {
+  indent: 2,
+  lineWidth: -1,
+  quotingType: '"' as const,
+  forceQuotes: true,
+};
+
+/**
+ * Serialize data to YAML with forced double-quoting for all string values.
+ *
+ * This helper ensures all YAML output uses consistent quoting to prevent
+ * parse failures from unescaped quotes, colons, hashes, and other special
+ * characters in AI-generated content.
+ *
+ * **When to use:**
+ * - Use `safeYamlDump` for all YAML serialization in feature-agent nodes,
+ *   use cases, and CLI output to ensure consistency and reliability.
+ * - Do NOT use `yaml.dump` directly unless you have a specific need for
+ *   unquoted strings (e.g., human-edited configuration files).
+ *
+ * **Options applied:**
+ * - `indent: 2` — 2-space indentation (codebase standard)
+ * - `lineWidth: -1` — Disable line wrapping to preserve formatting and reduce diff noise
+ * - `quotingType: '"'` — Use double quotes for all quoted strings
+ * - `forceQuotes: true` — Quote all string values, even those without special characters
+ *
+ * @param data - The data to serialize (objects, arrays, primitives)
+ * @returns YAML string with all strings double-quoted
+ *
+ * @example
+ * ```typescript
+ * const yaml = safeYamlDump({ title: "it's working", description: "say \"hello\"" });
+ * // Output:
+ * // title: "it's working"
+ * // description: "say \"hello\""
+ * ```
+ */
+export function safeYamlDump(data: unknown): string {
+  return yaml.dump(data, SAFE_YAML_DUMP_OPTIONS);
+}
+
+/**
  * Determine whether the current node should trigger an interrupt
  * for human approval given the configured approval gates.
  *
