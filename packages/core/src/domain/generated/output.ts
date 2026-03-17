@@ -969,6 +969,20 @@ export type Feature = SoftDeletableEntity & {
 };
 
 /**
+ * External link with title and URL
+ */
+export type RelatedLink = {
+  /**
+   * Human-readable title describing the linked resource
+   */
+  title: string;
+  /**
+   * URL to the external documentation, reference, or resource
+   */
+  url: string;
+};
+
+/**
  * Option for resolving an open question
  */
 export type QuestionOption = {
@@ -1039,7 +1053,7 @@ export type SpecArtifactBase = BaseEntity & {
   /**
    * URLs to external documentation, references, or comparisons
    */
-  relatedLinks: string[];
+  relatedLinks: RelatedLink[];
   /**
    * Structured open questions for validation gate checks
    */

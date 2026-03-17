@@ -24,7 +24,7 @@ properties:
   relatedLinks:
     type: array
     items:
-      type: string
+      $ref: RelatedLink.yaml
     description: URLs to external documentation, references, or comparisons
   openQuestions:
     type: array

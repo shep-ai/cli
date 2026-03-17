@@ -57,7 +57,7 @@ function buildSpecArtifactBaseSample(): SpecArtifactBase {
     content: '## Problem\n\nTest content',
     technologies: ['TypeScript', 'Vitest'],
     relatedFeatures: ['008-agent-configuration'],
-    relatedLinks: ['https://example.com'],
+    relatedLinks: [{ title: 'Example Docs', url: 'https://example.com' }],
     openQuestions: [],
   };
 }

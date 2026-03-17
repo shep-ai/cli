@@ -81,7 +81,7 @@ model SpecArtifactBase extends BaseEntity {
   relatedFeatures: string[];
 
   @doc("URLs to external documentation, references, or comparisons")
-  relatedLinks: string[];
+  relatedLinks: RelatedLink[];
 
   @doc("Structured open questions for validation gate checks")
   openQuestions: OpenQuestion[];

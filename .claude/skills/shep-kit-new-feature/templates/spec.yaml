@@ -22,7 +22,8 @@ technologies:
 
 relatedLinks:
   []
-  # - https://example.com/relevant-doc
+  # - title: Example Docs
+  #   url: https://example.com/relevant-doc
 
 # Open questions (must be resolved before implementation)
 openQuestions:

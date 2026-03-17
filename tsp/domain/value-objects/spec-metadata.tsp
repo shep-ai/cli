@@ -70,6 +70,21 @@ model OpenQuestion {
 }
 
 /**
+ * Represents an external link referenced in a spec artifact.
+ *
+ * RelatedLink captures a URL and a human-readable title for
+ * external documentation, references, or comparisons.
+ */
+@doc("External link with title and URL")
+model RelatedLink {
+  @doc("Human-readable title describing the linked resource")
+  title: string;
+
+  @doc("URL to the external documentation, reference, or resource")
+  url: string;
+}
+
+/**
  * Represents a technology decision documented in research.
  *
  * TechDecision captures structured information about technology choices
