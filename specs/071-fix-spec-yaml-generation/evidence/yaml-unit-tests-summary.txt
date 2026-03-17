@@ -1,0 +1,200 @@
+
+> @shepai/cli@1.129.2 test:unit /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fix-spec-yaml-generation
+> vitest run tests/unit node-helpers-yaml
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fix-spec-yaml-generation[39m
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 389[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/executors/gemini-cli-executor.test.ts [2m([22m[2m43 tests[22m[2m)[22m[33m 359[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-registry.service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 461[2mms[22m[39m
+       [33m[2m✓[22m[39m should pre-register the analyze-repository agent [33m 455[2mms[22m[39m
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT spawn a new process when daemon is already alive
+[22m[39m
+ℹ Shep is already running at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT write daemon.json when daemon is already alive
+[22m[39m
+ℹ Shep is already running at http://localhost:4050
+
+
+[2026-03-17T18:34:07.145Z] Spawning: agent --yolo -p Implement feature --output-format stream-json
+[2026-03-17T18:34:07.148Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:07.148Z] Subprocess PID: 12345
+[2026-03-17T18:34:07.181Z] Spawning: agent --yolo -p Bad prompt --output-format stream-json
+[2026-03-17T18:34:07.181Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:07.181Z] Subprocess PID: 12345
+[2026-03-17T18:34:07.193Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:07.193Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:07.193Z] Subprocess PID: 12345
+[2026-03-17T18:34:07.215Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:07.215Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:07.215Z] Subprocess PID: 12345
+[2026-03-17T18:34:07.238Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:07.238Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:07.238Z] Subprocess PID: 12345
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts [2m([22m[2m31 tests[22m[2m)[22m[32m 119[2mms[22m[39m
+[2026-03-17T18:34:07.259Z] [analyze] Starting...
+[2026-03-17T18:34:07.261Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:07.261Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:07.261Z] Subprocess PID: 12345
+[2026-03-17T18:34:07.264Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.264Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:34:07.264Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.273Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.273Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:34:07.277Z] [requirements] Starting...
+[2026-03-17T18:34:07.278Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.278Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:34:07.278Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.279Z] [requirements] Interrupting for human approval
+[2026-03-17T18:34:07.285Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:07.285Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:07.285Z] Subprocess PID: 12345
+[2026-03-17T18:34:07.288Z] [analyze] Starting...
+[2026-03-17T18:34:07.288Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.288Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:34:07.288Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.290Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.291Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:34:07.295Z] [requirements] Starting...
+[2026-03-17T18:34:07.296Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.296Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:34:07.296Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.301Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.301Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:34:07.304Z] [research] Starting...
+[2026-03-17T18:34:07.304Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.304Z] [research] Prompt length: 5260 chars
+[2026-03-17T18:34:07.304Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.309Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:34:07.309Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:34:07.311Z] [plan] Starting...
+[2026-03-17T18:34:07.311Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.311Z] [plan] Prompt length: 6092 chars
+[2026-03-17T18:34:07.311Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.312Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:07.312Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:07.312Z] Subprocess PID: 12345
+[2026-03-17T18:34:07.313Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-17T18:34:07.314Z] [validate:plan+tasks] Validation passed
+[2026-03-17T18:34:07.320Z] [implement] Starting implementation phase orchestration
+[2026-03-17T18:34:07.321Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-17T18:34:07.321Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-17T18:34:07.322Z] [implement] Phase complete (20 chars)
+[2026-03-17T18:34:07.322Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-17T18:34:07.323Z] [implement] Collecting evidence (sub-agent)
+[2026-03-17T18:34:07.323Z] [implement] Parsed 0 evidence record(s)
+[2026-03-17T18:34:07.325Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:07.325Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:07.325Z] Subprocess PID: 12345
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/tool-installer/tool-installer.service.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 187[2mms[22m[39m
+[2026-03-17T18:34:07.341Z] [analyze] Starting...
+[2026-03-17T18:34:07.341Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.341Z] [analyze] Prompt length: 3915 chars
+[2026-03-17T18:34:07.341Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.343Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.343Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:34:07.344Z] [requirements] Starting...
+[2026-03-17T18:34:07.344Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.344Z] [requirements] Prompt length: 5273 chars
+[2026-03-17T18:34:07.344Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.346Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.346Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:34:07.347Z] [research] Starting...
+[2026-03-17T18:34:07.347Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.347Z] [research] Prompt length: 5299 chars
+[2026-03-17T18:34:07.347Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.349Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:34:07.349Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:34:07.350Z] [plan] Starting...
+[2026-03-17T18:34:07.350Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.350Z] [plan] Prompt length: 6170 chars
+[2026-03-17T18:34:07.350Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.352Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-17T18:34:07.352Z] [validate:plan+tasks] Validation passed
+[2026-03-17T18:34:07.353Z] [implement] Starting implementation phase orchestration
+[2026-03-17T18:34:07.353Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-17T18:34:07.354Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-17T18:34:07.354Z] [implement] Phase complete (20 chars)
+[2026-03-17T18:34:07.354Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-17T18:34:07.354Z] [implement] Collecting evidence (sub-agent)
+[2026-03-17T18:34:07.402Z] [implement] Parsed 0 evidence record(s)
+[2026-03-17T18:34:07.451Z] [analyze] Starting...
+[2026-03-17T18:34:07.452Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.452Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:34:07.490Z] [analyze] Starting...
+[2026-03-17T18:34:07.492Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.492Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:34:07.492Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.452Z] [analyze] ERROR: Executor failed (after 0.0s)
+[2026-03-17T18:34:07.505Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.505Z] [validate:spec.yaml] Validation passed
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/executors/cursor-executor.test.ts [2m([22m[2m39 tests[22m[2m)[22m[33m 331[2mms[22m[39m
+[2026-03-17T18:34:07.529Z] [requirements] Starting...
+[2026-03-17T18:34:07.530Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.530Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:34:07.530Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.537Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.538Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:34:07.540Z] [research] Starting...
+[2026-03-17T18:34:07.540Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.540Z] [research] Prompt length: 5260 chars
+[2026-03-17T18:34:07.540Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.542Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:34:07.542Z] [validate:research.yaml] Validation passed
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/cli/commands/upgrade.command.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 1026[2mms[22m[39m
+[2026-03-17T18:34:07.547Z] [plan] Starting...
+[2026-03-17T18:34:07.548Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.548Z] [plan] Prompt length: 6092 chars
+[2026-03-17T18:34:07.548Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.550Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-17T18:34:07.551Z] [validate:plan+tasks] Validation passed
+[2026-03-17T18:34:07.556Z] [implement] Starting implementation phase orchestration
+[2026-03-17T18:34:07.556Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-17T18:34:07.556Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-17T18:34:07.557Z] [implement] Phase complete (20 chars)
+[2026-03-17T18:34:07.561Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-17T18:34:07.561Z] [implement] Collecting evidence (sub-agent)
+[2026-03-17T18:34:07.561Z] [implement] Parsed 0 evidence record(s)
+[2026-03-17T18:34:07.571Z] [analyze] Starting...
+[2026-03-17T18:34:07.571Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.571Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:34:07.571Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.587Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.587Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:34:07.588Z] [requirements] Starting...
+[2026-03-17T18:34:07.589Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.589Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:34:07.589Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.589Z] [requirements] Interrupting for human approval
+[2026-03-17T18:34:07.593Z] [analyze] Starting...
+[2026-03-17T18:34:07.593Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.593Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:34:07.593Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.595Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.595Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:34:07.603Z] [requirements] Starting...
+[2026-03-17T18:34:07.603Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.603Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:34:07.603Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.603Z] [requirements] Interrupting for human approval
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mcalls findAvailablePort with DEFAULT_PORT when no port option given
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+[2026-03-17T18:34:07.745Z] [requirements] Starting...
+[2026-03-17T18:34:07.745Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.745Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:34:07.745Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:34:07.745Z] [requirements] Interrupting for human approval
+[2026-03-17T18:34:07.748Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:34:07.748Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:34:07.750Z] [research] Starting...
+[2026-03-17T18:34:07.750Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:34:07.750Z] [research] Prompt length: 5260 chars
+[2026-03-17T18:34:07.750Z] [research] Complete (20 chars, 0.0s)

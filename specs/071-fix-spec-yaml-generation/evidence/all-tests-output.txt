@@ -1,0 +1,500 @@
+
+> @shepai/cli@1.129.2 test /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fix-spec-yaml-generation
+> vitest run tests/unit tests/integration --passWithNoTests && pnpm run test:e2e --reporter=verbose
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fix-spec-yaml-generation[39m
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT spawn a new process when daemon is already alive
+[22m[39m
+ℹ Shep is already running at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT write daemon.json when daemon is already alive
+[22m[39m
+ℹ Shep is already running at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mcalls findAvailablePort with DEFAULT_PORT when no port option given
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mcalls findAvailablePort with the provided port override
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:8080
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mspawns the daemon process using process.execPath and _serve args
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mpropagates process.execArgv to the child
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/persistence/sqlite/migrations.test.ts [2m([22m[2m63 tests[22m[2m)[22m[33m 2941[2mms[22m[39m
+       [33m[2m✓[22m[39m should create settings table [33m 399[2mms[22m[39m
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mspawns with detached: true
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mspawns with windowsHide: true to suppress console window on Windows
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mspawns with stdout and stderr redirected to log file fd
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mopens the log file for appending
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mcalls child.unref() after the settle check
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/worktree-git-init.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 5996[2mms[22m[39m
+     [33m[2m✓[22m[39m should create a non-existent directory recursively and initialize git [33m 440[2mms[22m[39m
+     [33m[2m✓[22m[39m should initialize a non-git directory with git init and initial commit [33m 701[2mms[22m[39m
+     [33m[2m✓[22m[39m should create initial commit for existing git repo with unborn branch (no commits) [33m 682[2mms[22m[39m
+     [33m[2m✓[22m[39m should allow worktree creation after fixing unborn branch repo [33m 638[2mms[22m[39m
+     [33m[2m✓[22m[39m should not re-initialize an existing git repository [33m 1880[2mms[22m[39m
+     [33m[2m✓[22m[39m should create an initial commit with the correct message [33m 358[2mms[22m[39m
+     [33m[2m✓[22m[39m should allow worktree creation after auto-initialization [33m 640[2mms[22m[39m
+     [33m[2m✓[22m[39m should include existing files in worktree when initializing a non-git directory (#353) [33m 656[2mms[22m[39m
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mwrites daemon.json with pid, port, and startedAt
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/pr-merge.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 5657[2mms[22m[39m
+     [33m[2m✓[22m[39m push=true, openPr=true, allowMerge=true → BUG: verifyMerge skipped after gh pr merge [33m 5653[2mms[22m[39m
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mwrites a valid ISO 8601 timestamp to startedAt
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mopens the browser with the correct URL
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mfresh-start path (no existing daemon)[2m > [22m[2mopens the browser with the custom port URL when --port is given
+[22m[39m
+Shep Web UI
+
+✓ Daemon spawned at http://localhost:7070
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mearly crash detection[2m > [22m[2mdoes NOT write daemon.json when child exits during settle window
+[22m[39m
+ℹ Check logs: /tmp/test-shep/daemon.log
+
+
+[90mstderr[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mearly crash detection[2m > [22m[2mdoes NOT write daemon.json when child exits during settle window
+[22m[39m✗ Daemon failed to start (exit code 1).
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mearly crash detection[2m > [22m[2mcleans up stale daemon.json when child crashes at startup
+[22m[39m
+ℹ Check logs: /tmp/test-shep/daemon.log
+
+
+[90mstderr[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mearly crash detection[2m > [22m[2mcleans up stale daemon.json when child crashes at startup
+[22m[39m✗ Daemon failed to start (exit code 1).
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mearly crash detection[2m > [22m[2mdoes NOT open the browser when child crashes at startup
+[22m[39m
+ℹ Check logs: /tmp/test-shep/daemon.log
+
+
+[90mstderr[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2mearly crash detection[2m > [22m[2mdoes NOT open the browser when child crashes at startup
+[22m[39m✗ Daemon failed to start (exit code 1).
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/daemon/start-daemon.test.ts [2m([22m[2m18 tests[22m[2m)[22m[33m 6569[2mms[22m[39m
+       [33m[2m✓[22m[39m calls findAvailablePort with DEFAULT_PORT when no port option given [33m 514[2mms[22m[39m
+       [33m[2m✓[22m[39m calls findAvailablePort with the provided port override [33m 505[2mms[22m[39m
+       [33m[2m✓[22m[39m spawns the daemon process using process.execPath and _serve args [33m 503[2mms[22m[39m
+       [33m[2m✓[22m[39m propagates process.execArgv to the child [33m 505[2mms[22m[39m
+       [33m[2m✓[22m[39m spawns with detached: true [33m 506[2mms[22m[39m
+       [33m[2m✓[22m[39m spawns with windowsHide: true to suppress console window on Windows [33m 504[2mms[22m[39m
+       [33m[2m✓[22m[39m spawns with stdout and stderr redirected to log file fd [33m 504[2mms[22m[39m
+       [33m[2m✓[22m[39m opens the log file for appending [33m 503[2mms[22m[39m
+       [33m[2m✓[22m[39m calls child.unref() after the settle check [33m 502[2mms[22m[39m
+       [33m[2m✓[22m[39m writes daemon.json with pid, port, and startedAt [33m 505[2mms[22m[39m
+       [33m[2m✓[22m[39m writes a valid ISO 8601 timestamp to startedAt [33m 505[2mms[22m[39m
+       [33m[2m✓[22m[39m opens the browser with the correct URL [33m 502[2mms[22m[39m
+       [33m[2m✓[22m[39m opens the browser with the custom port URL when --port is given [33m 503[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/push-merge.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 7506[2mms[22m[39m
+     [33m[2m✓[22m[39m push-no-pr-merge: feature branch should be merged into main after push+merge [33m 7498[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/di/container-idempotency.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1529[2mms[22m[39m
+     [33m[2m✓[22m[39m isContainerInitialized() returns false before init [33m 1490[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/di/container-session-registrations.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 2224[2mms[22m[39m
+     [33m[2m✓[22m[39m resolves ListAgentSessionsUseCase after initialization [33m 2140[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/smoke.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 8623[2mms[22m[39m
+       [33m[2m✓[22m[39m should create a bare repo and clone with main + feature branch [33m 3873[2mms[22m[39m
+       [33m[2m✓[22m[39m createLocalOnlyHarness: should create a local repo with no remote [33m 4568[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/di/container-reject-token.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 1087[2mms[22m[39m
+     [33m[2m✓[22m[39m resolves RejectAgentRunUseCase via string token after initialization [33m 1086[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/skip-merge.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 5501[2mms[22m[39m
+     [33m[2m✓[22m[39m undefined-gates-silent-skip: should skip merge silently when approvalGates is undefined [33m 5497[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/cli/commands/upgrade.command.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 1044[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/gate-tests.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 9575[2mms[22m[39m
+     [33m[2m✓[22m[39m commit-only-with-gate: should interrupt at merge gate when allowMerge=false [33m 4550[2mms[22m[39m
+     [33m[2m✓[22m[39m push-pr-with-gate: should interrupt at merge gate when allowMerge=false (PR path) [33m 5017[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts [2m([22m[2m20 tests[22m[2m)[22m[33m 1262[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/repositories/agent-run.repository.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 2020[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/repositories/sqlite-feature.repository.test.ts [2m([22m[2m29 tests[22m[2m)[22m[33m 2105[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts [2m([22m[2m42 tests[22m[2m)[22m[33m 3030[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/merge-flow.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 1113[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/repositories/feature-parent.repository.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 1412[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/reject-feedback-propagation.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1146[2mms[22m[39m
+       [33m[2m✓[22m[39m should store phase="requirements" and propagate feedback through 10 PRD iterations [33m 380[2mms[22m[39m
+       [33m[2m✓[22m[39m should handle 30 total rejections across all 3 phases with correct phase isolation [33m 427[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/repositories/sqlite-phase-timing.repository.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 1476[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/application/use-cases/settings/workflow-command-flow.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 1207[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/application/use-cases/settings/onboarding-to-feature-flow.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 1484[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/resume-feedback-propagation.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 893[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/agent-infrastructure.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 1156[2mms[22m[39m
+       [33m[2m✓[22m[39m should have analyze-repository agent with graph factory [33m 1097[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-registry.service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 862[2mms[22m[39m
+       [33m[2m✓[22m[39m should pre-register the analyze-repository agent [33m 851[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/local-merge.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 14017[2mms[22m[39m
+     [33m[2m✓[22m[39m local-merge-no-push: feature branch should be merged into main after node completes [33m 6164[2mms[22m[39m
+     [33m[2m✓[22m[39m no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden) [33m 4296[2mms[22m[39m
+     [33m[2m✓[22m[39m no-remote-local-merge: should merge locally without any remote [33m 3546[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/merge-flow.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 1003[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/resume-after-error-merge.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 799[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 459[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/application/use-cases/features/start-feature.use-case.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 1077[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/executors/gemini-cli-executor.test.ts [2m([22m[2m43 tests[22m[2m)[22m[33m 689[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/reject-flow.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 826[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts [2m([22m[2m31 tests[22m[2m)[22m[33m 546[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 971[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/spec-yaml-backward-compatibility.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 287[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/resume-after-error.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 834[2mms[22m[39m
+     [33m[2m✓[22m[39m should resume from failed implement — not restart from analyze [33m 422[2mms[22m[39m
+[2026-03-17T18:29:55.056Z] [analyze] Starting...
+[2026-03-17T18:29:55.060Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.060Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:29:55.060Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.070Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.071Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.075Z] [requirements] Starting...
+[2026-03-17T18:29:55.076Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.076Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:29:55.076Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.076Z] [requirements] Interrupting for human approval
+[2026-03-17T18:29:55.085Z] [analyze] Starting...
+[2026-03-17T18:29:55.085Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.086Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:29:55.086Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.087Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.088Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.090Z] [requirements] Starting...
+[2026-03-17T18:29:55.090Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.090Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:29:55.090Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.095Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.096Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.098Z] [research] Starting...
+[2026-03-17T18:29:55.098Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.098Z] [research] Prompt length: 5260 chars
+[2026-03-17T18:29:55.098Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.099Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:29:55.100Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:29:55.101Z] [plan] Starting...
+[2026-03-17T18:29:55.101Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.101Z] [plan] Prompt length: 6092 chars
+[2026-03-17T18:29:55.101Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.103Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-17T18:29:55.103Z] [validate:plan+tasks] Validation passed
+[2026-03-17T18:29:55.117Z] [implement] Starting implementation phase orchestration
+[2026-03-17T18:29:55.117Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-17T18:29:55.118Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-17T18:29:55.118Z] [implement] Phase complete (20 chars)
+[2026-03-17T18:29:55.118Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-17T18:29:55.118Z] [implement] Collecting evidence (sub-agent)
+[2026-03-17T18:29:55.119Z] [implement] Parsed 0 evidence record(s)
+[2026-03-17T18:29:55.136Z] [analyze] Starting...
+[2026-03-17T18:29:55.136Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.136Z] [analyze] Prompt length: 3915 chars
+[2026-03-17T18:29:55.136Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.138Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.138Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.141Z] [requirements] Starting...
+[2026-03-17T18:29:55.141Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.141Z] [requirements] Prompt length: 5273 chars
+[2026-03-17T18:29:55.141Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.144Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.144Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.147Z] [research] Starting...
+[2026-03-17T18:29:55.147Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.147Z] [research] Prompt length: 5299 chars
+[2026-03-17T18:29:55.147Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.149Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:29:55.149Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:29:55.150Z] [plan] Starting...
+[2026-03-17T18:29:55.151Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.151Z] [plan] Prompt length: 6170 chars
+[2026-03-17T18:29:55.151Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.152Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-17T18:29:55.153Z] [validate:plan+tasks] Validation passed
+[2026-03-17T18:29:55.154Z] [implement] Starting implementation phase orchestration
+[2026-03-17T18:29:55.154Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-17T18:29:55.154Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-17T18:29:55.154Z] [implement] Phase complete (20 chars)
+[2026-03-17T18:29:55.154Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-17T18:29:55.155Z] [implement] Collecting evidence (sub-agent)
+[2026-03-17T18:29:55.155Z] [implement] Parsed 0 evidence record(s)
+[2026-03-17T18:29:55.158Z] [analyze] Starting...
+[2026-03-17T18:29:55.158Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.158Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:29:55.158Z] [analyze] ERROR: Executor failed (after 0.0s)
+[2026-03-17T18:29:55.184Z] [analyze] Starting...
+[2026-03-17T18:29:55.184Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.184Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:29:55.184Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.191Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.191Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.193Z] [requirements] Starting...
+[2026-03-17T18:29:55.193Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.193Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:29:55.193Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.197Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.197Z] [validate:spec.yaml] Validation passed
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/application/use-cases/agents/configure-agent-dev.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 363[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/repositories/sqlite-feature-repository.find-by-branch.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 459[2mms[22m[39m
+[2026-03-17T18:29:55.201Z] [research] Starting...
+[2026-03-17T18:29:55.201Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.201Z] [research] Prompt length: 5260 chars
+[2026-03-17T18:29:55.201Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.203Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:29:55.203Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:29:55.208Z] [plan] Starting...
+[2026-03-17T18:29:55.208Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.208Z] [plan] Prompt length: 6092 chars
+[2026-03-17T18:29:55.208Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.210Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-17T18:29:55.210Z] [validate:plan+tasks] Validation passed
+[2026-03-17T18:29:55.212Z] [implement] Starting implementation phase orchestration
+[2026-03-17T18:29:55.212Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-17T18:29:55.213Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-17T18:29:55.213Z] [implement] Phase complete (20 chars)
+[2026-03-17T18:29:55.213Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-17T18:29:55.213Z] [implement] Collecting evidence (sub-agent)
+[2026-03-17T18:29:55.213Z] [implement] Parsed 0 evidence record(s)
+[2026-03-17T18:29:55.221Z] [analyze] Starting...
+[2026-03-17T18:29:55.221Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.221Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:29:55.221Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.280Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.281Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.282Z] [requirements] Starting...
+[2026-03-17T18:29:55.282Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.282Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:29:55.282Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.283Z] [requirements] Interrupting for human approval
+[2026-03-17T18:29:55.287Z] [analyze] Starting...
+[2026-03-17T18:29:55.287Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.287Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:29:55.287Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.290Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.290Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.291Z] [requirements] Starting...
+[2026-03-17T18:29:55.291Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.291Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:29:55.291Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.291Z] [requirements] Interrupting for human approval
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/tool-installer.service.test.ts [2m([22m[2m32 tests[22m[2m)[22m[32m 280[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/application/use-cases/settings/onboarding-flow.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 290[2mms[22m[39m
+[2026-03-17T18:29:55.303Z] [requirements] Starting...
+[2026-03-17T18:29:55.303Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.303Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:29:55.303Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.304Z] [requirements] Interrupting for human approval
+[2026-03-17T18:29:55.307Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.307Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.311Z] [research] Starting...
+[2026-03-17T18:29:55.311Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.311Z] [research] Prompt length: 5260 chars
+[2026-03-17T18:29:55.311Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.313Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:29:55.314Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:29:55.315Z] [plan] Starting...
+[2026-03-17T18:29:55.316Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.316Z] [plan] Prompt length: 6092 chars
+[2026-03-17T18:29:55.316Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.316Z] [plan] Interrupting for human approval
+[2026-03-17T18:29:55.320Z] [analyze] Starting...
+[2026-03-17T18:29:55.321Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.321Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:29:55.321Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.322Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.322Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.323Z] [requirements] Starting...
+[2026-03-17T18:29:55.323Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.323Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:29:55.323Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.324Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.324Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.325Z] [research] Starting...
+[2026-03-17T18:29:55.325Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.325Z] [research] Prompt length: 5260 chars
+[2026-03-17T18:29:55.325Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.326Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:29:55.326Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:29:55.327Z] [plan] Starting...
+[2026-03-17T18:29:55.327Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.327Z] [plan] Prompt length: 6092 chars
+[2026-03-17T18:29:55.327Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.328Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-17T18:29:55.328Z] [validate:plan+tasks] Validation passed
+[2026-03-17T18:29:55.329Z] [implement] Starting implementation phase orchestration
+[2026-03-17T18:29:55.329Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-17T18:29:55.329Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-17T18:29:55.329Z] [implement] Phase complete (20 chars)
+[2026-03-17T18:29:55.329Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-17T18:29:55.329Z] [implement] Collecting evidence (sub-agent)
+[2026-03-17T18:29:55.329Z] [implement] Parsed 0 evidence record(s)
+[2026-03-17T18:29:55.332Z] [analyze] Starting...
+[2026-03-17T18:29:55.332Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.332Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:29:55.332Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.336Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.336Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.338Z] [requirements] Starting...
+[2026-03-17T18:29:55.339Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.339Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:29:55.339Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.337Z] Spawning: agent --yolo -p Implement feature --output-format stream-json
+[2026-03-17T18:29:55.340Z] Spawn cwd: (inherited)
+[2026-03-17T18:29:55.340Z] Subprocess PID: 12345
+[2026-03-17T18:29:55.341Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.341Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.343Z] [research] Starting...
+[2026-03-17T18:29:55.343Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.343Z] [research] Prompt length: 5260 chars
+[2026-03-17T18:29:55.343Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.344Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:29:55.344Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:29:55.345Z] [plan] Starting...
+[2026-03-17T18:29:55.345Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.345Z] [plan] Prompt length: 6092 chars
+[2026-03-17T18:29:55.345Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.346Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-17T18:29:55.346Z] [validate:plan+tasks] Validation passed
+[2026-03-17T18:29:55.347Z] [implement] Starting implementation phase orchestration
+[2026-03-17T18:29:55.348Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-17T18:29:55.348Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-17T18:29:55.348Z] [implement] Phase complete (20 chars)
+[2026-03-17T18:29:55.348Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-17T18:29:55.348Z] [implement] Collecting evidence (sub-agent)
+[2026-03-17T18:29:55.348Z] [implement] Parsed 0 evidence record(s)
+[2026-03-17T18:29:55.352Z] [analyze] Starting...
+[2026-03-17T18:29:55.352Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.352Z] [analyze] Prompt length: 3876 chars
+[2026-03-17T18:29:55.352Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.352Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.353Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.353Z] [requirements] Starting...
+[2026-03-17T18:29:55.353Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.353Z] [requirements] Prompt length: 5234 chars
+[2026-03-17T18:29:55.353Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.354Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.354Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.378Z] [research] Starting...
+[2026-03-17T18:29:55.379Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.379Z] [research] Prompt length: 5260 chars
+[2026-03-17T18:29:55.379Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.381Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:29:55.381Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:29:55.384Z] [plan] Starting...
+[2026-03-17T18:29:55.384Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.384Z] [plan] Prompt length: 6092 chars
+[2026-03-17T18:29:55.384Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.384Z] [plan] Interrupting for human approval
+[2026-03-17T18:29:55.396Z] [analyze] Starting...
+[2026-03-17T18:29:55.396Z] [analyze] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.396Z] [analyze] Prompt length: 3900 chars
+[2026-03-17T18:29:55.396Z] [analyze] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.397Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.397Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.398Z] [requirements] Starting...
+[2026-03-17T18:29:55.398Z] [requirements] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.398Z] [requirements] Prompt length: 5258 chars
+[2026-03-17T18:29:55.398Z] [requirements] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.399Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-17T18:29:55.399Z] [validate:spec.yaml] Validation passed
+[2026-03-17T18:29:55.400Z] [research] Starting...
+[2026-03-17T18:29:55.400Z] [research] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.400Z] [research] Prompt length: 5284 chars
+[2026-03-17T18:29:55.400Z] [research] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.401Z] [validate:research.yaml] Validating research.yaml
+[2026-03-17T18:29:55.401Z] [validate:research.yaml] Validation passed
+[2026-03-17T18:29:55.401Z] [plan] Starting...
+[2026-03-17T18:29:55.402Z] [plan] Executing agent at cwd=/test/repo
+[2026-03-17T18:29:55.402Z] [plan] Prompt length: 6140 chars
+[2026-03-17T18:29:55.402Z] [plan] Complete (20 chars, 0.0s)
+[2026-03-17T18:29:55.409Z] [validate:plan+tasks] Validating plan.yaml and tasks.yaml
+[2026-03-17T18:29:55.409Z] [validate:plan+tasks] Validation passed
+[2026-03-17T18:29:55.416Z] [implement] Starting implementation phase orchestration
+[2026-03-17T18:29:55.416Z] [implement] Phase phase-1 "Test Phase" — 1 task(s), parallel: false
+[2026-03-17T18:29:55.416Z] [implement] Executing phase prompt — 2043 chars
+[2026-03-17T18:29:55.416Z] [implement] Phase complete (20 chars)
+[2026-03-17T18:29:55.423Z] [implement] All phases complete — 1/1 tasks (0.0s)
+[2026-03-17T18:29:55.424Z] [implement] Collecting evidence (sub-agent)
+[2026-03-17T18:29:55.425Z] [implement] Parsed 0 evidence record(s)
+[2026-03-17T18:29:55.435Z] Spawning: agent --yolo -p Bad prompt --output-format stream-json
+[2026-03-17T18:29:55.435Z] Spawn cwd: (inherited)
+[2026-03-17T18:29:55.435Z] Subprocess PID: 12345
+[2026-03-17T18:29:55.450Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:29:55.450Z] Spawn cwd: (inherited)
+[2026-03-17T18:29:55.450Z] Subprocess PID: 12345
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/langgraph/feature-agent-graph.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 455[2mms[22m[39m
+[2026-03-17T18:29:55.480Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:29:55.480Z] Spawn cwd: (inherited)
+[2026-03-17T18:29:55.480Z] Subprocess PID: 12345
+[2026-03-17T18:29:55.511Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:29:55.511Z] Spawn cwd: (inherited)
+[2026-03-17T18:29:55.511Z] Subprocess PID: 12345
+[2026-03-17T18:29:55.543Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:29:55.543Z] Spawn cwd: (inherited)
+[2026-03-17T18:29:55.543Z] Subprocess PID: 12345
+[2026-03-17T18:29:55.567Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:29:55.567Z] Spawn cwd: (inherited)
+[2026-03-17T18:29:55.567Z] Subprocess PID: 12345
+[2026-03-17T18:29:55.591Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:29:55.591Z] Spawn cwd: (inherited)
