@@ -1,3 +1,9 @@
+## [1.127.1](https://github.com/shep-ai/cli/compare/v1.127.0...v1.127.1) (2026-03-17)
+
+### Bug Fixes
+
+- **cli:** add windowsHide option to child process spawns on windows ([#407](https://github.com/shep-ai/cli/issues/407)) ([31c7194](https://github.com/shep-ai/cli/commit/31c7194c3820162e6f652f08983cfa70d34c6ebe))
+
 # [1.127.0](https://github.com/shep-ai/cli/compare/v1.126.0...v1.127.0) (2026-03-17)
 
 ### Features
