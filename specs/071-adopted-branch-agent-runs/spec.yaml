@@ -32,7 +32,7 @@ openQuestions:
           Adopted features begin in Pending state. User must explicitly run
           `shep feat start <id>` to trigger agent execution. Provides explicit
           control and prevents unwanted agent spawns on adoption.
-        selected: true
+        selected: false
       - option: Maintain (no agent execution)
         description: >-
           Adopted features are marked as completed (Maintain lifecycle). Agent
@@ -44,14 +44,14 @@ openQuestions:
           Lifecycle depends on PR status detection. Branches with open PRs get
           Review, others get Maintain. Mirrors current behavior but still
           creates AgentRun record for potential future execution.
-        selected: false
+        selected: true
     selectionRationale: >-
       Pending is recommended because it provides maximum flexibility. Users can
       adopt a branch and decide later whether to start agent execution. This
       matches the explicit control model of the `--pending` flag in
       CreateFeatureUseCase and avoids unintended agent spawns. The user
       experience is: adopt → review state → decide whether to start agent work.
-    answer: Pending (requires explicit start)
+    answer: Review (if has PR) or Maintain (if no PR)
   - question: What should the AgentRun.prompt field contain for adopted features?
     resolved: true
     options:
@@ -228,11 +228,11 @@ content: >
   - [ ] AgentRun record has correct initial state (status=pending, agentType
   from settings, threadId generated)
 
-  - [ ] Spec directory is initialized for adopted features without existing specs
-  (empty YAML files)
+  - [ ] Spec directory is initialized for adopted features without existing
+  specs (empty YAML files)
 
-  - [ ] Existing spec directory is preserved when adopting branches with existing
-  specs
+  - [ ] Existing spec directory is preserved when adopting branches with
+  existing specs
 
   - [ ] Feature.specPath is set correctly for both new and existing spec
   directories
@@ -369,8 +369,8 @@ content: >
   adoption. |
 
   | 5 | What should happen when adopting a branch that already has a spec
-  directory? | **Use existing spec directory** | Handles the case where spec work
-  has already been done on the branch. Preserves existing documentation and
+  directory? | **Use existing spec directory** | Handles the case where spec
+  work has already been done on the branch. Preserves existing documentation and
   avoids data loss. Adoption should be additive (adding tracking) not
   destructive. Spec initialization should be conditional. |
 

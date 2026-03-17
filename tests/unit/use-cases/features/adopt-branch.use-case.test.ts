@@ -5,6 +5,8 @@ import type { IFeatureRepository } from '@/application/ports/output/repositories
 import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
 import type { IWorktreeService } from '@/application/ports/output/services/worktree-service.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { ISpecInitializerService } from '@/application/ports/output/services/spec-initializer.interface.js';
 import { AdoptBranchUseCase } from '@/application/use-cases/features/adopt-branch.use-case.js';
 
 describe('AdoptBranchUseCase', () => {
@@ -12,6 +14,8 @@ describe('AdoptBranchUseCase', () => {
   let mockRepositoryRepo: IRepositoryRepository;
   let mockWorktreeService: IWorktreeService;
   let mockGitPrService: IGitPrService;
+  let mockAgentRunRepo: IAgentRunRepository;
+  let mockSpecInitializer: ISpecInitializerService;
   let useCase: AdoptBranchUseCase;
 
   const repoPath = '/home/user/my-project';
@@ -94,11 +98,30 @@ describe('AdoptBranchUseCase', () => {
       getFailureLogs: vi.fn().mockResolvedValue(''),
     };
 
+    mockAgentRunRepo = {
+      create: vi.fn().mockResolvedValue(undefined),
+      findById: vi.fn().mockResolvedValue(null),
+      findByThreadId: vi.fn().mockResolvedValue(null),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
+      findRunningByPid: vi.fn().mockResolvedValue([]),
+      list: vi.fn().mockResolvedValue([]),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockSpecInitializer = {
+      initialize: vi.fn().mockResolvedValue({
+        specDir: '/home/user/.shep/repos/hash/wt/fix-login-bug/specs/000-fix-login-bug',
+        featureNumber: '000',
+      }),
+    };
+
     useCase = new AdoptBranchUseCase(
       mockFeatureRepo,
       mockRepositoryRepo,
       mockWorktreeService,
-      mockGitPrService
+      mockGitPrService,
+      mockAgentRunRepo,
+      mockSpecInitializer
     );
   });
 
@@ -414,6 +437,22 @@ describe('AdoptBranchUseCase', () => {
       expect(result.feature.openPr).toBe(false);
       expect(result.feature.pr).toBeUndefined();
       expect(result.feature.lifecycle).toBe(SdlcLifecycle.Maintain);
+    });
+  });
+
+  describe('dependency injection', () => {
+    it('should accept IAgentRunRepository and ISpecInitializerService in constructor', () => {
+      // This test verifies the constructor signature accepts the new dependencies
+      expect(() => {
+        new AdoptBranchUseCase(
+          mockFeatureRepo,
+          mockRepositoryRepo,
+          mockWorktreeService,
+          mockGitPrService,
+          mockAgentRunRepo,
+          mockSpecInitializer
+        );
+      }).not.toThrow();
     });
   });
 });

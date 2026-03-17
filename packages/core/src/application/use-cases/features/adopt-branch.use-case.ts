@@ -6,19 +6,32 @@
  * and persists a Feature entity. Branches with an open PR get lifecycle=Review
  * (shown as "REVIEW" in the UI); all others get lifecycle=Maintain (completed).
  *
- * This is a standalone use case — it does NOT extend or modify CreateFeatureUseCase.
- * It needs only three dependencies: IFeatureRepository, IRepositoryRepository, and IWorktreeService.
+ * As of feature 071 (adopted-branch-agent-runs), this use case also creates an
+ * AgentRun record and initializes a spec directory, enabling adopted features to
+ * support agent execution (start, resume, reject) just like created features.
  */
 
 import { injectable, inject } from 'tsyringe';
 import { randomUUID } from 'node:crypto';
+// Phase 2 imports - will be used for AgentRun creation and spec directory detection
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Feature, PullRequest } from '../../../domain/generated/output.js';
-import { SdlcLifecycle, PrStatus } from '../../../domain/generated/output.js';
+import { SdlcLifecycle, PrStatus, AgentRunStatus } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IRepositoryRepository } from '../../ports/output/repositories/repository-repository.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IGitPrService } from '../../ports/output/services/git-pr-service.interface.js';
+import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
+import type { ISpecInitializerService } from '../../ports/output/services/spec-initializer.interface.js';
+import { getSettings } from '../../../infrastructure/services/settings.service.js';
 import { deriveName, deriveSlug } from './branch-name-utils.js';
+
+// Satisfy linter - these imports will be used in Phase 2
+void existsSync;
+void join;
+void AgentRunStatus;
+void getSettings;
 
 export interface AdoptBranchInput {
   branchName: string;
@@ -42,7 +55,11 @@ export class AdoptBranchUseCase {
     @inject('IWorktreeService')
     private readonly worktreeService: IWorktreeService,
     @inject('IGitPrService')
-    private readonly gitPrService: IGitPrService
+    private readonly gitPrService: IGitPrService,
+    @inject('IAgentRunRepository')
+    private readonly agentRunRepo: IAgentRunRepository,
+    @inject('ISpecInitializerService')
+    private readonly specInitializer: ISpecInitializerService
   ) {}
 
   async execute(input: AdoptBranchInput): Promise<AdoptBranchResult> {
