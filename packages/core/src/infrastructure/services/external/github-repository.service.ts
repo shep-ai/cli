@@ -78,12 +78,12 @@ export class GitHubRepositoryService implements IGitHubRepositoryService {
       'name,nameWithOwner,description,isPrivate,pushedAt',
       '--limit',
       String(limit),
-      '--sort',
-      'pushed',
     ];
 
     if (options?.search) {
-      args.push('--match', options.search);
+      // gh repo list does not have a --match flag; use jq to filter by name
+      const escaped = options.search.replace(/"/g, '\\"');
+      args.push('-q', `[.[] | select(.name | test("${escaped}"; "i"))]`);
     }
 
     try {

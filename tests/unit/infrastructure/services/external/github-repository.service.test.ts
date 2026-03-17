@@ -126,14 +126,14 @@ describe('GitHubRepositoryService', () => {
       expect(mockExecFile).toHaveBeenCalledWith('gh', expect.arrayContaining(['--limit', '30']));
     });
 
-    it('should pass --match flag when search is provided', async () => {
+    it('should pass -q jq filter when search is provided', async () => {
       mockExecFile.mockResolvedValue({ stdout: '[]', stderr: '' });
 
       await service.listUserRepositories({ search: 'my-proj' });
 
       expect(mockExecFile).toHaveBeenCalledWith(
         'gh',
-        expect.arrayContaining(['--match', 'my-proj'])
+        expect.arrayContaining(['-q', '[.[] | select(.name | test("my-proj"; "i"))]'])
       );
     });
 
