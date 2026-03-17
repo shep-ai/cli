@@ -1,0 +1,79 @@
+================================================================================
+DIRECTORY LIST API TESTS
+================================================================================
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-react-file-manager[39m
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22msuccessful listing[2m > [22mreturns 200 with directory entries for a valid absolute path[32m 28[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22msuccessful listing[2m > [22mdefaults to os.homedir() when path param is omitted[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22msuccessful listing[2m > [22mreturns empty entries array for an empty directory[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mdirectory-only filtering (FR-7)[2m > [22monly returns directories, not files[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mhidden entries filtering (FR-8)[2m > [22mexcludes hidden entries (starting with .) by default[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mhidden entries filtering (FR-8)[2m > [22mincludes hidden entries when showHidden=true[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpath validation and security[2m > [22mreturns 400 for relative paths (NFR-1)[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpath validation and security[2m > [22mreturns 400 for dot-relative paths[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpath validation and security[2m > [22mresolves path with ../ sequences via path.resolve() (NFR-2)[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpath validation and security[2m > [22mreturns 404 for non-existent paths[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpath validation and security[2m > [22mreturns 400 when path points to a file, not a directory[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpermission errors and edge cases (task-5)[2m > [22mskips entries where stat throws permission error[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpermission errors and edge cases (task-5)[2m > [22meach entry includes updatedAt as ISO 8601 string[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpermission errors and edge cases (task-5)[2m > [22mincludes symlinks that resolve to directories[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpermission errors and edge cases (task-5)[2m > [22mexcludes broken symlinks[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/directory-list.test.ts[2m > [22mGET /api/directory/list[2m > [22mpermission errors and edge cases (task-5)[2m > [22mreturns 500 for unexpected errors during readdir[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+[2m   Start at [22m 16:59:46
+[2m   Duration [22m 231ms[2m (transform 37ms, setup 114ms, import 22ms, tests 34ms, environment 0ms)[22m
+
+
+================================================================================
+FEATURE FLAGS TESTS
+================================================================================
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-react-file-manager[39m
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mreturns DB values when settings has featureFlags[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mfalls back to env vars when featureFlags is undefined[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mfalls back to env vars when settings not initialized[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mfalls back to env vars when hasSettings throws[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mdefaults envDeploy to true when no settings and no env vars[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mdebug flag returns false when not in DB (no env var fallback)[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mreturns reactFileManager from DB when settings exist[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mdefaults reactFileManager to false when no settings and no env var[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mreactFileManager falls back to NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER env var[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mgetFeatureFlags[2m > [22mreactFileManager env var fallback accepts "1" as truthy[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mfeatureFlags (backward-compatible const)[2m > [22mexposes skills via getter that calls getFeatureFlags[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mfeatureFlags (backward-compatible const)[2m > [22mexposes envDeploy via getter[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mfeatureFlags (backward-compatible const)[2m > [22mexposes debug via getter[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts[2m > [22mfeatureFlags (backward-compatible const)[2m > [22mexposes reactFileManager via getter[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m14 passed[39m[22m[90m (14)[39m
+[2m   Start at [22m 16:59:47
+[2m   Duration [22m 199ms[2m (transform 33ms, setup 87ms, import 23ms, tests 2ms, environment 0ms)[22m
+
+
+================================================================================
+ADD REPOSITORY BUTTON TESTS
+================================================================================
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-react-file-manager[39m
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mrendering[2m > [22mrenders the add repository button[32m 63[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mfeature flag OFF (native picker with fallback)[2m > [22mcalls native pickFolder when button is clicked[32m 17[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mfeature flag OFF (native picker with fallback)[2m > [22mcalls onSelect with path when native picker succeeds[32m 12[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mfeature flag OFF (native picker with fallback)[2m > [22mdoes not trigger fallback when native picker is cancelled (null)[32m 13[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mfeature flag OFF (native picker with fallback)[2m > [22mopens React file manager dialog as fallback when native picker throws[32m 11[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mfeature flag OFF (native picker with fallback)[2m > [22mcalls onSelect when folder is selected in fallback dialog[32m 19[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mfeature flag OFF (native picker with fallback)[2m > [22mcloses dialog without calling onSelect when fallback dialog is cancelled[32m 20[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mfeature flag ON (direct React picker)[2m > [22mopens React file manager dialog directly without calling native picker[32m 11[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mfeature flag ON (direct React picker)[2m > [22mcalls onSelect with path when folder is selected in direct dialog[32m 19[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mfeature flag ON (direct React picker)[2m > [22mdoes not call onSelect when dialog is cancelled[32m 18[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/add-repository-button/add-repository-button.test.tsx[2m > [22mAddRepositoryButton[2m > [22mdialog state management[2m > [22mresets showReactPicker when dialog closes[32m 19[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m11 passed[39m[22m[90m (11)[39m
+[2m   Start at [22m 16:59:49
+[2m   Duration [22m 905ms[2m (transform 61ms, setup 79ms, import 187ms, tests 223ms, environment 359ms)[22m
+
