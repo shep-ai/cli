@@ -1,0 +1,33 @@
+feature:
+  id: 070-windows-git-terminal-spawn
+  name: windows-git-terminal-spawn
+  number: 70
+  branch: feat/070-windows-git-terminal-spawn
+  lifecycle: research
+  createdAt: '2026-03-17T11:57:18Z'
+status:
+  phase: research
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-17T11:57:18Z'
+  lastUpdatedBy: feature-agent
+  completedPhases:
+    - fast-implement
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-17T11:57:18Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

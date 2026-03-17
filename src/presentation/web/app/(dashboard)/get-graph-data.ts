@@ -1,5 +1,6 @@
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
+import { IS_WINDOWS } from '@shepai/core/infrastructure/platform';
 import { resolve } from '@/lib/server-container';
 import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
 import type { ListRepositoriesUseCase } from '@shepai/core/application/use-cases/repositories/list-repositories.use-case';
@@ -24,7 +25,8 @@ export interface RepoGitInfo {
 
 async function gitCommand(cwd: string, args: string[]): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('git', args, { cwd });
+    const opts = IS_WINDOWS ? { cwd, windowsHide: true } : { cwd };
+    const { stdout } = await execFileAsync('git', args, opts);
     return stdout.trim();
   } catch {
     return null;
