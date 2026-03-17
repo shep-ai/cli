@@ -1,3 +1,10 @@
+## [1.129.4](https://github.com/shep-ai/cli/compare/v1.129.3...v1.129.4) (2026-03-17)
+
+
+### Bug Fixes
+
+* **web:** add phase timing token tracking and drawer artifact refresh ([#416](https://github.com/shep-ai/cli/issues/416)) ([9d42e7c](https://github.com/shep-ai/cli/commit/9d42e7c81047723721351294ffef766b471621ea))
+
 ## [1.129.3](https://github.com/shep-ai/cli/compare/v1.129.2...v1.129.3) (2026-03-17)
 
 
