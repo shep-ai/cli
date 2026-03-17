@@ -1,3 +1,11 @@
+## [1.129.2](https://github.com/shep-ai/cli/compare/v1.129.1...v1.129.2) (2026-03-17)
+
+
+### Bug Fixes
+
+* **tsp:** change relatedLinks from string[] to RelatedLink object array ([#411](https://github.com/shep-ai/cli/issues/411)) ([529040f](https://github.com/shep-ai/cli/commit/529040f6970f60d4a6f82f9cc8cfb06c85012089))
+* **web:** prevent ai recommended badge from wrapping to multiple lines ([#408](https://github.com/shep-ai/cli/issues/408)) ([79084e5](https://github.com/shep-ai/cli/commit/79084e596b781895ddc0ce563cfb8e80ec83ceb6))
+
 ## [1.129.1](https://github.com/shep-ai/cli/compare/v1.129.0...v1.129.1) (2026-03-17)
 
 
