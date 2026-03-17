@@ -127,6 +127,19 @@ Use this YAML structure:
 
     (how this fits into the existing codebase architecture)
 
+## YAML Output Rules
+
+**CRITICAL:** When writing YAML files, you MUST follow these rules to ensure valid YAML:
+
+1. **Wrap all string values in double quotes** — this prevents YAML parsing errors from special characters
+2. **Escape internal double quotes with backslash** — use \\" inside quoted strings
+3. **Use block scalars (\`|\`) for multi-line text** — this avoids escaping complexity
+
+**Example (incorrect → correct):**
+- ❌ \`rationale: it's the best approach\` → ✅ \`rationale: "it's the best approach"\` or \`rationale: |\\n  it's the best approach\`
+- ❌ \`rejected: doesn't scale\` → ✅ \`rejected: "doesn't scale"\`
+- ❌ \`description: use "strict" mode\` → ✅ \`description: "use \\"strict\\" mode"\`
+
 ## Constraints
 
 - Write ONLY to ${state.specDir}/research.yaml
