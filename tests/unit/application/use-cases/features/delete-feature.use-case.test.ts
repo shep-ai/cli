@@ -15,7 +15,7 @@ import type { IWorktreeService } from '@/application/ports/output/services/workt
 import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
-import { AgentRunStatus, AgentType, SdlcLifecycle } from '@/domain/generated/output.js';
+import { AgentRunStatus, AgentType, PrStatus, SdlcLifecycle } from '@/domain/generated/output.js';
 import type { Feature, AgentRun } from '@/domain/generated/output.js';
 
 function createMockFeature(overrides?: Partial<Feature>): Feature {
@@ -511,7 +511,8 @@ describe('DeleteFeatureUseCase', () => {
       await useCase.execute('feat-123-full-uuid', { cleanup: true });
 
       expect(mockWorktreeService.remove).toHaveBeenCalled();
-      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
+      // Single deleteBranch call with deleteRemote=true handles both local and remote
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledTimes(1);
       expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith(
         '/repo',
         'feat/test-feature',
@@ -562,6 +563,191 @@ describe('DeleteFeatureUseCase', () => {
       // Only local branch delete — no remote
       expect(mockGitPrService.deleteBranch).toHaveBeenCalledTimes(1);
       expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // closePr option
+  // -------------------------------------------------------------------------
+
+  describe('closePr option', () => {
+    it('should skip remote branch deletion when closePr is false', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true, closePr: false });
+
+      // Local branch should still be deleted
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
+      // Remote branch should NOT be deleted
+      expect(mockGitPrService.deleteBranch).not.toHaveBeenCalledWith(
+        '/repo',
+        'feat/test-feature',
+        true
+      );
+    });
+
+    it('should still delete local branch when closePr is false', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true, closePr: false });
+
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledTimes(1);
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith('/repo', 'feat/test-feature');
+    });
+
+    it('should delete remote branch when closePr is true', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true, closePr: true });
+
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith(
+        '/repo',
+        'feat/test-feature',
+        true
+      );
+    });
+
+    it('should delete remote branch when closePr is undefined (default)', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      expect(mockGitPrService.deleteBranch).toHaveBeenCalledWith(
+        '/repo',
+        'feat/test-feature',
+        true
+      );
+    });
+
+    it('should update pr.status to Closed after remote branch deletion when pr is Open', async () => {
+      const feature = createMockFeature({
+        pr: { number: 42, status: PrStatus.Open, url: 'https://github.com/test/repo/pull/42' },
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      expect(mockFeatureRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'feat-123-full-uuid',
+          pr: expect.objectContaining({ status: PrStatus.Closed }),
+        })
+      );
+    });
+
+    it('should not update pr.status when feature has no pr', async () => {
+      const feature = createMockFeature();
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      // update is called for lifecycle (markDeletingAndSoftDelete), but not for pr.status
+      const updateCalls = (mockFeatureRepo.update as ReturnType<typeof vi.fn>).mock.calls;
+      const prUpdateCall = updateCalls.find(
+        (call: unknown[]) => (call[0] as Feature)?.pr?.status === PrStatus.Closed
+      );
+      expect(prUpdateCall).toBeUndefined();
+    });
+
+    it('should not update pr.status when pr.status is Merged', async () => {
+      const feature = createMockFeature({
+        pr: { number: 42, status: PrStatus.Merged, url: 'https://github.com/test/repo/pull/42' },
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      const updateCalls = (mockFeatureRepo.update as ReturnType<typeof vi.fn>).mock.calls;
+      const prUpdateCall = updateCalls.find(
+        (call: unknown[]) => (call[0] as Feature)?.pr?.status === PrStatus.Closed
+      );
+      expect(prUpdateCall).toBeUndefined();
+    });
+
+    it('should not update pr.status when pr.status is already Closed', async () => {
+      const feature = createMockFeature({
+        pr: { number: 42, status: PrStatus.Closed, url: 'https://github.com/test/repo/pull/42' },
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      // update is called for lifecycle, but the pr.status should not get another Closed update
+      const updateCalls = (mockFeatureRepo.update as ReturnType<typeof vi.fn>).mock.calls;
+      const prUpdateCalls = updateCalls.filter(
+        (call: unknown[]) => (call[0] as Feature)?.pr?.status === PrStatus.Closed
+      );
+      // The only call with pr.status=Closed should be the lifecycle update (which carries the existing pr)
+      // There should be no additional pr.status update call
+      expect(prUpdateCalls.length).toBeLessThanOrEqual(1);
+    });
+
+    it('should not throw when pr.status update fails', async () => {
+      const feature = createMockFeature({
+        pr: { number: 42, status: PrStatus.Open, url: 'https://github.com/test/repo/pull/42' },
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+      // Make update fail on the pr.status update call (second update call)
+      let updateCallCount = 0;
+      (mockFeatureRepo.update as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+        updateCallCount++;
+        // The first update call is for markDeletingAndSoftDelete (lifecycle)
+        // The pr.status update will be a later call
+        if (updateCallCount > 1) {
+          throw new Error('Database write failed');
+        }
+      });
+
+      // Should not throw despite the update failure
+      await expect(useCase.execute('feat-123-full-uuid', { cleanup: true })).resolves.toBeDefined();
+    });
+
+    it('should preserve deletedAt when updating pr.status after remote branch deletion', async () => {
+      const feature = createMockFeature({
+        pr: { number: 42, status: PrStatus.Open, url: 'https://github.com/test/repo/pull/42' },
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true });
+
+      // The pr.status update call should preserve the deletedAt set by softDelete
+      const updateCalls = (mockFeatureRepo.update as ReturnType<typeof vi.fn>).mock.calls;
+      const prUpdateCall = updateCalls.find(
+        (call: unknown[]) => (call[0] as Feature)?.pr?.status === PrStatus.Closed
+      );
+      expect(prUpdateCall).toBeDefined();
+      // deletedAt must be set (not undefined/null) to avoid un-soft-deleting the feature
+      expect((prUpdateCall![0] as Feature).deletedAt).toBeDefined();
+      expect((prUpdateCall![0] as Feature).deletedAt).toBeInstanceOf(Date);
+    });
+
+    it('should not update pr.status when closePr is false', async () => {
+      const feature = createMockFeature({
+        pr: { number: 42, status: PrStatus.Open, url: 'https://github.com/test/repo/pull/42' },
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockWorktreeService.remoteBranchExists = vi.fn().mockResolvedValue(true);
+
+      await useCase.execute('feat-123-full-uuid', { cleanup: true, closePr: false });
+
+      const updateCalls = (mockFeatureRepo.update as ReturnType<typeof vi.fn>).mock.calls;
+      const prUpdateCall = updateCalls.find(
+        (call: unknown[]) => (call[0] as Feature)?.pr?.status === PrStatus.Closed
+      );
+      expect(prUpdateCall).toBeUndefined();
     });
   });
 });

@@ -281,10 +281,15 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   // the canvas gets optimistic state, mutation guard, and node removal.
   useEffect(() => {
     const handler = (e: Event) => {
-      const { featureId, cleanup, cascadeDelete } = (
-        e as CustomEvent<{ featureId: string; cleanup?: boolean; cascadeDelete?: boolean }>
+      const { featureId, cleanup, cascadeDelete, closePr } = (
+        e as CustomEvent<{
+          featureId: string;
+          cleanup?: boolean;
+          cascadeDelete?: boolean;
+          closePr?: boolean;
+        }>
       ).detail;
-      handleDeleteFeature(featureId, cleanup, cascadeDelete);
+      handleDeleteFeature(featureId, cleanup, cascadeDelete, closePr);
     };
     window.addEventListener('shep:feature-delete-requested', handler);
     return () => window.removeEventListener('shep:feature-delete-requested', handler);

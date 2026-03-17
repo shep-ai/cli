@@ -177,7 +177,8 @@ export function useGraphState(
     () => ({
       onNodeAction: (nodeId) => callbacksRef.current.onNodeAction?.(nodeId),
       onNodeSettings: (nodeId) => callbacksRef.current.onNodeSettings?.(nodeId),
-      onFeatureDelete: (featureId) => callbacksRef.current.onFeatureDelete?.(featureId),
+      onFeatureDelete: (featureId, cleanup, cascadeDelete, closePr) =>
+        callbacksRef.current.onFeatureDelete?.(featureId, cleanup, cascadeDelete, closePr),
       onRepositoryAdd: (nodeId) => callbacksRef.current.onRepositoryAdd?.(nodeId),
       onRepositoryClick: (nodeId) => callbacksRef.current.onRepositoryClick?.(nodeId),
       onRepositoryDelete: (repositoryId) => callbacksRef.current.onRepositoryDelete?.(repositoryId),

@@ -15,7 +15,7 @@
 
 import { injectable, inject } from 'tsyringe';
 import type { Feature } from '../../../domain/generated/output.js';
-import { AgentRunStatus, SdlcLifecycle } from '../../../domain/generated/output.js';
+import { AgentRunStatus, PrStatus, SdlcLifecycle } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
@@ -25,6 +25,7 @@ import type { IGitPrService } from '../../ports/output/services/git-pr-service.i
 export interface DeleteFeatureOptions {
   cleanup?: boolean;
   cascadeDelete?: boolean;
+  closePr?: boolean;
 }
 
 @injectable()
@@ -99,6 +100,10 @@ export class DeleteFeatureUseCase {
     });
     // Soft-delete: sets deletedAt, hiding from normal queries
     await this.featureRepo.softDelete(feature.id);
+    // Sync the in-memory feature object so subsequent update() calls
+    // (e.g. PR status update in cleanup) don't overwrite deleted_at back to null.
+    feature.lifecycle = SdlcLifecycle.Deleting;
+    feature.deletedAt = new Date();
   }
 
   /** Recursively cleanup all children (depth-first). */
@@ -148,24 +153,49 @@ export class DeleteFeatureUseCase {
 
     const cleanup = options?.cleanup !== false;
     if (cleanup) {
-      // Delete local feature branch
-      try {
-        await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch);
-      } catch {
-        // Branch might not exist
-      }
+      const shouldDeleteRemote = options?.closePr !== false;
 
-      // Delete remote feature branch if it exists
-      try {
-        const remoteExists = await this.worktreeService.remoteBranchExists(
-          feature.repositoryPath,
-          feature.branch
-        );
-        if (remoteExists) {
-          await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch, true);
+      // Delete local branch, and also remote if closePr is enabled.
+      // deleteBranch(cwd, branch, true) deletes local then remote in one call,
+      // so we must NOT delete local separately when also deleting remote.
+      if (shouldDeleteRemote) {
+        let remoteDeleted = false;
+        try {
+          const remoteExists = await this.worktreeService.remoteBranchExists(
+            feature.repositoryPath,
+            feature.branch
+          );
+          if (remoteExists) {
+            // Delete local + remote in one call (deleteBranch does local first, then remote)
+            await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch, true);
+            remoteDeleted = true;
+          } else {
+            // No remote branch — just delete local
+            await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch);
+          }
+        } catch {
+          // Branch cleanup is best-effort
         }
-      } catch {
-        // Remote branch cleanup is best-effort
+
+        // Update pr.status to Closed after remote branch deletion (GitHub auto-closes the PR)
+        if (remoteDeleted && feature.pr?.status === PrStatus.Open) {
+          try {
+            await this.featureRepo.update({
+              ...feature,
+              pr: { ...feature.pr, status: PrStatus.Closed },
+              updatedAt: new Date(),
+            });
+          } catch {
+            // PR status update is best-effort
+          }
+        }
+      } else {
+        // closePr is false — only delete local branch, preserve remote (and the PR)
+        try {
+          await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch);
+        } catch {
+          // Branch might not exist
+        }
       }
     }
   }

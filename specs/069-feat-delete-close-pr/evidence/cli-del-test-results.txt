@@ -1,0 +1,28 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feat-delete-close-pr
+
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should create a command named "del" 1ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should pass cleanup=true when user confirms cleanup (default) 2ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should pass cleanup=false when user declines cleanup prompt 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should pass cleanup=true with --force (skips all prompts) 1ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should pass cleanup=false with --force --no-cleanup 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should pass cleanup=false with --no-cleanup (skips cleanup prompt) 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should pass closePr=false with --force --no-close-pr 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should pass closePr=false with --no-close-pr (interactive) 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should prompt to close PR when feature has open PR and cleanup is enabled 1ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should pass closePr=false when user declines close-PR prompt 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should not prompt to close PR when feature has no PR 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should not prompt to close PR when PR is already closed 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should not prompt to close PR when PR is merged 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should not prompt to close PR when cleanup is disabled 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should default closePr to true with --force when feature has open PR 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should not set closePr with --force when feature has no PR 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should include PR closure in summary when feature has open PR and closePr is true 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should not mention PR in summary when feature has no PR 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/del.command.test.ts > createDelCommand > should not mention PR closure when closePr is false 0ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Start at  10:08:39
+   Duration  222ms (transform 100ms, setup 0ms, import 134ms, tests 10ms, environment 0ms)
+

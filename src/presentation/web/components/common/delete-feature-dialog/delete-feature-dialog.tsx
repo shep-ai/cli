@@ -24,16 +24,27 @@ export function DeleteFeatureDialog({
   featureName,
   featureId,
   hasChildren,
+  hasOpenPr,
 }: DeleteFeatureDialogProps) {
   const [cleanup, setCleanup] = useState(true);
   const [cascadeDelete, setCascadeDelete] = useState(false);
+  const [closePr, setClosePr] = useState(true);
 
   useEffect(() => {
     if (open) {
       setCleanup(true);
       setCascadeDelete(false);
+      setClosePr(true);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (cleanup) {
+      setClosePr(true);
+    } else {
+      setClosePr(false);
+    }
+  }, [cleanup]);
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -72,6 +83,20 @@ export function DeleteFeatureDialog({
               </Label>
             </div>
           ) : null}
+          {hasOpenPr ? (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="close-pr-checkbox"
+                checked={closePr}
+                onCheckedChange={(checked) => setClosePr(checked === true)}
+                disabled={isDeleting || !cleanup}
+                aria-label="Close pull request"
+              />
+              <Label htmlFor="close-pr-checkbox" className="cursor-pointer text-sm">
+                Close pull request
+              </Label>
+            </div>
+          ) : null}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting} onClick={() => onOpenChange(false)}>
@@ -80,7 +105,7 @@ export function DeleteFeatureDialog({
           <AlertDialogAction
             variant="destructive"
             disabled={isDeleting}
-            onClick={() => onConfirm(cleanup, cascadeDelete)}
+            onClick={() => onConfirm(cleanup, cascadeDelete, hasOpenPr ? closePr : false)}
           >
             {isDeleting ? (
               <>

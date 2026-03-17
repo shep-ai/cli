@@ -1,0 +1,40 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feat-delete-close-pr
+
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > visibility > renders dialog content when open is true 124ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > visibility > does not render dialog content when open is false 2ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > content > renders feature name in description 21ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > content > renders feature id in description 18ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > content > renders cleanup checkbox checked by default 19ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > confirm action > calls onConfirm with cleanup=true and cascadeDelete=false by default 35ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > confirm action > calls onConfirm with cleanup=false when cleanup checkbox is unchecked 42ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > deleting state > disables delete button when isDeleting is true 17ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > deleting state > shows spinner when isDeleting is true 16ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > deleting state > disables cancel button when isDeleting is true 19ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > deleting state > disables checkbox when isDeleting is true 15ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > does not show cascade checkbox when hasChildren is false 17ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > does not show cascade checkbox when hasChildren is undefined 14ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > shows cascade checkbox when hasChildren is true 17ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > calls onConfirm with cascadeDelete=true when cascade checkbox is checked 37ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > calls onConfirm with cascadeDelete=false when cascade checkbox stays unchecked 20ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > resets cascade checkbox to unchecked when dialog reopens 45ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cascade delete checkbox > disables cascade checkbox when isDeleting is true 17ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > does not render close-PR checkbox when hasOpenPr is false 14ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > does not render close-PR checkbox when hasOpenPr is undefined 14ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > renders close-PR checkbox when hasOpenPr is true 15ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > close-PR checkbox should be checked by default 16ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > close-PR checkbox should uncheck and disable when cleanup is unchecked 32ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > close-PR checkbox should re-enable and re-check when cleanup is re-checked 48ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > should pass closePr=true to onConfirm when checkbox is checked 22ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > should pass closePr=false to onConfirm when checkbox is unchecked 35ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > resets close-PR checkbox to checked when dialog reopens 43ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > disables close-PR checkbox when isDeleting is true 13ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > close PR checkbox > user can independently uncheck closePr while cleanup remains checked 37ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cancel action > calls onOpenChange(false) when cancel is clicked 17ms
+ ✓  web  tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx > DeleteFeatureDialog > cleanup reset > resets cleanup checkbox to checked when dialog reopens 37ms
+
+ Test Files  1 passed (1)
+      Tests  31 passed (31)
+   Start at  10:08:36
+   Duration  1.85s (transform 88ms, setup 166ms, import 288ms, tests 839ms, environment 478ms)
+

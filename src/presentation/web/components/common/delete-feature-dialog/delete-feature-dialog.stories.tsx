@@ -42,3 +42,23 @@ export const DeletingWithChildren: Story = {
     hasChildren: true,
   },
 };
+
+export const WithOpenPr: Story = {
+  args: {
+    hasOpenPr: true,
+  },
+};
+
+export const WithOpenPrAndChildren: Story = {
+  args: {
+    hasOpenPr: true,
+    hasChildren: true,
+  },
+};
+
+export const DeletingWithOpenPr: Story = {
+  args: {
+    isDeleting: true,
+    hasOpenPr: true,
+  },
+};

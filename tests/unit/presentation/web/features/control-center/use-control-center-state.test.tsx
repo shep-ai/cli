@@ -789,7 +789,7 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      expect(mockDeleteFeature).toHaveBeenCalledWith('1', undefined, undefined);
+      expect(mockDeleteFeature).toHaveBeenCalledWith('1', undefined, undefined, undefined);
     });
 
     it('removes deleted node from canvas after successful delete', async () => {

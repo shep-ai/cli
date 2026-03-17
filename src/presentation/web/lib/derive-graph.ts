@@ -31,7 +31,12 @@ export interface GraphCallbacks {
   /** Called when the user opens settings/details on a feature node. */
   onNodeSettings?: (nodeId: string) => void;
   /** Called when the user deletes a feature. */
-  onFeatureDelete?: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
+  onFeatureDelete?: (
+    featureId: string,
+    cleanup?: boolean,
+    cascadeDelete?: boolean,
+    closePr?: boolean
+  ) => void;
   /** Called when the user clicks the "+" add-feature button on a repo node. */
   onRepositoryAdd?: (repoNodeId: string) => void;
   /** Called when the user clicks a repo node to navigate to its detail page. */

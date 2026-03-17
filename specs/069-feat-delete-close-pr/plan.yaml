@@ -1,0 +1,188 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feat-delete-close-pr
+summary: >
+  Implementation plan for adding a toggleable "Close pull request" option to the
+  delete-feature dialog and CLI. The approach threads a closePr boolean through
+  three layers: (1) use case options in the application layer, (2) server action
+  and custom event detail in the web presentation layer, and (3) CLI prompts and
+  flags. The dialog gets a new checkbox following the existing conditional
+  rendering pattern (like hasChildren -> cascade checkbox). Remote branch deletion
+  is conditionally skipped when closePr is false, and pr.status is updated to
+  Closed after successful remote branch deletion. No new dependencies, no
+  TypeSpec changes, no new interface methods.
+
+# Relationships
+relatedFeatures:
+  - '022 - delete feature node (web UI)'
+  - '036 - merge flow'
+  - '039 - github pr sync watcher'
+  - '056 - soft delete'
+
+technologies:
+  - TypeScript
+  - React (Next.js)
+  - Shadcn UI (AlertDialog, Checkbox, Label)
+  - Vitest
+  - Commander.js
+  - '@inquirer/prompts'
+  - tsyringe (DI)
+  - Storybook
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Application Layer - Use Case & Options'
+    description: >
+      Add closePr to DeleteFeatureOptions and implement conditional remote branch
+      deletion and pr.status update in cleanupSingleFeature. This is the core
+      business logic that all presentation layers depend on. Must come first so
+      the CLI and Web UI can be tested against the real use case behavior.
+    parallel: false
+
+  - id: phase-2
+    name: 'Web UI - Dialog & Data Flow'
+    description: >
+      Add hasOpenPr prop and closePr checkbox to the delete-feature-dialog, update
+      the onConfirm callback signature, and thread closePr through all call sites
+      (feature-node, feature-drawer, custom event, control-center state, server
+      action). Includes Storybook stories and dialog unit tests.
+    parallel: false
+
+  - id: phase-3
+    name: 'CLI - Prompt, Flag & Summary'
+    description: >
+      Add the --no-close-pr flag, interactive close-PR prompt, and summary output
+      to the CLI del command. Follows the existing pattern of sequential
+      @inquirer/prompts confirm() calls and Commander.js boolean negation flags.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - packages/core/src/application/use-cases/features/delete-feature.use-case.ts
+  - tests/unit/application/use-cases/features/delete-feature.use-case.test.ts
+  - src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog-config.ts
+  - src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.tsx
+  - src/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.stories.tsx
+  - tests/unit/presentation/web/components/common/delete-feature-dialog/delete-feature-dialog.test.tsx
+  - src/presentation/web/app/actions/delete-feature.ts
+  - src/presentation/web/components/common/control-center-drawer/feature-drawer-client.tsx
+  - src/presentation/web/components/common/feature-node/feature-node.tsx
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/cli/commands/feat/del.command.ts
+  - tests/unit/presentation/cli/commands/feat/del.command.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The feature threads a `closePr` boolean through the existing three-layer
+  architecture:
+
+  1. **Application layer** (`DeleteFeatureUseCase`): `DeleteFeatureOptions` gains
+     `closePr?: boolean`. In `cleanupSingleFeature`, when `closePr === false`,
+     remote branch deletion is skipped (preserving the PR on GitHub). When remote
+     branch deletion succeeds and the feature has `pr.status === Open`, a
+     best-effort `featureRepo.update()` sets `pr.status` to `Closed`.
+
+  2. **Web presentation layer**: The `delete-feature-dialog` gains a `hasOpenPr`
+     prop and a "Close pull request" checkbox. The `onConfirm` callback signature
+     extends to `(cleanup, cascadeDelete, closePr)`. The `closePr` value flows
+     through: dialog -> feature-node/feature-drawer -> CustomEvent detail ->
+     control-center state -> server action -> use case.
+
+  3. **CLI presentation layer**: `del.command.ts` adds a `--no-close-pr` flag
+     and an interactive prompt "Also close the pull request? (PR #N)" shown when
+     cleanup is enabled and the feature has an open PR.
+
+  All changes follow existing patterns exactly - no new abstractions, no new
+  dependencies, no new interface methods.
+
+  ## Key Design Decisions
+
+  ### 1. Rely on GitHub auto-close (not explicit PR close)
+
+  GitHub automatically closes a PR when its head branch is deleted. The existing
+  `cleanupSingleFeature` already calls `gitPrService.deleteBranch(repo, branch,
+  true)` for remote branch deletion. No new `closePr()` method is needed on
+  `IGitPrService`, satisfying NFR-3.
+
+  **Alternative rejected:** Adding explicit `closePr()` method - redundant,
+  duplicates platform behavior, requires new interface method.
+
+  ### 2. closePr === false skips only remote branch deletion
+
+  When the user wants to preserve the PR, only remote branch deletion is skipped.
+  Local branch deletion and worktree removal still proceed. This matches the user
+  mental model: "keep the PR open" = "keep the remote branch".
+
+  **Alternative rejected:** Skipping all branch deletion - too broad, user still
+  wants local cleanup.
+
+  ### 3. Checkbox coupled to cleanup via useEffect
+
+  The close-PR checkbox is auto-checked when cleanup is checked, auto-unchecked
+  and disabled when cleanup is unchecked. This follows the existing flat checkbox
+  layout (not nested). A `useEffect` watches the cleanup state and adjusts
+  closePr accordingly.
+
+  **Alternative rejected:** Fully independent checkbox - misleading when cleanup
+  is off (no remote deletion = no auto-close possible).
+
+  ### 4. onConfirm signature: positional third parameter
+
+  Adding `closePr` as a third boolean parameter to `onConfirm(cleanup,
+  cascadeDelete, closePr)` is a minimal change that follows the established
+  positional pattern.
+
+  **Alternative rejected:** Options object `{ cleanup, cascadeDelete, closePr }`
+  - breaking change to all existing call sites.
+
+  ### 5. Best-effort PR status update after remote branch deletion
+
+  After successfully deleting the remote branch, update `feature.pr.status` to
+  `PrStatus.Closed` via `featureRepo.update()`. Wrapped in try/catch matching
+  the existing best-effort pattern (worktree removal, branch deletion). Only
+  `Open` PRs are updated - `Merged` and `Closed` are skipped.
+
+  **Alternative rejected:** Letting the PR sync watcher handle it - unreliable
+  for soft-deleted features.
+
+  ## Implementation Strategy
+
+  Phase 1 (Application Layer) comes first because it establishes the core
+  business logic that both presentation layers depend on. The closePr option,
+  conditional remote branch deletion, and pr.status update are all in the use
+  case, which is the foundation.
+
+  Phase 2 (Web UI) comes second because the dialog changes are the primary user
+  interface for this feature. It threads closePr through the full web data flow:
+  dialog -> callbacks -> CustomEvent -> state hook -> server action.
+
+  Phase 3 (CLI) comes last because it follows the same patterns established in
+  Phase 1 and is independent of the web UI changes.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | PR status update blocks feature deletion | Wrapped in try/catch best-effort pattern, matching existing cleanup error handling |
+  | Checkbox state inconsistency on dialog reopen | useEffect resets closePr to true when dialog opens, matching existing cleanup/cascadeDelete reset pattern |
+  | closePr not threaded through cascade delete | closePr flows through options object which is already passed to cascadeCleanupChildren -> cleanupSingleFeature |
+  | CLI prompt shown when no PR exists | Guard with feature.pr?.status === 'Open' check before prompting |
+  | Breaking existing onConfirm call sites | All call sites explicitly updated to pass closePr; TypeScript compiler catches any missed sites |
+  | FeatureNodeData.onDelete signature change | Update onDelete type to include closePr parameter; TypeScript catches all callers |
+
+  ---
+
+  _Generated by planning phase - proceed to task breakdown_

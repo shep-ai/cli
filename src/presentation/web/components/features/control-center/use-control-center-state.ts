@@ -40,7 +40,12 @@ export interface ControlCenterState {
   handleConnect: (connection: Connection) => void;
   handleAddRepository: (path: string) => { wasEmpty: boolean; repoPath: string };
   handleLayout: (direction: LayoutDirection) => void;
-  handleDeleteFeature: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
+  handleDeleteFeature: (
+    featureId: string,
+    cleanup?: boolean,
+    cascadeDelete?: boolean,
+    closePr?: boolean
+  ) => void;
   handleRetryFeature: (featureId: string) => void;
   handleStartFeature: (featureId: string) => void;
   handleStopFeature: (featureId: string) => void;
@@ -391,7 +396,7 @@ export function useControlCenterState(
   );
 
   const handleDeleteFeature = useCallback(
-    (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => {
+    (featureId: string, cleanup?: boolean, cascadeDelete?: boolean, closePr?: boolean) => {
       const nodeId = `feat-${featureId}`;
       const shouldCascade = cascadeDelete === true;
 
@@ -428,7 +433,7 @@ export function useControlCenterState(
       deleteSound.play();
       router.push('/');
 
-      deleteFeature(featureId, cleanup, cascadeDelete)
+      deleteFeature(featureId, cleanup, cascadeDelete, closePr)
         .then((result) => {
           if (result.error) {
             // Rollback all to previous states

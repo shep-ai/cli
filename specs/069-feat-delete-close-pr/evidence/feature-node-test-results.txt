@@ -1,0 +1,64 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feat-delete-close-pr
+
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > renders lifecycle phase label using display labels 73ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > renders feature name 9ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > renders description 11ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > renders featureId in non-running state 8ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > running state > shows indeterminate progress bar instead of badge 8ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > running state > shows lifecycle-specific running verb 7ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > running state > shows implementing verb for implementation phase 6ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > action button fires onAction callback 11ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > agent badge fires onSettings callback 14ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > renders Handle components when showHandles is true 7ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > renders all lifecycle phases with display labels 37ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > renders without description when not provided 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > done state > shows badge instead of progress bar 6ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > done state > shows "Completed" when no runtime provided 6ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > done state > shows runtime when provided 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > done state > does not show progress percentage 7ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > blocked state > shows badge instead of progress bar 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > blocked state > shows "Blocked" when no blockedBy provided 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > blocked state > shows blockedBy feature when provided 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > action-required state > shows badge instead of progress bar 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > action-required state > shows "Review Merge Request" badge in review lifecycle 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > action-required state > applies emerald badge classes in review lifecycle 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > action-required state > shows "Review Product Requirements" badge in requirements lifecycle 7ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > action-required state > shows "Review Technical Planning" badge in implementation lifecycle 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > action-required state > shows default "User action required" badge in other lifecycles 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > error state > shows badge instead of progress bar 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > error state > shows default error message when none provided 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > error state > shows custom error message when provided 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > lifecycleDisplayLabels > maps maintain to COMPLETED 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > lifecycleDisplayLabels > maps deploy to DEPLOY & QA 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > lifecycleDisplayLabels > maps research to RESEARCH 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > lifecycleDisplayLabels > maps review to REVIEW 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > creating state > renders without throwing when state is creating 8ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > creating state > shows "Creating..." badge text 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > creating state > renders the feature name 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > creating state > shows indeterminate progress bar 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > creating state > does not render agent icon element 6ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > creating state > has aria-busy="true" on the card element 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > deployment indicator > does not render indicator when no deployment data 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > deployment indicator > renders booting indicator with "Deploying..." text 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > deployment indicator > applies blue styling for booting state 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > deployment indicator > renders ready indicator with "Live" text when no url 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > deployment indicator > renders ready indicator with url when provided 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > deployment indicator > applies green styling for ready state 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > selected highlight > applies ring classes when selected is true 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > selected highlight > does not apply ring classes when selected is false 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > delete button > renders delete button when onDelete and featureId are provided 10ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > delete button > does not render delete button when onDelete is absent 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > delete button > does not render delete button when featureId is empty 4ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > delete button > opens confirmation dialog when delete button is clicked 7ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > delete button > calls onDelete with featureId and cleanup after confirming in the dialog 9ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > delete button > does not call onDelete when cancel is clicked 7ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > delete button > delete button click stops propagation 7ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > delete button > has correct aria-label 5ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/feature-node.test.tsx > FeatureNode > delete button > displays delete confirmation dialog 7ms
+
+ Test Files  1 passed (1)
+      Tests  55 passed (55)
+   Start at  10:09:06
+   Duration  1.52s (transform 177ms, setup 165ms, import 314ms, tests 410ms, environment 522ms)
+
