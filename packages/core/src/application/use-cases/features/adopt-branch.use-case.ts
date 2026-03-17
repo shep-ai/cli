@@ -27,12 +27,6 @@ import type { ISpecInitializerService } from '../../ports/output/services/spec-i
 import { getSettings } from '../../../infrastructure/services/settings.service.js';
 import { deriveName, deriveSlug } from './branch-name-utils.js';
 
-// Satisfy linter - these imports will be used in Phase 2
-void existsSync;
-void join;
-void AgentRunStatus;
-void getSettings;
-
 export interface AdoptBranchInput {
   branchName: string;
   repositoryPath: string;
@@ -97,6 +91,15 @@ export class AdoptBranchUseCase {
     // --- Resolve or create repository entity ---
     const repository = await this.resolveRepository(repositoryPath);
 
+    // --- Calculate feature number for spec directory ---
+    // Use existing feature count as hint; SpecInitializerService.resolveNextNumber()
+    // will scan filesystem to determine actual next available number
+    const effectiveRepoPath = repository.path;
+    const existingFeatures = await this.featureRepo.list({
+      repositoryPath: effectiveRepoPath,
+    });
+    const featureNumber = existingFeatures.length;
+
     // --- Create or reuse worktree ---
     const worktreePath = this.worktreeService.getWorktreePath(repositoryPath, slug);
     const worktreeExists = await this.worktreeService.exists(repositoryPath, branchName);
@@ -104,12 +107,51 @@ export class AdoptBranchUseCase {
       await this.worktreeService.addExisting(repositoryPath, branchRef, worktreePath);
     }
 
+    // --- Initialize or detect spec directory ---
+    // Check if spec directory already exists (e.g., from previous /shep-kit:new-feature work)
+    // If exists, preserve it. If not, initialize with empty YAMLs.
+    const nnn = String(featureNumber).padStart(3, '0');
+    const expectedSpecDir = join(worktreePath, 'specs', `${nnn}-${slug}`);
+
+    let specDir: string;
+    if (existsSync(expectedSpecDir)) {
+      // Spec directory already exists — use it without modification
+      specDir = expectedSpecDir;
+    } else {
+      // No spec directory — initialize with empty YAMLs
+      const result = await this.specInitializer.initialize(
+        worktreePath,
+        slug,
+        featureNumber,
+        '(adopted from existing branch)'
+      );
+      specDir = result.specDir;
+    }
+
+    // --- Create AgentRun record (following CreateFeatureUseCase pattern lines 156-210) ---
+    const runId = randomUUID();
+    const settings = getSettings();
+    const now = new Date();
+
+    const agentRun = {
+      id: runId,
+      agentType: settings.agent.type,
+      agentName: 'feature-agent',
+      status: AgentRunStatus.pending,
+      prompt: '(adopted from existing branch)',
+      threadId: randomUUID(), // New UUID for LangGraph checkpoint isolation
+      featureId: '', // Will be set after Feature creation, but we need runId first
+      repositoryPath: effectiveRepoPath,
+      ...(settings.models?.default ? { modelId: settings.models.default } : {}),
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+
     // --- Detect open PR for this branch ---
     const prData = await this.detectPrForBranch(branchName, repositoryPath);
 
     // --- Derive feature metadata ---
     const name = deriveName(branchName);
-    const now = new Date();
 
     const hasOpenPr = prData !== undefined;
 
@@ -119,9 +161,10 @@ export class AdoptBranchUseCase {
     const lifecycle =
       prData?.status === PrStatus.Open ? SdlcLifecycle.Review : SdlcLifecycle.Maintain;
 
-    // --- Persist feature ---
+    // --- Construct Feature entity ---
+    const featureId = randomUUID();
     const feature: Feature = {
-      id: randomUUID(),
+      id: featureId,
       name,
       slug,
       description: '',
@@ -140,12 +183,20 @@ export class AdoptBranchUseCase {
         allowMerge: false,
       },
       worktreePath,
+      specPath: specDir,
+      agentRunId: runId,
       repositoryId: repository.id,
       pr: prData,
       createdAt: now,
       updatedAt: now,
     };
 
+    // --- Persist AgentRun before Feature (respects referential integrity) ---
+    // Set featureId now that we have it
+    agentRun.featureId = featureId;
+    await this.agentRunRepo.create(agentRun);
+
+    // --- Persist Feature (after AgentRun exists) ---
     await this.featureRepo.create(feature);
 
     return { feature };
