@@ -1,3 +1,10 @@
+## [1.127.3](https://github.com/shep-ai/cli/compare/v1.127.2...v1.127.3) (2026-03-17)
+
+
+### Performance Improvements
+
+* **dx:** speed up pnpm validate with caching and ignores ([448bdc1](https://github.com/shep-ai/cli/commit/448bdc19ea23a318e86e42e06d9843f641c9792f))
+
 ## [1.127.2](https://github.com/shep-ai/cli/compare/v1.127.1...v1.127.2) (2026-03-17)
 
 ### Bug Fixes
