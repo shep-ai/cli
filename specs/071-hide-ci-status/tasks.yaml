@@ -1,0 +1,507 @@
+name: hide-ci-status
+summary: >
+  14 tasks across 4 phases to implement hideCiStatus boolean preference in WorkflowConfig.
+  Phase 1 (Foundation): TypeSpec definition + migration. Phase 2 (Infrastructure): Mapper
+  updates + tests. Phase 3 (Presentation): UI components + server actions + tests. Phase 4
+  (Integration): Settings UI + end-to-end verification.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # ============================================================================
+  # PHASE 1: FOUNDATION & DOMAIN SETUP
+  # ============================================================================
+
+  - id: task-1-typespec-definition
+    phaseId: phase-1-foundation
+    title: 'Add hideCiStatus field to WorkflowConfig in TypeSpec'
+    description: >
+      Define the hideCiStatus?: boolean field in tsp/domain/entities/settings.tsp within
+      the WorkflowConfig model (line ~328, after commitEvidence). This establishes the
+      domain model as the single source of truth. The field is optional for backward
+      compatibility.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'hideCiStatus?: boolean field exists in WorkflowConfig model at line ~328'
+      - 'Field has JSDoc comment explaining: "Hide CI status badges from UI (default: false)"'
+      - 'Field is optional (? suffix) to preserve backward compatibility'
+      - 'TypeSpec file syntax is valid (no compilation errors when running pnpm tsp:compile)'
+    tdd:
+      red:
+        - 'N/A - TypeSpec definition is non-executable, validated by compilation step in next task'
+      green:
+        - 'Add hideCiStatus?: boolean to WorkflowConfig model after commitEvidence field'
+        - 'Add JSDoc comment above the field explaining purpose and default behavior'
+      refactor:
+        - 'Verify field placement is alphabetically consistent with other WorkflowConfig fields (if applicable)'
+        - 'Ensure consistent formatting (2-space indentation, semicolon terminator)'
+    estimatedEffort: '15min'
+
+  - id: task-2-typespec-compile
+    phaseId: phase-1-foundation
+    title: 'Compile TypeSpec to generate TypeScript types'
+    description: >
+      Run pnpm tsp:compile to generate updated Settings interface with hideCiStatus in
+      packages/core/src/domain/generated/output.ts. Verify the generated TypeScript
+      includes the new field and that no existing types are broken.
+    state: Todo
+    dependencies:
+      - task-1-typespec-definition
+    acceptanceCriteria:
+      - 'pnpm tsp:compile completes successfully with exit code 0'
+      - 'packages/core/src/domain/generated/output.ts includes hideCiStatus?: boolean in WorkflowConfig interface'
+      - 'git diff shows only the hideCiStatus addition (no unintended type changes)'
+      - 'pnpm build completes successfully (TypeScript compiler validates generated types)'
+    tdd:
+      red:
+        - 'N/A - Compilation validation, no test file to write'
+      green:
+        - 'Run pnpm tsp:compile and verify success'
+        - 'Inspect generated output.ts to confirm hideCiStatus field exists'
+      refactor:
+        - 'Review git diff on output.ts to ensure only expected changes'
+        - 'Commit generated output.ts with TypeSpec source file'
+    estimatedEffort: '10min'
+
+  - id: task-3-create-migration
+    phaseId: phase-1-foundation
+    title: 'Create migration 042 to add hide_ci_status column'
+    description: >
+      Create packages/core/src/infrastructure/persistence/sqlite/migrations/042-add-hide-ci-status.ts
+      following the pattern from migration 037 (ci_watch_enabled). Use idempotent column
+      check, ALTER TABLE with NOT NULL DEFAULT 0, and no-op down() function.
+    state: Todo
+    dependencies:
+      - task-2-typespec-compile
+    acceptanceCriteria:
+      - 'Migration file 042-add-hide-ci-status.ts exists in migrations/ directory'
+      - 'Migration exports up() and down() functions'
+      - 'up() function checks if hide_ci_status column already exists (idempotent)'
+      - 'up() function adds hide_ci_status INTEGER NOT NULL DEFAULT 0 if column does not exist'
+      - 'down() function is a no-op (void db;) following established pattern'
+      - 'Migration runs successfully on fresh database (no errors)'
+      - 'Migration is idempotent (running twice produces no errors)'
+    tdd:
+      red:
+        - 'N/A - Migration code is not unit-testable, validation occurs via integration test in next task'
+      green:
+        - 'Copy migration 037 structure as template'
+        - 'Replace column name with hide_ci_status'
+        - 'Keep DEFAULT 0 (show CI status by default)'
+        - 'Add comment explaining: /* Hide CI status badges from UI (0 = show, 1 = hide) */'
+      refactor:
+        - 'Verify idempotent check uses db.pragma("table_info(settings)") pattern from migration 037'
+        - 'Ensure consistent formatting with existing migrations'
+        - 'Test migration manually: delete .shep/shep.db, run pnpm dev:cli, verify column exists'
+    estimatedEffort: '20min'
+
+  - id: task-4-verify-migration
+    phaseId: phase-1-foundation
+    title: 'Verify migration 042 executes correctly'
+    description: >
+      Test migration 042 on both fresh database (new install) and existing database
+      (upgrade scenario). Verify hide_ci_status column is added with correct schema and
+      default value. Ensure existing settings rows are unaffected.
+    state: Todo
+    dependencies:
+      - task-3-create-migration
+    acceptanceCriteria:
+      - 'Migration runs successfully on fresh database (rm .shep/shep.db && pnpm dev:cli)'
+      - 'hide_ci_status column exists in settings table with INTEGER type'
+      - 'hide_ci_status column has NOT NULL DEFAULT 0 constraint'
+      - 'Running migration twice is safe (idempotent, no errors)'
+      - 'Existing settings rows have hide_ci_status = 0 after migration (default applied retroactively)'
+    tdd:
+      red:
+        - 'N/A - Manual verification step, no test file'
+      green:
+        - 'Delete .shep/shep.db to simulate fresh install'
+        - 'Run pnpm dev:cli to trigger migrations'
+        - 'Use SQLite browser to inspect settings table schema'
+        - 'Verify hide_ci_status INTEGER NOT NULL DEFAULT 0'
+      refactor:
+        - 'Test idempotency: run pnpm dev:cli again, verify no errors'
+        - 'Test upgrade scenario: use existing .shep/shep.db with settings row, run migration, verify row has hide_ci_status = 0'
+    estimatedEffort: '15min'
+
+  # ============================================================================
+  # PHASE 2: INFRASTRUCTURE LAYER (MAPPER & PERSISTENCE)
+  # ============================================================================
+
+  - id: task-5-update-settings-row-interface
+    phaseId: phase-2-infrastructure
+    title: 'Add hide_ci_status to SettingsRow interface'
+    description: >
+      Update SettingsRow interface in settings.mapper.ts to include hide_ci_status: number
+      field. This maps the database column to the TypeScript mapper layer.
+    state: Todo
+    dependencies:
+      - task-4-verify-migration
+    acceptanceCriteria:
+      - 'SettingsRow interface includes hide_ci_status: number field'
+      - 'TypeScript compiler validates SettingsRow type (pnpm build succeeds)'
+      - 'Field is positioned alphabetically or grouped with other workflow_* fields'
+    tdd:
+      red:
+        - 'N/A - Interface addition, validation occurs in mapper test tasks'
+      green:
+        - 'Add hide_ci_status: number to SettingsRow interface definition'
+        - 'Place field near other workflow_* columns (after workflow_commit_evidence or similar)'
+      refactor:
+        - 'Verify field naming follows snake_case convention (matches database column)'
+        - 'Ensure TypeScript compiler accepts the interface (pnpm build)'
+    estimatedEffort: '5min'
+
+  - id: task-6-mapper-to-database
+    phaseId: phase-2-infrastructure
+    title: 'Update toDatabase() to map hideCiStatus to hide_ci_status'
+    description: >
+      Add hideCiStatus → hide_ci_status mapping in toDatabase() function (line ~175).
+      Use the pattern: hide_ci_status: settings.workflow.hideCiStatus ? 1 : 0. This
+      converts the domain boolean to database INTEGER.
+    state: Todo
+    dependencies:
+      - task-5-update-settings-row-interface
+    acceptanceCriteria:
+      - 'toDatabase() function includes hide_ci_status: settings.workflow.hideCiStatus ? 1 : 0'
+      - 'Mapping is positioned near other workflow_* mappings (after workflow_commit_evidence)'
+      - 'TypeScript compiler validates the mapping (pnpm build succeeds)'
+      - 'Undefined/false values map to 0, true values map to 1'
+    tdd:
+      red:
+        - 'Write test in settings.mapper.test.ts: toDatabase() with hideCiStatus: true should produce hide_ci_status: 1'
+        - 'Write test: toDatabase() with hideCiStatus: false should produce hide_ci_status: 0'
+        - 'Write test: toDatabase() with hideCiStatus: undefined should produce hide_ci_status: 0'
+        - 'Run tests, verify they fail (mapper not yet updated)'
+      green:
+        - 'Add hide_ci_status: settings.workflow.hideCiStatus ? 1 : 0 to toDatabase() return object'
+        - 'Position mapping after workflow_commit_evidence line (~195)'
+        - 'Run tests, verify they pass'
+      refactor:
+        - 'Verify ternary handles undefined gracefully (undefined ? 1 : 0 → 0)'
+        - 'Ensure consistent formatting with surrounding code'
+    estimatedEffort: '30min'
+
+  - id: task-7-mapper-from-database
+    phaseId: phase-2-infrastructure
+    title: 'Update fromDatabase() to map hide_ci_status to hideCiStatus'
+    description: >
+      Add hide_ci_status → hideCiStatus mapping in fromDatabase() function (line ~335).
+      Use the pattern: hideCiStatus: row.hide_ci_status === 1. This converts the database
+      INTEGER to domain boolean.
+    state: Todo
+    dependencies:
+      - task-6-mapper-to-database
+    acceptanceCriteria:
+      - 'fromDatabase() function includes hideCiStatus: row.hide_ci_status === 1 in workflow spread'
+      - 'Mapping is positioned near other workflow_* mappings (after commitEvidence)'
+      - 'TypeScript compiler validates the mapping (pnpm build succeeds)'
+      - 'Database value 0 maps to false, database value 1 maps to true'
+    tdd:
+      red:
+        - 'Write test in settings.mapper.test.ts: fromDatabase() with hide_ci_status: 1 should produce hideCiStatus: true'
+        - 'Write test: fromDatabase() with hide_ci_status: 0 should produce hideCiStatus: false'
+        - 'Write test: round-trip test: Settings with hideCiStatus: true → toDatabase → fromDatabase → hideCiStatus: true'
+        - 'Run tests, verify they fail (mapper not yet updated)'
+      green:
+        - 'Add hideCiStatus: row.hide_ci_status === 1 to workflow object in fromDatabase()'
+        - 'Position mapping after commitEvidence line (~336)'
+        - 'Run tests, verify they pass'
+      refactor:
+        - 'Verify boolean conversion is strict (=== 1, not truthy check)'
+        - 'Ensure consistent formatting with surrounding code'
+    estimatedEffort: '30min'
+
+  # ============================================================================
+  # PHASE 3: PRESENTATION LAYER (UI COMPONENTS)
+  # ============================================================================
+
+  - id: task-8-update-overview-tab
+    phaseId: phase-3-presentation
+    title: 'Add conditional rendering to OverviewTab CI status row'
+    description: >
+      Wrap CI status row (lines 225-230 in overview-tab.tsx) in conditional rendering
+      using hideCiStatus !== true check. Update FeatureNodeData type to include
+      hideCiStatus?: boolean. Modify get-feature-drawer-data.ts server action to pass
+      the setting.
+    state: Todo
+    dependencies:
+      - task-7-mapper-from-database
+    acceptanceCriteria:
+      - 'FeatureNodeData type includes hideCiStatus?: boolean field'
+      - 'get-feature-drawer-data.ts passes hideCiStatus: workflow.hideCiStatus in response'
+      - 'OverviewTab component receives hideCiStatus prop from server action data'
+      - 'CI status row (lines 225-230) is wrapped in {pr.ciStatus && hideCiStatus !== true ? <div>...</div> : null}'
+      - 'Other PR metadata (PR link, merge conflicts, commit hash) remains visible when hideCiStatus is true'
+    tdd:
+      red:
+        - 'Write test in overview-tab.test.tsx: when hideCiStatus is true, CI status row should not be in DOM (screen.queryByText("CI Status") returns null)'
+        - 'Write test: when hideCiStatus is false, CI status row should be visible'
+        - 'Write test: when hideCiStatus is undefined, CI status row should be visible (default behavior)'
+        - 'Run tests, verify they fail (component not yet updated)'
+      green:
+        - 'Add hideCiStatus?: boolean to FeatureNodeData type definition'
+        - 'Update get-feature-drawer-data.ts to include hideCiStatus: workflow.hideCiStatus in buildFeatureNodeData call'
+        - 'Wrap CI status row in conditional: {pr.ciStatus && hideCiStatus !== true ? ... : null}'
+        - 'Run tests, verify they pass'
+      refactor:
+        - 'Verify conditional uses !== true pattern (handles undefined/null/false as "show")'
+        - 'Ensure other PR metadata sections (merge conflicts, commit hash) are unaffected'
+        - 'Run component in browser manually to verify visual behavior'
+    estimatedEffort: '45min'
+
+  - id: task-9-update-merge-review
+    phaseId: phase-3-presentation
+    title: 'Add conditional rendering to MergeReview CI status row'
+    description: >
+      Wrap CI status row (lines 258-263 in merge-review.tsx) in conditional rendering
+      using hideCiStatus !== true check. Update MergeReviewData type to include
+      hideCiStatus?: boolean. Modify get-merge-review-data.ts server action to pass
+      the setting.
+    state: Todo
+    dependencies:
+      - task-8-update-overview-tab
+    acceptanceCriteria:
+      - 'MergeReviewData type includes hideCiStatus?: boolean field'
+      - 'get-merge-review-data.ts passes hideCiStatus: workflow.hideCiStatus in response'
+      - 'MergeReview component receives hideCiStatus prop from server action data'
+      - 'CI status row (lines 258-263) is wrapped in {pr.ciStatus && hideCiStatus !== true ? <div>...</div> : null}'
+      - 'Other PR metadata (PR link, merge conflicts, commit hash) remains visible when hideCiStatus is true'
+    tdd:
+      red:
+        - 'Write test in merge-review.test.tsx: when hideCiStatus is true, CI status row should not be in DOM'
+        - 'Write test: when hideCiStatus is false, CI status row should be visible'
+        - 'Write test: when hideCiStatus is undefined, CI status row should be visible (default behavior)'
+        - 'Run tests, verify they fail (component not yet updated)'
+      green:
+        - 'Add hideCiStatus?: boolean to MergeReviewData type definition'
+        - 'Update get-merge-review-data.ts to include hideCiStatus: workflow.hideCiStatus in return payload'
+        - 'Wrap CI status row in conditional: {pr.ciStatus && hideCiStatus !== true ? ... : null}'
+        - 'Run tests, verify they pass'
+      refactor:
+        - 'Verify conditional uses !== true pattern (consistent with OverviewTab)'
+        - 'Ensure other PR metadata sections (merge conflicts, commit hash) are unaffected'
+        - 'Run component in browser manually to verify visual behavior'
+    estimatedEffort: '45min'
+
+  # ============================================================================
+  # PHASE 4: SETTINGS UI INTEGRATION
+  # ============================================================================
+
+  - id: task-10-add-settings-ui-state
+    phaseId: phase-4-integration
+    title: 'Add hideCiStatus state hook to WorkflowSettingsSection'
+    description: >
+      Add useState hook for hideCiStatus in WorkflowSettingsSection component. Initialize
+      state from workflow.hideCiStatus with default value false. This prepares the
+      component for the Switch control.
+    state: Todo
+    dependencies:
+      - task-9-update-merge-review
+    acceptanceCriteria:
+      - 'WorkflowSettingsSection includes const [hideCiStatus, setHideCiStatus] = useState(workflow.hideCiStatus ?? false)'
+      - 'State is initialized from workflow.hideCiStatus prop'
+      - 'Default value is false when workflow.hideCiStatus is undefined'
+      - 'TypeScript compiler validates the state hook (pnpm build succeeds)'
+    tdd:
+      red:
+        - 'N/A - State hook is preparatory, validation occurs in next task UI test'
+      green:
+        - 'Add useState hook after existing workflow state hooks (after commitEvidence state hook)'
+        - 'Initialize with workflow.hideCiStatus ?? false to handle undefined gracefully'
+      refactor:
+        - 'Verify state hook follows naming convention (hideCiStatus, setHideCiStatus)'
+        - 'Ensure consistent placement with other workflow state hooks'
+    estimatedEffort: '10min'
+
+  - id: task-11-add-settings-ui-switch
+    phaseId: phase-4-integration
+    title: 'Add "Hide CI Status" Switch to WorkflowSettingsSection'
+    description: >
+      Add Switch component for hideCiStatus to WorkflowSettingsSection after CI Settings
+      section (line ~447, before Stage Timeouts section). Use shadcn/ui Switch with
+      label "Hide CI Status" and description "Hide CI status badges from feature drawer
+      and merge review".
+    state: Todo
+    dependencies:
+      - task-10-add-settings-ui-state
+    acceptanceCriteria:
+      - 'Switch component exists after "Watch CI" section and before "Stage Timeouts" section'
+      - 'Switch has id="hide-ci-status" and data-testid="hide-ci-status-switch"'
+      - 'Switch label is "Hide CI Status"'
+      - 'Switch description is "Hide CI status badges from feature drawer and merge review"'
+      - 'Switch checked state is bound to hideCiStatus state'
+      - 'Switch onCheckedChange handler calls setHideCiStatus'
+      - 'Switch follows the same structure as ci_watch_enabled (lines 360-373)'
+    tdd:
+      red:
+        - 'Write test in workflow-settings-section.test.tsx: Switch with data-testid="hide-ci-status-switch" should exist'
+        - 'Write test: Switch should be checked when hideCiStatus is true, unchecked when false'
+        - 'Write test: Clicking switch should toggle state'
+        - 'Run tests, verify they fail (Switch not yet added)'
+      green:
+        - 'Copy ci_watch_enabled Switch structure as template'
+        - 'Replace id, testid, label, description with hideCiStatus values'
+        - 'Bind checked={hideCiStatus} and onCheckedChange={setHideCiStatus}'
+        - 'Run tests, verify they pass'
+      refactor:
+        - 'Verify Switch placement is semantic (after CI Settings, before Stage Timeouts)'
+        - 'Ensure consistent formatting with other Switch controls'
+        - 'Test Switch in browser manually to verify visual appearance and toggle behavior'
+    estimatedEffort: '30min'
+
+  - id: task-12-wire-settings-save
+    phaseId: phase-4-integration
+    title: 'Wire hideCiStatus to buildPayload and handleSwitchChange'
+    description: >
+      Add hideCiStatus to buildPayload function (line ~262) and handleSwitchChange
+      switch statement (line ~150). This enables saving the setting via updateSettingsAction
+      with optimistic update pattern.
+    state: Todo
+    dependencies:
+      - task-11-add-settings-ui-switch
+    acceptanceCriteria:
+      - 'buildPayload function includes hideCiStatus in workflow object'
+      - 'handleSwitchChange includes case "hide-ci-status": setHideCiStatus(value); break;'
+      - 'Switch onCheckedChange calls handleSwitchChange("hide-ci-status", value)'
+      - 'Toggling Switch triggers updateSettingsAction with workflow.hideCiStatus set to new value'
+      - 'Optimistic update pattern works (immediate UI feedback + "Saving..." indicator)'
+    tdd:
+      red:
+        - 'Write test in workflow-settings-section.test.tsx: toggling Switch should call updateSettingsAction with workflow.hideCiStatus: true'
+        - 'Write test: toggling Switch off should call updateSettingsAction with workflow.hideCiStatus: false'
+        - 'Mock updateSettingsAction and verify it receives correct payload'
+        - 'Run tests, verify they fail (buildPayload/handleSwitchChange not yet updated)'
+      green:
+        - 'Add hideCiStatus to buildPayload workflow object (after commitEvidence)'
+        - 'Add case "hide-ci-status" to handleSwitchChange switch statement'
+        - 'Update Switch onCheckedChange to call handleSwitchChange("hide-ci-status", value)'
+        - 'Run tests, verify they pass'
+      refactor:
+        - 'Verify optimistic update pattern matches other workflow settings (ci_watch_enabled)'
+        - 'Test in browser: toggle Switch, verify "Saving..." indicator appears, verify setting persists on page reload'
+    estimatedEffort: '30min'
+
+  - id: task-13-integration-verification
+    phaseId: phase-4-integration
+    title: 'End-to-end verification of hideCiStatus feature'
+    description: >
+      Manually verify the complete user workflow: toggle setting in Settings UI, navigate
+      to feature drawer, verify CI status is hidden, navigate to merge review, verify
+      CI status is hidden. Toggle setting off, verify CI status reappears in both locations.
+      Run full test suite to verify no regressions.
+    state: Todo
+    dependencies:
+      - task-12-wire-settings-save
+    acceptanceCriteria:
+      - 'User can toggle "Hide CI Status" in Settings > Workflow section'
+      - 'Toggling on hides CI status in feature drawer overview tab (PR link, merge conflicts, commit hash still visible)'
+      - 'Toggling on hides CI status in merge review drawer (PR link, merge conflicts, commit hash still visible)'
+      - 'Toggling off shows CI status in both locations'
+      - 'Setting persists across page reloads (saved to database)'
+      - 'pnpm test passes (all existing tests + new tests)'
+      - 'pnpm build succeeds (TypeScript compilation)'
+      - 'pnpm validate succeeds (lint + format + typecheck + tsp)'
+    tdd:
+      red:
+        - 'N/A - Manual end-to-end verification, not a unit test'
+      green:
+        - 'Start web app: pnpm dev:web'
+        - 'Navigate to Settings > Workflow'
+        - 'Toggle "Hide CI Status" on, verify switch state changes'
+        - 'Navigate to a feature with PR data in feature drawer'
+        - 'Verify CI status row is hidden, other PR metadata visible'
+        - 'Open merge review drawer for a feature'
+        - 'Verify CI status row is hidden, other PR metadata visible'
+        - 'Navigate back to Settings, toggle "Hide CI Status" off'
+        - 'Verify CI status reappears in feature drawer and merge review'
+      refactor:
+        - 'Run pnpm test to verify all tests pass (no regressions)'
+        - 'Run pnpm build to verify TypeScript compilation succeeds'
+        - 'Run pnpm validate to verify lint, format, typecheck, and tsp are clean'
+        - 'Review git diff to ensure only expected files changed'
+    estimatedEffort: '30min'
+
+  - id: task-14-final-test-suite
+    phaseId: phase-4-integration
+    title: 'Run full test suite and validate no regressions'
+    description: >
+      Run pnpm test to execute all unit, integration, and component tests. Verify zero
+      test failures and zero regressions. Confirm all new tests (mapper, OverviewTab,
+      MergeReview, WorkflowSettingsSection) pass. Run pnpm validate to ensure lint,
+      format, typecheck, and tsp compilation are clean.
+    state: Todo
+    dependencies:
+      - task-13-integration-verification
+    acceptanceCriteria:
+      - 'pnpm test exits with code 0 (all tests pass)'
+      - 'Zero test failures, zero test errors'
+      - 'New tests for hideCiStatus (mapper, OverviewTab, MergeReview, settings UI) all pass'
+      - 'Existing tests continue to pass (no regressions)'
+      - 'pnpm validate exits with code 0 (lint, format, typecheck, tsp clean)'
+      - 'Test coverage for hideCiStatus logic is >90% (mapper, components, settings UI)'
+    tdd:
+      red:
+        - 'N/A - Test suite execution, not a test-writing task'
+      green:
+        - 'Run pnpm test and verify exit code 0'
+        - 'Review test output for any failures or warnings'
+        - 'Run pnpm validate and verify exit code 0'
+      refactor:
+        - 'If any tests fail, debug and fix until all pass'
+        - 'If any validation errors, fix lint/format/typecheck issues'
+        - 'Review test coverage report to ensure hideCiStatus logic is covered'
+        - 'Document any known issues or follow-up work in spec.yaml if needed'
+    estimatedEffort: '20min'
+
+totalEstimate: '6h 25min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  This task breakdown covers the complete implementation of the hideCiStatus feature across
+  14 tasks organized into 4 phases. Each task follows TDD methodology with explicit
+  RED-GREEN-REFACTOR cycles.
+
+  **Phase 1 (Foundation & Domain Setup):** Tasks 1-4 establish the domain model and database
+  schema. We start by defining hideCiStatus in TypeSpec, compiling to TypeScript types,
+  creating SQLite migration 042, and verifying the migration executes correctly on both
+  fresh and existing databases. This foundation is critical because all subsequent phases
+  depend on the domain type and database column existing.
+
+  **Phase 2 (Infrastructure Layer):** Tasks 5-7 update the persistence layer to handle the
+  new field. We update the SettingsRow interface, add boolean → INTEGER conversion in
+  toDatabase(), and add INTEGER → boolean conversion in fromDatabase(). Comprehensive
+  mapper tests verify round-trip conversion correctness. This ensures settings can be
+  persisted and retrieved correctly before the UI depends on them.
+
+  **Phase 3 (Presentation Layer):** Tasks 8-9 add conditional rendering to UI components.
+  We update OverviewTab and MergeReview to hide the CI status row when hideCiStatus is
+  true, modify server actions to pass the setting, update types, and add component tests.
+  Both components use the same {hideCiStatus !== true ? ... : null} pattern for consistency.
+  This phase ensures the UI respects the setting before users can toggle it.
+
+  **Phase 4 (Integration):** Tasks 10-14 add the user-facing settings control and verify
+  the complete workflow. We add state hooks, render the Switch component, wire save
+  functionality, perform manual end-to-end verification, and run the full test suite.
+  This final phase ties together all previous work into a complete, testable user feature.
+
+  **Task Dependencies:** Tasks are strictly ordered by dependency. Phase 1 must complete
+  before Phase 2 (mapper needs domain types and migration). Phase 2 must complete before
+  Phase 3 (UI needs mapper to load settings). Phase 3 must complete before Phase 4
+  (settings UI needs components wired). Within Phase 3, tasks 8 and 9 can be parallelized
+  after server action types are updated (they're independent components).
+
+  **TDD Approach:** Every code task includes explicit RED (write failing test), GREEN
+  (minimal implementation), REFACTOR (cleanup) cycles. Mapper tests verify round-trip
+  conversion. Component tests verify conditional rendering. Settings UI tests verify
+  switch toggle and save. The final task runs the complete test suite to catch regressions.
+
+  **Estimated Effort:** Total estimated effort is ~6.5 hours across 14 tasks. This aligns
+  with the "S" size estimate from the spec (small feature, hours not days). The largest
+  tasks are the UI component updates (45min each) and integration verification (30min).
+  Most tasks are <30min due to following established patterns and having clear precedents.
