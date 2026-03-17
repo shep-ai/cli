@@ -33,7 +33,7 @@ async function gitCommand(cwd: string, args: string[]): Promise<string | null> {
   }
 }
 
-async function fetchRepoGitInfo(repo: Repository): Promise<RepoGitInfo | null> {
+export async function fetchRepoGitInfo(repo: Repository): Promise<RepoGitInfo | null> {
   try {
     const [currentBranch, commitMessage, committer] = await Promise.all([
       gitCommand(repo.path, ['symbolic-ref', '--short', 'HEAD']),
