@@ -181,7 +181,7 @@ export function MergeReview({
   chatInput,
   onChatInputChange,
 }: MergeReviewProps) {
-  const { pr, diffSummary, fileDiffs, branch, warning, evidence } = data;
+  const { pr, diffSummary, fileDiffs, branch, warning, evidence, hideCiStatus } = data;
   const hasConflicts = pr?.mergeable === false;
 
   const handleApproveOrResolve =
@@ -255,7 +255,7 @@ export function MergeReview({
               ) : null}
 
               {/* CI status */}
-              {pr.ciStatus ? (
+              {pr.ciStatus && hideCiStatus !== true ? (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground text-xs font-medium">CI Status</span>
                   <CiStatusBadge status={pr.ciStatus} />

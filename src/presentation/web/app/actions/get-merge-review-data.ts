@@ -12,6 +12,7 @@ import type {
 } from '@/components/common/merge-review/merge-review-config';
 import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
 import { getShepHomeDir } from '@shepai/core/infrastructure/services/filesystem/shep-directory.service';
+import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 
 type GetMergeReviewDataResult = MergeReviewData | { error: string };
 
@@ -63,6 +64,8 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
       return { error: 'Feature not found' };
     }
 
+    const { workflow } = getSettings();
+
     const pr = feature.pr
       ? {
           url: feature.pr.url,
@@ -112,6 +115,7 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         branch,
         evidence,
         warning: pr ? undefined : 'No PR or diff data available',
+        hideCiStatus: workflow.hideCiStatus,
       };
     }
 
@@ -121,13 +125,14 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         gitPrService.getPrDiffSummary(worktreePath, 'main'),
         gitPrService.getFileDiffs(worktreePath, 'main').catch(() => undefined),
       ]);
-      return { pr, branch, diffSummary, fileDiffs, evidence };
+      return { pr, branch, diffSummary, fileDiffs, evidence, hideCiStatus: workflow.hideCiStatus };
     } catch {
       return {
         pr,
         branch,
         evidence,
         warning: 'Diff statistics unavailable',
+        hideCiStatus: workflow.hideCiStatus,
       };
     }
   } catch (error: unknown) {

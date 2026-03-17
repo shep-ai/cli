@@ -50,6 +50,7 @@ export async function getFeatureDrawerData(featureId: string): Promise<FeatureNo
       remoteUrl: remoteUrl ?? undefined,
       enableEvidence: workflow.enableEvidence,
       commitEvidence: workflow.commitEvidence,
+      hideCiStatus: workflow.hideCiStatus,
     });
   } catch {
     return null;

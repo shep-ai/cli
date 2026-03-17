@@ -21,6 +21,8 @@ export interface BuildFeatureNodeDataOptions {
   commitEvidence?: boolean;
   /** Whether CI watch/fix loop is enabled (global workflow setting) */
   ciWatchEnabled?: boolean;
+  /** Whether to hide CI status badges from UI (global workflow setting) */
+  hideCiStatus?: boolean;
 }
 
 /**
@@ -60,6 +62,7 @@ export function buildFeatureNodeData(
     ...(options?.enableEvidence != null && { enableEvidence: options.enableEvidence }),
     ...(options?.commitEvidence != null && { commitEvidence: options.commitEvidence }),
     ...(options?.ciWatchEnabled != null && { ciWatchEnabled: options.ciWatchEnabled }),
+    ...(options?.hideCiStatus != null && { hideCiStatus: options.hideCiStatus }),
     ...(options?.repositoryName && { repositoryName: options.repositoryName }),
     ...(options?.baseBranch && { baseBranch: options.baseBranch }),
     ...(options?.oneLiner && { oneLiner: options.oneLiner }),

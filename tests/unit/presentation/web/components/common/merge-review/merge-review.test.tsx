@@ -280,6 +280,64 @@ describe('MergeReview', () => {
     });
   });
 
+  describe('CI status visibility', () => {
+    it('shows CI status row when hideCiStatus is false', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          hideCiStatus: false,
+        },
+      };
+      render(<MergeReview {...props} />);
+
+      expect(screen.getByText('CI Status')).toBeInTheDocument();
+      expect(screen.getByText('Passing')).toBeInTheDocument();
+    });
+
+    it('shows CI status row when hideCiStatus is undefined (default behavior)', () => {
+      render(<MergeReview {...baseProps} />);
+
+      expect(screen.getByText('CI Status')).toBeInTheDocument();
+      expect(screen.getByText('Passing')).toBeInTheDocument();
+    });
+
+    it('hides CI status row when hideCiStatus is true', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          hideCiStatus: true,
+        },
+      };
+      render(<MergeReview {...props} />);
+
+      expect(screen.queryByText('CI Status')).not.toBeInTheDocument();
+      expect(screen.queryByText('Passing')).not.toBeInTheDocument();
+    });
+
+    it('still shows other PR metadata when CI status is hidden', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          pr: { ...basePr, mergeable: false },
+          hideCiStatus: true,
+        },
+      };
+      render(<MergeReview {...props} />);
+
+      // PR link should be visible
+      expect(screen.getByRole('link', { name: /PR #42/i })).toBeInTheDocument();
+      // Merge conflicts should be visible
+      expect(screen.getByText('Conflicts')).toBeInTheDocument();
+      // Commit hash should be visible
+      expect(screen.getByText('abc1234')).toBeInTheDocument();
+      // But CI status should be hidden
+      expect(screen.queryByText('CI Status')).not.toBeInTheDocument();
+    });
+  });
+
   describe('read-only mode', () => {
     it('hides DrawerActionBar when readOnly is true', () => {
       render(<MergeReview {...baseProps} readOnly />);

@@ -36,6 +36,16 @@ vi.mock('node:fs', () => {
   return { ...mock, default: mock };
 });
 
+vi.mock('@shepai/core/infrastructure/services/settings.service', () => ({
+  getSettings: () => ({
+    workflow: {
+      enableEvidence: false,
+      commitEvidence: false,
+      hideCiStatus: false,
+    },
+  }),
+}));
+
 const { getMergeReviewData } = await import(
   '../../../../../../src/presentation/web/app/actions/get-merge-review-data.js'
 );

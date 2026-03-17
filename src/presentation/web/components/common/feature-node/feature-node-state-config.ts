@@ -122,6 +122,8 @@ export interface FeatureNodeData {
   enableEvidence?: boolean;
   /** Whether evidence is committed to the PR body */
   commitEvidence?: boolean;
+  /** Whether to hide CI status badges from UI */
+  hideCiStatus?: boolean;
   /** Whether the feature has an associated agent run (for log tab visibility) */
   hasAgentRun?: boolean;
   /** Whether the feature has plan data available */
