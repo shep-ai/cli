@@ -102,7 +102,7 @@ export function ReactFileManagerDialog({
     (file: FileManagerFile) => {
       // Use absolutePath (real filesystem path) for navigation, not the
       // virtual path used by the FileManager tree.
-      const realPath = (file as Record<string, unknown>).absolutePath as string | undefined;
+      const realPath = file.absolutePath;
       if (file.isDirectory && realPath) {
         loadDirectory(realPath);
       }
@@ -112,7 +112,7 @@ export function ReactFileManagerDialog({
 
   const handleSelectionChange = useCallback((files: FileManagerFile[]) => {
     if (files.length === 1 && files[0].isDirectory) {
-      const realPath = (files[0] as Record<string, unknown>).absolutePath as string | undefined;
+      const realPath = files[0].absolutePath;
       setSelectedPath(realPath ?? null);
     } else {
       setSelectedPath(null);

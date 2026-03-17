@@ -7,6 +7,7 @@ declare module '@cubone/react-file-manager' {
     path?: string;
     updatedAt?: string;
     size?: number;
+    absolutePath?: string;
     [key: string]: unknown;
   }
 

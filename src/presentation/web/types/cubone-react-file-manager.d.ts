@@ -6,6 +6,9 @@ declare module '@cubone/react-file-manager' {
     isDirectory: boolean;
     path?: string;
     updatedAt?: string;
+    size?: number;
+    absolutePath?: string;
+    [key: string]: unknown;
   }
 
   export interface FileManagerPermissions {
@@ -19,16 +22,32 @@ declare module '@cubone/react-file-manager' {
   }
 
   export interface FileManagerProps {
-    files: FileManagerFile[];
+    files?: FileManagerFile[];
     isLoading?: boolean;
-    height?: string;
-    width?: string;
+    height?: string | number;
+    width?: string | number;
     layout?: 'grid' | 'list';
     enableFilePreview?: boolean;
     permissions?: FileManagerPermissions;
     onFileOpen?: (file: FileManagerFile) => void;
+    onFolderChange?: (path: string) => void;
     onSelectionChange?: (files: FileManagerFile[]) => void;
+    onDownload?: (files: FileManagerFile[]) => void;
+    onError?: (error: Error) => void;
+    onRefresh?: () => void;
+    primaryColor?: string;
+    fontFamily?: string;
+    language?: string;
+    collapsibleNav?: boolean;
+    defaultNavExpanded?: boolean;
+    className?: string;
+    style?: React.CSSProperties;
+    formatDate?: (date: string) => string;
+    initialPath?: string;
+    onSelect?: (file: FileManagerFile) => void;
   }
 
   export const FileManager: ComponentType<FileManagerProps>;
 }
+
+declare module '@cubone/react-file-manager/dist/style.css';
