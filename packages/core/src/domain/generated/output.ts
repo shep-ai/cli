@@ -428,6 +428,10 @@ export type WorkflowConfig = {
    * Commit evidence to PR (default: false, requires enableEvidence)
    */
   commitEvidence: boolean;
+  /**
+   * Maximum number of evidence collection retry attempts when validation fails (default: 3)
+   */
+  evidenceRetries?: number;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',

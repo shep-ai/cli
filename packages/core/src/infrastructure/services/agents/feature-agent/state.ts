@@ -86,6 +86,10 @@ export const FeatureAgentAnnotation = Annotation.Root({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
   }),
+  evidenceRetries: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 0,
+  }),
   // --- Resume context (set when resuming from error/crash/stop) ---
   resumeReason: Annotation<string | undefined>({
     reducer: (_prev, next) => next ?? _prev,
