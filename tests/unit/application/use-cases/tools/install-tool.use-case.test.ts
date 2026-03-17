@@ -29,6 +29,7 @@ describe('InstallToolUseCase', () => {
           status: 'available',
           toolName: 'test-tool',
         }),
+      listAvailableTerminals: vi.fn(),
     };
 
     useCase = new InstallToolUseCase(mockService);
