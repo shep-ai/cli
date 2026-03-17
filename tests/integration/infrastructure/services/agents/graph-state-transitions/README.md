@@ -29,18 +29,26 @@ graph LR
     A --> VA[validate_spec_analyze]:::validator
     VA --> R[requirements]:::interruptible
     R --> VR[validate_spec_requirements]:::validator
-    VR --> RS[research]:::producer
+    VR --> RI{approve?}:::iteration
+    RI -->|yes| RS[research]:::producer
+    RI -->|no| R
     RS --> VRS[validate_research]:::validator
     VRS --> P[plan]:::interruptible
     P --> VP[validate_plan_tasks]:::validator
-    VP --> I[implement]:::producer
+    VP --> PI{approve?}:::iteration
+    PI -->|yes| I[implement]:::producer
+    PI -->|no| P
     I --> M[merge]:::interruptible
-    M --> E((End)):::startEnd
+    M --> MI{approve?}:::iteration
+    MI -->|yes| E((End)):::startEnd
+    MI -->|no| M
 
     classDef startEnd fill:#F8F9FA,stroke:#5F6368,stroke-width:2px,color:#1A1A2E
     classDef producer fill:#E8F0FE,stroke:#4285F4,stroke-width:1.5px,color:#1A1A2E
     classDef interruptible fill:#FFF3E0,stroke:#F4A226,stroke-width:2px,color:#1A1A2E
     classDef validator fill:#E8F5E9,stroke:#34A853,stroke-width:1px,color:#1A1A2E
+    classDef iteration fill:#FCE4EC,stroke:#E91E63,stroke-width:1.5px,color:#1A1A2E
+    classDef reject fill:#FFCDD2,stroke:#E53935,stroke-width:1.5px,color:#1A1A2E
 ```
 
 **Legend**:
@@ -48,6 +56,7 @@ graph LR
 - Blue nodes: Producer nodes (execute agent, no interrupt)
 - Orange nodes: Interruptible nodes (gated by `ApprovalGates`)
 - Green nodes: Validation nodes (schema checks)
+- Pink diamonds: Iteration points (approve → continue, reject → re-execute the block)
 
 Interrupt-capable nodes (controlled by `ApprovalGates`):
 
@@ -61,342 +70,200 @@ Non-interruptible nodes: `analyze`, `research`, `implement` (always proceed auto
 
 ```
 graph-state-transitions/
-├── README.md              # This file — full specification with diagrams
-├── CLAUDE.md              # Instructions for AI agents extending these tests
-├── setup.ts               # Test context factory (graph, executor, temp dirs)
-├── fixtures.ts            # Valid YAML fixtures for spec, research, plan, tasks
-├── helpers.ts             # Shared utilities (interrupt helpers, resume commands)
-├── approve-flow.test.ts   # Approval path tests (Tests 1, 5)
-├── reject-flow.test.ts    # Rejection iteration tests (Tests 2, 3, 4, 6, 11)
-├── gate-configuration.test.ts  # ApprovalGates combination tests (Tests 7, 8)
-├── merge-flow.test.ts     # Merge node gate tests (Tests 12-16)
-└── feedback-and-timing.test.ts # Feedback propagation and timing tests (Tests 9, 10)
+├── README.md                          # This file — full specification with diagrams
+├── CLAUDE.md                          # Instructions for AI agents extending these tests
+├── setup.ts                           # Test context factory (graph, executor, temp dirs)
+├── fixtures.ts                        # Valid YAML fixtures for spec, research, plan, tasks
+├── helpers.ts                         # Shared utilities (interrupt helpers, resume commands)
+├── approve-flow.test.ts               # Approval path tests (Tests 1, 5)
+├── reject-flow.test.ts                # Rejection iteration tests (Tests 2, 3, 4, 6, 11)
+├── reject-feedback-propagation.test.ts # Rejection feedback stored per-phase, propagated to prompts
+├── gate-configuration.test.ts         # ApprovalGates combination tests (Tests 7, 8)
+├── merge-flow.test.ts                 # Merge node gate tests (Tests 12-16)
+├── evidence-flow.test.ts              # Evidence sub-agent collection within implement node
+├── feedback-and-timing.test.ts        # Feedback propagation and timing tests (Tests 9, 10)
+├── resume-after-error.test.ts         # Resume from failed node (non-merge) with persistent checkpointer
+└── resume-after-error-merge.test.ts   # Resume from failed merge node — reject/approve/retry paths
 ```
 
 ## Test Cases
 
 ### 1. Approve Flow: Requirements
 
-**Scenario**: Requirements completes, interrupts, user approves, graph continues to research.
+Requirements completes, interrupts, user approves, graph continues to research.
 
-```mermaid
-sequenceDiagram
-    participant C as Caller
-    participant G as LangGraph
-    participant A as analyze
-    participant R as requirements
-    participant RS as research
+| Step | Action          | Nodes executed | Result        |
+| ---- | --------------- | -------------- | ------------- |
+| #1   | `invoke(state)` | analyze, req   | `⏸ req`      |
+| #2   | `approve()`     | research, ...  | `→ continues` |
 
-    rect rgba(232, 240, 254, 0.3)
-        Note over C,RS: Invoke #1 — Initial Run
-        C->>G: graph.invoke(initialState)
-        G->>A: execute
-        A-->>G: complete
-        G->>R: execute
-        R->>R: markPhaseComplete("requirements")
-        R--xG: interrupt() — suspends
-        G-->>C: result.__interrupt__ present
-    end
-
-    rect rgba(232, 245, 233, 0.3)
-        Note over C,RS: Invoke #2 — Approve
-        C->>G: Command({ resume: { approved: true } })
-        G->>R: re-enter node
-        R->>R: completedPhases has "requirements"
-        R->>R: interrupt() returns { approved: true }
-        R-->>G: skip execution — approved
-        G->>RS: execute
-        RS-->>G: complete
-    end
-```
-
-**Assertions**:
-
-- First invoke returns `__interrupt__` with node "requirements"
-- `feature.yaml` `completedPhases` includes "requirements"
-- Second invoke progresses past requirements to research
-- Executor was called for requirements exactly once (not re-executed on resume)
+- Executor called for requirements exactly once (not re-executed on resume)
+- `completedPhases` includes "requirements" after step 1
 
 ---
 
-### 2. Reject Flow: Requirements Re-executes and Interrupts Again
+### 2. Reject Flow: Requirements Re-executes
 
-**Scenario**: Requirements completes, interrupts, user rejects, requirements re-executes and interrupts for re-approval.
+Requirements completes, interrupts, user rejects, re-executes and interrupts again.
 
-```mermaid
-sequenceDiagram
-    participant C as Caller
-    participant G as LangGraph
-    participant R as requirements
-    participant FY as feature.yaml
+| Step | Action            | Nodes executed | Result           |
+| ---- | ----------------- | -------------- | ---------------- |
+| #1   | `invoke(state)`   | analyze, req   | `⏸ req`         |
+| #2   | `reject("add X")` | req (re-exec)  | `⏸ req` (again) |
 
-    rect rgba(232, 240, 254, 0.3)
-        Note over C,FY: Invoke #1 — Initial Run
-        C->>G: graph.invoke(initialState)
-        G->>R: execute (call #1)
-        R->>FY: markPhaseComplete("requirements")
-        R--xG: interrupt() — suspends
-        G-->>C: __interrupt__
-    end
-
-    rect rgba(252, 232, 230, 0.3)
-        Note over C,FY: Invoke #2 — Reject
-        C->>G: Command({ resume: { rejected: true, feedback: "add X" } })
-        G->>R: re-enter node
-        R->>FY: read completedPhases — has "requirements"
-        R->>R: interrupt() returns rejection payload
-        R->>FY: clearCompletedPhase("requirements")
-        Note over R: Falls through to re-execute
-        R->>R: execute (call #2)
-        R->>FY: markPhaseComplete("requirements")
-        R--xG: interrupt() — suspends (no resume value left)
-        G-->>C: __interrupt__ (again!)
-    end
-```
-
-**Assertions**:
-
-- First invoke: `__interrupt__` present
-- Second invoke (rejection): `__interrupt__` present again (not progressed to research)
-- Executor called twice total for requirements (once per iteration)
-- `feature.yaml` `completedPhases` includes "requirements" after second interrupt
+- Executor called twice for requirements (once per iteration)
+- Does NOT progress to research after rejection
 
 ---
 
 ### 3. Reject Then Approve: Full Iteration Cycle
 
-**Scenario**: Requirements rejected once, then approved on second attempt.
+Requirements rejected once, then approved on second attempt.
 
-```mermaid
-sequenceDiagram
-    participant C as Caller
-    participant G as LangGraph
-    participant R as requirements
-    participant RS as research
-
-    rect rgba(232, 240, 254, 0.3)
-        Note over C,RS: Invoke #1 — Initial
-        C->>G: invoke(initialState)
-        G->>R: execute (call #1)
-        R--xG: interrupt()
-        G-->>C: __interrupt__
-    end
-
-    rect rgba(252, 232, 230, 0.3)
-        Note over C,RS: Invoke #2 — Reject
-        C->>G: resume({ rejected: true, feedback })
-        G->>R: re-enter
-        R->>R: consume rejection, clear phase
-        R->>R: execute (call #2)
-        R--xG: interrupt()
-        G-->>C: __interrupt__
-    end
-
-    rect rgba(232, 245, 233, 0.3)
-        Note over C,RS: Invoke #3 — Approve
-        C->>G: resume({ approved: true })
-        G->>R: re-enter
-        R-->>G: approved — skip
-        G->>RS: execute
-        RS-->>G: complete
-        Note over G,RS: Continues downstream...
-    end
-```
-
-**Assertions**:
-
-- Three separate invoke calls
-- Executor called for requirements exactly twice
-- After invoke #3, research node executes
-- `completedPhases` includes both "requirements" and "research" (or wherever it stops)
+| Step | Action          | Nodes executed | Result        |
+| ---- | --------------- | -------------- | ------------- |
+| #1   | `invoke(state)` | analyze, req   | `⏸ req`      |
+| #2   | `reject("fix")` | req (re-exec)  | `⏸ req`      |
+| #3   | `approve()`     | research, ...  | `→ continues` |
 
 ---
 
 ### 4. Multiple Rejections: Iteration Count
 
-**Scenario**: Requirements rejected 3 times, then approved.
+Requirements rejected 3 times, then approved.
 
-```mermaid
-sequenceDiagram
-    participant C as Caller
-    participant G as LangGraph
-    participant R as requirements
-    participant RS as research
-
-    rect rgba(232, 240, 254, 0.3)
-        Note over C,R: Invoke #1 — Initial
-        C->>G: invoke(initialState)
-        G->>R: execute (call #1)
-        R--xG: interrupt()
-    end
-
-    rect rgba(252, 232, 230, 0.3)
-        Note over C,R: Invoke #2 — Reject (iteration 1)
-        C->>G: resume({ rejected, feedback: "fix A" })
-        R->>R: clear + re-execute (call #2)
-        R--xG: interrupt()
-    end
-
-    rect rgba(252, 232, 230, 0.3)
-        Note over C,R: Invoke #3 — Reject (iteration 2)
-        C->>G: resume({ rejected, feedback: "fix B" })
-        R->>R: clear + re-execute (call #3)
-        R--xG: interrupt()
-    end
-
-    rect rgba(252, 232, 230, 0.3)
-        Note over C,R: Invoke #4 — Reject (iteration 3)
-        C->>G: resume({ rejected, feedback: "fix C" })
-        R->>R: clear + re-execute (call #4)
-        R--xG: interrupt()
-    end
-
-    rect rgba(232, 245, 233, 0.3)
-        Note over C,RS: Invoke #5 — Approve
-        C->>G: resume({ approved: true })
-        R-->>G: skip — approved
-        G->>RS: execute
-    end
-```
-
-**Assertions**:
+| Step | Action            | Nodes executed | Result        |
+| ---- | ----------------- | -------------- | ------------- |
+| #1   | `invoke(state)`   | analyze, req   | `⏸ req`      |
+| #2   | `reject("fix A")` | req (call #2)  | `⏸ req`      |
+| #3   | `reject("fix B")` | req (call #3)  | `⏸ req`      |
+| #4   | `reject("fix C")` | req (call #4)  | `⏸ req`      |
+| #5   | `approve()`       | research, ...  | `→ continues` |
 
 - Executor called for requirements exactly 4 times
-- Each rejection triggers a new interrupt
-- Final approval skips re-execution and proceeds
 
 ---
 
 ### 5. Approve Flow: Plan Phase
 
-**Scenario**: Same as test 1 but for the plan node (validates gates work for all interruptible nodes).
+Same as test 1 but for the plan node. **Gates**: `{ allowPrd: true, allowPlan: false }`
 
-**Gates**: `{ allowPrd: true, allowPlan: false, allowMerge: false }`
-
-**Assertions**:
-
-- Requirements does NOT interrupt (allowPrd: true)
-- Plan DOES interrupt (allowPlan: false)
-- After plan approval, implement runs and graph completes (no merge in legacy test graph)
+| Step | Action          | Nodes executed               | Result        |
+| ---- | --------------- | ---------------------------- | ------------- |
+| #1   | `invoke(state)` | analyze, req, research, plan | `⏸ plan`     |
+| #2   | `approve()`     | implement, ...               | `→ completes` |
 
 ---
 
 ### 6. Reject Flow: Plan Phase
 
-**Scenario**: Plan rejected, re-executes, interrupts again.
+Plan rejected, re-executes. **Gates**: `{ allowPrd: true, allowPlan: false }`
 
-**Gates**: `{ allowPrd: true, allowPlan: false, allowMerge: true }`
+| Step | Action           | Nodes executed | Result    |
+| ---- | ---------------- | -------------- | --------- |
+| #1   | `invoke(state)`  | ..., plan      | `⏸ plan` |
+| #2   | `reject("more")` | plan (re-exec) | `⏸ plan` |
 
-**Assertions**:
-
-- Plan executor called twice
 - Research NOT re-executed (only plan re-runs)
 
 ---
 
 ### 7. No Gates: No Interrupts
 
-**Scenario**: Graph runs fully without any interrupts when `approvalGates` is undefined.
-
-**Assertions**: No `__interrupt__`, all nodes executed exactly once.
+`approvalGates` undefined — fully autonomous, no interrupts. All nodes execute exactly once.
 
 ---
 
 ### 8. All Gates Allowed: No Interrupts
 
-**Scenario**: `{ allowPrd: true, allowPlan: true, allowMerge: true }` — fully autonomous.
-
-**Assertions**: Same as test 7 — no interrupts anywhere.
+`{ allowPrd: true, allowPlan: true, allowMerge: true }` — same as test 7.
 
 ---
 
 ### 9. Rejection Feedback Appears in Re-execution Prompt
 
-**Scenario**: After rejection, the re-executed requirements node should receive the rejection feedback in its prompt (via `spec.yaml` `rejectionFeedback` entries).
-
-**Assertions**:
-
-- Capture the prompt passed to executor on second call
-- Prompt contains the rejection feedback text
-- `spec.yaml` has `rejectionFeedback` array with the entry
+After rejection, the re-executed node's prompt contains the feedback text (via `spec.yaml` `rejectionFeedback`).
 
 ---
 
 ### 10. Phase Timing: Iteration Suffix
 
-**Scenario**: After rejection and re-execution, the phase timing records use iteration-aware names.
-
-**Assertions**:
-
-- First execution: phase name "requirements"
-- After rejection + re-execution: phase name "requirements:2"
-- Third iteration: phase name "requirements:3"
+Phase timing names: `requirements` → `requirements:2` → `requirements:3` on successive rejections.
 
 ---
 
 ### 11. Five Consecutive Rejections Then Approve
 
-**Scenario**: Requirements rejected 5 times in a row, then approved on the 6th invoke.
+| Step | Action            | Result        |
+| ---- | ----------------- | ------------- |
+| #1   | `invoke(state)`   | `⏸ req`      |
+| #2-6 | `reject("fix N")` | `⏸ req` (x5) |
+| #7   | `approve()`       | `→ continues` |
 
-**Assertions**:
-
-- Each rejection re-executes requirements and interrupts again
-- Final approval skips re-execution and continues to research → plan
-- Executor call count: analyze(1) + requirements(1) + 5 re-execs + research + plan = 9
+- Executor call count: analyze(1) + req(1) + 5 re-execs + research + plan = 9
 
 ---
 
 ### 12. Merge Interrupt With PRD+Plan Auto-Approved
 
-**Scenario**: `{ allowPrd: true, allowPlan: true, allowMerge: false }` — graph runs through all producer nodes and interrupts at merge.
+**Gates**: `{ allowPrd: true, allowPlan: true, allowMerge: false }`, graph with merge node.
 
-**Graph**: Uses `withMerge: true` context (merge node wired with stubbed deps).
-
-**Assertions**:
-
-- All 5 producer nodes execute without interrupt
-- Merge node interrupts (allowMerge: false)
+| Step | Action          | Nodes executed                            | Result     |
+| ---- | --------------- | ----------------------------------------- | ---------- |
+| #1   | `invoke(state)` | analyze, req, research, plan, impl, merge | `⏸ merge` |
 
 ---
 
 ### 13. Full Completion With All Gates Enabled (With Merge)
 
-**Scenario**: `{ allowPrd: true, allowPlan: true, allowMerge: true }` — fully autonomous including merge.
-
-**Assertions**: No interrupts, all nodes run, graph completes.
+`{ allowPrd: true, allowPlan: true, allowMerge: true }` — no interrupts, all nodes run, completes.
 
 ---
 
 ### 14. Full Gate Walk-Through With Merge
 
-**Scenario**: All gates disabled — walk through requirements, plan, and merge approvals.
+All gates disabled — step through every approval point.
 
-**Assertions**:
-
-- Invoke #1: interrupt at requirements
-- Invoke #2 (approve): interrupt at plan
-- Invoke #3 (approve): implement runs, interrupt at merge
-- Invoke #4 (approve): merge completes, graph ends
+| Step | Action          | Result        |
+| ---- | --------------- | ------------- |
+| #1   | `invoke(state)` | `⏸ req`      |
+| #2   | `approve()`     | `⏸ plan`     |
+| #3   | `approve()`     | `⏸ merge`    |
+| #4   | `approve()`     | `→ completes` |
 
 ---
 
 ### 15. Plan Reject Through Merge Approve
 
-**Scenario**: Plan rejected, re-executed, then approved through to merge completion.
-
-**Assertions**:
-
-- Plan re-executes on rejection
-- After plan approval, implement runs, merge interrupts
-- After merge approval, graph completes
+| Step | Action          | Result        |
+| ---- | --------------- | ------------- |
+| #1   | `invoke(state)` | `⏸ plan`     |
+| #2   | `reject("fix")` | `⏸ plan`     |
+| #3   | `approve()`     | `⏸ merge`    |
+| #4   | `approve()`     | `→ completes` |
 
 ---
 
 ### 16. No Gates With Merge Node
 
-**Scenario**: `approvalGates` undefined, merge node wired. No interrupts at all.
+`approvalGates` undefined, merge node wired. No interrupts at all — same as test 7 but with merge.
 
-**Assertions**: Same as test 7 but with merge node in the graph.
+---
+
+### 17-22. Resume After Error at Merge
+
+Tests that when merge node throws, resume correctly re-executes merge (not the whole graph).
+
+| Test | Scenario                              | Resume method      | Expected result             |
+| ---- | ------------------------------------- | ------------------ | --------------------------- |
+| 17   | Merge fails, plain re-invoke          | `invoke(state)`    | Only merge re-runs          |
+| 18   | Merge fails, reject with Command      | `Command(reject)`  | Merge re-runs, feedback set |
+| 19   | Merge fails, approve with Command     | `Command(approve)` | Only merge re-runs          |
+| 20   | Merge fails, plain retry              | `invoke(state)`    | Only merge re-runs          |
+| 21   | Fail → retry → complete               | `invoke(state)`    | Merge completes             |
+| 22   | Merge fails, gated (allowMerge=false) | `invoke(state)`    | Merge re-runs → `⏸ merge`  |
+
+- Early nodes (analyze, req, research, plan, impl) must NOT re-execute on resume
 
 ---
 
@@ -404,22 +271,13 @@ sequenceDiagram
 
 ### Double-Interrupt Replay Bug (FIXED)
 
-`executeNode()` previously used two `interrupt()` calls: one at the top (to detect approval/rejection on re-entry) and one at the bottom (to pause after execution). LangGraph tracks interrupts by call index, causing stale replay on consecutive rejections.
+Refactored to state-based detection via `Command({resume, update})`. On rejection, node returns `_needsReexecution: true` and a conditional edge routes back. Each invocation now has at most ONE `interrupt()` call.
 
-**Fix**: Refactored to use state-based detection via `Command({resume, update})`. On rejection, the node returns early with `_needsReexecution: true` and a conditional edge (`routeReexecution`) routes back to the same node for a fresh invocation. Each invocation now has at most ONE `interrupt()` call.
+### Reject/Approve on Failed Features (FIXED)
+
+`rejectFeature` and `approveFeature` server actions previously used `ResumeFeatureUseCase` for failed/interrupted runs, which only prepended feedback to the prompt without setting `_approvalAction`/`_rejectionFeedback` state channels. Fixed to always use `RejectAgentRunUseCase`/`ApproveAgentRunUseCase` which propagate feedback via `Command({update})`.
 
 ---
-
-## Color Legend
-
-| Color                                  | Meaning                       |
-| -------------------------------------- | ----------------------------- |
-| Blue background `rgba(232, 240, 254)`  | Initial / standard invoke     |
-| Red background `rgba(252, 232, 230)`   | Rejection / re-execution path |
-| Green background `rgba(232, 245, 233)` | Approval / success path       |
-| Orange node border `#F4A226`           | Interruptible node            |
-| Blue node fill `#E8F0FE`               | Standard producer node        |
-| Green node fill `#E8F5E9`              | Validation node               |
 
 ## Implementation Notes
 

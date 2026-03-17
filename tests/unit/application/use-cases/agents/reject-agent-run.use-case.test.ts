@@ -159,13 +159,54 @@ describe('RejectAgentRunUseCase', () => {
     expect(result.reason).toContain('not found');
   });
 
-  it('should return error when run is not in waiting_approval status', async () => {
+  it('should return error when run is in completed status', async () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun({ status: AgentRunStatus.completed }));
 
     const result = await useCase.execute('run-001', 'feedback');
 
     expect(result.rejected).toBe(false);
-    expect(result.reason).toContain('not waiting');
+  });
+
+  it('should accept failed status for rejection (resume failed feature with feedback)', async () => {
+    mockRunRepo.findById.mockResolvedValue(createWaitingRun({ status: AgentRunStatus.failed }));
+
+    const result = await useCase.execute('run-001', 'fix the merge conflicts');
+
+    expect(result.rejected).toBe(true);
+    expect(mockProcessService.spawn).toHaveBeenCalledWith(
+      'feat-001',
+      'run-001',
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        resume: true,
+        resumeFromInterrupt: true,
+        resumePayload: expect.stringContaining('fix the merge conflicts'),
+      })
+    );
+  });
+
+  it('should accept interrupted status for rejection (resume crashed feature with feedback)', async () => {
+    mockRunRepo.findById.mockResolvedValue(
+      createWaitingRun({ status: AgentRunStatus.interrupted })
+    );
+
+    const result = await useCase.execute('run-001', 'try again with different approach');
+
+    expect(result.rejected).toBe(true);
+    expect(mockProcessService.spawn).toHaveBeenCalledWith(
+      'feat-001',
+      'run-001',
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        resume: true,
+        resumeFromInterrupt: true,
+        resumePayload: expect.stringContaining('try again with different approach'),
+      })
+    );
   });
 
   it('should return error when feedback is empty', async () => {

@@ -4,7 +4,7 @@
 
 End-to-end LangGraph interrupt/checkpoint/resume cycles using the **real feature-agent graph** with a stubbed executor (no AI calls). These tests catch bugs that unit tests miss because they mock away LangGraph internals.
 
-## Architecture at a Glance
+## Architecture
 
 ```
 Real LangGraph graph + Real SQLite checkpointer + Stub executor + Real feature.yaml on disk
@@ -12,159 +12,233 @@ Real LangGraph graph + Real SQLite checkpointer + Stub executor + Real feature.y
 
 - **Graph**: `createFeatureAgentGraph()` from production code
 - **Checkpointer**: In-memory SQLite (`:memory:`) — real checkpoint/resume behavior
-- **Executor**: `StubExecutor` records `callCount` and `prompts[]`, returns canned results
-- **File I/O**: Real `feature.yaml` in a temp dir — tests `completedPhases` read/write
+- **Executor**: `StubExecutor` or `ControllableExecutor` — records calls, returns canned results
+- **File I/O**: Real `feature.yaml` + `spec.yaml` in a temp dir
 - **Isolation**: Each test gets a unique `thread_id` so checkpoints don't leak
 
-## File Structure
+## Test Files
 
-| File                          | Purpose                                                                |
-| ----------------------------- | ---------------------------------------------------------------------- |
-| `setup.ts`                    | `createTestContext()` — creates graph, executor, temp dir, cleanup     |
-| `fixtures.ts`                 | Valid YAML strings for spec, research, plan, tasks                     |
-| `helpers.ts`                  | `getInterrupts()`, `approveCommand()`, `rejectCommand()`, gate presets |
-| `approve-flow.test.ts`        | Approval paths — node skips re-execution on resume                     |
-| `reject-flow.test.ts`         | Rejection iteration — re-execute, re-interrupt cycles                  |
-| `gate-configuration.test.ts`  | `ApprovalGates` combinations — which nodes interrupt                   |
-| `feedback-and-timing.test.ts` | Rejection feedback in prompts, timing iteration names                  |
-| `README.md`                   | Full specification with Mermaid diagrams                               |
+| File                                  | Purpose                                                                    |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| `setup.ts`                            | `createTestContext()`, `StubExecutor`, `createStubMergeNodeDeps()`         |
+| `fixtures.ts`                         | Valid YAML strings for spec, research, plan, tasks                         |
+| `helpers.ts`                          | `expectInterruptAt()`, `approveCommand()`, `rejectCommand()`, gate presets |
+| `approve-flow.test.ts`                | Approval paths — node skips re-execution on resume                         |
+| `reject-flow.test.ts`                 | Rejection iteration — re-execute, re-interrupt cycles                      |
+| `reject-feedback-propagation.test.ts` | Rejection feedback stored per-phase, propagated to prompts                 |
+| `gate-configuration.test.ts`          | `ApprovalGates` combinations — which nodes interrupt                       |
+| `feedback-and-timing.test.ts`         | Feedback in prompts, timing iteration names                                |
+| `merge-flow.test.ts`                  | Merge node gate tests (interrupt, approve, reject at merge)                |
+| `evidence-flow.test.ts`               | Evidence sub-agent collection within implement node                        |
+| `resume-after-error.test.ts`          | Resume from failed non-merge nodes with persistent checkpointer            |
+| `resume-after-error-merge.test.ts`    | Resume from failed merge — reject/approve/retry paths                      |
+| `resume-feedback-propagation.test.ts` | User feedback propagated to retried node's prompt after failure            |
 
 ## How to Run
 
 ```bash
-# Run all graph state transition tests
-pnpm test:single tests/integration/infrastructure/services/agents/graph-state-transitions/
+# All graph state transition tests
+pnpm vitest run --changed tests/integration/infrastructure/services/agents/graph-state-transitions/
 
-# Run a specific file
-pnpm test:single tests/integration/infrastructure/services/agents/graph-state-transitions/approve-flow.test.ts
-
-# Watch mode for TDD
-pnpm test:watch -- tests/integration/infrastructure/services/agents/graph-state-transitions/
+# Single file
+pnpm vitest run tests/integration/infrastructure/services/agents/graph-state-transitions/resume-after-error.test.ts
 ```
 
-## How to Add a New Test
+## Two Test Patterns
 
-### 1. Decide which file it belongs in
+### Pattern 1: TestContext (approval/rejection/gate tests)
 
-- **Approval path** (node skips re-execution) → `approve-flow.test.ts`
-- **Rejection iteration** (re-execute + re-interrupt) → `reject-flow.test.ts`
-- **Gate combinations** (which nodes interrupt) → `gate-configuration.test.ts`
-- **Feedback/timing/prompt content** → `feedback-and-timing.test.ts`
-- **New category** → create a new `<category>.test.ts` file
-
-### 2. Write the test
+For tests involving interrupt/approve/reject cycles on interruptible nodes. Uses `createTestContext()` from `setup.ts`.
 
 ```typescript
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { createTestContext, type TestContext } from './setup.js';
-import { expectInterruptAt, approveCommand, ALL_GATES_DISABLED } from './helpers.js';
+import { expectInterruptAt, approveCommand, rejectCommand, ALL_GATES_DISABLED } from './helpers.js';
 
-describe('Graph State Transitions › Your Category', () => {
+describe('Your Category', () => {
   let ctx: TestContext;
   let output: { restore: () => void };
 
   beforeAll(() => {
-    ctx = createTestContext();
+    ctx = createTestContext(); // or createTestContext({ withMerge: true })
     ctx.init();
     output = ctx.suppressOutput();
   });
-
-  beforeEach(() => {
-    ctx.reset(); // Fresh executor + feature.yaml each test
-  });
-
+  beforeEach(() => ctx.reset());
   afterAll(() => {
     output.restore();
     ctx.cleanup();
   });
 
-  it('should do something', async () => {
-    const config = ctx.newConfig(); // Unique thread_id
+  it('should interrupt and resume', async () => {
+    const config = ctx.newConfig();
     const state = ctx.initialState(ALL_GATES_DISABLED);
 
-    const result = await ctx.graph.invoke(state, config);
-    expectInterruptAt(result, 'requirements');
+    const r1 = await ctx.graph.invoke(state, config);
+    expectInterruptAt(r1, 'requirements');
 
-    // Resume with approval/rejection
     const r2 = await ctx.graph.invoke(approveCommand(), config);
-    // ... assertions
+    expectInterruptAt(r2, 'plan');
   });
 });
 ```
 
-### 3. Key patterns
+Key points:
 
-- **`ctx.reset()`** in `beforeEach` — creates fresh executor + graph + resets `feature.yaml`
-- **`ctx.newConfig()`** — unique `thread_id` per test for checkpoint isolation
-- **`ctx.initialState(gates?)`** — builds the initial state object
-- **`approveCommand()` / `rejectCommand(feedback)`** — LangGraph `Command` wrappers
-- **`expectInterruptAt(result, 'nodeName')`** — asserts exactly one interrupt at that node
-- **`expectNoInterrupts(result)`** — asserts graph ran to completion
+- `ctx.reset()` in `beforeEach` creates fresh executor + graph + resets `feature.yaml`
+- `ctx.newConfig()` gives unique `thread_id` per test
+- `approveCommand()` / `rejectCommand(feedback)` are LangGraph `Command` wrappers
+- Use `{ withMerge: true }` to include the merge node in the graph
 
-## How to Add a New Interruptible Node
+### Pattern 2: ControllableExecutor + persistent checkpointer (resume-after-error tests)
 
-When a new node gets interrupt support:
-
-1. Add it to `shouldInterrupt()` in `node-helpers.ts` (production code)
-2. Add a gate field to `ApprovalGates` type if needed
-3. Add gate presets in `helpers.ts` (e.g., `NEW_NODE_ALLOWED`)
-4. Add approve and reject tests in the appropriate test files
-5. Update `gate-configuration.test.ts` with new gate combinations
-
-## How to Add New Fixtures
-
-Edit `fixtures.ts` to add new YAML strings. Follow the naming pattern:
+For tests involving node failures and resume. The key difference: the **same checkpointer instance** persists across invocations to simulate real resume.
 
 ```typescript
-export const VALID_<FILENAME>_YAML = `...`;       // Passes validation
-export const INVALID_<FILENAME>_YAML = `...`;      // Fails validation (for repair tests)
-export const <VARIANT>_<FILENAME>_YAML = `...`;    // Special variant
+function createControllableExecutor() {
+  let callCount = 0;
+  const prompts: string[] = [];
+  let throwFromCall: number | null = null;
+
+  const executeFn = vi.fn(async (prompt: string) => {
+    callCount++;
+    prompts.push(prompt);
+    if (throwFromCall !== null && callCount >= throwFromCall) {
+      throw new Error('Process exited with code 1: simulated failure');
+    }
+    return { result: `stub result #${callCount}`, exitCode: 0 };
+  });
+
+  return {
+    agentType: 'claude-code' as never,
+    execute: executeFn,
+    executeStream: vi.fn(),
+    supportsFeature: vi.fn().mockReturnValue(false),
+    get callCount() {
+      return callCount;
+    },
+    prompts,
+    throwFromCall(n: number) {
+      throwFromCall = n;
+    },
+    clearThrow() {
+      throwFromCall = null;
+    },
+    resetCounts() {
+      callCount = 0;
+      prompts.length = 0;
+      executeFn.mockClear();
+    },
+  };
+}
 ```
 
-## Key Concepts
+Usage pattern for resume tests:
 
-### The Interrupt/Resume Cycle
+```typescript
+function createResumableGraph(executor: ControllableExecutor) {
+  const checkpointer = createCheckpointer(':memory:');
+  const deps: FeatureAgentGraphDeps = { executor: executor as unknown as IAgentExecutor };
+  const graph = createFeatureAgentGraph(deps, checkpointer);
+  const config = { configurable: { thread_id: `test-${randomUUID()}` } };
+  const initialState = {
+    featureId: '...',
+    repositoryPath: tempDir,
+    worktreePath: tempDir,
+    specDir,
+    approvalGates: ALL_GATES_ENABLED,
+  };
+  return { graph, config, initialState };
+}
 
+it('should resume from failed node', async () => {
+  const executor = createControllableExecutor();
+  executor.throwFromCall(5); // Fail at implement (5th executor call)
+
+  const { graph, config, initialState } = createResumableGraph(executor);
+
+  // Invocation #1: fails at implement
+  await expect(graph.invoke(initialState, config)).rejects.toThrow();
+
+  executor.clearThrow();
+  executor.resetCounts();
+
+  // Invocation #2: resumes from implement (same config = same thread_id + checkpointer)
+  const result = await graph.invoke(initialState, config);
+  expectNoInterrupts(result);
+  expect(getExecutedNodes(executor.prompts)).toEqual(['implement']);
+});
 ```
-graph.invoke(initialState)     → runs until interrupt() → returns __interrupt__
-graph.invoke(approveCommand()) → resumes, node detects completedPhases, skips re-exec
-graph.invoke(rejectCommand())  → resumes, node detects rejection, clears phase, re-executes
+
+**Error message must be non-retryable** — `retryExecute()` checks for `"Process exited with code"` and throws immediately. Without this prefix, the error gets retried internally and the test behavior is unpredictable.
+
+For merge resume tests, use `createResumableGraphWithMerge()` which adds `createStubMergeNodeDeps()`.
+
+## Feedback Propagation
+
+Two mechanisms for getting user feedback into a retried node's prompt:
+
+### 1. `appendRejectionFeedback()` — spec.yaml based
+
+Simulates what `RejectAgentRunUseCase` does: writes a `rejectionFeedback` entry to `spec.yaml` which the node's prompt builder reads.
+
+```typescript
+function appendRejectionFeedback(specDir: string, message: string, phase: string): void {
+  const spec = yaml.load(readFileSync(join(specDir, 'spec.yaml'), 'utf-8'));
+  const existing = Array.isArray(spec.rejectionFeedback) ? spec.rejectionFeedback : [];
+  spec.rejectionFeedback = [
+    ...existing,
+    { iteration: existing.length + 1, message, phase, timestamp: new Date().toISOString() },
+  ];
+  writeFileSync(join(specDir, 'spec.yaml'), yaml.dump(spec));
+}
 ```
 
-### Why `completedPhases` Matters
+### 2. `resumeReason` state field
 
-`executeNode()` checks `feature.yaml` `completedPhases` at the top:
+Pass `resumeReason: 'failed'` in state to tell the node it is a resumed run. The prompt builder includes a `RESUMED` marker.
 
-- **Phase found + approval** → skip execution, continue to next node
-- **Phase found + rejection** → clear phase, fall through to re-execute
-- **Phase not found** → first execution, run normally
+```typescript
+const result = await graph.invoke({ ...initialState, resumeReason: 'failed' }, config);
+```
 
-### The Double-Interrupt Bug (KNOWN ISSUE)
+### 3. `Command({update})` — LangGraph state channels
 
-`executeNode()` uses TWO `interrupt()` calls:
+For reject/approve on failed features, use Command to set `_approvalAction` and `_rejectionFeedback` state channels:
 
-1. **Top interrupt** (index 0) — on re-entry, detects approval vs rejection
-2. **Bottom interrupt** (index 1) — after execution, pauses for human review
+```typescript
+await graph.invoke(
+  new Command({
+    resume: { rejected: true, feedback: 'fix the PR' },
+    update: { _approvalAction: 'rejected', _rejectionFeedback: 'fix the PR' },
+  }),
+  config
+);
+```
 
-**Single rejection works correctly:**
+## Node Execution Order
 
-- Invoke #1: Bottom interrupt (index 0 in execution) suspends
-- Invoke #2 (reject): Top interrupt gets resume → clears phase → re-executes → bottom interrupt suspends
+Producer nodes call the executor in this order:
 
-**Second consecutive rejection FAILS:**
+1. `analyze` — prompt contains "ANALYSIS phase"
+2. `requirements` — prompt contains "REQUIREMENTS phase"
+3. `research` — prompt contains "RESEARCH phase"
+4. `plan` — prompt contains "PLANNING phase"
+5. `implement` — prompt contains "autonomous implementation"
+6. `evidence` (sub-agent, +1 executor call after implement)
+7. `merge` — prompt contains "MERGE phase" (only with `withMerge: true`)
 
-- LangGraph replays interrupt index 0 with the STALE value from the previous execution
-- The actual resume value goes to interrupt index 1 (bottom), which returns without suspending
-- Result: node re-executes but graph continues to next phase instead of re-interrupting
+Use `PROMPT_NODE_MARKERS` to identify which nodes ran via `getExecutedNodes(executor.prompts)`.
 
-**After reject-then-approve:**
+## Rules for New Tests
 
-- The approve also triggers a stale rejection replay at index 0, causing one extra re-execution
-- The approve is consumed at index 1, and the graph continues (correct outcome, extra exec call)
+1. **Every node can fail and needs resume tests** — not just interruptible nodes. `analyze`, `research`, `implement`, and `merge` can all throw errors.
 
-**Fix needed:** Refactor `executeNode` to use a single `interrupt()` per execution path.
-Options:
+2. **Resume tests must verify no earlier nodes re-execute** — assert `getExecutedNodes()` does NOT contain earlier node names.
 
-- Use `Command({update: {approvalResponse}})` to pass approval/rejection through state
-- Restructure as separate approval node (LangGraph recommended pattern)
-- Use a loop with single interrupt per iteration
+3. **Use non-retryable error messages** — prefix with `'Process exited with code 1:'` so `retryExecute()` does not absorb the error.
+
+4. **Persistent checkpointer for resume tests** — the same `createCheckpointer(':memory:')` instance must be shared across invocations. Do NOT use `createTestContext()` for resume tests (it creates a new graph per `reset()`).
+
+5. **Gate presets** — use constants from `helpers.ts`: `ALL_GATES_DISABLED`, `ALL_GATES_ENABLED`, `PRD_ALLOWED`, `PRD_PLAN_ALLOWED`.
+
+6. **Suppress output** — all test suites must suppress stdout/stderr to avoid noisy test runs.

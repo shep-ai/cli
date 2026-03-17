@@ -222,12 +222,15 @@ export interface IGitPrService {
   createPr(cwd: string, prYamlPath: string): Promise<PrCreateResult>;
 
   /**
-   * Merge a pull request.
+   * Merge a pull request immediately.
+   *
+   * The PR must be in a mergeable state (all required checks passed, reviews
+   * approved). If not, this throws GitPrError with MERGE_FAILED code.
    *
    * @param cwd - Working directory path
    * @param prNumber - PR number to merge
    * @param strategy - Merge strategy (squash, merge, rebase)
-   * @throws GitPrError with MERGE_FAILED code
+   * @throws GitPrError with MERGE_FAILED code if the PR cannot be merged
    */
   mergePr(cwd: string, prNumber: number, strategy?: MergeStrategy): Promise<void>;
 

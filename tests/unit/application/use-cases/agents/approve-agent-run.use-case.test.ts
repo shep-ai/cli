@@ -161,13 +161,52 @@ describe('ApproveAgentRunUseCase', () => {
     expect(result.reason).toContain('not found');
   });
 
-  it('should return error when run is not in waiting_approval status', async () => {
+  it('should return error when run is in running status', async () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun({ status: AgentRunStatus.running }));
 
     const result = await useCase.execute('run-001');
 
     expect(result.approved).toBe(false);
-    expect(result.reason).toContain('not waiting');
+  });
+
+  it('should accept failed status for approval (retry failed feature)', async () => {
+    mockRunRepo.findById.mockResolvedValue(createWaitingRun({ status: AgentRunStatus.failed }));
+
+    const result = await useCase.execute('run-001');
+
+    expect(result.approved).toBe(true);
+    expect(mockProcessService.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        resume: true,
+        resumeFromInterrupt: true,
+      })
+    );
+  });
+
+  it('should accept interrupted status for approval (retry crashed feature)', async () => {
+    mockRunRepo.findById.mockResolvedValue(
+      createWaitingRun({ status: AgentRunStatus.interrupted })
+    );
+
+    const result = await useCase.execute('run-001');
+
+    expect(result.approved).toBe(true);
+    expect(mockProcessService.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        resume: true,
+        resumeFromInterrupt: true,
+      })
+    );
   });
 
   it('should compute and record approval wait duration', async () => {

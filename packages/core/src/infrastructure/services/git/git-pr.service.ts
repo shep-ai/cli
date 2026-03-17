@@ -207,7 +207,7 @@ export class GitPrService implements IGitPrService {
 
   async mergePr(cwd: string, prNumber: number, strategy: MergeStrategy = 'squash'): Promise<void> {
     try {
-      await this.execFile('gh', ['pr', 'merge', String(prNumber), `--${strategy}`, '--auto'], {
+      await this.execFile('gh', ['pr', 'merge', String(prNumber), `--${strategy}`], {
         cwd,
       });
     } catch (error) {
@@ -382,15 +382,7 @@ export class GitPrService implements IGitPrService {
       const runId = String(runs[0].databaseId);
       runUrl = runs[0].url;
       const interval = intervalSeconds ?? 30;
-      const args = [
-        'run',
-        'watch',
-        runId,
-        '--exit-status',
-        '--compact',
-        '--interval',
-        String(interval),
-      ];
+      const args = ['run', 'watch', runId, '--exit-status', '--interval', String(interval)];
       const { stdout } = await this.execFile('gh', args, {
         cwd,
         ...(timeoutMs ? { timeout: timeoutMs } : {}),

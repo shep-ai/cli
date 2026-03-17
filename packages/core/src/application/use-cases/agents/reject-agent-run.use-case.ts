@@ -51,10 +51,15 @@ export class RejectAgentRunUseCase {
       return { rejected: false, reason: 'Agent run not found' };
     }
 
-    if (run.status !== AgentRunStatus.waitingApproval) {
+    const REJECTABLE_STATUSES = new Set([
+      AgentRunStatus.waitingApproval,
+      AgentRunStatus.failed,
+      AgentRunStatus.interrupted,
+    ]);
+    if (!REJECTABLE_STATUSES.has(run.status)) {
       return {
         rejected: false,
-        reason: `Agent run is not waiting for approval (status: ${run.status})`,
+        reason: `Agent run is not in a rejectable state (status: ${run.status})`,
       };
     }
 

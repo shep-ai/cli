@@ -245,13 +245,13 @@ describe('RejectAgentRunUseCase (iteration support)', () => {
     expect(result.reason).toContain('not found');
   });
 
-  it('should return error when run is not in waiting_approval status', async () => {
+  it('should return error when run is in running status', async () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun({ status: AgentRunStatus.running }));
 
     const result = await useCase.execute('run-001', 'Fix');
 
     expect(result.rejected).toBe(false);
-    expect(result.reason).toContain('not waiting');
+    expect(result.reason).toContain('not in a rejectable state');
   });
 
   it('should return error when feedback is empty', async () => {

@@ -57,7 +57,7 @@ Run completed: success
     expect(mockExec).toHaveBeenNthCalledWith(
       2,
       'gh',
-      ['run', 'watch', String(runId), '--exit-status', '--compact', '--interval', '30'],
+      ['run', 'watch', String(runId), '--exit-status', '--interval', '30'],
       { cwd }
     );
     expect(result.status).toBe('success');
@@ -132,7 +132,7 @@ Run completed: success
     expect(mockExec).toHaveBeenNthCalledWith(
       2,
       'gh',
-      ['run', 'watch', String(runId), '--exit-status', '--compact', '--interval', '30'],
+      ['run', 'watch', String(runId), '--exit-status', '--interval', '30'],
       {
         cwd,
         timeout: timeoutMs,

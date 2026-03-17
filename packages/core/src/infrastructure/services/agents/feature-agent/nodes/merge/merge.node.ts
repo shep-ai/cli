@@ -309,6 +309,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
       if (state.approvalGates?.allowMerge || userApprovedMerge) {
         if (prUrl && prNumber) {
           // PR exists: merge via GitHub API directly — no agent or local merge needed.
+          // This will fail if the PR is not in a mergeable state (checks pending, reviews needed).
           log.info(`Merging PR #${prNumber} via GitHub API (squash)`);
           await deps.gitPrService.mergePr(cwd, prNumber, 'squash');
           messages.push(`[merge] PR #${prNumber} merged via squash`);
