@@ -49,7 +49,7 @@ describe('FeatureFlagsSettingsSection', () => {
     expect(
       screen.getByText('Enable debug UI elements and verbose client-side logging')
     ).toBeDefined();
-    expect(screen.getByText('Enable importing repositories from GitHub')).toBeDefined();
+    expect(screen.getByText('Enable GitHub repository import in the web UI')).toBeDefined();
     expect(
       screen.getByText('Enable the ability to adopt existing branches as tracked features')
     ).toBeDefined();
