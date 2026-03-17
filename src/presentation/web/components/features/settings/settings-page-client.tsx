@@ -351,6 +351,7 @@ export function SettingsPageClient({
     debug: false,
     githubImport: false,
     adoptBranch: false,
+    gitRebaseSync: false,
   };
 
   // Agent state
@@ -1428,6 +1429,18 @@ export function SettingsPageClient({
               checked={flags.adoptBranch}
               onChange={(v) => {
                 const newFlags = { ...flags, adoptBranch: v };
+                setFlags(newFlags);
+                save({ featureFlags: newFlags });
+              }}
+            />
+            <SwitchRow
+              label="Git Rebase & Sync"
+              description="Enable git rebase-on-main and sync-main operations"
+              id="flag-gitRebaseSync"
+              testId="switch-flag-gitRebaseSync"
+              checked={flags.gitRebaseSync}
+              onChange={(v) => {
+                const newFlags = { ...flags, gitRebaseSync: v };
                 setFlags(newFlags);
                 save({ featureFlags: newFlags });
               }}

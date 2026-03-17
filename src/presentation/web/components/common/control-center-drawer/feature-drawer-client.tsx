@@ -611,7 +611,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
         onMergeApprove={handleMergeApprove}
         onMergeReject={handleMergeReject}
         isMergeLoading={isLoadingMerge}
-        onRebaseOnMain={featureActions.rebaseOnMain}
+        onRebaseOnMain={featureFlags.gitRebaseSync ? featureActions.rebaseOnMain : undefined}
         rebaseLoading={featureActions.rebaseLoading}
         rebaseError={featureActions.rebaseError}
         isRejecting={isRejecting}

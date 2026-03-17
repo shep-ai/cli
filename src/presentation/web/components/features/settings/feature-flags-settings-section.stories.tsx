@@ -21,6 +21,7 @@ export const Default: Story = {
       debug: false,
       githubImport: false,
       adoptBranch: false,
+      gitRebaseSync: false,
     },
   },
 };
@@ -33,6 +34,7 @@ export const AllEnabled: Story = {
       debug: true,
       githubImport: true,
       adoptBranch: true,
+      gitRebaseSync: true,
     },
   },
 };
@@ -45,6 +47,7 @@ export const AllDisabled: Story = {
       debug: false,
       githubImport: false,
       adoptBranch: false,
+      gitRebaseSync: false,
     },
   },
 };

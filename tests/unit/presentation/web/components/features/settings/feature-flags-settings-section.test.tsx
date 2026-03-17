@@ -18,6 +18,7 @@ const defaultFlags = {
   debug: false,
   githubImport: false,
   adoptBranch: false,
+  gitRebaseSync: false,
 };
 
 describe('FeatureFlagsSettingsSection', () => {
@@ -26,18 +27,20 @@ describe('FeatureFlagsSettingsSection', () => {
     mockUpdateSettingsAction.mockResolvedValue({ success: true });
   });
 
-  it('renders 5 feature flag toggles with descriptions', () => {
+  it('renders 6 feature flag toggles with descriptions', () => {
     render(<FeatureFlagsSettingsSection featureFlags={defaultFlags} />);
     expect(screen.getByTestId('switch-flag-skills')).toBeDefined();
     expect(screen.getByTestId('switch-flag-envDeploy')).toBeDefined();
     expect(screen.getByTestId('switch-flag-debug')).toBeDefined();
     expect(screen.getByTestId('switch-flag-githubImport')).toBeDefined();
     expect(screen.getByTestId('switch-flag-adoptBranch')).toBeDefined();
+    expect(screen.getByTestId('switch-flag-gitRebaseSync')).toBeDefined();
     expect(screen.getByText('Skills')).toBeDefined();
     expect(screen.getByText('Deployments')).toBeDefined();
     expect(screen.getByText('Debug')).toBeDefined();
     expect(screen.getByText('GitHub Import')).toBeDefined();
     expect(screen.getByText('Adopt Branch')).toBeDefined();
+    expect(screen.getByText('Git Rebase & Sync')).toBeDefined();
   });
 
   it('renders description text for each flag', () => {
@@ -52,6 +55,9 @@ describe('FeatureFlagsSettingsSection', () => {
     expect(screen.getByText('Enable GitHub repository import in the web UI')).toBeDefined();
     expect(
       screen.getByText('Enable the ability to adopt existing branches as tracked features')
+    ).toBeDefined();
+    expect(
+      screen.getByText('Enable git rebase-on-main and sync-main operations in the web UI')
     ).toBeDefined();
   });
 

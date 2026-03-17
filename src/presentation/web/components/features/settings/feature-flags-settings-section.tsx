@@ -15,6 +15,7 @@ const FLAG_DESCRIPTIONS: Record<keyof FeatureFlags, string> = {
   debug: 'Enable debug UI elements and verbose client-side logging',
   githubImport: 'Enable GitHub repository import in the web UI',
   adoptBranch: 'Enable the ability to adopt existing branches as tracked features',
+  gitRebaseSync: 'Enable git rebase-on-main and sync-main operations in the web UI',
 };
 
 const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
@@ -23,6 +24,7 @@ const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
   debug: 'Debug',
   githubImport: 'GitHub Import',
   adoptBranch: 'Adopt Branch',
+  gitRebaseSync: 'Git Rebase & Sync',
 };
 
 const FLAG_KEYS: (keyof FeatureFlags)[] = [
@@ -31,6 +33,7 @@ const FLAG_KEYS: (keyof FeatureFlags)[] = [
   'debug',
   'githubImport',
   'adoptBranch',
+  'gitRebaseSync',
 ];
 
 export interface FeatureFlagsSettingsSectionProps {

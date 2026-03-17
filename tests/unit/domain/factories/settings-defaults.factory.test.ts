@@ -317,6 +317,7 @@ describe('createDefaultSettings', () => {
         debug: false,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
       });
     });
   });

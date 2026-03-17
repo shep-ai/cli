@@ -94,7 +94,7 @@ export function RepositoryDrawerClient({ data }: RepositoryDrawerClientProps) {
               />
             </div>
           </div>
-          {data.id ? (
+          {data.id && featureFlags.gitRebaseSync ? (
             <>
               <Separator />
               <div className="flex flex-col gap-3 p-4">

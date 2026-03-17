@@ -20,6 +20,7 @@ const defaultFlags = {
   debug: false,
   githubImport: false,
   adoptBranch: false,
+  gitRebaseSync: false,
 };
 
 function renderShell(children: React.ReactNode) {

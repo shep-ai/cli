@@ -681,3 +681,9 @@ rejectionFeedback:
       also the rebase should be agentic
     phase: merge
     timestamp: '2026-03-17T13:16:40.133Z'
+  - iteration: 5
+    message: >-
+      hide the feature behind feature flag, make sure to put it in the settings
+      page and make sure it visible there
+    phase: merge
+    timestamp: '2026-03-17T16:57:33.642Z'

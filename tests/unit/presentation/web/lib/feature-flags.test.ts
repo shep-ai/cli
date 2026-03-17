@@ -30,6 +30,7 @@ describe('getFeatureFlags', () => {
         debug: true,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
       },
     });
 
@@ -99,6 +100,7 @@ describe('getFeatureFlags', () => {
         debug: false,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
       },
     });
 
@@ -122,6 +124,7 @@ describe('featureFlags (backward-compatible const)', () => {
         debug: false,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
       },
     });
 
@@ -137,6 +140,7 @@ describe('featureFlags (backward-compatible const)', () => {
         debug: false,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
       },
     });
 
@@ -152,6 +156,7 @@ describe('featureFlags (backward-compatible const)', () => {
         debug: true,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
       },
     });
 

@@ -111,6 +111,7 @@ export interface SettingsRow {
   feature_flag_debug: number;
   feature_flag_github_import: number;
   feature_flag_adopt_branch: number;
+  feature_flag_git_rebase_sync: number;
 }
 
 /**
@@ -213,6 +214,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     feature_flag_debug: settings.featureFlags?.debug ? 1 : 0,
     feature_flag_github_import: settings.featureFlags?.githubImport ? 1 : 0,
     feature_flag_adopt_branch: settings.featureFlags?.adoptBranch ? 1 : 0,
+    feature_flag_git_rebase_sync: settings.featureFlags?.gitRebaseSync ? 1 : 0,
   };
 }
 
@@ -344,6 +346,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       debug: row.feature_flag_debug === 1,
       githubImport: row.feature_flag_github_import === 1,
       adoptBranch: row.feature_flag_adopt_branch === 1,
+      gitRebaseSync: row.feature_flag_git_rebase_sync === 1,
     },
 
     // Onboarding (INTEGER → boolean)

@@ -18,6 +18,7 @@ export interface FeatureFlagsState {
   debug: boolean;
   githubImport: boolean;
   adoptBranch: boolean;
+  gitRebaseSync: boolean;
 }
 
 export function getFeatureFlags(): FeatureFlagsState {
@@ -31,6 +32,7 @@ export function getFeatureFlags(): FeatureFlagsState {
           debug: flags.debug,
           githubImport: flags.githubImport,
           adoptBranch: flags.adoptBranch,
+          gitRebaseSync: flags.gitRebaseSync,
         };
       }
     }
@@ -47,6 +49,7 @@ export function getFeatureFlags(): FeatureFlagsState {
     debug: false,
     githubImport: false,
     adoptBranch: false,
+    gitRebaseSync: false,
   };
 }
 
@@ -69,5 +72,8 @@ export const featureFlags = {
   },
   get adoptBranch() {
     return getFeatureFlags().adoptBranch;
+  },
+  get gitRebaseSync() {
+    return getFeatureFlags().gitRebaseSync;
   },
 } as const;

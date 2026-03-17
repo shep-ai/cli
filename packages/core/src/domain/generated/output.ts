@@ -566,6 +566,10 @@ export type FeatureFlags = {
    * Enable adopt branch feature to import existing branches as tracked features
    */
   adoptBranch: boolean;
+  /**
+   * Enable git rebase-on-main and sync-main operations in the web UI
+   */
+  gitRebaseSync: boolean;
 };
 
 /**

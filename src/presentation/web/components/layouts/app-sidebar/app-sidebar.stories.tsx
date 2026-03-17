@@ -12,6 +12,7 @@ const defaultFeatureFlags = {
   debug: false,
   githubImport: false,
   adoptBranch: false,
+  gitRebaseSync: false,
 };
 
 const meta: Meta<typeof AppSidebar> = {

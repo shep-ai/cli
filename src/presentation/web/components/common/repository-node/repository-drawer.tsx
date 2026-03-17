@@ -6,6 +6,7 @@ import { BaseDrawer } from '@/components/common/base-drawer';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Separator } from '@/components/ui/separator';
 import { ActionButton } from '@/components/common/action-button';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
 
@@ -15,6 +16,7 @@ export interface RepositoryDrawerProps {
 }
 
 export function RepositoryDrawer({ data, onClose }: RepositoryDrawerProps) {
+  const featureFlags = useFeatureFlags();
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
@@ -89,7 +91,7 @@ export function RepositoryDrawer({ data, onClose }: RepositoryDrawerProps) {
               />
             </div>
           </div>
-          {data.id ? (
+          {data.id && featureFlags.gitRebaseSync ? (
             <>
               <Separator />
               <div className="flex flex-col gap-3 p-4">
