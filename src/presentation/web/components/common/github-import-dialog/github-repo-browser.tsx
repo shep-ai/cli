@@ -92,7 +92,7 @@ export function GitHubRepoBrowser({
       </div>
 
       <div
-        className="max-h-64 overflow-y-auto rounded-md border"
+        className="max-h-64 overflow-x-hidden overflow-y-auto rounded-md border"
         role="listbox"
         aria-label="GitHub repositories"
       >
@@ -119,7 +119,7 @@ export function GitHubRepoBrowser({
               type="button"
               role="option"
               aria-selected={false}
-              className="hover:bg-accent flex w-full items-start gap-2 border-b px-3 py-2 text-left last:border-b-0 disabled:opacity-50"
+              className="hover:bg-accent flex w-full items-start gap-2 border-b px-3 py-2.5 text-left last:border-b-0 disabled:opacity-50"
               onClick={() => onSelect(repo.nameWithOwner)}
               disabled={disabled}
             >

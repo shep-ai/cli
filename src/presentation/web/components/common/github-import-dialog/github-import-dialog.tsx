@@ -48,27 +48,23 @@ export function GitHubImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Import from GitHub</DialogTitle>
           <DialogDescription>Clone a GitHub repository and add it to Shep.</DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="url">
-          <TabsList className="w-full">
-            <TabsTrigger value="url" className="flex-1">
-              URL
-            </TabsTrigger>
-            <TabsTrigger value="browse" className="flex-1">
-              Browse
-            </TabsTrigger>
+        <Tabs defaultValue="url" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="url">URL</TabsTrigger>
+            <TabsTrigger value="browse">Browse</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="url">
+          <TabsContent value="url" className="mt-4">
             <GitHubUrlInput onSubmit={handleImport} loading={importing} />
           </TabsContent>
 
-          <TabsContent value="browse">
+          <TabsContent value="browse" className="mt-4">
             <GitHubRepoBrowser onSelect={handleImport} loading={importing} />
           </TabsContent>
         </Tabs>
