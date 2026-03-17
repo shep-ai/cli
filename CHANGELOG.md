@@ -1,3 +1,9 @@
+## [1.127.2](https://github.com/shep-ai/cli/compare/v1.127.1...v1.127.2) (2026-03-17)
+
+### Bug Fixes
+
+- **agents:** propagate reject/approve feedback on failed features ([#406](https://github.com/shep-ai/cli/issues/406)) ([2c6a1f1](https://github.com/shep-ai/cli/commit/2c6a1f1d7c0c6bf4ef1af0ce0944bb5b99400f3f))
+
 ## [1.127.1](https://github.com/shep-ai/cli/compare/v1.127.0...v1.127.1) (2026-03-17)
 
 ### Bug Fixes
