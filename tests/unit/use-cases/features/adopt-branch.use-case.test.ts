@@ -72,6 +72,18 @@ describe('AdoptBranchUseCase', () => {
       update: vi.fn().mockResolvedValue(undefined),
     };
 
+    // Platform-aware worktree path for cross-platform testing
+    const mockWorktreePath = path.join(
+      path.sep === '\\' ? 'C:' : '/',
+      'home',
+      'user',
+      '.shep',
+      'repos',
+      'hash',
+      'wt',
+      'fix-login-bug'
+    );
+
     mockWorktreeService = {
       create: vi.fn().mockResolvedValue({ path: '/wt', head: 'abc', branch: 'b', isMain: false }),
       addExisting: vi.fn().mockResolvedValue({
@@ -85,7 +97,7 @@ describe('AdoptBranchUseCase', () => {
       exists: vi.fn().mockResolvedValue(false),
       branchExists: vi.fn().mockResolvedValue(true),
       remoteBranchExists: vi.fn().mockResolvedValue(false),
-      getWorktreePath: vi.fn().mockReturnValue('/home/user/.shep/repos/hash/wt/fix-login-bug'),
+      getWorktreePath: vi.fn().mockReturnValue(mockWorktreePath),
       prune: vi.fn().mockResolvedValue(undefined),
       ensureGitRepository: vi.fn().mockResolvedValue(undefined),
       listBranches: vi.fn().mockResolvedValue([]),
@@ -128,7 +140,7 @@ describe('AdoptBranchUseCase', () => {
 
     mockSpecInitializer = {
       initialize: vi.fn().mockResolvedValue({
-        specDir: '/home/user/.shep/repos/hash/wt/fix-login-bug/specs/000-fix-login-bug',
+        specDir: path.join(mockWorktreePath, 'specs', '000-fix-login-bug'),
         featureNumber: '000',
       }),
     };
@@ -530,7 +542,7 @@ describe('AdoptBranchUseCase', () => {
         '(adopted from existing branch)'
       );
 
-      // Verify specPath is set to returned path (platform-independent)
+      // Verify specPath is set to returned path (platform-aware)
       const expectedSpecPath = path.join(worktreePath, 'specs', '000-fix-login-bug');
       expect(result.feature.specPath).toBe(expectedSpecPath);
     });
@@ -550,7 +562,7 @@ describe('AdoptBranchUseCase', () => {
       // Verify spec initializer was NOT called
       expect(mockSpecInitializer.initialize).not.toHaveBeenCalled();
 
-      // Verify specPath is set to expected directory (platform-independent)
+      // Verify specPath matches the expected directory structure (platform-aware)
       const expectedSpecPath = path.join(worktreePath, 'specs', '000-fix-login-bug');
       expect(result.feature.specPath).toBe(expectedSpecPath);
     });
