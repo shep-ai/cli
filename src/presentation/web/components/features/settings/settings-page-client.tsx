@@ -418,8 +418,6 @@ export function SettingsPageClient({
 
   // Notification state
   const [inApp, setInApp] = useState(settings.notifications.inApp.enabled);
-  const [browser, setBrowser] = useState(settings.notifications.browser.enabled);
-  const [desktop, setDesktop] = useState(settings.notifications.desktop.enabled);
   const [events, setEvents] = useState({ ...settings.notifications.events });
 
   // Feature flags state
@@ -539,16 +537,12 @@ export function SettingsPageClient({
   function buildNotificationPayload(
     overrides: {
       inApp?: boolean;
-      browser?: boolean;
-      desktop?: boolean;
       events?: NotificationPreferences['events'];
     } = {}
   ) {
     return {
       notifications: {
         inApp: { enabled: overrides.inApp ?? inApp },
-        browser: { enabled: overrides.browser ?? browser },
-        desktop: { enabled: overrides.desktop ?? desktop },
         events: overrides.events ?? events,
       },
     };
@@ -1221,28 +1215,6 @@ export function SettingsPageClient({
                 save(buildNotificationPayload({ inApp: v }));
               }}
             />
-            <SwitchRow
-              label="Browser"
-              description="Push notifications via the browser"
-              id="notif-browser"
-              testId="switch-browser"
-              checked={browser}
-              onChange={(v) => {
-                setBrowser(v);
-                save(buildNotificationPayload({ browser: v }));
-              }}
-            />
-            <SwitchRow
-              label="Desktop"
-              description="Native OS notifications"
-              id="notif-desktop"
-              testId="switch-desktop"
-              checked={desktop}
-              onChange={(v) => {
-                setDesktop(v);
-                save(buildNotificationPayload({ desktop: v }));
-              }}
-            />
 
             <SubsectionLabel>Agent Events</SubsectionLabel>
             <SwitchRow
@@ -1377,9 +1349,8 @@ export function SettingsPageClient({
               },
             ]}
           >
-            Three notification channels keep you in the loop: in-app toasts, browser push
-            notifications, and native desktop alerts. Fine-tune which agent lifecycle events trigger
-            a notification.
+            In-app toast notifications keep you in the loop. Fine-tune which agent lifecycle events
+            trigger a notification.
           </SectionHint>
         </div>
 
