@@ -208,6 +208,7 @@ function appendFeatureNodes(
       ...(run?.modelId && { modelId: run.modelId }),
       ...(run?.error && { errorMessage: run.error }),
       ...(blockedBy && { blockedBy }),
+      ...(feature.agentRunId != null && { hasAgentRun: true }),
       ...(feature.plan != null && { hasPlan: true }),
       ...(feature.pr && {
         pr: {

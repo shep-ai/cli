@@ -551,3 +551,40 @@ rejectionFeedback:
     message: when adopting we should select from which repo an not show all branchs
     phase: merge
     timestamp: '2026-03-16T17:41:58.755Z'
+  - iteration: 5
+    message: >-
+      when going to the logs tabs in the feature drawer of adopted branch
+
+      there are error:
+
+      saying 
+
+
+      Feature "XXX" has no agent run 
+
+
+      log:
+
+      undefined" is not valid JSON
+
+      src/presentation/web/hooks/use-feature-logs.ts (56:44) @
+      useFeatureLogs.useEffect
+
+
+        54 |
+        55 |     es.addEventListener('error', (event: MessageEvent) => {
+      > 56 |       const data: { error: string } = JSON.parse(event.data);
+           |                                            ^
+        57 |       setError(data.error);
+        58 |     });
+        59 |
+
+      --
+
+
+      if there are no logs to show hide the logs tabs instead.
+
+
+      ---
+    phase: merge
+    timestamp: '2026-03-17T08:12:37.023Z'
