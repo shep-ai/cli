@@ -15,7 +15,7 @@
 
 import { injectable, inject } from 'tsyringe';
 import type { Feature } from '../../../domain/generated/output.js';
-import { AgentRunStatus, SdlcLifecycle } from '../../../domain/generated/output.js';
+import { AgentRunStatus, PrStatus, SdlcLifecycle } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
@@ -25,6 +25,7 @@ import type { IGitPrService } from '../../ports/output/services/git-pr-service.i
 export interface DeleteFeatureOptions {
   cleanup?: boolean;
   cascadeDelete?: boolean;
+  closePr?: boolean;
 }
 
 @injectable()
@@ -155,17 +156,32 @@ export class DeleteFeatureUseCase {
         // Branch might not exist
       }
 
-      // Delete remote feature branch if it exists
-      try {
-        const remoteExists = await this.worktreeService.remoteBranchExists(
-          feature.repositoryPath,
-          feature.branch
-        );
-        if (remoteExists) {
-          await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch, true);
+      // Delete remote feature branch if it exists (skip when closePr is false to preserve the PR)
+      if (options?.closePr !== false) {
+        try {
+          const remoteExists = await this.worktreeService.remoteBranchExists(
+            feature.repositoryPath,
+            feature.branch
+          );
+          if (remoteExists) {
+            await this.gitPrService.deleteBranch(feature.repositoryPath, feature.branch, true);
+
+            // Update pr.status to Closed after remote branch deletion (GitHub auto-closes the PR)
+            if (feature.pr?.status === PrStatus.Open) {
+              try {
+                await this.featureRepo.update({
+                  ...feature,
+                  pr: { ...feature.pr, status: PrStatus.Closed },
+                  updatedAt: new Date(),
+                });
+              } catch {
+                // PR status update is best-effort
+              }
+            }
+          }
+        } catch {
+          // Remote branch cleanup is best-effort
         }
-      } catch {
-        // Remote branch cleanup is best-effort
       }
     }
   }
