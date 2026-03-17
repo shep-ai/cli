@@ -137,14 +137,15 @@ export function FeatureNode({
           <DeleteFeatureDialog
             open={confirmOpen}
             onOpenChange={setConfirmOpen}
-            onConfirm={(cleanup, cascadeDelete) => {
+            onConfirm={(cleanup, cascadeDelete, closePr) => {
               setConfirmOpen(false);
-              data.onDelete?.(data.featureId, cleanup, cascadeDelete);
+              data.onDelete?.(data.featureId, cleanup, cascadeDelete, closePr);
             }}
             isDeleting={false}
             featureName={data.name ?? 'this feature'}
             featureId={data.featureId}
             hasChildren={data.hasChildren}
+            hasOpenPr={!!data.pr && data.pr.status === 'Open'}
           />
         </>
       ) : null}

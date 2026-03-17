@@ -132,7 +132,12 @@ export interface FeatureNodeData {
   onAction?: () => void;
   onSettings?: () => void;
   hasChildren?: boolean;
-  onDelete?: (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => void;
+  onDelete?: (
+    featureId: string,
+    cleanup?: boolean,
+    cascadeDelete?: boolean,
+    closePr?: boolean
+  ) => void;
   onRetry?: (featureId: string) => void;
   onStart?: (featureId: string) => void;
   onStop?: (featureId: string) => void;

@@ -361,7 +361,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   const handleMergeApprove = useCallback(() => handleSimpleApprove('Merge'), [handleSimpleApprove]);
 
   const handleDelete = useCallback(
-    async (featureId: string, cleanup?: boolean, cascadeDelete?: boolean) => {
+    async (featureId: string, cleanup?: boolean, cascadeDelete?: boolean, closePr?: boolean) => {
       setIsDeleting(true);
       // Close the delete dialog and drawer before the server action so the
       // user sees immediate feedback. We dispatch a DOM event so the canvas
@@ -370,7 +370,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       setDeleteDialogOpen(false);
       window.dispatchEvent(
         new CustomEvent('shep:feature-delete-requested', {
-          detail: { featureId, cleanup, cascadeDelete },
+          detail: { featureId, cleanup, cascadeDelete, closePr },
         })
       );
       router.push('/');
@@ -561,13 +561,14 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
                 <DeleteFeatureDialog
                   open={deleteDialogOpen}
                   onOpenChange={setDeleteDialogOpen}
-                  onConfirm={(cleanup, cascadeDelete) =>
-                    handleDelete(featureNode.featureId, cleanup, cascadeDelete)
+                  onConfirm={(cleanup, cascadeDelete, closePr) =>
+                    handleDelete(featureNode.featureId, cleanup, cascadeDelete, closePr)
                   }
                   isDeleting={isDeleting}
                   featureName={featureNode.name}
                   featureId={featureNode.featureId}
                   hasChildren={featureNode.hasChildren}
+                  hasOpenPr={!!featureNode.pr && featureNode.pr.status === 'Open'}
                 />
               </>
             ) : null}
