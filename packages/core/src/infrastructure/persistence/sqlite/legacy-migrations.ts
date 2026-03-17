@@ -523,6 +523,19 @@ CREATE TABLE IF NOT EXISTS pr_sync_lock (
       add('notif_evt_merge_review_ready');
     },
   },
+  {
+    version: 35,
+    name: '035-add-react-file-manager-feature-flag',
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'feature_flag_react_file_manager')) {
+        db.exec(
+          'ALTER TABLE settings ADD COLUMN feature_flag_react_file_manager INTEGER NOT NULL DEFAULT 0'
+        );
+      }
+    },
+  },
 ];
 
 /**

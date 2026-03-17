@@ -155,6 +155,7 @@ export function createDefaultSettings(): Settings {
     debug: false,
     githubImport: false,
     adoptBranch: false,
+    reactFileManager: false,
   };
 
   return {
