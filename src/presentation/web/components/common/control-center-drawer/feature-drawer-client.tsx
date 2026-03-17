@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Play, Square, Copy, Check, Code2, ExternalLink } from 'lucide-react';
+import { Loader2, Trash2, Copy, Check, Code2, ExternalLink } from 'lucide-react';
 import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
@@ -19,15 +19,12 @@ import { getMergeReviewData } from '@/app/actions/get-merge-review-data';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
-import { useDeployAction } from '@/hooks/use-deploy-action';
+import type { DeployActionInput } from '@/hooks/use-deploy-action';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { BaseDrawer } from '@/components/common/base-drawer';
-import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
 import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
-import { ActionButton } from '@/components/common/action-button';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs';
 import { useFeatureActions } from '@/components/common/feature-drawer/use-feature-actions';
@@ -424,7 +421,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       : null;
   const featureActions = useFeatureActions(featureActionsInput);
 
-  const featureDeployTarget =
+  const featureDeployTarget: DeployActionInput | undefined =
     featureNode?.repositoryPath && featureNode.branch
       ? {
           targetId: featureNode.featureId,
@@ -432,11 +429,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
           repositoryPath: featureNode.repositoryPath,
           branch: featureNode.branch,
         }
-      : null;
-
-  const deployAction = useDeployAction(featureDeployTarget);
-  const isFeatureDeployActive =
-    deployAction.status === 'Booting' || deployAction.status === 'Ready';
+      : undefined;
 
   // ── Short ID copy ───────────────────────────────────────────────────
   const COPY_FEEDBACK_DELAY = 2000;
@@ -491,38 +484,6 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
               repositoryPath={featureActionsInput.repositoryPath}
               showSpecs={!!featureActionsInput.specPath}
             />
-            {featureFlags.envDeploy && featureDeployTarget ? (
-              <>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <ActionButton
-                          label={isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                          onClick={isFeatureDeployActive ? deployAction.stop : deployAction.deploy}
-                          loading={deployAction.deployLoading || deployAction.stopLoading}
-                          error={!!deployAction.deployError}
-                          icon={isFeatureDeployActive ? Square : Play}
-                          iconOnly
-                          variant="outline"
-                          size="icon-sm"
-                        />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                {isFeatureDeployActive ? (
-                  <DeploymentStatusBadge
-                    status={deployAction.status}
-                    url={deployAction.url}
-                    targetId={featureDeployTarget?.targetId}
-                  />
-                ) : null}
-              </>
-            ) : null}
             <div className="ml-auto flex items-center gap-1.5">
               <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
                 {shortId}
@@ -623,6 +584,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       size="md"
       modal={false}
       header={header}
+      deployTarget={featureFlags.envDeploy ? featureDeployTarget : undefined}
       data-testid={view.type === 'feature' ? 'feature-drawer' : 'repository-drawer'}
     >
       {body}

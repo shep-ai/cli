@@ -63,6 +63,41 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     };
   }, []);
 
+  // Fetch initial deployment status on mount (or when input changes) so we
+  // pick up any already-running dev server that was started before this
+  // component mounted. Without this, closing and reopening the drawer would
+  // lose awareness of the running deployment.
+  const pollAfterInitialFetchRef = useRef<((id: string) => void) | null>(null);
+  const initialFetchIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const targetId = input?.targetId ?? null;
+    // Only fetch once per targetId to avoid redundant calls
+    if (targetId === initialFetchIdRef.current) return;
+    initialFetchIdRef.current = targetId;
+
+    if (!targetId) return;
+
+    let cancelled = false;
+
+    getDeploymentStatus(targetId).then((result) => {
+      if (cancelled || !mountedRef.current) return;
+
+      if (result && result.state !== 'Stopped') {
+        log.info(`initial status fetch: state=${result.state}, url=${result.url}`);
+        setStatus(result.state as DeploymentState);
+        setUrl(result.url);
+        // Start polling to keep the state fresh
+        // (startPolling is defined below, but the effect runs after render
+        //  so it will be available via the ref-based closure)
+        pollAfterInitialFetchRef.current?.(targetId);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [input?.targetId]);
+
   const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
       log.debug('stopping polling');
@@ -106,6 +141,9 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     },
     [stopPolling]
   );
+
+  // Keep ref in sync so the initial-fetch effect can start polling
+  pollAfterInitialFetchRef.current = startPolling;
 
   const handleDeploy = useCallback(async () => {
     if (!input) {
