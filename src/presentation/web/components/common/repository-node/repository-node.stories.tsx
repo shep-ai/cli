@@ -324,3 +324,19 @@ export const WithGitInfoBehind: Story = {
   },
   render: (args) => <RepositoryNodeCanvas data={args} />,
 };
+
+export const GitInfoLoading: Story = {
+  args: {
+    repositoryPath: '/home/user/shep-ai/cli',
+    gitInfoStatus: 'loading',
+  },
+  render: (args) => <RepositoryNodeCanvas data={args} />,
+};
+
+export const NotAGitRepo: Story = {
+  args: {
+    repositoryPath: '/home/user/my-project',
+    gitInfoStatus: 'not-a-repo',
+  },
+  render: (args) => <RepositoryNodeCanvas data={args} />,
+};

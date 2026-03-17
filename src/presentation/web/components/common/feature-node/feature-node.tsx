@@ -104,6 +104,7 @@ export function FeatureNode({
           position={Position.Left}
           isConnectable={false}
           className="opacity-0!"
+          style={{ top: 70 }}
         />
       ) : null}
 
@@ -421,6 +422,7 @@ export function FeatureNode({
           type="source"
           position={Position.Right}
           className="h-0! w-0! border-0! bg-transparent!"
+          style={{ top: 70 }}
         >
           <button
             type="button"
@@ -441,6 +443,7 @@ export function FeatureNode({
           position={Position.Right}
           isConnectable={false}
           className="opacity-0!"
+          style={{ top: 70 }}
         />
       ) : null}
     </div>

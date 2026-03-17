@@ -43,11 +43,14 @@ export class AddRepositoryUseCase {
       return existing;
     }
 
-    // Check for soft-deleted repository — restore it instead of creating a duplicate
+    // Check for soft-deleted repository — restore it instead of creating a duplicate.
+    // Reset createdAt so the restored repo sorts as "newest" on the canvas
+    // (otherwise the old createdAt would place it above repos added later).
     const deleted = await this.repositoryRepo.findByPathIncludingDeleted(normalizedPath);
     if (deleted) {
+      const now = new Date();
       await this.repositoryRepo.restore(deleted.id);
-      return { ...deleted, deletedAt: undefined, updatedAt: new Date() };
+      return { ...deleted, deletedAt: undefined, createdAt: now, updatedAt: now };
     }
 
     const now = new Date();

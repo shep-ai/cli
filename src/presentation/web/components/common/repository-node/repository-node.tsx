@@ -100,6 +100,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
           position={Position.Left}
           isConnectable={false}
           className="opacity-0!"
+          style={{ top: 70 }}
         />
       ) : null}
 
@@ -280,55 +281,94 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
           </div>
         </div>
 
-        {/* Row 2: Git info — branch, behind status */}
+        {/* Row 2 & 3: Git info or placeholder */}
         {data.branch ? (
-          <div
-            data-testid="repository-node-git-info"
-            className="text-muted-foreground border-t px-4 py-2"
-          >
-            <div className="flex items-center gap-3 text-xs">
-              <span
-                className="flex items-center gap-1 truncate"
-                data-testid="repository-node-branch"
+          <>
+            {/* Row 2: Branch + behind status */}
+            <div
+              data-testid="repository-node-git-info"
+              className="text-muted-foreground border-t px-4 py-2"
+            >
+              <div className="flex items-center gap-3 text-xs">
+                <span
+                  className="flex items-center gap-1 truncate"
+                  data-testid="repository-node-branch"
+                >
+                  <GitBranch className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{data.branch}</span>
+                </span>
+                {data.behindCount != null && data.behindCount > 0 ? (
+                  <span
+                    className="flex shrink-0 items-center gap-1 whitespace-nowrap text-amber-500"
+                    data-testid="repository-node-behind"
+                  >
+                    <ArrowDown className="h-3 w-3 shrink-0" />
+                    {data.behindCount} behind
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            {/* Row 3: Latest commit */}
+            {data.commitMessage ? (
+              <div
+                data-testid="repository-node-commit-info"
+                className="text-muted-foreground border-t px-4 py-2"
               >
+                <div className="flex items-center gap-2 text-xs">
+                  <GitCommitHorizontal className="h-3 w-3 shrink-0" />
+                  <span className="min-w-0 truncate" data-testid="repository-node-commit-message">
+                    {data.commitMessage}
+                  </span>
+                  {data.committer ? (
+                    <span
+                      className="text-muted-foreground/70 ml-auto flex shrink-0 items-center gap-1"
+                      data-testid="repository-node-committer"
+                    >
+                      <User className="h-3 w-3 shrink-0" />
+                      <span>{data.committer}</span>
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : data.gitInfoStatus === 'not-a-repo' ? (
+          /* Not a git repo — two rows for consistency with loading/ready states */
+          <>
+            <div
+              data-testid="repository-node-not-repo"
+              className="text-muted-foreground border-t px-4 py-2"
+            >
+              <div className="flex items-center gap-2 text-xs">
+                <FolderOpen className="h-3 w-3 shrink-0" />
+                <span className="min-w-0 truncate opacity-60">
+                  {data.repositoryPath ?? 'Unknown path'}
+                </span>
+              </div>
+            </div>
+            <div className="text-muted-foreground border-t px-4 py-2">
+              <div className="flex items-center gap-2 text-xs opacity-40">
                 <GitBranch className="h-3 w-3 shrink-0" />
-                <span className="truncate">{data.branch}</span>
-              </span>
-              {data.behindCount != null && data.behindCount > 0 ? (
-                <span
-                  className="flex shrink-0 items-center gap-1 whitespace-nowrap text-amber-500"
-                  data-testid="repository-node-behind"
-                >
-                  <ArrowDown className="h-3 w-3 shrink-0" />
-                  {data.behindCount} behind
-                </span>
-              ) : null}
+                <span>Not a git repository</span>
+              </div>
             </div>
-          </div>
-        ) : null}
-
-        {/* Row 3: Latest commit — message and committer */}
-        {data.commitMessage ? (
-          <div
-            data-testid="repository-node-commit-info"
-            className="text-muted-foreground border-t px-4 py-2"
-          >
-            <div className="flex items-center gap-2 text-xs">
-              <GitCommitHorizontal className="h-3 w-3 shrink-0" />
-              <span className="min-w-0 truncate" data-testid="repository-node-commit-message">
-                {data.commitMessage}
-              </span>
-              {data.committer ? (
-                <span
-                  className="text-muted-foreground/70 ml-auto flex shrink-0 items-center gap-1"
-                  data-testid="repository-node-committer"
-                >
-                  <User className="h-3 w-3 shrink-0" />
-                  <span>{data.committer}</span>
-                </span>
-              ) : null}
+          </>
+        ) : data.gitInfoStatus !== 'ready' ? (
+          /* Loading — show skeleton placeholders for both rows */
+          <>
+            <div data-testid="repository-node-git-loading" className="border-t px-4 py-2">
+              <div className="flex h-4 items-center gap-2 text-xs">
+                <GitBranch className="text-muted-foreground h-3 w-3 shrink-0" />
+                <span className="bg-muted h-3 w-20 animate-pulse rounded" />
+              </div>
             </div>
-          </div>
+            <div className="border-t px-4 py-2">
+              <div className="flex h-4 items-center gap-2 text-xs">
+                <GitCommitHorizontal className="text-muted-foreground h-3 w-3 shrink-0" />
+                <span className="bg-muted h-3 w-36 animate-pulse rounded" />
+              </div>
+            </div>
+          </>
         ) : null}
 
         {/* Row 4: Local dev server — always visible when envDeploy flag is on */}
@@ -406,6 +446,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
           position={Position.Right}
           isConnectable={!data.showHandles}
           className="opacity-0!"
+          style={{ top: 70 }}
         />
       ) : null}
     </div>

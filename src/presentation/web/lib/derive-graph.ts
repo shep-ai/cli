@@ -102,9 +102,12 @@ export function deriveGraph(
   // Add repo nodes (real ones) — sorted by createdAt for stable vertical order.
   // The server-side layoutWithDagre may reorder the node array (connected vs
   // disconnected split), so we cannot rely on Map insertion order alone.
+  // Use Infinity fallback so repos without createdAt sort last (appear at bottom).
   const sortedRepoEntries = [...repoMap.entries()].sort((a, b) => {
-    const aTime = (a[1].data.createdAt as number | undefined) ?? 0;
-    const bTime = (b[1].data.createdAt as number | undefined) ?? 0;
+    const aRaw = a[1].data.createdAt;
+    const bRaw = b[1].data.createdAt;
+    const aTime = typeof aRaw === 'number' && !Number.isNaN(aRaw) ? aRaw : Infinity;
+    const bTime = typeof bRaw === 'number' && !Number.isNaN(bRaw) ? bRaw : Infinity;
     return aTime - bTime;
   });
   for (const [nodeId, entry] of sortedRepoEntries) {

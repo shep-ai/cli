@@ -18,6 +18,8 @@ export interface RepositoryNodeData {
   committer?: string;
   /** Number of commits the current branch is behind the default branch. null if on default branch or unknown. */
   behindCount?: number | null;
+  /** Git info resolution status. undefined/'loading' = fetching, 'ready' = resolved, 'not-a-repo' = not a git repo */
+  gitInfoStatus?: 'loading' | 'ready' | 'not-a-repo';
   onClick?: () => void;
   onAdd?: () => void;
   onDelete?: (repositoryId: string) => void;
