@@ -24,11 +24,16 @@ import type { OpenActionMenuProps } from './config';
 
 const COPY_FEEDBACK_DELAY = 2000;
 
-export function OpenActionMenu({ actions, repositoryPath, showSpecs }: OpenActionMenuProps) {
+export function OpenActionMenu({
+  actions,
+  repositoryPath,
+  worktreePath,
+  showSpecs,
+}: OpenActionMenuProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyPath = () => {
-    void navigator.clipboard.writeText(repositoryPath);
+    void navigator.clipboard.writeText(worktreePath ?? repositoryPath);
     setCopied(true);
     setTimeout(() => setCopied(false), COPY_FEEDBACK_DELAY);
   };

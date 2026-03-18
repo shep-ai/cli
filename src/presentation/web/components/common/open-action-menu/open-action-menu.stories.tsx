@@ -62,3 +62,13 @@ export const WithError: Story = {
     showSpecs: true,
   },
 };
+
+/** Menu with a worktree path — Copy path copies the worktree path. */
+export const WithWorktreePath: Story = {
+  args: {
+    actions: defaultActions,
+    repositoryPath: '/Users/dev/my-project',
+    worktreePath: '/Users/dev/my-project/.worktrees/feature-add-login',
+    showSpecs: true,
+  },
+};
