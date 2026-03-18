@@ -1,3 +1,10 @@
+## [1.130.1](https://github.com/shep-ai/cli/compare/v1.130.0...v1.130.1) (2026-03-18)
+
+
+### Bug Fixes
+
+* **agents:** fix windows non-interactive session issues ([#413](https://github.com/shep-ai/cli/issues/413)) ([d09d0b3](https://github.com/shep-ai/cli/commit/d09d0b3cf3c08a52246e9f1c6b9c5001ff46677e))
+
 # [1.130.0](https://github.com/shep-ai/cli/compare/v1.129.4...v1.130.0) (2026-03-17)
 
 
