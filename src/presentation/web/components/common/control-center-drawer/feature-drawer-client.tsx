@@ -448,6 +448,15 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     setTimeout(() => setIdCopied(false), COPY_FEEDBACK_DELAY);
   }, [featureNode?.featureId]);
 
+  // ── Worktree path copy ───────────────────────────────────────────────
+  const [pathCopied, setPathCopied] = useState(false);
+  const handleCopyPath = useCallback(() => {
+    if (!featureNode?.worktreePath) return;
+    void navigator.clipboard.writeText(featureNode.worktreePath);
+    setPathCopied(true);
+    setTimeout(() => setPathCopied(false), COPY_FEEDBACK_DELAY);
+  }, [featureNode?.worktreePath]);
+
   // ── Header ────────────────────────────────────────────────────────────
 
   let header: React.ReactNode = undefined;
@@ -540,6 +549,22 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
                   <Copy className="size-3.5" />
                 )}
               </button>
+              {featureNode.worktreePath ? (
+                <button
+                  type="button"
+                  onClick={handleCopyPath}
+                  className="text-muted-foreground hover:text-foreground inline-flex items-center rounded p-0.5 transition-colors"
+                  aria-label="Copy worktree path"
+                  data-testid="feature-drawer-copy-path"
+                  title={featureNode.worktreePath}
+                >
+                  {pathCopied ? (
+                    <Check className="size-3.5 text-green-600" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                </button>
+              ) : null}
             </div>
             {featureNode.featureId ? (
               <>

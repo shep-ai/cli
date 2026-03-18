@@ -1,0 +1,13 @@
+Test: Copy Worktree Path Feature
+Date: 2026-03-18
+
+✓ FeatureDrawerClient - Copy Worktree Path > renders copy-path button when worktreePath is available (77ms)
+✓ FeatureDrawerClient - Copy Worktree Path > does not render copy-path button when worktreePath is not available (20ms)
+✓ FeatureDrawerClient - Copy Worktree Path > copies worktree path to clipboard when button is clicked (23ms)
+✓ FeatureDrawerClient - Copy Worktree Path > has tooltip showing the worktree path (15ms)
+
+Test Files: 1 passed (1)
+Tests: 4 passed (4)
+Duration: 1.10s
+
+All tests passing - feature implementation verified.
