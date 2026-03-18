@@ -31,7 +31,7 @@ type Story = StoryObj<typeof OpenActionMenu>;
 export const Default: Story = {
   args: {
     actions: defaultActions,
-    repositoryPath: '/Users/dev/my-project',
+    copyPath: '/Users/dev/my-project',
     showSpecs: true,
   },
 };
@@ -40,7 +40,7 @@ export const Default: Story = {
 export const WithoutSpecs: Story = {
   args: {
     actions: defaultActions,
-    repositoryPath: '/Users/dev/my-project',
+    copyPath: '/Users/dev/my-project',
     showSpecs: false,
   },
 };
@@ -49,7 +49,7 @@ export const WithoutSpecs: Story = {
 export const Loading: Story = {
   args: {
     actions: { ...defaultActions, ideLoading: true },
-    repositoryPath: '/Users/dev/my-project',
+    copyPath: '/Users/dev/my-project',
     showSpecs: true,
   },
 };
@@ -58,7 +58,7 @@ export const Loading: Story = {
 export const WithError: Story = {
   args: {
     actions: { ...defaultActions, ideError: 'Editor not found' },
-    repositoryPath: '/Users/dev/my-project',
+    copyPath: '/Users/dev/my-project',
     showSpecs: true,
   },
 };

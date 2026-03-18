@@ -512,7 +512,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
           <div className="flex items-center gap-2 pt-2" data-testid="feature-drawer-actions">
             <OpenActionMenu
               actions={featureActions}
-              repositoryPath={featureActionsInput.repositoryPath}
+              copyPath={featureNode?.worktreePath ?? featureActionsInput.repositoryPath}
               showSpecs={!!featureActionsInput.specPath}
             />
             {featureFlags.envDeploy && featureDeployTarget ? (

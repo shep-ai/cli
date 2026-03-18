@@ -18,14 +18,14 @@ const defaultActions: FeatureActionsState = {
 
 describe('OpenActionMenu', () => {
   it('renders the Open trigger button', () => {
-    render(<OpenActionMenu actions={defaultActions} repositoryPath="/home/user/repo" showSpecs />);
+    render(<OpenActionMenu actions={defaultActions} copyPath="/home/user/repo" showSpecs />);
 
     expect(screen.getByRole('button', { name: /open/i })).toBeInTheDocument();
   });
 
   it('shows dropdown items when clicked', async () => {
     const user = userEvent.setup();
-    render(<OpenActionMenu actions={defaultActions} repositoryPath="/home/user/repo" showSpecs />);
+    render(<OpenActionMenu actions={defaultActions} copyPath="/home/user/repo" showSpecs />);
 
     await user.click(screen.getByRole('button', { name: /open/i }));
 
@@ -38,7 +38,7 @@ describe('OpenActionMenu', () => {
   it('calls openInIde when IDE item is clicked', async () => {
     const actions = { ...defaultActions, openInIde: vi.fn() };
     const user = userEvent.setup();
-    render(<OpenActionMenu actions={actions} repositoryPath="/home/user/repo" showSpecs />);
+    render(<OpenActionMenu actions={actions} copyPath="/home/user/repo" showSpecs />);
 
     await user.click(screen.getByRole('button', { name: /open/i }));
     await user.click(screen.getByText('IDE'));
@@ -49,7 +49,7 @@ describe('OpenActionMenu', () => {
   it('calls openInShell when Terminal item is clicked', async () => {
     const actions = { ...defaultActions, openInShell: vi.fn() };
     const user = userEvent.setup();
-    render(<OpenActionMenu actions={actions} repositoryPath="/home/user/repo" showSpecs />);
+    render(<OpenActionMenu actions={actions} copyPath="/home/user/repo" showSpecs />);
 
     await user.click(screen.getByRole('button', { name: /open/i }));
     await user.click(screen.getByText('Terminal'));
@@ -60,7 +60,7 @@ describe('OpenActionMenu', () => {
   it('calls openSpecsFolder when Specs Folder item is clicked', async () => {
     const actions = { ...defaultActions, openSpecsFolder: vi.fn() };
     const user = userEvent.setup();
-    render(<OpenActionMenu actions={actions} repositoryPath="/home/user/repo" showSpecs />);
+    render(<OpenActionMenu actions={actions} copyPath="/home/user/repo" showSpecs />);
 
     await user.click(screen.getByRole('button', { name: /open/i }));
     await user.click(screen.getByText('Specs Folder'));
@@ -72,7 +72,7 @@ describe('OpenActionMenu', () => {
     render(
       <OpenActionMenu
         actions={{ ...defaultActions, ideLoading: true }}
-        repositoryPath="/home/user/repo"
+        copyPath="/home/user/repo"
         showSpecs
       />
     );
@@ -83,7 +83,7 @@ describe('OpenActionMenu', () => {
   it('disables Specs Folder item when showSpecs is false', async () => {
     const user = userEvent.setup();
     render(
-      <OpenActionMenu actions={defaultActions} repositoryPath="/home/user/repo" showSpecs={false} />
+      <OpenActionMenu actions={defaultActions} copyPath="/home/user/repo" showSpecs={false} />
     );
 
     await user.click(screen.getByRole('button', { name: /open/i }));
@@ -94,7 +94,7 @@ describe('OpenActionMenu', () => {
 
   it('shows Copy path item in the dropdown', async () => {
     const user = userEvent.setup();
-    render(<OpenActionMenu actions={defaultActions} repositoryPath="/home/user/repo" showSpecs />);
+    render(<OpenActionMenu actions={defaultActions} copyPath="/home/user/repo" showSpecs />);
 
     await user.click(screen.getByRole('button', { name: /open/i }));
 
