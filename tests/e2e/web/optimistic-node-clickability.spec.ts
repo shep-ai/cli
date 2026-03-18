@@ -4,6 +4,21 @@ test.describe('Feature node clickability — drawer opens after feature creation
   test('clicking existing feature nodes opens the detail drawer after submitting the create form', async ({
     page,
   }) => {
+    // Mock the repositories API to provide at least one repo
+    await page.route('**/api/repositories', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 'repo-1',
+            path: '/test/repo',
+            name: 'Test Repo',
+          },
+        ]),
+      })
+    );
+
     // Intercept createFeature server action to delay it (simulate slow creation)
     await page.route('**/*', async (route) => {
       const request = route.request();

@@ -19,7 +19,10 @@ import type {
   PrdRejectionPayload,
   RejectionFeedbackEntry,
 } from '../../../domain/generated/output.js';
-import { writeSpecFileAtomic } from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import {
+  writeSpecFileAtomic,
+  safeYamlDump,
+} from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import { recordLifecycleEvent } from '../../../infrastructure/services/agents/feature-agent/phase-timing-context.js';
 import { computeWorktreePath } from '../../../infrastructure/services/ide-launchers/compute-worktree-path.js';
 
@@ -98,7 +101,7 @@ export class RejectAgentRunUseCase {
       };
 
       spec.rejectionFeedback = [...existingFeedback, newEntry];
-      writeSpecFileAtomic(specDir, 'spec.yaml', yaml.dump(spec));
+      writeSpecFileAtomic(specDir, 'spec.yaml', safeYamlDump(spec));
     } catch {
       // If spec.yaml can't be read, still proceed with iteration 1
     }

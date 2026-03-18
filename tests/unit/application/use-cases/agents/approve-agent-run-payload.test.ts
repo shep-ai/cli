@@ -21,6 +21,7 @@ vi.mock('js-yaml', () => ({
 
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
   writeSpecFileAtomic: vi.fn(),
+  safeYamlDump: vi.fn(),
 }));
 
 vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () => ({
@@ -29,11 +30,14 @@ vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () =
 
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
-import { writeSpecFileAtomic } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import {
+  writeSpecFileAtomic,
+  safeYamlDump,
+} from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockYamlLoad = vi.mocked(yaml.load);
-const mockYamlDump = vi.mocked(yaml.dump);
+const mockSafeYamlDump = vi.mocked(safeYamlDump);
 const mockWriteSpecFileAtomic = vi.mocked(writeSpecFileAtomic);
 
 function createMockRunRepository() {
@@ -175,7 +179,7 @@ describe('ApproveAgentRunUseCase with PrdApprovalPayload', () => {
     };
     mockReadFileSync.mockReturnValue('yaml-content');
     mockYamlLoad.mockReturnValue(specData);
-    mockYamlDump.mockReturnValue('updated-yaml');
+    mockSafeYamlDump.mockReturnValue('updated-yaml');
 
     const payload: PrdApprovalPayload = {
       approved: true,
@@ -187,7 +191,7 @@ describe('ApproveAgentRunUseCase with PrdApprovalPayload', () => {
     expect(result.approved).toBe(true);
     expect(mockWriteSpecFileAtomic).toHaveBeenCalled();
     // Verify the spec was updated with new selection
-    const dumpCall = mockYamlDump.mock.calls[0][0] as any;
+    const dumpCall = mockSafeYamlDump.mock.calls[0][0] as any;
     const updatedQuestion = dumpCall.openQuestions[0];
     expect(updatedQuestion.answer).toBe('MongoDB');
     expect(updatedQuestion.options[0].selected).toBe(false);

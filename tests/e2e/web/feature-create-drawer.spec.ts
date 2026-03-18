@@ -2,6 +2,21 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Feature Create Drawer — native file attachments', () => {
   test('create feature with attachment shows file name and size', async ({ page }) => {
+    // Mock the repositories API to include the fake repo
+    await page.route('**/api/repositories', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 'repo-1',
+            path: '/fake/repo',
+            name: 'Fake Repo',
+          },
+        ]),
+      })
+    );
+
     // Mock the native file picker API route before navigating
     await page.route('**/api/dialog/pick-files', (route) =>
       route.fulfill({

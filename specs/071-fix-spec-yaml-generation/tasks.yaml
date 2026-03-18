@@ -1,0 +1,403 @@
+name: fix-spec-yaml-generation
+summary: >
+  15 tasks across 4 phases: create safeYamlDump helper with unit tests, migrate
+  8 yaml.dump call sites, enhance 5 agent prompts with YAML escaping guidance,
+  and validate with integration + regression tests.
+
+relatedFeatures: []
+technologies:
+  - js-yaml@^4.1.1
+  - LangGraph agent graph nodes
+  - TypeScript
+  - Vitest
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create safeYamlDump helper in node-helpers.ts'
+    description: 'Add safeYamlDump(data: unknown): string function to node-helpers.ts that wraps yaml.dump with forced double-quoting options: indent: 2, lineWidth: -1, quotingType: "\"", forceQuotes: true. Include JSDoc comments explaining when to use it vs yaml.dump and what options it applies.'
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'safeYamlDump function is exported from node-helpers.ts'
+      - 'JSDoc comments explain usage and options'
+      - 'Function signature accepts unknown data type and returns string'
+      - 'All four options (indent, lineWidth, quotingType, forceQuotes) are set correctly'
+    tdd:
+      red:
+        - 'Write test that calls safeYamlDump({ key: "value" }) and asserts output contains double-quoted "value"'
+        - 'Write test that verifies lineWidth: -1 (no line wrapping) by passing long string and asserting single line output'
+      green:
+        - 'Implement safeYamlDump as wrapper around yaml.dump with specified options'
+        - 'Add JSDoc comments with @param, @returns, and usage notes'
+      refactor:
+        - 'Extract options object to named constant SAFE_YAML_DUMP_OPTIONS for readability'
+        - 'Add inline comment explaining each option purpose'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Unit tests for safeYamlDump edge cases'
+    description: "Create comprehensive test suite covering edge cases: single quotes (contractions like \"it's\"), double quotes (nested \"quoted text\"), mixed quotes, newlines, special chars (colons, hashes, braces), nested objects, arrays, empty strings, null values, and round-trip consistency (serialize → parse → equals original)."
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test file created at packages/core/src/infrastructure/services/agents/feature-agent/nodes/__tests__/node-helpers-yaml.test.ts'
+      - 'All edge cases covered: quotes (3 tests), newlines (1 test), special chars (3 tests), nested structures (2 tests), null/empty (2 tests)'
+      - 'Round-trip test verifies serialize → parse → deep equals original'
+      - 'All tests pass'
+    tdd:
+      red:
+        - "Write test for single quote: safeYamlDump({ text: \"it's working\" }) then parse and assert equals original"
+        - "Write test for double quote: safeYamlDump({ text: \"say \\\"hello\\\"\" }) then parse and assert equals original"
+        - 'Write test for newlines: safeYamlDump({ text: "line1\nline2" }) then parse and assert equals original'
+        - 'Write test for special chars: safeYamlDump({ text: "key: value" }) then parse and assert colon is literal'
+        - 'Write test for nested object: safeYamlDump({ parent: { child: "value" } }) then parse and assert structure preserved'
+        - 'Write test for array: safeYamlDump({ items: ["a", "b", "c"] }) then parse and assert array intact'
+        - 'Write test for null: safeYamlDump({ value: null }) then parse and assert null preserved'
+        - 'Write test for empty string: safeYamlDump({ text: "" }) then parse and assert empty string'
+      green:
+        - 'All tests pass with existing safeYamlDump implementation (no changes needed if task-1 is correct)'
+      refactor:
+        - 'Extract test helper parseYaml(yaml: string) to reduce duplication'
+        - 'Group tests by category using describe blocks (quotes, special chars, structures, edge cases)'
+    estimatedEffort: '2h'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Migrate node-helpers.ts internal calls to safeYamlDump'
+    description: 'Update clearCompletedPhase (line 280) and markPhaseComplete (line 321) to use safeYamlDump instead of yaml.dump. Both functions write feature.yaml updates (phase progress, completion timestamps).'
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'clearCompletedPhase uses safeYamlDump at line 280'
+      - 'markPhaseComplete uses safeYamlDump at line 321'
+      - 'No yaml.dump calls remain in node-helpers.ts (except safeYamlDump implementation)'
+      - 'Existing unit tests for clearCompletedPhase and markPhaseComplete pass'
+    tdd:
+      red:
+        - 'Existing tests already exist for clearCompletedPhase and markPhaseComplete — verify they pass with safeYamlDump'
+        - 'If tests do not verify quoting, add assertion that output contains double-quoted phase names'
+      green:
+        - 'Replace yaml.dump with safeYamlDump at line 280 (clearCompletedPhase)'
+        - 'Replace yaml.dump with safeYamlDump at line 321 (markPhaseComplete)'
+        - 'Remove yaml.dump import if no other usage remains (keep yaml.load for safeYamlLoad)'
+      refactor:
+        - 'Verify consistent formatting (no extra blank lines or formatting changes)'
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Migrate approve-agent-run.use-case.ts to safeYamlDump'
+    description: 'Update approve-agent-run.use-case.ts writeSpecFileAtomic call (line 81) to use safeYamlDump instead of yaml.dump. This function writes spec.yaml with user selection changes (openQuestions resolved, options marked selected).'
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Import safeYamlDump from node-helpers.ts'
+      - 'writeSpecFileAtomic call at line 81 uses safeYamlDump'
+      - 'No yaml.dump calls remain in approve-agent-run.use-case.ts'
+      - 'Existing unit tests pass'
+    tdd:
+      red:
+        - 'Check if existing tests verify YAML output format — if not, add test that parses output and asserts user selections are preserved'
+      green:
+        - 'Add import: import { safeYamlDump } from "infrastructure/services/agents/feature-agent/nodes/node-helpers"'
+        - 'Replace yaml.dump with safeYamlDump at line 81'
+      refactor:
+        - 'No refactoring needed (single call site)'
+    estimatedEffort: '10min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Migrate reject-agent-run.use-case.ts to safeYamlDump'
+    description: 'Update reject-agent-run.use-case.ts writeSpecFileAtomic call (line 101) to use safeYamlDump instead of yaml.dump. This function writes spec.yaml with rejection feedback appended to rejectionFeedback array.'
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Import safeYamlDump from node-helpers.ts'
+      - 'writeSpecFileAtomic call at line 101 uses safeYamlDump'
+      - 'No yaml.dump calls remain in reject-agent-run.use-case.ts'
+      - 'Existing unit tests pass'
+    tdd:
+      red:
+        - 'Add test that user feedback with quotes (e.g., "Please add \"validation\" step") is safely serialized and parsed back'
+      green:
+        - 'Add import: import { safeYamlDump } from "infrastructure/services/agents/feature-agent/nodes/node-helpers"'
+        - 'Replace yaml.dump with safeYamlDump at line 101'
+      refactor:
+        - 'No refactoring needed (single call site)'
+    estimatedEffort: '10min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Migrate implement.node.ts to safeYamlDump'
+    description: 'Update implement.node.ts updateFeatureProgress function (line 79) to use safeYamlDump instead of yaml.dump. This function writes feature.yaml with task completion progress and timestamps.'
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Import safeYamlDump from node-helpers.ts'
+      - 'updateFeatureProgress call at line 79 uses safeYamlDump'
+      - 'No yaml.dump calls remain in implement.node.ts'
+      - 'Existing unit tests pass'
+    tdd:
+      red:
+        - 'Existing tests for implement node should verify feature.yaml updates — if not, add test that task IDs with special chars are preserved'
+      green:
+        - 'Add import: import { safeYamlDump } from "./node-helpers" (relative import)'
+        - 'Replace yaml.dump with safeYamlDump at line 79'
+      refactor:
+        - 'No refactoring needed (single call site)'
+    estimatedEffort: '10min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Migrate output.ts formatAsYAML to safeYamlDump'
+    description: 'Update src/presentation/cli/ui/output.ts formatAsYAML method (line 53) to use safeYamlDump instead of yaml.dump. This function formats YAML for terminal display (CLI commands like shep status).'
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Import safeYamlDump from node-helpers.ts'
+      - 'formatAsYAML method at line 53 uses safeYamlDump'
+      - 'No yaml.dump calls remain in output.ts'
+      - 'Existing unit tests pass'
+    tdd:
+      red:
+        - 'Add test that formatAsYAML output for object with quotes is parseable by yaml.load'
+      green:
+        - 'Add import: import { safeYamlDump } from "packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers"'
+        - 'Replace yaml.dump with safeYamlDump at line 53'
+      refactor:
+        - 'No refactoring needed (single call site)'
+    estimatedEffort: '10min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Verify no unmigrated yaml.dump call sites remain'
+    description: 'Grep entire codebase for yaml.dump calls and verify all have been migrated to safeYamlDump (except safeYamlDump implementation itself). Document any intentional exceptions (e.g., test fixtures).'
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'Grep results show no yaml.dump calls outside of: (1) safeYamlDump implementation in node-helpers.ts, (2) test fixtures (if any)'
+      - 'Any intentional exceptions are documented with inline comments explaining why safeYamlDump is not used'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Enhance analyze.prompt.ts with YAML Output Rules'
+    description: 'Add "YAML Output Rules" section to analyze.prompt.ts with guidance: (1) wrap all string values in double quotes, (2) escape internal quotes with backslash, (3) use block scalars (|) for multi-line text. Include concrete example showing before/after for unescaped quote.'
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'YAML Output Rules section added to analyze.prompt.ts'
+      - 'Section includes all three rules (quoting, escaping, block scalars)'
+      - "Concrete before/after example included (e.g., text: it's broken → text: \"it's broken\")"
+      - 'Existing prompt structure preserved (no breaking changes to agent output format)'
+    tdd:
+      red:
+        - 'Write test that analyze.prompt.ts output contains "YAML Output Rules" string'
+        - 'Write test that prompt includes example with escaped quote'
+      green:
+        - 'Add YAML Output Rules section after output structure instructions'
+        - 'Include three rules with bullet points'
+        - "Add example: \"Example: text: it's broken → text: \\\"it's broken\\\" or use text: | (newline) it's broken\""
+      refactor:
+        - 'Ensure formatting is consistent with existing prompt style (indentation, line breaks)'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Enhance requirements.prompt.ts with YAML Output Rules'
+    description: 'Add "YAML Output Rules" section to requirements.prompt.ts with same guidance as analyze prompt: quoting, escaping, block scalars, and concrete example.'
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'YAML Output Rules section added to requirements.prompt.ts'
+      - 'Section matches analyze prompt guidance (consistency)'
+      - 'Concrete before/after example included'
+      - 'Existing prompt structure preserved'
+    tdd:
+      red:
+        - 'Write test that requirements.prompt.ts output contains "YAML Output Rules" string'
+      green:
+        - 'Copy YAML Output Rules section from analyze prompt'
+        - 'Adapt example if needed for requirements context (e.g., requirement description with quotes)'
+      refactor:
+        - 'Ensure formatting consistency'
+    estimatedEffort: '15min'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Enhance research.prompt.ts with YAML Output Rules'
+    description: 'Add "YAML Output Rules" section to research.prompt.ts with same guidance as analyze prompt: quoting, escaping, block scalars, and concrete example.'
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'YAML Output Rules section added to research.prompt.ts'
+      - 'Section matches analyze/requirements prompt guidance (consistency)'
+      - 'Concrete before/after example included'
+      - 'Existing prompt structure preserved'
+    tdd:
+      red:
+        - 'Write test that research.prompt.ts output contains "YAML Output Rules" string'
+      green:
+        - 'Copy YAML Output Rules section from analyze prompt'
+        - 'Adapt example if needed for research context (e.g., rationale field with quotes)'
+      refactor:
+        - 'Ensure formatting consistency'
+    estimatedEffort: '15min'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Enhance plan.prompt.ts with YAML Output Rules'
+    description: 'Add "YAML Output Rules" section to plan.prompt.ts with same guidance as analyze prompt: quoting, escaping, block scalars, and concrete example.'
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'YAML Output Rules section added to plan.prompt.ts'
+      - 'Section matches analyze/requirements/research prompt guidance (consistency)'
+      - 'Concrete before/after example included'
+      - 'Existing prompt structure preserved'
+    tdd:
+      red:
+        - 'Write test that plan.prompt.ts output contains "YAML Output Rules" string'
+      green:
+        - 'Copy YAML Output Rules section from analyze prompt'
+        - 'Adapt example if needed for plan context (e.g., task description with quotes)'
+      refactor:
+        - 'Ensure formatting consistency'
+    estimatedEffort: '15min'
+
+  - id: task-13
+    phaseId: phase-3
+    title: 'Enhance repair.node.ts buildRepairPrompt with YAML escaping examples'
+    description: 'Update buildRepairPrompt function in repair.node.ts to add specific YAML quoting rules and before/after examples: (1) unescaped quote → escaped quote, (2) unquoted string with special char → double-quoted string, (3) multi-line content → block scalar. Include at least 3 concrete examples.'
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'buildRepairPrompt includes "YAML Escaping Rules" section'
+      - 'Three before/after examples included (quote escaping, quoting special chars, block scalars)'
+      - 'Examples are specific and actionable (show exact YAML syntax, not abstract rules)'
+      - 'Existing repair prompt structure preserved (errors + content still included)'
+    tdd:
+      red:
+        - 'Write test that buildRepairPrompt output contains "YAML Escaping Rules" string'
+        - 'Write test that prompt includes at least 3 examples (count occurrences of "→" or "Before:" markers)'
+      green:
+        - 'Add YAML Escaping Rules section to buildRepairPrompt return value'
+        - 'Include examples: (1) unescaped quote to escaped quote, (2) unquoted string with special char to double-quoted string, (3) multi-line content to block scalar'
+      refactor:
+        - 'Extract examples to template string for readability'
+        - 'Ensure examples align with phase prompt guidance (consistency)'
+    estimatedEffort: '30min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Integration test: validation → repair → re-validation cycle'
+    description: 'Create integration test in feature-agent.integration.test.ts that simulates: (1) agent writes malformed YAML (unescaped quotes), (2) validation fails, (3) repair node is triggered, (4) repair succeeds, (5) re-validation passes. Verify repair completes within 3 attempts and content is preserved.'
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'Integration test added to packages/core/src/infrastructure/services/agents/feature-agent/__tests__/feature-agent.integration.test.ts'
+      - 'Test simulates malformed YAML write (e.g., spec.yaml with unescaped quote in summary)'
+      - 'Test verifies validation node detects error and routes to repair node'
+      - 'Test verifies repair node fixes error and re-validation passes'
+      - 'Test asserts repair completes within 3 attempts (validationRetries <= 3)'
+      - 'Test asserts content is preserved after repair (semantic equality, not string equality)'
+    tdd:
+      red:
+        - 'Write test skeleton: mock agent executor to write malformed YAML on first call, corrected YAML on second call'
+        - 'Assert validation fails on first attempt (lastValidationErrors is set)'
+        - 'Assert repair is triggered (state.currentPhase routes to repair node)'
+        - 'Assert re-validation passes on second attempt (lastValidationErrors is null)'
+      green:
+        - 'Implement test using existing feature-agent test harness (if available) or create minimal graph execution mock'
+        - 'Mock Write tool to simulate agent writing files with controlled content (malformed then corrected)'
+        - 'Assert validation/repair flow using state transitions'
+      refactor:
+        - 'Extract test helper mockAgentExecutorWithRepairCycle to reduce duplication if multiple repair scenarios needed'
+    estimatedEffort: '3h'
+
+  - id: task-15
+    phaseId: phase-4
+    title: 'Regression test: parse existing spec.yaml files'
+    description: 'Create regression test that reads all existing spec.yaml files from specs/ directory, parses each with safeYamlLoad, and verifies: (1) no parse errors, (2) schema validation passes. Ensures backward compatibility with YAML files written before forced quoting.'
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'Regression test added to node-helpers-yaml.test.ts or separate backward-compat.test.ts'
+      - 'Test discovers all spec.yaml files in specs/ directory (glob pattern specs/*/spec.yaml)'
+      - 'Test parses each file with safeYamlLoad and asserts no errors'
+      - 'Test validates each parsed artifact against FeatureArtifact schema (using existing spec-yaml-parser)'
+      - 'Test passes with current codebase (existing spec files parse successfully)'
+    tdd:
+      red:
+        - 'Write test that globs specs/*/spec.yaml and parses each file'
+        - 'Assert parse count > 0 (ensure test finds files)'
+        - 'Assert all parses succeed (no yaml.load errors)'
+      green:
+        - 'Implement test using fs.readdirSync or glob to find spec.yaml files'
+        - 'Loop through files, read content, parse with safeYamlLoad, assert no errors'
+        - 'Optionally validate against schema using spec-yaml-parser parseSpecYaml function'
+      refactor:
+        - 'Extract test helper parseAllSpecFiles if other tests need this functionality'
+        - 'Add skip condition if specs/ directory is empty (CI environments may not have specs)'
+    estimatedEffort: '1h'
+
+totalEstimate: '10h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  Implementation proceeds in four phases: (1) establish foundation with safeYamlDump
+  helper and comprehensive unit tests, (2) migrate all internal yaml.dump call sites
+  to ensure consistent quoting across nodes/use cases/CLI, (3) enhance agent prompts
+  with YAML escaping guidance to prevent malformed output at the source, (4) validate
+  end-to-end behavior with integration test and ensure backward compatibility with
+  regression test.
+
+  Foundation first (phase 1): Cannot migrate call sites until helper exists. Tests
+  before code ensures helper correctness before integration. Edge case coverage (quotes,
+  newlines, special chars, nested structures) builds confidence in serialization
+  behavior.
+
+  Internal migration (phase 2): Start with node-helpers.ts (clearCompletedPhase,
+  markPhaseComplete) since they're used by all nodes. Then migrate use cases (approve,
+  reject), implement node, and CLI output. Each task verifies quoting behavior and
+  ensures no unmigrated calls remain.
+
+  Prompt enhancements (phase 3): Add "YAML Output Rules" section to all phase prompts
+  (analyze, requirements, research, plan) with consistent guidance: quoting, escaping,
+  block scalars. Enhance repair prompt with specific before/after examples. Prompts
+  are the first line of defense — prevent malformed YAML at the source. Consistency
+  across prompts ensures agents receive uniform expectations regardless of phase.
+
+  Validation (phase 4): Integration test verifies full validation → repair →
+  re-validation cycle works end-to-end. Regression test ensures existing spec.yaml
+  files (written before forced quoting) parse successfully, guaranteeing backward
+  compatibility. No user migration required — safeYamlLoad handles both old (unquoted)
+  and new (force-quoted) YAML.
+
+  All code tasks follow TDD: write failing test (RED), implement minimal code (GREEN),
+  clean up (REFACTOR). Non-code tasks (grep verification, prompt enhancements) include
+  acceptance criteria but no TDD cycles.

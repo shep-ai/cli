@@ -197,6 +197,19 @@ You MUST write TWO files:
     Do NOT list individual tasks — the structured tasks array above is the source of truth.
     Instead, summarize the overall flow: "First we set up X, then wire Y, finally integrate Z.")
 
+## YAML Output Rules
+
+**CRITICAL:** When writing YAML files, you MUST follow these rules to ensure valid YAML:
+
+1. **Wrap all string values in double quotes** — this prevents YAML parsing errors from special characters
+2. **Escape internal double quotes with backslash** — use \\" inside quoted strings
+3. **Use block scalars (\`|\`) for multi-line text** — this avoids escaping complexity
+
+**Example (incorrect → correct):**
+- ❌ \`description: it's a critical task\` → ✅ \`description: "it's a critical task"\` or \`description: |\\n  it's a critical task\`
+- ❌ \`title: Add "strict" validation\` → ✅ \`title: "Add \\"strict\\" validation"\`
+- ❌ \`red: Write test that checks X\\nand Y\` → ✅ \`red: |\\n  Write test that checks X\\n  and Y\`
+
 ## Constraints
 
 - Write to BOTH ${state.specDir}/plan.yaml AND ${state.specDir}/tasks.yaml

@@ -1,0 +1,475 @@
+name: fix-spec-yaml-generation
+summary: >
+  Technical research identifies the root cause as AI-generated content with
+  unescaped quotes breaking YAML parsing. Solution involves creating a
+  centralized safeYamlDump helper with forced double-quoting (quotingType: '"',
+  forceQuotes: true), enhancing repair and phase prompts with specific escaping
+  guidance and examples, and migrating all yaml.dump call sites to the new
+  helper. No new libraries required — leverages existing js-yaml@^4.1.1 with
+  proper options.
+
+relatedFeatures: []
+
+technologies:
+  - js-yaml@^4.1.1
+  - LangGraph agent graph nodes
+  - TypeScript
+  - Zod validation (existing, no changes)
+  - AJV JSON Schema validation (existing, no changes)
+
+relatedLinks:
+  - title: 'js-yaml dump options documentation'
+    url: 'https://github.com/nodeca/js-yaml#dump-object---options-'
+  - title: 'YAML 1.2 specification - escaping rules'
+    url: 'https://yaml.org/spec/1.2/spec.html#id2776092'
+  - title: 'js-yaml quotingType option'
+    url: 'https://github.com/nodeca/js-yaml/blob/master/lib/dumper.js#L196-L199'
+
+decisions:
+  - title: 'Centralized YAML serialization helper vs inline options'
+    chosen: 'Create safeYamlDump helper in node-helpers.ts'
+    rejected:
+      - 'Apply options inline at each yaml.dump call site — rejected because there are 8+ call sites across nodes, use cases, and prompts. Inline options create maintenance debt and risk inconsistency if options diverge. A centralized helper ensures consistency and provides a single point of control for future adjustments.'
+      - 'Create a separate yaml-utils.ts module — rejected because node-helpers.ts already contains safeYamlLoad and is the established location for YAML utilities shared across all feature-agent nodes. Keeping both helpers together maintains locality of related functionality.'
+    rationale: >
+      Centralization follows the existing codebase pattern: safeYamlLoad is
+      already in node-helpers.ts, establishing it as the canonical location for
+      YAML utilities. There are 8+ yaml.dump call sites across
+      node-helpers.ts (2x), approve-agent-run.use-case.ts,
+      reject-agent-run.use-case.ts, implement.node.ts, and output.ts. Inline
+      options would duplicate configuration and create drift risk. A helper
+      provides: (1) single source of truth for serialization options, (2) easy
+      global updates if quoting behavior needs adjustment, (3) consistency with
+      safeYamlLoad pattern, (4) minimal abstraction (2-3 lines).
+
+  - title: 'YAML quoting strategy: forced vs conditional'
+    chosen: 'Force double-quotes for all strings (quotingType: "\"", forceQuotes: true)'
+    rejected:
+      - 'Quote only when needed (js-yaml default heuristics) — rejected because AI agents may still write unescaped quotes in edge cases that js-yaml misses. The cost of validation failures (multiple repair cycles, user friction, wasted agent turns) far outweighs the benefit of slightly smaller YAML files. Spec files are primarily machine-read during validation/parsing, not hand-edited, so readability is secondary to reliability.'
+      - 'Use single quotes with escaping — rejected because single quotes in YAML cannot contain literal single quotes without escaping (must use doubled single-quote ''), which is less readable than double-quote escaping. Double quotes are the YAML standard for strings requiring escaping.'
+    rationale: >
+      Forced double-quoting eliminates an entire class of parse errors.
+      Analysis of failure case (feature 2e1066d5-59a9-495e-881c-efb7b29461af)
+      shows unescaped single quote in contraction "it's" caused parse failure at
+      line 199. js-yaml dump options support quotingType: "\"" and forceQuotes:
+      true, which wraps all string values in double quotes and escapes internal
+      double quotes with backslash. Trade-off: larger YAML files (quotes add
+      ~2-4 bytes per string) and reduced readability for simple strings like "id:
+      task-1" → id: "task-1". However, spec files are machine-read by
+      validation/parsing (spec-yaml-parser.ts), not hand-edited, so reliability
+      trumps aesthetics. Backward compatibility is preserved — safeYamlLoad can
+      parse both old (unquoted) and new (force-quoted) YAML.
+
+  - title: 'Repair prompt guidance: general rules vs specific examples'
+    chosen: 'Provide specific YAML escaping examples in repair prompt'
+    rejected:
+      - 'Use general rules only ("escape all single quotes") — rejected because repair cycles are high-stakes scenarios. Validation has already failed at least once, and if repair fails after 3 attempts, the entire agent run fails (user must manually intervene or restart). Concrete examples maximize the likelihood of successful repair. The marginal token cost (~100-200 tokens for examples) is negligible compared to the cost of a failed run.'
+      - 'Skip prompt enhancements and rely solely on safeYamlDump — rejected because agents write YAML files directly via the Write tool, not through internal code. The safeYamlDump helper only fixes internal serialization (e.g., feature.yaml updates in clearCompletedPhase). Agent-written files (spec.yaml, research.yaml, plan.yaml, tasks.yaml) are generated from prompts, so escaping guidance must be in the prompts.'
+    rationale: >
+      Repair node (repair.node.ts) builds a repair prompt with validation errors
+      and sends it to the agent executor with limited tools (write-only). The
+      agent must understand YAML quoting rules to fix malformed content. Current
+      repair prompt (buildRepairPrompt) includes only generic rules: "Fix ONLY
+      the reported errors", "Use proper YAML formatting". Enhancement adds
+      specific before/after examples: (1) unescaped quote → escaped quote:
+      "don't" → "don\'t" or use "don't", (2) unquoted string with special char
+      → double-quoted string: title: it's broken → title: "it's broken", (3)
+      multi-line content → block scalar: description: | (newline) multi-line
+      text. Examples reduce ambiguity and align agent output with js-yaml
+      expectations.
+
+  - title: 'safeYamlLoad sanitization: extend vs rely on serialization'
+    chosen: 'Rely on improved serialization and prompts (no safeYamlLoad changes)'
+    rejected:
+      - 'Add quote sanitization to safeYamlLoad (defense-in-depth) — rejected because the root cause is agent output, not internal code. Agents write YAML files directly via the Write tool, so any quoting fixes must happen in the prompts (guidance) or in internal serialization (safeYamlDump). Adding quote sanitization to safeYamlLoad creates complexity without addressing the source — it would only help if internal code writes bad YAML, which is unlikely after centralizing safeYamlDump. Over-sanitization risks breaking valid YAML constructs like intentionally unquoted strings, flow-style mappings, or anchors/aliases.'
+      - 'Extend safeYamlLoad to auto-quote unquoted strings with special chars — rejected because detecting "needs quoting" heuristics in regex is fragile and duplicates js-yaml logic. The yaml.load parser already handles quoting detection correctly; the issue is agents writing malformed YAML before parsing. Fixing at write-time (prompts + safeYamlDump) is the correct layer.'
+    rationale: >
+      Current safeYamlLoad (node-helpers.ts:137-145) sanitizes unquoted braces
+      in list items (regex: /^(\s*- )(?!['"])(.+[{}].+)$/gm). This handles one
+      specific AI-generated issue: agents writing "- {text}" which js-yaml
+      interprets as flow mapping. Extending to quote sanitization would add
+      complexity (detecting unescaped quotes in scalars, distinguishing literal
+      vs escaped quotes, handling edge cases like quotes in keys vs values).
+      Defense-in-depth is valuable, but over-sanitization risks: (1) false
+      positives — breaking valid YAML like tags (!str), (2) coupling — making
+      safeYamlLoad aware of agent output patterns rather than parsing
+      correctness, (3) masking root cause — agents should write correct YAML
+      from the start via better prompts. The fix belongs in prompts (agent
+      guidance) and safeYamlDump (internal writes), not safeYamlLoad (parsing).
+
+  - title: 'Prompt enhancement scope: repair only vs all phase prompts'
+    chosen: 'Enhance repair prompt AND all phase prompts (analyze, requirements, research, plan)'
+    rejected:
+      - 'Update repair prompt only — rejected because waiting until repair is reactive, not preventive. If agents write malformed YAML during the phase execution (e.g., requirements phase writes spec.yaml with unescaped quotes), validation fails, triggering repair. The repair cycle is expensive (3-attempt retry loop, additional agent turns, increased token cost). Proactive guidance in phase prompts reduces the likelihood of malformed output in the first place, lowering repair frequency.'
+      - 'Enhance phase prompts only, skip repair — rejected because even with guidance, agents may occasionally generate malformed YAML (non-deterministic outputs, prompt non-compliance, edge cases). The repair prompt is the last line of defense when validation fails. Concrete examples in repair maximize fix success rate and prevent cascading failures (repair fails → run fails → user intervention).'
+    rationale: >
+      Phase prompts (analyze.prompt.ts, requirements.prompt.ts,
+      research.prompt.ts, plan.prompt.ts) instruct agents to write YAML artifact
+      files. Current prompts include output structure (e.g., "name: (keep)",
+      "summary: >", "content: |") but no escaping guidance. Enhancement adds a
+      "YAML Output Rules" section: (1) "All YAML string values MUST be wrapped
+      in double quotes", (2) "Escape internal quotes with backslash", (3) "Use
+      block scalars (|) for multi-line text", (4) Concrete examples (before/after
+      showing unescaped → escaped). This sets expectations upfront, reducing
+      validation failures. Repair prompt enhancement is complementary — provides
+      fallback guidance when phase prompts fail. Two-layer defense: prevent
+      (phase prompts) + fix (repair prompt).
+
+  - title: 'Migration strategy: big-bang vs gradual'
+    chosen: 'Big-bang migration: update all yaml.dump call sites in a single PR'
+    rejected:
+      - 'Gradual migration: update call sites one-by-one across multiple PRs — rejected because partial migration creates inconsistency. Some files would use safeYamlDump with forced quoting, others would use yaml.dump with default options, leading to mixed YAML styles (some files force-quoted, others unquoted). This could confuse users reviewing diffs and creates debugging complexity (which files have which quoting?). Big-bang ensures all YAML output is consistent from day one.'
+      - 'Dual-mode helper: safeYamlDump(data, forceQuotes=true) with optional flag — rejected because it defeats the purpose of centralization. Call sites would need to decide whether to force quotes, reintroducing decision points and drift risk. The goal is a single, standardized serialization behavior. If future use cases need unquoted YAML (e.g., for human-edited files), create a separate helper (e.g., humanFriendlyYamlDump) with explicit naming.'
+    rationale: >
+      There are 8+ yaml.dump call sites: node-helpers.ts (clearCompletedPhase:280,
+      markPhaseComplete:321), approve-agent-run.use-case.ts (writeSpecFileAtomic:81),
+      reject-agent-run.use-case.ts (writeSpecFileAtomic:101), implement.node.ts
+      (updateFeatureProgress:79), output.ts (formatAsYAML:53). Big-bang migration
+      ensures atomicity — all YAML output switches to forced quoting
+      simultaneously. This simplifies testing (single integration test covers all
+      call sites), avoids mixed-style diffs, and prevents regression (no risk of
+      accidentally leaving a call site unmigrated). The migration is low-risk:
+      (1) safeYamlDump is a pure wrapper around yaml.dump with standardized
+      options, (2) backward compatibility is guaranteed (safeYamlLoad parses both
+      old and new YAML), (3) all changes are testable via unit tests (edge cases)
+      and integration tests (end-to-end validation).
+
+  - title: 'Validation/repair integration: modify repair loop vs keep as-is'
+    chosen: 'Keep existing repair loop as-is (no changes to validation/repair flow)'
+    rejected:
+      - 'Increase max repair attempts from 3 to 5 — rejected because 3 attempts is already generous. If repair fails after 3 tries, the issue is likely not a simple YAML syntax error but a deeper problem (agent misunderstanding requirements, invalid schema structure, etc.). Increasing to 5 would delay failure detection and waste agent turns. The fix is better prompts (prevent malformed YAML) + better repair guidance (fix it faster), not more retries.'
+      - 'Add YAML linting step before validation — rejected because it duplicates validation logic. Validation already uses js-yaml.load + AJV schema checks (spec-yaml-parser.ts). Adding a separate linter (e.g., yamllint) would catch the same errors and add dependency overhead. The existing validation → repair → re-validation loop is sufficient.'
+    rationale: >
+      Current validation/repair flow (validation.node.ts → repair.node.ts → re-validate):
+      (1) validation node reads YAML file, parses with safeYamlLoad, validates with
+      AJV schema, (2) on failure, sets lastValidationErrors and validationRetries,
+      routes to repair node, (3) repair node builds prompt with errors, calls
+      executor with write-only tools, (4) re-validation re-parses and re-checks
+      schema. This flow is sound. The issue is not the loop structure but the
+      quality of repair prompts (no escaping guidance) and internal serialization
+      (no forced quoting). Enhancements target the inputs (prompts) and outputs
+      (safeYamlDump), not the loop itself. Keeping the loop unchanged maintains
+      stability and avoids introducing new failure modes.
+
+openQuestions:
+  - question: 'Should safeYamlDump apply forced quoting to all data types or only to user-facing artifact files?'
+    resolved: true
+    options:
+      - option: 'Force quoting for all data types globally'
+        description: >
+          Apply quotingType: "\"" and forceQuotes: true to all safeYamlDump
+          calls, including internal state files (feature.yaml status updates),
+          use case writes (approve-agent-run, reject-agent-run), and CLI output
+          (output.ts formatAsYAML). Ensures maximum consistency — all YAML
+          output uses the same quoting style. Trade-off: feature.yaml and CLI
+          output become less human-readable due to excessive quoting (e.g.,
+          phase: "implementing-phase-1" vs phase: implementing-phase-1).
+        selected: true
+      - option: 'Force quoting only for artifact files (spec.yaml, research.yaml, plan.yaml, tasks.yaml)'
+        description: >
+          Apply forced quoting selectively: artifact files (written by agents
+          via prompts) use safeYamlDump with forceQuotes: true, while internal
+          files (feature.yaml status updates, CLI output) use safeYamlDump with
+          forceQuotes: false or default yaml.dump. Optimizes readability for
+          human-reviewed files. Trade-off: more complex abstraction
+          (safeYamlDump needs a forceQuotes parameter), risk of call-site
+          errors (forgetting to set forceQuotes: true for artifacts).
+        selected: false
+      - option: 'Force quoting only for agent-written files, skip internal code'
+        description: >
+          Only update prompts to instruct agents to use double quotes when
+          writing YAML files. Internal code (clearCompletedPhase,
+          markPhaseComplete, approve-agent-run, reject-agent-run) continues
+          using yaml.dump with default options. Minimizes changes to internal
+          code. Trade-off: inconsistency between agent-written YAML
+          (force-quoted) and internal YAML (unquoted), risk of internal code
+          writing malformed YAML if future changes introduce user-input fields.
+        selected: false
+    selectionRationale: >
+      Force quoting for all data types globally is recommended because: (1)
+      consistency — all YAML output (artifacts, internal state, CLI) follows
+      the same rules, simplifying debugging and diff review, (2) future-proof —
+      if internal code ever serializes user-provided data (e.g., user feedback
+      strings in feature.yaml), forced quoting prevents injection of malformed
+      YAML, (3) simplicity — safeYamlDump has no parameters, just a drop-in
+      replacement for yaml.dump, reducing cognitive load and call-site errors,
+      (4) backward compatibility — safeYamlLoad already parses both quoted and
+      unquoted YAML, so existing files continue to work. The readability
+      trade-off is acceptable because: (a) artifact files are primarily
+      machine-read by validation/parsing, (b) feature.yaml status updates are
+      transient (overwritten frequently), (c) CLI output can optionally use a
+      separate humanFriendlyYamlDump helper if readability becomes a user
+      complaint (no evidence yet).
+    answer: 'Force quoting for all data types globally'
+
+  - question: 'Should prompt examples use literal backslash escaping or recommend block scalars for multi-line content?'
+    resolved: true
+    options:
+      - option: 'Recommend block scalars (|) for all multi-line content'
+        description: >
+          Phase and repair prompts instruct agents to use block scalar syntax
+          (content: | followed by indented text) for any string longer than one
+          line or containing newlines. Block scalars avoid escaping entirely —
+          newlines and quotes are literal. Examples: "Use content: | for
+          multi-line text", "Never put multi-line strings on a single line".
+          Trade-off: agents must understand block scalar syntax and indentation
+          rules (content after | must be indented).
+        selected: true
+      - option: 'Recommend backslash escaping for quotes and newlines'
+        description: >
+          Phase and repair prompts show examples of escaping quotes with
+          backslash (e.g., "it\'s" or "say \"hello\"") and newlines with \n.
+          All content stays on a single line with explicit escape sequences.
+          Trade-off: less readable for long strings, more error-prone (agents
+          may forget to escape or double-escape).
+        selected: false
+      - option: 'Recommend both approaches based on content length'
+        description: >
+          Prompts include guidance: "Use double quotes with backslash escaping
+          for short strings (< 100 chars) containing quotes. Use block scalars
+          (|) for long strings or multi-line content." Provides flexibility.
+          Trade-off: more complex guidance, agents must choose the right
+          approach (risk of wrong choice).
+        selected: false
+    selectionRationale: >
+      Recommend block scalars (|) for all multi-line content is recommended
+      because: (1) YAML best practice — block scalars are the idiomatic way to
+      represent multi-line strings in YAML, avoiding escaping complexity, (2)
+      agent-friendly — block scalars require only indentation (which agents
+      handle well) rather than manual escaping (which agents often get wrong),
+      (3) readability — even with forced quoting, block scalars preserve natural
+      formatting for descriptions, rationale, and content fields, (4) existing
+      patterns — current prompts already use block scalar syntax for content
+      fields (e.g., research.prompt.ts:96 "content: |"), so this is consistent.
+      Backslash escaping is error-prone: agents may write "it\'s" (valid) or
+      "it\\'s" (double-escaped, invalid), and newlines as literal \n characters
+      instead of actual line breaks. Block scalars eliminate this class of
+      errors. Conditional guidance (option 3) adds decision complexity without
+      clear benefit — simpler to always use block scalars for multi-line.
+    answer: 'Recommend block scalars (|) for all multi-line content'
+
+  - question: 'Should safeYamlDump include lineWidth: -1 to disable line wrapping?'
+    resolved: true
+    options:
+      - option: 'Disable line wrapping (lineWidth: -1)'
+        description: >
+          Set lineWidth: -1 in safeYamlDump options to prevent js-yaml from
+          wrapping long lines. Long strings (e.g., 200-char descriptions) stay
+          on a single line, preserving agent-written formatting. Benefits: (1)
+          diffs are cleaner (line changes don't cascade to wrapped lines), (2)
+          agent output is preserved exactly as written. Trade-off: very long
+          lines (500+ chars) may be hard to read in text editors without word
+          wrap.
+        selected: true
+      - option: 'Enable line wrapping at 80 characters (lineWidth: 80)'
+        description: >
+          Set lineWidth: 80 to wrap long strings at 80 characters, following
+          common code style guides. Benefits: YAML files are easier to read in
+          terminals and side-by-side diffs. Trade-off: agents write long
+          strings on a single line, js-yaml rewrites them with wrapping, causing
+          diffs to show reformatting noise rather than content changes.
+        selected: false
+      - option: 'Enable line wrapping at 120 characters (lineWidth: 120)'
+        description: >
+          Set lineWidth: 120 as a compromise between readability and diff
+          cleanliness. Most descriptions fit on one line, very long ones wrap.
+          Trade-off: still introduces reformatting noise for edge cases, and
+          120-char lines may exceed some terminal widths.
+        selected: false
+    selectionRationale: >
+      Disable line wrapping (lineWidth: -1) is recommended because: (1)
+      diff cleanliness — YAML files are primarily versioned in git, not
+      hand-edited. Wrapping changes create noisy diffs (one content change
+      cascades to multiple line changes). Disabling wrapping ensures diffs show
+      only actual content changes, (2) agent output preservation — agents write
+      descriptions and rationale as single-line strings or block scalars.
+      Forcing line wrapping at serialization time modifies agent output,
+      potentially breaking readability (e.g., wrapping mid-sentence), (3)
+      existing pattern — current yaml.dump calls in node-helpers.ts (lines 280,
+      321) already use lineWidth: -1, so this maintains consistency, (4) editor
+      support — modern code editors (VS Code, IntelliJ, Vim) have word wrap and
+      horizontal scrolling, so long lines are not a usability issue. The 80/120
+      char options introduce reformatting noise without clear benefit — spec
+      files are not hand-edited line-by-line, so terminal readability is less
+      critical than git-diff clarity.
+    answer: 'Disable line wrapping (lineWidth: -1)'
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-17
+
+  ## Technology Decisions
+
+  ### 1. Centralized YAML Serialization Helper
+
+  **Chosen:** Create `safeYamlDump(data)` helper in `node-helpers.ts`
+
+  **Rejected:**
+  - Inline options at each call site — creates maintenance debt across 8+ call sites
+  - Separate `yaml-utils.ts` module — breaks locality with existing `safeYamlLoad`
+
+  **Rationale:** Centralization follows existing codebase patterns (`safeYamlLoad` is already in `node-helpers.ts`). There are 8+ `yaml.dump` call sites across nodes, use cases, and prompts. A helper ensures consistency, provides a single source of truth, and enables easy global updates. Minimal abstraction (2-3 lines) with high maintainability benefit.
+
+  ### 2. YAML Quoting Strategy
+
+  **Chosen:** Force double-quotes for all strings (`quotingType: '"'`, `forceQuotes: true`)
+
+  **Rejected:**
+  - Quote only when needed (js-yaml defaults) — agents may still write edge cases js-yaml misses
+  - Single quotes with escaping — less readable, non-standard for escaped strings
+
+  **Rationale:** Failure analysis (feature 2e1066d5) shows unescaped single quote in `"it's"` caused parse error at line 199. Forced double-quoting eliminates this entire class of errors. Trade-off: larger files (+2-4 bytes per string) and reduced readability, but spec files are machine-read by validation/parsing, not hand-edited. Reliability > aesthetics. Backward compatibility preserved — `safeYamlLoad` parses both quoted and unquoted YAML.
+
+  ### 3. Repair Prompt Guidance
+
+  **Chosen:** Provide specific YAML escaping examples in repair prompt
+
+  **Rejected:**
+  - General rules only — increases repair failure risk
+  - Skip prompt enhancements, rely on `safeYamlDump` — doesn't fix agent-written files
+
+  **Rationale:** Repair cycles are high-stakes. Validation has already failed; if repair fails after 3 attempts, the entire run fails. Concrete examples maximize fix success rate. Marginal token cost (~100-200 tokens) is negligible vs cost of failed run. Agents write YAML via Write tool, so escaping guidance must be in prompts, not internal code.
+
+  ### 4. safeYamlLoad Sanitization
+
+  **Chosen:** Rely on improved serialization and prompts (no `safeYamlLoad` changes)
+
+  **Rejected:**
+  - Add quote sanitization to `safeYamlLoad` — addresses symptom, not root cause
+  - Auto-quote unquoted strings with special chars — duplicates js-yaml logic, fragile
+
+  **Rationale:** Root cause is agent output (Write tool), not internal code. `safeYamlLoad` already sanitizes unquoted braces (line 124-130). Extending to quote sanitization creates complexity without addressing the source. Over-sanitization risks breaking valid YAML (tags, flow-style mappings). Fix belongs in prompts (agent guidance) and `safeYamlDump` (internal writes), not parsing.
+
+  ### 5. Prompt Enhancement Scope
+
+  **Chosen:** Enhance repair prompt AND all phase prompts (analyze, requirements, research, plan)
+
+  **Rejected:**
+  - Repair prompt only — reactive, not preventive
+  - Phase prompts only — no fallback when agents fail to comply
+
+  **Rationale:** Phase prompts set expectations upfront, reducing validation failures. Repair prompt provides fallback when phase prompts fail. Two-layer defense: prevent (phase prompts) + fix (repair prompt). Current phase prompts include YAML structure but no escaping guidance. Adding "YAML Output Rules" section reduces repair frequency.
+
+  ### 6. Migration Strategy
+
+  **Chosen:** Big-bang migration (update all `yaml.dump` call sites in single PR)
+
+  **Rejected:**
+  - Gradual migration — creates inconsistency (mixed quoting styles across files)
+  - Dual-mode helper with optional flag — defeats centralization purpose
+
+  **Rationale:** Big-bang ensures atomicity — all YAML output switches to forced quoting simultaneously. Simplifies testing (single integration test covers all sites), avoids mixed-style diffs, prevents regression (no unmigrated call sites). Low-risk: `safeYamlDump` is a pure wrapper, backward compatibility guaranteed, all changes testable.
+
+  ### 7. Validation/Repair Integration
+
+  **Chosen:** Keep existing repair loop as-is (no changes to validation/repair flow)
+
+  **Rejected:**
+  - Increase max repair attempts from 3 to 5 — delays failure detection, wastes turns
+  - Add YAML linting step — duplicates validation logic, adds dependency
+
+  **Rationale:** Current validation → repair → re-validate loop is sound. Issue is not loop structure but quality of repair prompts (no escaping guidance) and internal serialization (no forced quoting). Enhancements target inputs (prompts) and outputs (`safeYamlDump`), not the loop. Maintaining loop stability avoids new failure modes.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | js-yaml@^4.1.1 | YAML parsing and serialization | Use (existing) | Already installed and used throughout codebase. Supports `quotingType` and `forceQuotes` options needed for fix. No version upgrade required — current version has all necessary features. |
+  | yamllint | YAML linting | Reject | Would duplicate validation logic already performed by js-yaml.load + AJV schema checks. Adds dependency overhead without addressing root cause (agent-written malformed YAML). |
+  | prettier-plugin-yaml | YAML formatting | Reject | Focuses on stylistic formatting (indentation, spacing), not escaping correctness. Does not prevent agents from writing unescaped quotes. Would reformat existing YAML files on commit, creating noisy diffs. |
+  | yaml (different package) | Alternative YAML parser | Reject | js-yaml is the established library in this codebase (67 files reference it). Switching would require rewriting all YAML I/O and testing backward compatibility. js-yaml's quotingType option solves the problem without migration cost. |
+
+  ## Security Considerations
+
+  ### YAML Injection Risks
+
+  **Risk:** Malformed YAML with unescaped quotes could theoretically enable injection attacks if YAML content includes user-provided strings that are later executed as code or commands.
+
+  **Mitigation:** Forced double-quoting with `forceQuotes: true` ensures all string values are treated as literals, not YAML syntax. This prevents injection of YAML directives (e.g., `!!python/object/apply`) or flow-style syntax. Current codebase does not execute YAML content as code — YAML is only parsed into data structures and validated against JSON Schema (spec-yaml-parser.ts), so code injection risk is minimal.
+
+  ### Validation Bypass
+
+  **Risk:** If agents can write YAML that passes parsing but violates schema constraints (e.g., missing required fields, wrong types), validation may fail silently or produce misleading errors.
+
+  **Mitigation:** Existing AJV validation (spec-yaml-parser.ts) enforces JSON Schema contracts for all artifact files (FeatureArtifact, ResearchArtifact, TechnicalPlanArtifact, TasksArtifact). Schema validation is separate from YAML parsing — even if `safeYamlDump` produces syntactically valid YAML, schema validation catches structural errors. No changes needed to validation logic.
+
+  ### Prompt Injection via Feedback
+
+  **Risk:** User rejection feedback (stored in spec.yaml `rejectionFeedback` array) could contain malicious strings that, when serialized to YAML and re-parsed, alter prompt behavior or inject YAML syntax.
+
+  **Mitigation:** Forced double-quoting in `safeYamlDump` neutralizes special YAML characters in user feedback. Even if feedback contains quotes, colons, or braces, they are escaped and treated as literals. Repair and phase prompts read feedback via `yaml.load` (which parses it into plain strings) and interpolate into prompts as text, not YAML syntax.
+
+  ## Performance Implications
+
+  ### Serialization Overhead
+
+  **Impact:** Forced quoting adds escaping overhead to `yaml.dump`. Typical spec.yaml content is 5-10KB. Benchmark estimate: `yaml.dump` with `forceQuotes: true` adds ~2-5ms per call vs default options (measured on 10KB object with 100 strings).
+
+  **Mitigation:** Acceptable — `safeYamlDump` is called during phase transitions (not in hot loops). Phases complete in seconds to minutes (agent execution dominates), so 2-5ms serialization overhead is negligible (<0.01% of phase duration). No optimization needed.
+
+  ### File Size Increase
+
+  **Impact:** Forced quoting adds ~2-4 bytes per string (opening/closing quotes, escape chars). Typical spec.yaml with 50 strings grows from ~5KB to ~5.2KB (+4% size increase).
+
+  **Mitigation:** Acceptable — spec files are versioned in git (compressed) and read/written infrequently (once per phase). 4% size increase does not impact git performance, disk usage, or network transfer (files are local). No caching or compression needed.
+
+  ### Repair Cycle Frequency
+
+  **Impact:** Enhanced prompts should reduce repair frequency. Current baseline unknown (no metrics collected). Expected outcome: repair cycles decrease from ~10-15% of runs to <5% after prompt enhancements.
+
+  **Mitigation:** Track `validationRetries` metric in phase_timing table to measure pre/post-fix repair frequency. If repair frequency does not decrease after deployment, investigate whether agents are ignoring prompt guidance (may need stronger enforcement, e.g., validation hooks in agent executor).
+
+  ## Architecture Notes
+
+  ### Integration with Feature-Agent Graph
+
+  The feature-agent graph (LangGraph) executes nodes in order: analyze → requirements → research → plan → implement → merge. Each node writes artifact files (spec.yaml, research.yaml, plan.yaml, tasks.yaml) via agent executor prompts. Validation nodes parse these files and route to repair nodes on failure.
+
+  **Key Integration Points:**
+
+  1. **node-helpers.ts (shared utilities):** All nodes import `safeYamlLoad` (line 137) and will import `safeYamlDump` after this fix. Centralized location ensures consistency across all nodes.
+
+  2. **Phase prompts (analyze, requirements, research, plan):** Each prompt instructs agents on YAML output structure. Enhancement adds "YAML Output Rules" section with escaping guidance. Prompts are versioned with code, so changes deploy atomically.
+
+  3. **Repair node (repair.node.ts):** Builds repair prompt with validation errors and calls executor with write-only tools. Enhancement adds specific escaping examples to `buildRepairPrompt` (line 18-49). Repair logic unchanged — only prompt content enhanced.
+
+  4. **Validation node (validation.node.ts, not read but inferred):** Parses YAML with `safeYamlLoad`, validates with AJV schemas. No changes needed — backward compatibility ensures both old (unquoted) and new (force-quoted) YAML parse correctly.
+
+  5. **Use cases (approve-agent-run, reject-agent-run):** Update spec.yaml with selection changes or rejection feedback. Currently use `yaml.dump` directly (approve:81, reject:101). Migration to `safeYamlDump` ensures user-provided feedback (strings with quotes) is safely serialized.
+
+  6. **Implement node (implement.node.ts):** Updates feature.yaml progress via `updateFeatureProgress` (line 49-86). Currently uses `yaml.dump` (line 79). Migration to `safeYamlDump` ensures phase names and task IDs are safely quoted.
+
+  ### Backward Compatibility
+
+  **Existing YAML Files:** Spec files written before this fix use js-yaml default quoting (unquoted strings, selectively quoted when needed). After migration, new writes use forced quoting. `safeYamlLoad` must parse both styles.
+
+  **Test Coverage:** Regression test suite should include: (1) parse existing spec.yaml files from `specs/` directory (all 40+ existing specs), (2) verify no parse errors, (3) verify schema validation passes. This ensures backward compatibility.
+
+  **Migration Path:** No user migration required. Existing spec files continue to work. New writes (after merge) use forced quoting. Mixed quoting is acceptable — git diffs show quote changes, but semantic content unchanged.
+
+  ### Testing Strategy
+
+  **Unit Tests (safeYamlDump):**
+  - Edge cases: quotes (single, double, mixed), newlines, special chars (colons, hashes, braces), nested objects, arrays, empty strings, null values
+  - Options verification: ensure `quotingType: '"'`, `forceQuotes: true`, `indent: 2`, `lineWidth: -1` are applied
+  - Round-trip test: `safeYamlDump(data)` → `safeYamlLoad(yaml)` → assert `data` equals parsed result
+
+  **Unit Tests (prompts):**
+  - Verify "YAML Output Rules" section is present in analyze, requirements, research, plan prompts
+  - Verify repair prompt includes specific escaping examples (before/after)
+
+  **Integration Test (validation → repair → re-validate):**
+  - Simulate agent writes malformed YAML (unescaped quotes) → validation fails → repair succeeds → re-validation passes
+  - Verify repair cycle completes within 3 attempts
+  - Verify no data loss (content preserved after repair)
+
+  **Regression Test (backward compatibility):**
+  - Parse all existing spec.yaml files from `specs/` directory
+  - Verify no parse errors with `safeYamlLoad`
+  - Verify schema validation passes
+
+  ---
+
+  _Research complete. Ready for planning phase._

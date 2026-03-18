@@ -88,6 +88,19 @@ You MUST write the COMPLETE file (not a partial update). Preserve the existing n
 
     **(S/M/L/XL)** — (justify your estimate with specific reasoning)
 
+## YAML Output Rules
+
+**CRITICAL:** When writing YAML files, you MUST follow these rules to ensure valid YAML:
+
+1. **Wrap all string values in double quotes** — this prevents YAML parsing errors from special characters
+2. **Escape internal double quotes with backslash** — use \\" inside quoted strings
+3. **Use block scalars (\`|\`) for multi-line text** — this avoids escaping complexity
+
+**Example (incorrect → correct):**
+- ❌ \`text: it's broken\` → ✅ \`text: "it's broken"\` or \`text: |\\n  it's broken\`
+- ❌ \`message: say "hello"\` → ✅ \`message: "say \\"hello\\""\`
+- ❌ \`description: line1\\nline2\` → ✅ \`description: |\\n  line1\\n  line2\`
+
 ## Constraints
 
 - Write ONLY to ${state.specDir}/spec.yaml

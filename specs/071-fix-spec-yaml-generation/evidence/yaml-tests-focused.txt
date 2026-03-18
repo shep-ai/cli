@@ -1,0 +1,50 @@
+> vitest run tests/unit 'node-helpers.*yaml'
+
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fix-spec-yaml-generation[39m
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 417[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/executors/gemini-cli-executor.test.ts [2m([22m[2m43 tests[22m[2m)[22m[33m 555[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/cli/commands/upgrade.command.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 1129[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-registry.service.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 1310[2mms[22m[39m
+       [33m[2m✓[22m[39m should pre-register the analyze-repository agent [33m 1299[2mms[22m[39m
+[2026-03-17T18:34:21.995Z] Spawning: agent --yolo -p Implement feature --output-format stream-json
+[2026-03-17T18:34:22.001Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:22.001Z] Subprocess PID: 12345
+[2026-03-17T18:34:22.037Z] Spawning: agent --yolo -p Bad prompt --output-format stream-json
+[2026-03-17T18:34:22.037Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:22.037Z] Subprocess PID: 12345
+[2026-03-17T18:34:22.049Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:22.049Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:22.049Z] Subprocess PID: 12345
+[2026-03-17T18:34:22.074Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:22.074Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:22.074Z] Subprocess PID: 12345
+[2026-03-17T18:34:22.099Z] Spawning: agent --yolo -p Test --output-format stream-json
+[2026-03-17T18:34:22.099Z] Spawn cwd: (inherited)
+[2026-03-17T18:34:22.099Z] Subprocess PID: 12345
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT spawn a new process when daemon is already alive
+[22m[39m
+ℹ Shep is already running at http://localhost:4050
+
+
+[90mstdout[2m | tests/unit/commands/daemon/start-daemon.test.ts[2m > [22m[2mstartDaemon()[2m > [22m[2malready-running path (idempotent)[2m > [22m[2mdoes NOT write daemon.json when daemon is already alive
+--
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/agents/feature-agent/node-helpers-yaml.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/notifications/desktop-notifier.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 111[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/git/worktree.service.add-existing.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/ports/output/services/git-pr-service.interface.test.ts [2m([22m[2m22 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/repositories/list-github-repositories.use-case.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/cli/commands/feat/logs.command.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-validator.service.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/write-spec-file-atomic.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/tui/wizards/onboarding/steps/workflow-defaults.step.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/cli/commands/settings/init.command.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 39[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.evidence.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 84[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/cli/commands/feat/resolve-waiting-feature.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 85[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/repositories/delete-repository.use-case.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/folder-dialog.service.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/tui/wizards/agent-config.wizard.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/features/update/update-feature-lifecycle.use-case.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/agents/get-agent-session.use-case.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/cli/commands/feat/start.command.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 14[2mms[22m[39m
