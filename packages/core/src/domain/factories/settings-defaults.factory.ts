@@ -156,6 +156,7 @@ export function createDefaultSettings(): Settings {
     githubImport: false,
     adoptBranch: false,
     gitRebaseSync: false,
+    reactFileManager: false,
   };
 
   return {

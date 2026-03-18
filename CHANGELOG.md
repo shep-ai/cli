@@ -1,3 +1,24 @@
+# [1.130.0](https://github.com/shep-ai/cli/compare/v1.129.4...v1.130.0) (2026-03-17)
+
+
+### Features
+
+* **web:** add react file manager as fallback folder picker with feature flag ([#412](https://github.com/shep-ai/cli/issues/412)) ([8eaf27e](https://github.com/shep-ai/cli/commit/8eaf27e398a6afae2b56d2184f30ff15ca78fe9f))
+
+## [1.129.4](https://github.com/shep-ai/cli/compare/v1.129.3...v1.129.4) (2026-03-17)
+
+
+### Bug Fixes
+
+* **web:** add phase timing token tracking and drawer artifact refresh ([#416](https://github.com/shep-ai/cli/issues/416)) ([9d42e7c](https://github.com/shep-ai/cli/commit/9d42e7c81047723721351294ffef766b471621ea))
+
+## [1.129.3](https://github.com/shep-ai/cli/compare/v1.129.2...v1.129.3) (2026-03-17)
+
+
+### Bug Fixes
+
+* **web:** use di container for terminal list in settings page ([#415](https://github.com/shep-ai/cli/issues/415)) ([f66fc93](https://github.com/shep-ai/cli/commit/f66fc932639989c571d15d7771a7beb5a895a2f2))
+
 ## [1.129.2](https://github.com/shep-ai/cli/compare/v1.129.1...v1.129.2) (2026-03-17)
 
 

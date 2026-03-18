@@ -26,6 +26,10 @@ properties:
     type: boolean
     default: false
     description: Enable git rebase-on-main and sync-main operations in the web UI
+  reactFileManager:
+    type: boolean
+    default: false
+    description: Use the built-in React file manager instead of the native OS folder picker
 required:
   - skills
   - envDeploy
@@ -33,4 +37,5 @@ required:
   - githubImport
   - adoptBranch
   - gitRebaseSync
+  - reactFileManager
 description: Feature flag toggles for runtime feature control

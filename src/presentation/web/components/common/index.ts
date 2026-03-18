@@ -1,6 +1,10 @@
 export { computeDrawerView, type DrawerView } from './control-center-drawer';
 export { AddRepositoryButton } from './add-repository-button';
 export {
+  ReactFileManagerDialog,
+  type ReactFileManagerDialogProps,
+} from './react-file-manager-dialog';
+export {
   FloatingActionButton,
   type FloatingActionButtonProps,
   type FloatingActionButtonAction,

@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
+import { ReactFileManagerDialog } from '@/components/common/react-file-manager-dialog';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import { isAgentSetupComplete } from '@/app/actions/agent-setup-flag';
 import { checkAgentAuth } from '@/app/actions/check-agent-auth';
 import type { AgentAuthStatus } from '@/app/actions/check-agent-auth';
@@ -31,9 +33,11 @@ export function ControlCenterEmptyState({
 }: ControlCenterEmptyStateProps) {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showReactPicker, setShowReactPicker] = useState(false);
   const [agentReady, setAgentReady] = useState<boolean | null>(null);
   const [authStatus, setAuthStatus] = useState<AgentAuthStatus | null>(null);
   const [cliExpanded, setCliExpanded] = useState(false);
+  const { reactFileManager: useReactFileManager } = useFeatureFlags();
 
   useEffect(() => {
     isAgentSetupComplete().then((done) => {
@@ -48,15 +52,31 @@ export function ControlCenterEmptyState({
 
   async function handlePickerClick() {
     if (loading) return;
+
+    if (useReactFileManager) {
+      setShowReactPicker(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const path = await pickFolder();
       if (path) {
         onRepositorySelect?.(path);
       }
+    } catch {
+      // Native picker failed — fall back to React file manager
+      setShowReactPicker(true);
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleReactPickerSelect(path: string | null) {
+    if (path) {
+      onRepositorySelect?.(path);
+    }
+    setShowReactPicker(false);
   }
 
   const handleCopy = useCallback(async () => {
@@ -184,6 +204,13 @@ export function ControlCenterEmptyState({
           ) : null}
         </div>
       ) : null}
+      <ReactFileManagerDialog
+        open={showReactPicker}
+        onOpenChange={(open) => {
+          if (!open) setShowReactPicker(false);
+        }}
+        onSelect={handleReactPickerSelect}
+      />
     </div>
   );
 }

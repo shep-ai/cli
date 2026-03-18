@@ -342,12 +342,18 @@ describe('createEvidenceNode', () => {
       );
     });
 
-    it('should record phase timing start and end', async () => {
+    it('should record phase timing start and end with usage metadata', async () => {
       const node = createEvidenceNode(executor);
       await node(baseState());
 
-      expect(mockRecordPhaseStart).toHaveBeenCalledWith('evidence');
-      expect(mockRecordPhaseEnd).toHaveBeenCalledWith('timing-456', expect.any(Number));
+      expect(mockRecordPhaseStart).toHaveBeenCalledWith('evidence', expect.any(Object));
+      expect(mockRecordPhaseEnd).toHaveBeenCalledWith(
+        'timing-456',
+        expect.any(Number),
+        expect.objectContaining({
+          exitCode: 'success',
+        })
+      );
     });
   });
 
@@ -379,8 +385,15 @@ describe('createEvidenceNode', () => {
       const node = createEvidenceNode(executor);
       await expect(node(baseState())).rejects.toThrow('Execution failed');
 
-      expect(mockRecordPhaseStart).toHaveBeenCalledWith('evidence');
-      expect(mockRecordPhaseEnd).toHaveBeenCalledWith('timing-456', expect.any(Number));
+      expect(mockRecordPhaseStart).toHaveBeenCalledWith('evidence', expect.any(Object));
+      expect(mockRecordPhaseEnd).toHaveBeenCalledWith(
+        'timing-456',
+        expect.any(Number),
+        expect.objectContaining({
+          exitCode: 'error',
+          errorMessage: 'Execution failed',
+        })
+      );
     });
 
     it('should NOT mark phase complete when executor fails', async () => {

@@ -233,6 +233,182 @@
   transition: transform 300ms ease;
 }
 
+/* ─── @cubone/react-file-manager — shadcn theme integration ─────────────── */
+.shep-file-manager {
+  /* Hide the left navigation pane — navigation is handled via onFileOpen */
+  & .navigation-pane,
+  & .sidebar-resize {
+    display: none !important;
+  }
+
+  /* Root container */
+  & .file-explorer {
+    border: none;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+  }
+
+  /* ── Toolbar ─────────────────────────────────────────────────── */
+  & .toolbar {
+    background: var(--color-background);
+    border-bottom: 1px solid var(--color-border);
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
+    padding: 0 12px;
+  }
+
+  & .file-action,
+  & .item-action {
+    background: transparent;
+    color: var(--color-muted-foreground);
+    border-radius: 6px;
+    border: none;
+    font-size: 13px;
+  }
+
+  & .file-action:hover:not(:disabled),
+  & .item-action:hover:not(:disabled) {
+    background-color: var(--color-muted) !important;
+    color: var(--color-foreground) !important;
+    text-shadow: none !important;
+    border-radius: 6px;
+  }
+
+  & .file-action:hover:disabled {
+    background-color: transparent !important;
+    color: var(--color-muted-foreground) !important;
+  }
+
+  /* Toggle view dropdown */
+  & .toggle-view {
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    font-size: 13px;
+  }
+
+  & .toggle-view ul li:hover {
+    background-color: var(--color-muted);
+  }
+
+  /* ── Breadcrumb / path bar ───────────────────────────────────── */
+  & .bread-crumb-container {
+    background: var(--color-background);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-muted-foreground);
+    font-size: 13px;
+  }
+
+  & .bread-crumb-container a,
+  & .bread-crumb-container span {
+    color: var(--color-primary);
+  }
+
+  & .bread-crumb-container .active-list-item {
+    color: var(--color-foreground);
+    font-weight: 500;
+  }
+
+  /* ── Files list header ───────────────────────────────────────── */
+  & .files-header {
+    background: var(--color-muted);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-muted-foreground);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  & .sort-indicator {
+    color: var(--color-primary);
+  }
+
+  /* ── File / folder rows ──────────────────────────────────────── */
+  & .file-item {
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-foreground);
+    transition: background 80ms ease;
+  }
+
+  & .file-item:hover {
+    background: var(--color-muted);
+  }
+
+  /* Selected state — replaces the library's purple */
+  & .file-selected,
+  & .item-selected,
+  & .file-item.file-selected,
+  & .file-item.item-selected {
+    background-color: color-mix(in srgb, var(--color-primary) 10%, transparent) !important;
+  }
+
+  & .file-icon,
+  & .folder-icon-default,
+  & .folder-open-icon,
+  & .folder-close-icon {
+    color: var(--color-muted-foreground);
+  }
+
+  & .file-name,
+  & .folder-name {
+    color: var(--color-foreground);
+    font-size: 14px;
+    font-weight: 400;
+  }
+
+  /* Prevent date from wrapping to two lines */
+  & .modified-date,
+  & .file-date {
+    color: var(--color-muted-foreground);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  & .size,
+  & .file-size {
+    color: var(--color-muted-foreground);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  /* Empty folder state */
+  & .empty-folder {
+    color: var(--color-muted-foreground);
+    font-size: 14px;
+  }
+
+  /* ── Scrollbar styling ───────────────────────────────────────── */
+  & ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  & ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  & ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 9999px;
+  }
+
+  & ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-muted-foreground);
+  }
+
+  /* ── Dark mode overrides ─────────────────────────────────────── */
+  &:is(.dark *) .file-explorer,
+  .dark & .file-explorer {
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

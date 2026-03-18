@@ -475,6 +475,9 @@ model FeatureFlags {
 
   @doc("Enable git rebase-on-main and sync-main operations in the web UI")
   gitRebaseSync: boolean = false;
+
+  @doc("Use the built-in React file manager instead of the native OS folder picker")
+  reactFileManager: boolean = false;
 }
 
 /**

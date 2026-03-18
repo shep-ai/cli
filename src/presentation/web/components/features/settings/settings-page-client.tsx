@@ -352,6 +352,7 @@ export function SettingsPageClient({
     githubImport: false,
     adoptBranch: false,
     gitRebaseSync: false,
+    reactFileManager: false,
   };
 
   // Agent state
@@ -1441,6 +1442,18 @@ export function SettingsPageClient({
               checked={flags.gitRebaseSync}
               onChange={(v) => {
                 const newFlags = { ...flags, gitRebaseSync: v };
+                setFlags(newFlags);
+                save({ featureFlags: newFlags });
+              }}
+            />
+            <SwitchRow
+              label="React File Manager"
+              description="Use the built-in React file manager instead of the native OS folder picker"
+              id="flag-reactFileManager"
+              testId="switch-flag-reactFileManager"
+              checked={flags.reactFileManager}
+              onChange={(v) => {
+                const newFlags = { ...flags, reactFileManager: v };
                 setFlags(newFlags);
                 save({ featureFlags: newFlags });
               }}

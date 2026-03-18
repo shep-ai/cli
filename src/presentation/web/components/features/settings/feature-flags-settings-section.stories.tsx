@@ -22,6 +22,7 @@ export const Default: Story = {
       githubImport: false,
       adoptBranch: false,
       gitRebaseSync: false,
+      reactFileManager: false,
     },
   },
 };
@@ -35,6 +36,7 @@ export const AllEnabled: Story = {
       githubImport: true,
       adoptBranch: true,
       gitRebaseSync: true,
+      reactFileManager: true,
     },
   },
 };
@@ -48,6 +50,7 @@ export const AllDisabled: Story = {
       githubImport: false,
       adoptBranch: false,
       gitRebaseSync: false,
+      reactFileManager: false,
     },
   },
 };

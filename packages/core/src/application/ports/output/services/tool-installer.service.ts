@@ -10,6 +10,12 @@ import type {
   ToolInstallCommand,
 } from '../../../../domain/generated/output.js';
 
+export interface AvailableTerminalEntry {
+  id: string;
+  name: string;
+  available: boolean;
+}
+
 /**
  * Service interface for tool installation management.
  */
@@ -41,4 +47,13 @@ export interface IToolInstallerService {
     toolName: string,
     onOutput?: (data: string) => void
   ): Promise<ToolInstallationStatus>;
+
+  /**
+   * List all terminal emulators supported on the current platform with availability status.
+   * Uses tool metadata loaded in the Node.js context (not bundled by Next.js),
+   * so this must be called via the DI container from server actions.
+   *
+   * @returns Array of terminal entries with id, name, and availability
+   */
+  listAvailableTerminals(): Promise<AvailableTerminalEntry[]>;
 }

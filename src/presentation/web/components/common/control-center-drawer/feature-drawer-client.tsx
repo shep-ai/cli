@@ -149,6 +149,25 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     setChatInput('');
   }, [initialTab]);
 
+  // ── Artifact refresh key ─────────────────────────────────────────────
+  // Increments whenever state or lifecycle changes (via SSE or background sync),
+  // forcing useArtifactFetch to re-fetch even when the featureId stays the same.
+  // This fixes race conditions where the first fetch fires too early (e.g. merge
+  // data requested before the PR is created) and subsequent state updates don't
+  // trigger a re-fetch because the featureId dep hasn't changed.
+  const artifactRefreshKeyRef = useRef(0);
+  const prevStateRef = useRef(featureNode?.state);
+  const prevLifecycleRef = useRef(featureNode?.lifecycle);
+  if (
+    featureNode?.state !== prevStateRef.current ||
+    featureNode?.lifecycle !== prevLifecycleRef.current
+  ) {
+    prevStateRef.current = featureNode?.state;
+    prevLifecycleRef.current = featureNode?.lifecycle;
+    artifactRefreshKeyRef.current += 1;
+  }
+  const artifactRefreshKey = artifactRefreshKeyRef.current;
+
   // ── Data fetching ─────────────────────────────────────────────────────
 
   const prdFeatureId =
@@ -179,7 +198,8 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       setPrdDefaultSelections({});
       setPrdData(null);
     },
-    'Failed to load questionnaire'
+    'Failed to load questionnaire',
+    artifactRefreshKey
   );
 
   const techFeatureId =
@@ -197,7 +217,8 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       if (result.techDecisions) setTechData(result.techDecisions);
     },
     () => setTechData(null),
-    'Failed to load tech decisions'
+    'Failed to load tech decisions',
+    artifactRefreshKey
   );
 
   const isLoadingTechProduct = useArtifactFetch(
@@ -206,7 +227,9 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     (result) => {
       if (result.productDecisions) setTechProductData(result.productDecisions);
     },
-    () => setTechProductData(undefined)
+    () => setTechProductData(undefined),
+    undefined,
+    artifactRefreshKey
   );
 
   const mergeFeatureId =
@@ -225,7 +248,8 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       setMergeData(result);
     },
     () => setMergeData(null),
-    'Failed to load merge review data'
+    'Failed to load merge review data',
+    artifactRefreshKey
   );
 
   // ── Close guard ──────────────────────────────────────────────────────

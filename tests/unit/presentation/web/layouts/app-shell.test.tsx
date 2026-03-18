@@ -21,6 +21,7 @@ const defaultFlags = {
   githubImport: false,
   adoptBranch: false,
   gitRebaseSync: false,
+  reactFileManager: false,
 };
 
 function renderShell(children: React.ReactNode) {

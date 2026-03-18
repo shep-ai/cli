@@ -1,0 +1,33 @@
+=== Directory Listing API Tests ===
+
+Test 1: Default path (home directory) - GET /api/directory/list
+  Result: 200 OK
+  currentPath: /Users/arielshadkhan
+  entries: 22 directories
+
+Test 2: Relative path rejection - GET /api/directory/list?path=relative/path
+  Result: 400 Bad Request
+  Response: {"error":"Path must be absolute"}
+
+Test 3: Non-existent path - GET /api/directory/list?path=/nonexistent/path/xyz
+  Result: 404 Not Found
+  Response: {"error":"Directory not found"}
+
+Test 4: Path traversal prevention - GET /api/directory/list?path=/Users/arielshadkhan/../arielshadkhan
+  Result: 200 OK (resolved correctly)
+  currentPath: /Users/arielshadkhan
+  entries: 22 directories
+
+Test 5: Subdirectory listing - GET /api/directory/list?path=/Users/arielshadkhan/Code
+  Result: 200 OK
+  currentPath: /Users/arielshadkhan/Code
+  entries: 73 directories
+
+Test 6: Hidden files excluded by default - GET /api/directory/list
+  Hidden entries found: 0 (correctly excluded)
+
+Test 7: showHidden=true - GET /api/directory/list?showHidden=true
+  Hidden entries found: 74 (correctly included)
+  Examples: .Genymobile, .Trash, .agentcraft, .agents, .android
+
+ALL TESTS PASSED

@@ -12,6 +12,7 @@ import { toast } from 'sonner';
  * @param onSuccess - Called with the fetch result when successful and not cancelled.
  * @param onReset - Called immediately when featureId changes (before fetching).
  * @param errorMessage - Optional toast message shown on fetch failure.
+ * @param refreshKey - Optional key that forces a re-fetch when it changes (even if featureId is the same).
  * @returns Whether the fetch is currently in progress.
  */
 export function useArtifactFetch<TResult>(
@@ -19,7 +20,8 @@ export function useArtifactFetch<TResult>(
   fetcher: (id: string) => Promise<TResult>,
   onSuccess: (result: TResult) => void,
   onReset: () => void,
-  errorMessage?: string
+  errorMessage?: string,
+  refreshKey?: number
 ): boolean {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -50,7 +52,7 @@ export function useArtifactFetch<TResult>(
     return () => {
       cancelled = true;
     };
-  }, [featureId, fetcher, errorMessage]);
+  }, [featureId, fetcher, errorMessage, refreshKey]);
 
   return isLoading;
 }

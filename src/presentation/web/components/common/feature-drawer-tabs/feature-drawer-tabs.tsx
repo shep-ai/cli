@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { getFeaturePhaseTimings } from '@/app/actions/get-feature-phase-timings';
@@ -503,7 +503,14 @@ export function FeatureDrawerTabs({
               />
             ) : (
               <div className="flex items-center justify-center p-8">
-                <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+                {isMergeLoading ? (
+                  <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+                ) : (
+                  <div className="text-muted-foreground flex flex-col items-center gap-2 text-sm">
+                    <AlertCircle className="h-6 w-6" />
+                    <span>Merge review data unavailable</span>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
