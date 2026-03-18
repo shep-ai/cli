@@ -196,7 +196,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     // WorkflowConfig evidence settings (boolean → INTEGER)
     workflow_enable_evidence: settings.workflow.enableEvidence ? 1 : 0,
     workflow_commit_evidence: settings.workflow.commitEvidence ? 1 : 0,
-    hide_ci_status: settings.workflow.hideCiStatus ? 1 : 0,
+    hide_ci_status: settings.workflow.hideCiStatus !== false ? 1 : 0,
 
     // Onboarding (boolean → INTEGER)
     onboarding_complete: settings.onboardingComplete ? 1 : 0,

@@ -37,7 +37,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const [ciPollInterval, setCiPollInterval] = useState(
     workflow.ciWatchPollIntervalSeconds != null ? String(workflow.ciWatchPollIntervalSeconds) : ''
   );
-  const [hideCiStatus, setHideCiStatus] = useState(workflow.hideCiStatus ?? false);
+  const [hideCiStatus, setHideCiStatus] = useState(workflow.hideCiStatus !== false);
   // Per-stage timeout states (seconds for display)
   // Defaults: feature agent stages = 1_800_000 ms (1800s), analyze-repo = 600_000 ms (600s)
   const st = workflow.stageTimeouts;
