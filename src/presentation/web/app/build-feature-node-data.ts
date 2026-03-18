@@ -6,6 +6,7 @@ import {
   deriveLifecycle,
 } from '@/components/common/feature-node/derive-feature-state';
 import { isProcessAlive } from '@shepai/core/infrastructure/services/process/is-process-alive';
+import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 
 export interface BuildFeatureNodeDataOptions {
@@ -43,6 +44,8 @@ export function buildFeatureNodeData(
     lifecycle: deriveLifecycle(feature, run),
     repositoryPath: feature.repositoryPath,
     branch: feature.branch,
+    worktreePath:
+      feature.worktreePath ?? computeWorktreePath(feature.repositoryPath, feature.branch),
     specPath: feature.specPath,
     state: deriveNodeState(
       feature,

@@ -443,6 +443,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       ? {
           repositoryPath: featureNode.repositoryPath,
           branch: featureNode.branch,
+          worktreePath: featureNode.worktreePath,
           specPath: featureNode.specPath,
         }
       : null;
@@ -513,6 +514,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
             <OpenActionMenu
               actions={featureActions}
               repositoryPath={featureActionsInput.repositoryPath}
+              worktreePath={featureActionsInput.worktreePath}
               showSpecs={!!featureActionsInput.specPath}
             />
             {featureFlags.envDeploy && featureDeployTarget ? (

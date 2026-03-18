@@ -8,6 +8,7 @@ import { openFolder } from '@/app/actions/open-folder';
 export interface FeatureActionsInput {
   repositoryPath: string;
   branch: string;
+  worktreePath?: string;
   specPath?: string;
 }
 
