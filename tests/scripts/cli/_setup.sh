@@ -28,7 +28,7 @@ create_tarball() {
   # Require build artifacts so the tarball contains dist/ and web/
   if [ ! -d "$PROJECT_ROOT/dist" ] || [ ! -d "$PROJECT_ROOT/web/.next" ]; then
     log_info "Building (dist or web missing)..."
-    (cd "$PROJECT_ROOT" && pnpm run build) || { log_error "Build failed"; return 1; }
+    (cd "$PROJECT_ROOT" && pnpm run build:release) || { log_error "Build failed"; return 1; }
   fi
 
   local version
