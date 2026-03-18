@@ -25,6 +25,7 @@ export interface DetectDevScriptSuccess {
   packageManager: string;
   scriptName: string;
   command: string;
+  needsInstall: boolean;
 }
 
 export interface DetectDevScriptError {
@@ -77,10 +78,11 @@ export function detectDevScript(dirPath: string): DetectDevScriptResult {
   const command =
     packageManager === 'npm' ? `npm run ${scriptName}` : `${packageManager} ${scriptName}`;
 
+  const needsInstall = !existsSync(join(dirPath, 'node_modules'));
   log.info(
-    `detected — packageManager="${packageManager}", scriptName="${scriptName}", command="${command}"`
+    `detected — packageManager="${packageManager}", scriptName="${scriptName}", command="${command}", needsInstall=${needsInstall}`
   );
-  return { success: true, packageManager, scriptName, command };
+  return { success: true, packageManager, scriptName, command, needsInstall };
 }
 
 /**

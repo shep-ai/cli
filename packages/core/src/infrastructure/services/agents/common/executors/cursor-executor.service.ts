@@ -2,7 +2,7 @@
  * Cursor Executor Service
  *
  * Infrastructure implementation of IAgentExecutor for the Cursor agent.
- * Executes prompts via the `agent` CLI subprocess with JSON and stream-json
+ * Executes prompts via the `cursor-agent` CLI subprocess with JSON and stream-json
  * output formats.
  *
  * Uses constructor dependency injection for the spawn function
@@ -45,7 +45,7 @@ const SUPPORTED_FEATURES = new Set<string>(['session-resume', 'streaming']);
 
 /**
  * Executor service for Cursor agent.
- * Uses subprocess spawning to interact with the `agent` CLI.
+ * Uses subprocess spawning to interact with the `cursor-agent` CLI.
  */
 export class CursorExecutorService implements IAgentExecutor {
   readonly agentType: AgentType = 'cursor' as AgentType;
@@ -339,13 +339,13 @@ export class CursorExecutorService implements IAgentExecutor {
   /**
    * Spawn the agent process, handling Windows specially via PowerShell.
    *
-   * On Windows, cursor CLI ships as `agent.cmd` which requires `shell: true`,
+   * On Windows, cursor CLI ships as `cursor-agent.cmd` which requires `shell: true`,
    * but cmd.exe mangles long `-p` arguments (8191-char limit + special chars).
-   * Solution: write prompt to a temp file, invoke agent via PowerShell which
+   * Solution: write prompt to a temp file, invoke cursor-agent via PowerShell which
    * reads the file and passes the content as `-p`. PowerShell handles long
    * strings natively (32K limit) and doesn't mangle arguments.
    *
-   * On Linux/macOS, spawn `agent` directly — no shell needed.
+   * On Linux/macOS, spawn `cursor-agent` directly — no shell needed.
    */
   private spawnAgent(
     prompt: string,
@@ -366,7 +366,7 @@ export class CursorExecutorService implements IAgentExecutor {
       // Build the agent args WITHOUT -p and the prompt (they go via temp file)
       const agentFlags = args.filter((a) => a !== '-p' && a !== prompt).join(' ');
       const safePath = tmpFile.replace(/'/g, "''");
-      const psCmd = `$p = Get-Content -Raw '${safePath}'; & agent ${agentFlags} -p $p`;
+      const psCmd = `$p = Get-Content -Raw '${safePath}'; & cursor-agent ${agentFlags} -p $p`;
 
       this.log(`Windows PowerShell mode: wrote ${prompt.length} chars to ${tmpFile}`);
       this.log(`PS command: ${psCmd.replace(prompt, `<${prompt.length} chars>`)}`);
@@ -395,11 +395,11 @@ export class CursorExecutorService implements IAgentExecutor {
     if (cwd) spawnOpts.cwd = cwd;
 
     this.log(
-      `Spawning: agent ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
+      `Spawning: cursor-agent ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
     );
     this.log(`Spawn cwd: ${(cwd as string) ?? '(inherited)'}`);
 
-    const proc = this.spawn('agent', args, spawnOpts);
+    const proc = this.spawn('cursor-agent', args, spawnOpts);
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
     if (proc.stdin) proc.stdin.end();
 

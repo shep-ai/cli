@@ -10,14 +10,15 @@
  * process state (clean up dead PIDs, re-adopt live ones).
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import net from 'node:net';
 import { EventEmitter } from 'node:events';
 import type Database from 'better-sqlite3';
-// NOTE: We intentionally do NOT use tree-kill here. tree-kill traverses
-// /proc to find child processes which can accidentally kill parent processes
-// (including the Shep web UI). Instead, we use process.kill(-pid) to send
-// signals to the process GROUP (since we spawn with detached: true, the
-// child gets its own process group via setsid()).
+// On Unix we use process.kill(-pid) to send signals to the process GROUP
+// (detached: true puts the child in its own group via setsid()).
+// On Windows, negative PIDs are not supported — use taskkill /T for tree kill.
 import { DeploymentState } from '@/domain/generated/output.js';
 import type {
   IDeploymentService,
@@ -28,6 +29,7 @@ import { detectDevScript } from './detect-dev-script.js';
 import { createDeploymentLogger } from './deployment-logger.js';
 import { parsePort } from './parse-port.js';
 import { LogRingBuffer } from './log-ring-buffer.js';
+import { IS_WINDOWS } from '../../platform.js';
 
 const log = createDeploymentLogger('[DeploymentService]');
 const POLL_INTERVAL_MS = 200;
@@ -67,6 +69,19 @@ const defaultDeps: DeploymentServiceDeps = {
   spawn,
   detectDevScript,
   kill: (pid, signal) => {
+    if (IS_WINDOWS) {
+      // On Windows, negative PIDs are not supported. Use taskkill /T to
+      // kill the entire process tree (shell + child dev server).
+      try {
+        execFileSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
+          stdio: 'ignore',
+          windowsHide: true,
+        });
+      } catch {
+        // Process already dead
+      }
+      return;
+    }
     try {
       // Kill the entire process group (negative PID) — safe because
       // detached: true puts the child in its own group via setsid().
@@ -109,7 +124,16 @@ export class DeploymentService implements IDeploymentService {
 
   /**
    * Recover dev servers from the database on startup.
-   * Validates each PID is still alive; removes dead rows.
+   *
+   * Three recovery strategies based on process state:
+   * 1. Alive + Ready (has URL) → re-adopt, then validate URL asynchronously
+   * 2. Alive + Booting (no URL) → kill orphan and re-spawn (can't re-attach stdout)
+   * 3. Dead → re-spawn if target directory still exists
+   *
+   * After sync recovery, fires off async URL health checks for re-adopted
+   * processes. Zombies (alive but not serving) are killed and re-spawned.
+   *
+   * All re-spawns are wrapped in try/catch so one failure doesn't block others.
    */
   recoverAll(): void {
     if (!this.db) return;
@@ -131,7 +155,11 @@ export class DeploymentService implements IDeploymentService {
     log.info(`Recovering ${rows.length} dev server(s) from database`);
 
     for (const row of rows) {
-      if (this.deps.isAlive(row.pid)) {
+      const alive = this.deps.isAlive(row.pid);
+      const hasUrl = row.state === DeploymentState.Ready && row.url;
+
+      if (alive && hasUrl) {
+        // Strategy 1: Process alive and Ready — re-adopt, then validate URL async
         log.info(
           `Recovered "${row.target_id}" (pid=${row.pid}, state=${row.state}, url=${row.url})`
         );
@@ -148,9 +176,41 @@ export class DeploymentService implements IDeploymentService {
           logs: new LogRingBuffer(),
         };
         this.deployments.set(row.target_id, entry);
+        // Fire-and-forget: validate URL is actually responding, kill zombie if not
+        this.validateAndRespawn(entry);
+        continue;
+      }
+
+      if (alive) {
+        // Strategy 2: Process alive but stuck in Booting — can't re-attach stdout
+        // Kill the orphan so we can re-spawn with proper listeners
+        log.info(
+          `Orphan "${row.target_id}" (pid=${row.pid}) stuck in ${row.state} — killing to re-spawn`
+        );
+        try {
+          this.deps.kill(row.pid, 'SIGKILL');
+        } catch {
+          // already dead
+        }
       } else {
-        log.info(`Stale dev server "${row.target_id}" (pid=${row.pid}) — removing from DB`);
-        this.dbDelete(row.target_id);
+        log.info(`Dev server "${row.target_id}" (pid=${row.pid}) is dead — will re-spawn`);
+      }
+
+      // Strategy 2 & 3: Re-spawn if target directory still has a package.json
+      this.dbDelete(row.target_id);
+
+      if (!existsSync(join(row.target_path, 'package.json'))) {
+        log.warn(
+          `Skipping re-spawn for "${row.target_id}" — no package.json at "${row.target_path}"`
+        );
+        continue;
+      }
+
+      try {
+        log.info(`Re-spawning dev server for "${row.target_id}" at "${row.target_path}"`);
+        this.start(row.target_id, row.target_path, row.target_type);
+      } catch (err) {
+        log.error(`Failed to re-spawn "${row.target_id}": ${err}`);
       }
     }
   }
@@ -179,8 +239,25 @@ export class DeploymentService implements IDeploymentService {
     }
 
     // Build spawn args based on package manager
-    const { packageManager, scriptName, command } = detection;
+    const { packageManager, scriptName, command, needsInstall } = detection;
     const args = packageManager === 'npm' ? ['run', scriptName] : [scriptName];
+
+    // Install dependencies if node_modules is missing (e.g. fresh worktree)
+    if (needsInstall) {
+      log.info(`node_modules missing in "${targetPath}" — running ${packageManager} install`);
+      try {
+        execFileSync(packageManager, ['install'], {
+          cwd: targetPath,
+          shell: true,
+          stdio: 'ignore',
+          ...(IS_WINDOWS ? { windowsHide: true } : {}),
+        });
+        log.info('Dependencies installed successfully');
+      } catch (err) {
+        log.error(`Dependency install failed: ${err}`);
+        throw new Error(`Failed to install dependencies: ${err}`);
+      }
+    }
 
     log.info(
       `Spawning dev server: command="${command}", packageManager="${packageManager}", scriptName="${scriptName}", cwd="${targetPath}"`
@@ -189,7 +266,11 @@ export class DeploymentService implements IDeploymentService {
     const child = this.deps.spawn(packageManager, args, {
       shell: true,
       cwd: targetPath,
-      detached: true,
+      // On Unix, detached: true creates a process group via setsid() so we can
+      // kill the entire tree with process.kill(-pid). On Windows this flag causes
+      // CREATE_NEW_CONSOLE which opens a visible terminal window and disconnects
+      // stdout/stderr — we don't need it because taskkill /F /T handles tree kill.
+      ...(IS_WINDOWS ? { windowsHide: true } : { detached: true }),
       stdio: ['ignore', 'pipe', 'pipe'] as const,
     });
 
@@ -545,6 +626,78 @@ export class DeploymentService implements IDeploymentService {
         clearTimeout(timeout);
         resolve();
       });
+    });
+  }
+
+  /**
+   * Async health check for a recovered entry. Probes the URL port via TCP.
+   * If the port is not responding (zombie process), kills and re-spawns.
+   * Fire-and-forget — errors are logged, never thrown.
+   */
+  private async validateAndRespawn(entry: DeploymentEntry): Promise<void> {
+    if (!entry.url) return;
+
+    const responding = await this.probePort(entry.url);
+    if (responding) {
+      log.info(`[${entry.targetId}] URL health check passed — "${entry.url}" is responding`);
+      return;
+    }
+
+    log.warn(
+      `[${entry.targetId}] URL health check FAILED — "${entry.url}" not responding, killing zombie (pid=${entry.pid})`
+    );
+
+    // Kill the zombie
+    try {
+      this.deps.kill(entry.pid, 'SIGKILL');
+    } catch {
+      // already dead
+    }
+    this.deployments.delete(entry.targetId);
+    this.dbDelete(entry.targetId);
+
+    // Re-spawn if target still exists
+    if (!existsSync(join(entry.targetPath, 'package.json'))) {
+      log.warn(
+        `Skipping re-spawn for "${entry.targetId}" — no package.json at "${entry.targetPath}"`
+      );
+      return;
+    }
+
+    try {
+      log.info(`Re-spawning dev server for "${entry.targetId}" at "${entry.targetPath}"`);
+      this.start(entry.targetId, entry.targetPath, entry.targetType);
+    } catch (err) {
+      log.error(`Failed to re-spawn "${entry.targetId}": ${err}`);
+    }
+  }
+
+  /**
+   * TCP connect probe to check if a URL's port is accepting connections.
+   * Returns true if the port responds within 2 seconds, false otherwise.
+   */
+  private probePort(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        const parsed = new URL(url);
+        const port = parseInt(parsed.port || (parsed.protocol === 'https:' ? '443' : '80'), 10);
+        const socket = net.createConnection({ host: parsed.hostname, port });
+        const timeout = setTimeout(() => {
+          socket.destroy();
+          resolve(false);
+        }, 2000);
+        socket.on('connect', () => {
+          clearTimeout(timeout);
+          socket.destroy();
+          resolve(true);
+        });
+        socket.on('error', () => {
+          clearTimeout(timeout);
+          resolve(false);
+        });
+      } catch {
+        resolve(false);
+      }
     });
   }
 }

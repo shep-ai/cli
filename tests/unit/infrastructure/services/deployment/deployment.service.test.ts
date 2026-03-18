@@ -11,11 +11,20 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'node:events';
+import type fs from 'node:fs';
+import { existsSync } from 'node:fs';
 import {
   DeploymentService,
   type DeploymentServiceDeps,
 } from '@/infrastructure/services/deployment/deployment.service.js';
 import { DeploymentState } from '@/domain/generated/output.js';
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof fs>();
+  return { ...actual, existsSync: vi.fn(actual.existsSync) };
+});
+
+const mockExistsSync = vi.mocked(existsSync);
 
 /**
  * Create a mock ChildProcess that emits events and has controllable streams.
@@ -45,6 +54,7 @@ function createMockDeps(mockChild?: ReturnType<typeof createMockChild>): Deploym
       packageManager: 'npm',
       scriptName: 'dev',
       command: 'npm run dev',
+      needsInstall: false,
     }),
     kill: vi.fn(),
     isAlive: vi.fn().mockReturnValue(true),
@@ -68,17 +78,18 @@ describe('DeploymentService', () => {
   });
 
   describe('start', () => {
-    it('should call spawn with correct args (shell, cwd, detached)', () => {
+    it('should call spawn with correct args (shell, cwd, platform-specific options)', () => {
       service.start('feature-1', '/project/path');
 
+      const isWindows = process.platform === 'win32';
       expect(deps.spawn).toHaveBeenCalledWith(
         'npm',
         ['run', 'dev'],
         expect.objectContaining({
           shell: true,
           cwd: '/project/path',
-          detached: true,
           stdio: ['ignore', 'pipe', 'pipe'],
+          ...(isWindows ? { windowsHide: true } : { detached: true }),
         })
       );
     });
@@ -364,6 +375,127 @@ describe('DeploymentService', () => {
       await stopPromise;
 
       expect(deps.kill).toHaveBeenCalledWith(expect.any(Number), 'SIGTERM');
+    });
+  });
+
+  describe('recoverAll', () => {
+    function createMockDb(rows: Record<string, unknown>[]) {
+      return {
+        prepare: vi.fn().mockReturnValue({
+          all: vi.fn().mockReturnValue(rows),
+          run: vi.fn(),
+          get: vi.fn(),
+        }),
+        // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+      } as unknown as import('better-sqlite3').Database;
+    }
+
+    function makeRow(overrides: Partial<Record<string, unknown>> = {}) {
+      return {
+        target_id: 'repo-1',
+        target_type: 'repository',
+        pid: 9999,
+        state: DeploymentState.Ready,
+        url: 'http://localhost:3000',
+        target_path: '/project/path',
+        started_at: Date.now(),
+        ...overrides,
+      };
+    }
+
+    it('should re-adopt alive process with Ready state and URL', () => {
+      const db = createMockDb([makeRow()]);
+      service.setDatabase(db);
+      (deps.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(true);
+
+      service.recoverAll();
+
+      const status = service.getStatus('repo-1');
+      expect(status).toEqual({ state: DeploymentState.Ready, url: 'http://localhost:3000' });
+      // Should NOT have re-spawned (no spawn call beyond setup)
+      expect(deps.spawn).not.toHaveBeenCalled();
+    });
+
+    it('should kill and re-spawn alive process stuck in Booting', () => {
+      const row = makeRow({ state: DeploymentState.Booting, url: null });
+      const db = createMockDb([row]);
+      service.setDatabase(db);
+      (deps.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      mockExistsSync.mockReturnValue(true);
+
+      service.recoverAll();
+
+      // Should have killed the orphan
+      expect(deps.kill).toHaveBeenCalledWith(9999, 'SIGKILL');
+      // Should have re-spawned
+      expect(deps.spawn).toHaveBeenCalled();
+      // New deployment should exist
+      expect(service.getStatus('repo-1')).not.toBeNull();
+    });
+
+    it('should re-spawn dead process when target directory exists', () => {
+      const row = makeRow({ state: DeploymentState.Ready });
+      const db = createMockDb([row]);
+      service.setDatabase(db);
+      // First isAlive call: recovery check → false (dead PID triggers re-spawn)
+      // After re-spawn, getStatus calls isAlive on the NEW pid → true
+      (deps.isAlive as ReturnType<typeof vi.fn>).mockReturnValueOnce(false).mockReturnValue(true);
+      mockExistsSync.mockReturnValue(true);
+
+      service.recoverAll();
+
+      expect(deps.spawn).toHaveBeenCalled();
+      expect(service.getStatus('repo-1')).not.toBeNull();
+    });
+
+    it('should skip re-spawn when target directory has no package.json', () => {
+      const row = makeRow();
+      const db = createMockDb([row]);
+      service.setDatabase(db);
+      (deps.isAlive as ReturnType<typeof vi.fn>).mockReturnValue(false);
+      mockExistsSync.mockReturnValue(false);
+
+      service.recoverAll();
+
+      expect(deps.spawn).not.toHaveBeenCalled();
+    });
+
+    it('should not block other recoveries when one re-spawn fails', () => {
+      const rows = [
+        makeRow({ target_id: 'repo-bad', target_path: '/bad/path' }),
+        makeRow({ target_id: 'repo-good', target_path: '/good/path' }),
+      ];
+      const db = createMockDb(rows);
+      service.setDatabase(db);
+      // Recovery checks: both dead. After re-spawn of good one, getStatus → true
+      (deps.isAlive as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(false) // repo-bad recovery check
+        .mockReturnValueOnce(false) // repo-good recovery check
+        .mockReturnValue(true); // subsequent getStatus calls
+      mockExistsSync.mockReturnValue(true);
+
+      // First call to detectDevScript fails, second succeeds
+      (deps.detectDevScript as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce({ success: false, error: 'No package.json' })
+        .mockReturnValueOnce({
+          success: true,
+          packageManager: 'npm',
+          scriptName: 'dev',
+          command: 'npm run dev',
+          needsInstall: false,
+        });
+
+      service.recoverAll();
+
+      // The good one should still have been re-spawned
+      expect(service.getStatus('repo-good')).not.toBeNull();
+    });
+
+    it('should handle empty database gracefully', () => {
+      const db = createMockDb([]);
+      service.setDatabase(db);
+
+      expect(() => service.recoverAll()).not.toThrow();
     });
   });
 });

@@ -152,7 +152,7 @@ describe('AgentValidatorService', () => {
       // Assert
       expect(result.available).toBe(true);
       expect(result.version).toBe('0.48.0');
-      expect(mockExec).toHaveBeenCalledWith('agent', ['--version']);
+      expect(mockExec).toHaveBeenCalledWith('cursor-agent', ['--version']);
     });
   });
 });
