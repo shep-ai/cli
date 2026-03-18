@@ -8,11 +8,10 @@
  */
 
 import yaml from 'js-yaml';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
-import type { Evidence } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
 import {
   createNodeLogger,
@@ -40,8 +39,7 @@ import {
   type PhaseTask,
   type TasksYaml,
 } from './prompts/implement.prompt.js';
-import { buildEvidencePrompt } from './prompts/evidence-prompts.js';
-import { parseEvidenceRecords } from './evidence-output-parser.js';
+import { createEvidenceNode } from './evidence.node.js';
 import { hasSettings, getSettings } from '../../../settings.service.js';
 
 /**
@@ -282,11 +280,17 @@ export function createImplementNode(executor: IAgentExecutor) {
 
       // --- Evidence sub-agent: capture proof of completion (settings-gated) ---
       const evidenceEnabled = hasSettings() && getSettings().workflow.enableEvidence;
-      const evidence = evidenceEnabled ? await collectEvidence(executor, state, log) : [];
-      if (!evidenceEnabled) {
+      let evidenceResult: Partial<FeatureAgentState> = {};
+      if (evidenceEnabled) {
+        const evidenceNode = createEvidenceNode(executor);
+        evidenceResult = await evidenceNode(state);
+        messages.push(
+          `[implement] Evidence: ${(evidenceResult.evidence ?? []).length} record(s) captured`
+        );
+      } else {
         log.info('Evidence collection disabled via settings — skipping');
+        messages.push('[implement] Evidence: 0 record(s) captured');
       }
-      messages.push(`[implement] Evidence: ${evidence.length} record(s) captured`);
 
       // Record top-level implement phase completion
       await recordPhaseEnd(implementTimingId, Date.now() - startTime, {
@@ -307,7 +311,12 @@ export function createImplementNode(executor: IAgentExecutor) {
         });
       }
 
-      return { currentNode: 'implement', evidence, messages };
+      return {
+        currentNode: 'implement',
+        evidence: evidenceResult.evidence ?? [],
+        evidenceRetries: evidenceResult.evidenceRetries ?? 0,
+        messages: [...messages, ...(evidenceResult.messages ?? [])],
+      };
     } catch (err: unknown) {
       if (isGraphBubbleUp(err)) throw err;
 
@@ -332,66 +341,4 @@ export function createImplementNode(executor: IAgentExecutor) {
       throw new Error(`[implement] ${message}`);
     }
   };
-}
-
-/**
- * Sub-agent call to collect evidence after implementation completes.
- * Graceful degradation: returns empty array on any failure so evidence
- * collection never blocks the workflow.
- */
-async function collectEvidence(
-  executor: IAgentExecutor,
-  state: FeatureAgentState,
-  log: ReturnType<typeof createNodeLogger>
-): Promise<Evidence[]> {
-  try {
-    log.info('Collecting evidence (sub-agent)');
-    const commitEvidence = hasSettings() && getSettings().workflow.commitEvidence;
-    const prompt = buildEvidencePrompt(state, { commitEvidence });
-    const options = buildExecutorOptions(state);
-    const result = await retryExecute(executor, prompt, options, { logger: log });
-
-    try {
-      const evidence = parseEvidenceRecords(result.result);
-      log.info(`Parsed ${evidence.length} evidence record(s)`);
-      saveEvidenceManifest(state, evidence, log);
-      return evidence;
-    } catch (parseErr) {
-      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
-      log.error(`Warning: evidence parsing failed: ${msg} — continuing with empty evidence`);
-      return [];
-    }
-  } catch (err) {
-    // Re-throw LangGraph control-flow exceptions
-    if (isGraphBubbleUp(err)) throw err;
-
-    const msg = err instanceof Error ? err.message : String(err);
-    log.error(`Evidence collection failed: ${msg} — continuing without evidence`);
-    return [];
-  }
-}
-
-/**
- * Save evidence manifest to the shep home evidence folder so the
- * merge review UI can read it without accessing graph state.
- */
-function saveEvidenceManifest(
-  state: FeatureAgentState,
-  evidence: Evidence[],
-  log: ReturnType<typeof createNodeLogger>
-): void {
-  if (evidence.length === 0) return;
-  try {
-    const cwd = state.worktreePath || state.repositoryPath;
-    // Worktree path: ~/.shep/repos/<hash>/wt/<slug>
-    // Evidence dir:  ~/.shep/repos/<hash>/evidence/<featureId>/
-    const repoHashDir = dirname(dirname(cwd));
-    const evidenceDir = join(repoHashDir, 'evidence', state.featureId);
-    mkdirSync(evidenceDir, { recursive: true });
-    writeFileSync(join(evidenceDir, 'manifest.json'), JSON.stringify(evidence, null, 2), 'utf-8');
-    log.info(`Saved evidence manifest to ${evidenceDir}/manifest.json`);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log.error(`Failed to save evidence manifest: ${msg}`);
-  }
 }

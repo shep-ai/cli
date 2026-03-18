@@ -325,6 +325,9 @@ model WorkflowConfig {
    */
   @doc("Commit evidence to PR (default: false, requires enableEvidence)")
   commitEvidence: boolean = false;
+
+  @doc("Maximum number of evidence collection retry attempts when validation fails (default: 3)")
+  evidenceRetries?: int32;
 }
 
 @doc("AI coding agent configuration")

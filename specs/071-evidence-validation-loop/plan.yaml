@@ -1,0 +1,227 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: evidence-validation-loop
+summary: >
+  Add an internal validation and retry loop to the existing evidence.node.ts that
+  inspects captured Evidence[] records for quality and completeness, retries with
+  structured feedback when validation fails, and gracefully degrades after
+  exhausting retries. No new graph nodes — the loop runs inside createEvidenceNode
+  following the retryExecute pattern. Each attempt is tracked as a separate phase
+  activity (evidence:attempt-N) for timing visibility. A new evidenceRetries state
+  channel and settings.workflow.evidenceRetries configuration are added.
+
+# Relationships
+relatedFeatures:
+  - 053-pr-evidence-agent-5609f4
+
+technologies:
+  - LangGraph
+  - TypeScript
+  - Node.js fs/promises
+  - Vitest
+  - js-yaml
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Schema & State Foundation'
+    description: >
+      Extend TypeSpec settings with evidenceRetries configuration and add
+      evidenceRetries state channel to FeatureAgentAnnotation. This is
+      prerequisite infrastructure — no behavior changes, just schema additions.
+      Compile TypeSpec and validate the build is clean before proceeding.
+    parallel: false
+
+  - id: phase-2
+    name: 'Validation Logic (Pure Functions)'
+    description: >
+      Implement the core evidence validation as pure, side-effect-free functions
+      in evidence-output-parser.ts: task type inference from tasks.yaml,
+      evidence completeness checking by task type, and async file existence
+      verification. All functions are thoroughly unit tested via TDD before
+      integration. This phase produces the validation engine without touching
+      the evidence node.
+    parallel: false
+
+  - id: phase-3
+    name: 'Retry Prompt Builder'
+    description: >
+      Add buildEvidenceRetryPrompt to evidence-prompts.ts that augments the
+      base evidence prompt with structured validation feedback. The feedback
+      lists specific missing evidence by task ID, type, and actionable
+      description — following the repair.node.ts pattern of passing validation
+      errors into the retry prompt.
+    parallel: false
+
+  - id: phase-4
+    name: 'Evidence Node Retry Loop'
+    description: >
+      Refactor createEvidenceNode to wrap evidence collection in a validation
+      loop: execute agent → parse → validate → retry or accept. Each attempt
+      is recorded as a separate phase activity (evidence:attempt-N) via
+      recordPhaseStart/recordPhaseEnd. After exhausting retries, gracefully
+      degrade by accepting partial evidence and logging warnings to
+      state.messages[]. This is the core integration phase.
+    parallel: false
+
+  - id: phase-5
+    name: 'Integration Tests & Verification'
+    description: >
+      Add integration tests covering the full retry flow (validation failure →
+      retry with feedback → success) and the exhausted retries scenario
+      (3 failures → graceful degradation with warnings). Verify all spec
+      success criteria are met, run full test suite, and validate build.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/state.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/evidence.node.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts
+  - tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  Evidence collection currently runs as a sub-agent within the implement node via
+  `createEvidenceNode`. The node executes the agent once, parses Evidence[] from
+  the output via `parseEvidenceRecords`, runs informational validation via
+  `validateUiEvidenceHasAppProof`, and returns state. There is no retry mechanism
+  when validation detects quality gaps.
+
+  This feature adds an **internal validation loop** inside `createEvidenceNode`
+  that wraps the execute → parse → validate cycle. The loop follows the
+  established `retryExecute` pattern for agent execution retries, but operates
+  at the validation level rather than the transport/API level. No new graph
+  nodes are added — evidence remains a sub-process within the implement phase.
+
+  The architecture preserves Clean Architecture boundaries:
+  - **Domain layer** — Evidence type unchanged (NFR-9), WorkflowConfig extended
+    with `evidenceRetries` via TypeSpec
+  - **Infrastructure layer** — All changes in feature-agent nodes: validation
+    logic (pure functions), retry loop (node orchestration), retry prompts
+  - **No presentation changes** — TUI and Web already render `state.messages[]`
+    which will include validation warnings
+
+  ### State Flow
+
+  ```
+  evidence.node.ts (loop):
+    attempt = 1
+    while attempt <= maxRetries:
+      recordPhaseStart('evidence:attempt-{attempt}')
+      execute agent (base prompt or retry prompt with feedback)
+      parse Evidence[] via parseEvidenceRecords
+      validate via validateEvidenceCompleteness + validateFileExistence
+      recordPhaseEnd(timingId, duration)
+      if valid: break (success)
+      if attempt == maxRetries: log warnings, break (graceful degradation)
+      attempt++
+    markPhaseComplete('evidence')
+    return { evidence, messages }
+  ```
+
+  Evidence[] uses an **accumulate reducer** in state, so evidence from all
+  attempts is preserved (FR-11). The validation loop appends new evidence on
+  each retry rather than replacing.
+
+  ## Key Design Decisions
+
+  ### 1. Internal Loop vs Separate Graph Nodes
+
+  **Chosen:** Internal validation loop within `createEvidenceNode`
+
+  Evidence collection is a sub-phase within the implement node workflow. Adding
+  separate validate-evidence + retry-evidence graph nodes would require
+  restructuring the implement phase and adding new edges. The internal loop
+  follows `retryExecute`'s proven pattern and keeps the graph topology unchanged.
+
+  ### 2. Comprehensive Validation (UI + Completeness + File Existence)
+
+  **Chosen:** Three-dimensional validation checking UI app-level proof, evidence
+  completeness by task type, and file existence with non-zero size.
+
+  This reuses existing `validateUiEvidenceHasAppProof` logic (already in
+  evidence-output-parser.ts) and adds completeness checks (tasks.yaml → task type
+  inference → expected evidence types) and file existence checks (fs.stat). Meets
+  the <500ms latency requirement (NFR-1) because file stat calls are ~1ms each.
+
+  ### 3. Dedicated evidenceRetries State Channel
+
+  **Chosen:** New `evidenceRetries` channel instead of reusing `validationRetries`
+
+  `validationRetries` is used by validate.node.ts / repair.node.ts for YAML
+  schema validation loops. Reusing it would create collision since evidence
+  validation is conceptually different. Separate channel provides clean
+  separation and easier debugging in state snapshots.
+
+  ### 4. Configurable Retry Limit via Settings
+
+  **Chosen:** `settings.workflow.evidenceRetries` (default 3)
+
+  Follows established pattern of `ciMaxFixAttempts` in WorkflowConfig. Default
+  of 3 matches validate/repair loop pattern. Users with reliable environments
+  can reduce; users with flaky browser automation can increase.
+
+  ### 5. Task Type Inference from tasks.yaml
+
+  **Chosen:** Parse tasks.yaml descriptions and acceptance criteria to infer
+  task types (UI, test, CLI) using keyword matching
+
+  No schema changes required. The tasks.yaml already contains rich metadata
+  (description, acceptanceCriteria, tdd fields) sufficient for classification.
+  Keywords like "component", "UI", "page" → UI task; "test", "spec" → test task;
+  "CLI", "command", "terminal" → CLI task.
+
+  ### 6. Phase Activity Tracking per Attempt
+
+  **Chosen:** Each attempt recorded as `evidence:attempt-N` via
+  recordPhaseStart / recordPhaseEnd
+
+  This follows the existing iteration naming pattern (requirements:2, plan:2
+  for re-executed phases). Creates separate PhaseTiming rows enabling analysis
+  of retry frequency and per-attempt duration. Satisfies FR-12 and the
+  rejection feedback requirement.
+
+  ## Implementation Strategy
+
+  The implementation follows a bottom-up approach: schema first (types flow
+  downward), then pure validation logic (independently testable), then prompt
+  builder (depends on validation types), then the integration point (evidence
+  node loop). Each phase builds on the prior phase's output and is fully tested
+  before proceeding.
+
+  **Phase ordering rationale:**
+  1. Schema & State — prerequisite types must exist before any code references them
+  2. Validation Logic — pure functions with no dependencies on the node; can be
+     tested exhaustively in isolation
+  3. Retry Prompt — depends on ValidationError types from phase 2
+  4. Evidence Node Loop — the integration point that wires validation + prompts
+     into the existing evidence flow
+  5. Integration Tests — end-to-end verification after all pieces are in place
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Validation too strict — blocks valid evidence sets | Default to permissive: tasks without clear type indicators are skipped in completeness checks. Only flag known gaps. |
+  | File system race conditions — files deleted between capture and validation | Wrap fs.stat in try/catch per NFR-10. Report file errors as validation warnings, not crashes. |
+  | evidence[] accumulate reducer causes duplicate evidence across retries | The agent is re-prompted with focused feedback on gaps, not asked to recollect everything. New evidence appends; existing evidence is preserved. |
+  | Task type inference misclassifies tasks | Use conservative keyword matching — only classify when strong signals present. Unclassified tasks have no completeness requirement. |
+  | Retry loop adds significant latency to evidence phase | Each retry re-runs the full evidence agent (30-60s). With max 3 retries, worst case is ~3 minutes additional. Acceptable because retries only trigger on validation failure, not the happy path. |
+  | TypeSpec compilation breaks existing types | Run pnpm tsp:compile and pnpm validate immediately after schema changes. evidenceRetries is optional (?) so no breaking changes. |
+  | Phase timing records incorrect for retry attempts | Write unit tests verifying recordPhaseStart/recordPhaseEnd called with correct attempt numbers. |

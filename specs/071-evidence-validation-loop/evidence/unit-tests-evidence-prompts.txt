@@ -1,0 +1,45 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-evidence-validation-loop
+
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include spec context when spec.yaml exists 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include tasks context when tasks.yaml exists 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include worktree path 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should fall back to repositoryPath when worktreePath is absent 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include JSON output format instructions 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include all valid EvidenceType values in instructions 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include file size constraints (standard resolution) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include file size constraints (500-line truncation) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include sensitive data redaction instructions 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include evidence capture instructions per task type 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should handle missing spec.yaml gracefully 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should handle missing tasks.yaml gracefully 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should be deterministic (same input = same output) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=false (default) > should store evidence in shep home folder by default 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=false (default) > should NOT include commit/push block 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=false (default) > should instruct NOT to commit files 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should require screenshots for UI changes 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should include Playwright installation instructions 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should include screenshot capture script example 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should state minimum evidence requirements 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should not contain "be selective" language 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should include spec evidence folder storage instructions 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should include commit block via buildCommitPushBlock 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should pass spec evidence path in commit block files 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should pass push flag through to buildCommitPushBlock 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should mention PR body in the prompt 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should save to BOTH locations 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should include base evidence prompt content 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should include VALIDATION FEEDBACK section header 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should format UI validation errors with task details 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should format completeness errors with task list 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should format file existence errors with paths 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should include all error types when mixed errors are provided 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should instruct the agent to focus on fixing gaps, not recollecting everything 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should accept EvidencePromptOptions and forward them to buildEvidencePrompt 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should return base prompt when errors array is empty 0ms
+
+ Test Files  1 passed (1)
+      Tests  36 passed (36)
+   Start at  17:59:10
+   Duration  709ms (transform 230ms, setup 0ms, import 556ms, tests 6ms, environment 0ms)
+

@@ -6,9 +6,11 @@
  * Returns empty array gracefully on any parsing failure.
  *
  * Also provides validation to ensure UI-related evidence includes app-level
- * proof (not just Storybook screenshots).
+ * proof (not just Storybook screenshots), evidence completeness by task type,
+ * and file existence verification.
  */
 
+import { stat } from 'node:fs/promises';
 import type { Evidence } from '../../../../../domain/generated/output.js';
 import { EvidenceType } from '../../../../../domain/generated/output.js';
 
@@ -148,4 +150,173 @@ export function validateUiEvidenceHasAppProof(evidence: Evidence[]): UiEvidenceV
     hasOnlyStorybookScreenshots: hasOnlyStorybook,
     warnings,
   };
+}
+
+// =====================================================================
+// Evidence Validation — Task Type Inference & Completeness
+// =====================================================================
+
+/** Minimal task shape needed for evidence validation (subset of PhaseTask). */
+export interface TaskForValidation {
+  id: string;
+  title: string;
+  description: string;
+  acceptanceCriteria: string[];
+  tdd: { red: string[]; green: string[]; refactor: string[] } | null;
+}
+
+export type TaskType = 'ui' | 'test' | 'cli';
+
+export interface ValidationError {
+  type: 'ui' | 'completeness' | 'fileExistence';
+  taskId?: string;
+  taskTitle?: string;
+  message: string;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+}
+
+// Keyword patterns for task type inference (compiled once at module level)
+const UI_KEYWORDS = /\b(component|ui|page|style|layout|markup|visual)\b/i;
+const TEST_KEYWORDS = /\b(tests?|specs?|unit tests?|integration tests?)\b/i;
+const CLI_KEYWORDS = /\b(cli|command|terminal|shell)\b/i;
+
+/**
+ * Infer task types from a task's description, acceptance criteria, and tdd field.
+ * Returns an array of inferred types. Tasks can have multiple types.
+ * Tasks without clear signals return an empty array (no completeness requirement).
+ */
+export function inferTaskTypes(task: TaskForValidation): TaskType[] {
+  const types = new Set<TaskType>();
+  const textSources = [task.description, ...task.acceptanceCriteria];
+  const combined = textSources.join(' ');
+
+  if (UI_KEYWORDS.test(combined)) {
+    types.add('ui');
+  }
+
+  if (TEST_KEYWORDS.test(combined) || task.tdd !== null) {
+    types.add('test');
+  }
+
+  if (CLI_KEYWORDS.test(combined)) {
+    types.add('cli');
+  }
+
+  return [...types];
+}
+
+/**
+ * Validate evidence completeness against task requirements.
+ * Checks three dimensions:
+ * 1. UI tasks have app-level screenshots (not just Storybook)
+ * 2. Test tasks have TestOutput evidence
+ * 3. CLI tasks have TerminalRecording evidence
+ *
+ * Pure function — no side effects, no I/O.
+ */
+export function validateEvidenceCompleteness(
+  evidence: Evidence[],
+  tasks: TaskForValidation[]
+): ValidationResult {
+  const errors: ValidationError[] = [];
+
+  for (const task of tasks) {
+    const types = inferTaskTypes(task);
+
+    if (types.includes('ui')) {
+      // Check for app-level screenshots (not just Storybook)
+      const screenshots = evidence.filter(isScreenshot);
+      const appScreenshots = screenshots.filter(isAppEvidence);
+      if (appScreenshots.length === 0) {
+        errors.push({
+          type: 'ui',
+          taskId: task.id,
+          taskTitle: task.title,
+          message: `Missing app-level screenshot for ${task.id} (UI task '${task.title}'). Storybook-only screenshots are insufficient.`,
+        });
+      }
+    }
+
+    if (types.includes('test')) {
+      const hasTestOutput = evidence.some((e) => e.type === EvidenceType.TestOutput);
+      if (!hasTestOutput) {
+        errors.push({
+          type: 'completeness',
+          taskId: task.id,
+          taskTitle: task.title,
+          message: `No TestOutput evidence for ${task.id} (test task '${task.title}'). Test results are required.`,
+        });
+      }
+    }
+
+    if (types.includes('cli')) {
+      const hasTerminalRecording = evidence.some((e) => e.type === EvidenceType.TerminalRecording);
+      if (!hasTerminalRecording) {
+        errors.push({
+          type: 'completeness',
+          taskId: task.id,
+          taskTitle: task.title,
+          message: `No TerminalRecording evidence for ${task.id} (CLI task '${task.title}'). Terminal output is required.`,
+        });
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Verify that each Evidence record's file exists on disk with non-zero size.
+ * Returns an array of error messages for missing or empty files.
+ * Never throws — all errors are caught and returned as strings (NFR-10).
+ */
+export async function validateFileExistence(evidence: Evidence[]): Promise<string[]> {
+  if (evidence.length === 0) return [];
+
+  const results = await Promise.all(
+    evidence.map(async (e) => {
+      try {
+        const stats = await stat(e.relativePath);
+        if (stats.size === 0) {
+          return `Evidence file has zero size: ${e.relativePath} (${e.description})`;
+        }
+        return null;
+      } catch (err: unknown) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') {
+          return `Evidence file not found: ${e.relativePath} (${e.description})`;
+        }
+        if (code === 'EACCES') {
+          return `Evidence file not accessible (permission denied): ${e.relativePath} (${e.description})`;
+        }
+        return `Evidence file error: ${e.relativePath} (${e.description}) — ${err instanceof Error ? err.message : String(err)}`;
+      }
+    })
+  );
+
+  return results.filter((r): r is string => r !== null);
+}
+
+/**
+ * Full validation pipeline: runs completeness checks and file existence checks,
+ * returns a unified ValidationResult with all detected issues.
+ */
+export async function validateEvidence(
+  evidence: Evidence[],
+  tasks: TaskForValidation[]
+): Promise<ValidationResult> {
+  const completenessResult = validateEvidenceCompleteness(evidence, tasks);
+  const fileErrors = await validateFileExistence(evidence);
+
+  const fileValidationErrors: ValidationError[] = fileErrors.map((msg) => ({
+    type: 'fileExistence' as const,
+    message: msg,
+  }));
+
+  const allErrors = [...completenessResult.errors, ...fileValidationErrors];
+  return { valid: allErrors.length === 0, errors: allErrors };
 }

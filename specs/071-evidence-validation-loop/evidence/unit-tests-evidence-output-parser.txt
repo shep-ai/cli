@@ -1,0 +1,74 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-evidence-validation-loop
+
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should extract valid Evidence[] from agent output with JSON block 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should return empty array when no JSON block found 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should return empty array on malformed JSON 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should filter records missing required fields 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should filter records with path traversal in relativePath 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should handle mixed valid and invalid records 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should handle empty JSON array 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should return empty array for empty string 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should return empty array when JSON is not an array 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > parseEvidenceRecords > should handle all valid EvidenceType values 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return valid when evidence has app-level screenshots 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return invalid when evidence has only storybook screenshots 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return valid when evidence has both app and storybook screenshots 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return valid with no warnings when no screenshots exist 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should return valid with no warnings for empty evidence array 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should detect storybook in relativePath even without description match 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should detect storybook via "story" keyword in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should detect storybook via port 6006 in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should treat screenshots without storybook keywords as app evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should treat Video type as visual evidence for validation 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should treat app-prefixed descriptions as app evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should treat "dev server" descriptions as app evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateUiEvidenceHasAppProof > should detect "stories" keyword as storybook evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["ui"] for tasks mentioning "component" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["ui"] for tasks mentioning "UI" in description 25ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["ui"] for tasks mentioning "page" in description 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["ui"] for tasks mentioning "style" in description (case-insensitive) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["ui"] for tasks mentioning "layout" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["ui"] for tasks mentioning "markup" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["ui"] for tasks mentioning "visual" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["ui"] for tasks with UI keywords in acceptanceCriteria 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["test"] for tasks mentioning "test" in acceptanceCriteria 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["test"] for tasks with non-null tdd field 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["test"] for tasks mentioning "spec" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["test"] for tasks mentioning "unit test" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["test"] for tasks mentioning "integration test" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["cli"] for tasks mentioning "CLI" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["cli"] for tasks mentioning "command" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["cli"] for tasks mentioning "terminal" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return ["cli"] for tasks mentioning "shell" in description 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return multiple types for tasks matching multiple categories 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should return [] for tasks with no clear type signals 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should be case-insensitive for keyword matching 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > inferTaskTypes > should handle missing optional fields gracefully 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should return valid when all tasks have matching evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should return error when UI task has no Screenshot evidence 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should return error when UI task has only Storybook screenshots 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should return error when test task has no TestOutput evidence 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should return error when CLI task has no TerminalRecording evidence 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should return multiple errors when multiple tasks lack evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should skip tasks with no inferred type (no completeness requirement) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should return valid for empty tasks array 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should return errors for typed tasks when evidence array is empty 18ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidenceCompleteness > should have human-readable error messages 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateFileExistence > should return empty array when all evidence files exist with content 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateFileExistence > should return error when file does not exist (ENOENT) 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateFileExistence > should return error when file has zero size 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateFileExistence > should return error when file is not accessible (EACCES) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateFileExistence > should return error for each missing file when multiple are missing 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateFileExistence > should return empty array for empty evidence array 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateFileExistence > should never throw — returns errors as strings 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidence > should return valid when both completeness and file existence pass 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidence > should return completeness errors when files exist but evidence is insufficient 3ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidence > should return file existence errors when completeness passes but files missing 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.test.ts > evidence-output-parser > validateEvidence > should return merged errors when both fail 0ms
+
+ Test Files  1 passed (1)
+      Tests  65 passed (65)
+   Start at  17:59:05
+   Duration  578ms (transform 279ms, setup 0ms, import 358ms, tests 78ms, environment 0ms)
+

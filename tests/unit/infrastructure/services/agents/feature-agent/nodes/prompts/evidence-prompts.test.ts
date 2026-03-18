@@ -13,12 +13,16 @@ vi.mock(
   }
 );
 
-import { buildEvidencePrompt } from '@/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.js';
+import {
+  buildEvidencePrompt,
+  buildEvidenceRetryPrompt,
+} from '@/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.js';
 import {
   readSpecFile,
   buildCommitPushBlock,
 } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
+import type { ValidationError } from '@/infrastructure/services/agents/feature-agent/nodes/evidence-output-parser.js';
 
 function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentState {
   return {
@@ -244,5 +248,134 @@ describe('buildEvidencePrompt', () => {
       expect(prompt).toContain('Shep home folder');
       expect(prompt).toContain('Spec folder');
     });
+  });
+});
+
+describe('buildEvidenceRetryPrompt', () => {
+  it('should include base evidence prompt content', () => {
+    const errors: ValidationError[] = [
+      {
+        type: 'ui',
+        taskId: 'task-1',
+        taskTitle: 'Add toggle',
+        message: 'Missing app-level screenshot',
+      },
+    ];
+    const prompt = buildEvidenceRetryPrompt(baseState(), errors);
+    // The base prompt always contains the "EVIDENCE COLLECTION" phrase
+    expect(prompt).toContain('EVIDENCE COLLECTION');
+  });
+
+  it('should include VALIDATION FEEDBACK section header', () => {
+    const errors: ValidationError[] = [
+      {
+        type: 'ui',
+        taskId: 'task-1',
+        taskTitle: 'Add toggle',
+        message: 'Missing app-level screenshot',
+      },
+    ];
+    const prompt = buildEvidenceRetryPrompt(baseState(), errors);
+    expect(prompt).toContain('VALIDATION FEEDBACK');
+  });
+
+  it('should format UI validation errors with task details', () => {
+    const errors: ValidationError[] = [
+      {
+        type: 'ui',
+        taskId: 'task-3',
+        taskTitle: 'Add toggle component',
+        message:
+          "Missing app-level screenshot for task-3 (UI task 'Add toggle component'). Storybook-only screenshots are insufficient.",
+      },
+    ];
+    const prompt = buildEvidenceRetryPrompt(baseState(), errors);
+    expect(prompt).toContain('task-3');
+    expect(prompt).toContain('Add toggle component');
+    expect(prompt).toContain('app-level screenshot');
+  });
+
+  it('should format completeness errors with task list', () => {
+    const errors: ValidationError[] = [
+      {
+        type: 'completeness',
+        taskId: 'task-5',
+        taskTitle: 'Add API endpoint tests',
+        message:
+          "No TestOutput evidence for task-5 (test task 'Add API endpoint tests'). Test results are required.",
+      },
+    ];
+    const prompt = buildEvidenceRetryPrompt(baseState(), errors);
+    expect(prompt).toContain('task-5');
+    expect(prompt).toContain('Add API endpoint tests');
+    expect(prompt).toContain('TestOutput');
+  });
+
+  it('should format file existence errors with paths', () => {
+    const errors: ValidationError[] = [
+      {
+        type: 'fileExistence',
+        message:
+          'Evidence file not found: specs/071-evidence/app-screenshot.png (Homepage screenshot)',
+      },
+    ];
+    const prompt = buildEvidenceRetryPrompt(baseState(), errors);
+    expect(prompt).toContain('Evidence file not found');
+    expect(prompt).toContain('specs/071-evidence/app-screenshot.png');
+  });
+
+  it('should include all error types when mixed errors are provided', () => {
+    const errors: ValidationError[] = [
+      {
+        type: 'ui',
+        taskId: 'task-1',
+        taskTitle: 'Add toggle',
+        message: "Missing app-level screenshot for task-1 (UI task 'Add toggle')",
+      },
+      {
+        type: 'completeness',
+        taskId: 'task-5',
+        taskTitle: 'Add API tests',
+        message: "No TestOutput evidence for task-5 (test task 'Add API tests')",
+      },
+      {
+        type: 'fileExistence',
+        message: 'Evidence file not found: evidence/screenshot.png (broken ref)',
+      },
+    ];
+    const prompt = buildEvidenceRetryPrompt(baseState(), errors);
+    // All three types should be present
+    expect(prompt).toContain('task-1');
+    expect(prompt).toContain('Add toggle');
+    expect(prompt).toContain('task-5');
+    expect(prompt).toContain('Add API tests');
+    expect(prompt).toContain('evidence/screenshot.png');
+  });
+
+  it('should instruct the agent to focus on fixing gaps, not recollecting everything', () => {
+    const errors: ValidationError[] = [
+      { type: 'ui', taskId: 'task-1', taskTitle: 'Add toggle', message: 'Missing screenshot' },
+    ];
+    const prompt = buildEvidenceRetryPrompt(baseState(), errors);
+    // Should contain instruction to focus on gaps
+    const lower = prompt.toLowerCase();
+    expect(lower).toMatch(/focus.*gap|fix.*listed|address.*missing|focus.*missing/);
+  });
+
+  it('should accept EvidencePromptOptions and forward them to buildEvidencePrompt', () => {
+    const errors: ValidationError[] = [
+      { type: 'ui', taskId: 'task-1', taskTitle: 'Test', message: 'Missing screenshot' },
+    ];
+    const prompt = buildEvidenceRetryPrompt(baseState(), errors, { commitEvidence: true });
+    // When commitEvidence is true, the base prompt mentions "Spec folder"
+    expect(prompt).toContain('Spec folder');
+  });
+
+  it('should return base prompt when errors array is empty', () => {
+    const prompt = buildEvidenceRetryPrompt(baseState(), []);
+    // With no errors, should still include base prompt
+    expect(prompt).toContain('EVIDENCE COLLECTION');
+    // Should NOT include feedback section when there are no errors
+    expect(prompt).not.toContain('VALIDATION FEEDBACK');
   });
 });
