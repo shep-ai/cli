@@ -47,6 +47,11 @@ properties:
     type: boolean
     default: false
     description: "Commit evidence to PR (default: false, requires enableEvidence)"
+  evidenceRetries:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Maximum number of evidence collection retry attempts when validation fails (default: 3)"
 required:
   - openPrOnImplementationComplete
   - approvalGateDefaults

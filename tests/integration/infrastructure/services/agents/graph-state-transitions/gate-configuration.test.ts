@@ -49,8 +49,8 @@ describe('Graph State Transitions › Gate Configuration', () => {
 
     expectNoInterrupts(result);
     expect(result.messages.length).toBeGreaterThanOrEqual(1);
-    // All nodes executed exactly once: analyze + requirements + research + plan + implement + evidence = 6
-    expect(ctx.executor.execute).toHaveBeenCalledTimes(6);
+    // All nodes executed: analyze + requirements + research + plan + implement + 3 evidence attempts = 8
+    expect(ctx.executor.execute).toHaveBeenCalledTimes(8);
   });
 
   it('should run fully without interrupts when all gates are true (Test 8)', async () => {
@@ -61,7 +61,7 @@ describe('Graph State Transitions › Gate Configuration', () => {
 
     expectNoInterrupts(result);
     expect(result.messages.length).toBeGreaterThanOrEqual(1);
-    expect(ctx.executor.execute).toHaveBeenCalledTimes(6);
+    expect(ctx.executor.execute).toHaveBeenCalledTimes(8);
   });
 
   it('should skip requirements interrupt when allowPrd=true, interrupt at plan', async () => {

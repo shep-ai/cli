@@ -1,0 +1,22 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-evidence-validation-loop
+
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Flow (with merge) > should execute evidence sub-agent within implement node 55ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Flow (with merge) > should populate evidence state when agent returns evidence JSON 26ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Flow (with merge) > should return empty evidence when agent returns no evidence data 20ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Flow (with merge) > should include evidence in merge prompt context 19ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Flow (with merge) > should run to completion when all gates enabled (with evidence) 21ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Flow (with merge) > should not interrupt at evidence (no approval gate) 19ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Flow (without merge) > should run evidence sub-agent within implement and end graph when no merge deps 18ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Flow (without merge) > should populate evidence state when graph ends after implement 17ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Flow (without merge) > should handle empty evidence gracefully when graph ends after implement 18ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Validation Retry Loop > should retry evidence collection when validation fails and succeed on second attempt 16ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Validation Retry Loop > should gracefully degrade after exhausting all retry attempts 33ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Validation Retry Loop > should record separate phase activities for each evidence attempt 23ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/evidence-flow.test.ts > Graph State Transitions › Evidence Validation Retry Loop > should track 3 attempts in evidenceRetries when all retries exhaust 14ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  17:59:13
+   Duration  898ms (transform 248ms, setup 0ms, import 467ms, tests 329ms, environment 0ms)
+

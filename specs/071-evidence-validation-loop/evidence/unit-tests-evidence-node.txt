@@ -1,0 +1,46 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-evidence-validation-loop
+
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > agent executor calls > should call executor.execute with evidence prompt 5ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > agent executor calls > should pass executor options from buildExecutorOptions 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence parsing > should parse evidence records from executor result 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence parsing > should return evidence array in state update 3ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence parsing > should return empty evidence array when parser returns empty 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > state update > should return currentNode as evidence 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > state update > should return messages array with completion message 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > state update > should include evidence count in completion message 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > graceful degradation > should return empty evidence when parseEvidenceRecords throws 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > graceful degradation > should still mark phase complete when parsing fails 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > graceful degradation > should include warning message when parsing fails 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > resume support > should skip execution when evidence phase already in completedPhases 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > resume support > should return skip message when already completed 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > resume support > should execute normally when other phases are completed but not evidence 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > phase completion marking > should mark evidence phase complete after successful execution 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > phase completion marking > should record phase timing start and end with usage metadata 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > error handling > should re-throw GraphBubbleUp errors 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > error handling > should throw on non-retryable executor errors 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > error handling > should record phase timing even when executor fails 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > error handling > should NOT mark phase complete when executor fails 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > ui evidence app-level proof validation > should call validateUiEvidenceHasAppProof with parsed evidence 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > ui evidence app-level proof validation > should include validation warnings in messages when storybook-only evidence detected 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > ui evidence app-level proof validation > should not include validation warnings when app-level evidence is present 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > ui evidence app-level proof validation > should still return evidence even when validation warns about storybook-only 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > no approval gate > should not import or use interrupt (evidence always runs automatically) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should call validateEvidence after parsing evidence on first attempt 3ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should not retry when validation passes on first attempt 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should retry when validation fails on first attempt and succeed on second 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should use buildEvidenceRetryPrompt with validation errors on retry 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should gracefully degrade after exhausting all 3 retry attempts 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should record phase end after each attempt regardless of success or failure 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should update evidenceRetries state with attempt count 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should preserve evidence from all attempts (accumulate reducer) 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should call markPhaseComplete only once after loop completes 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should call markPhaseComplete after exhausting retries (graceful degradation) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should respect configurable max retries from settings 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/evidence.node.test.ts > createEvidenceNode > evidence validation retry loop > should log ERROR level warnings when retries are exhausted 0ms
+
+ Test Files  1 passed (1)
+      Tests  37 passed (37)
+   Start at  17:59:08
+   Duration  854ms (transform 328ms, setup 0ms, import 410ms, tests 37ms, environment 0ms)
+

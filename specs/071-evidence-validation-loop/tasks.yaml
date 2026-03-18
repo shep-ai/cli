@@ -1,0 +1,517 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: evidence-validation-loop
+summary: >
+  14 tasks across 5 phases implementing evidence validation and retry loop.
+  Phase 1 extends schema and state. Phase 2 builds pure validation functions
+  with TDD. Phase 3 adds retry prompt builder. Phase 4 integrates the retry
+  loop into evidence.node.ts. Phase 5 adds integration tests and final
+  verification.
+
+# Relationships
+relatedFeatures:
+  - 053-pr-evidence-agent-5609f4
+
+technologies:
+  - LangGraph
+  - TypeScript
+  - Node.js fs/promises
+  - Vitest
+  - js-yaml
+
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ── Phase 1: Schema & State Foundation ──────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add evidenceRetries to WorkflowConfig in settings.tsp'
+    description: >
+      Extend the WorkflowConfig model in settings.tsp with an optional
+      evidenceRetries field (int32, default not set). Run pnpm tsp:compile
+      to regenerate output.ts and verify the new field appears in the
+      generated WorkflowConfig type.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'WorkflowConfig in settings.tsp has evidenceRetries?: int32 field with @doc annotation'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'Generated output.ts includes evidenceRetries as optional number field on WorkflowConfig'
+      - 'pnpm validate passes (no type errors, lint clean)'
+    tdd:
+      red:
+        - 'N/A — schema-only change, no behavior to test. Validation is via tsp:compile and validate.'
+      green:
+        - 'Add @doc("Maximum number of evidence collection retry attempts when validation fails (default: 3)") and evidenceRetries?: int32 to WorkflowConfig in settings.tsp'
+        - 'Run pnpm tsp:compile to regenerate domain types'
+      refactor:
+        - 'Verify field placement is logically grouped with other retry/workflow settings'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add evidenceRetries state channel to FeatureAgentAnnotation'
+    description: >
+      Add a new evidenceRetries channel to FeatureAgentAnnotation in state.ts
+      following the same pattern as validationRetries (replace reducer,
+      default 0). This channel tracks how many evidence retry attempts have
+      been made during the current graph execution.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeatureAgentAnnotation has evidenceRetries: Annotation<number> with replace reducer and default 0'
+      - 'Channel follows exact same pattern as validationRetries'
+      - 'pnpm validate passes'
+    tdd:
+      red:
+        - 'N/A — state channel declaration, verified by type system. Existing state tests cover annotation patterns.'
+      green:
+        - 'Add evidenceRetries channel to FeatureAgentAnnotation with reducer: (_prev, next) => next, default: () => 0'
+      refactor:
+        - 'Add comment grouping it with evidence-related state (near evidence channel)'
+    estimatedEffort: '10min'
+
+  # ── Phase 2: Validation Logic (Pure Functions) ─────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add task type inference helper (inferTaskTypes)'
+    description: >
+      Create a pure function inferTaskTypes that takes a parsed tasks.yaml
+      task object and returns an array of inferred types (ui, test, cli)
+      based on keyword matching in description and acceptanceCriteria. Tasks
+      can have multiple types. Tasks without clear signals return an empty
+      array (no completeness requirement).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'inferTaskTypes returns ["ui"] for tasks mentioning "component", "UI", "page", "style", "layout", "markup", "visual"'
+      - 'inferTaskTypes returns ["test"] for tasks mentioning "test", "spec", "unit test", "integration test" OR with non-null tdd field'
+      - 'inferTaskTypes returns ["cli"] for tasks mentioning "CLI", "command", "terminal", "shell"'
+      - 'inferTaskTypes returns multiple types for tasks matching multiple categories (e.g., ["ui", "test"])'
+      - 'inferTaskTypes returns [] for tasks with no clear type signals'
+      - 'Keyword matching is case-insensitive'
+      - 'Function is exported from evidence-output-parser.ts'
+    tdd:
+      red:
+        - 'Write test: task with description "Add toggle component to settings page" → returns ["ui"]'
+        - 'Write test: task with acceptanceCriteria ["Write unit tests for validation"] → returns ["test"]'
+        - 'Write test: task with tdd field present (non-null) → returns ["test"]'
+        - 'Write test: task with description "Add CLI command for export" → returns ["cli"]'
+        - 'Write test: task with description "Add UI component with unit tests" → returns ["ui", "test"]'
+        - 'Write test: task with description "Refactor internal logic" (no signals) → returns []'
+        - 'Write test: task with description "update STYLE for button" (case-insensitive) → returns ["ui"]'
+      green:
+        - 'Implement inferTaskTypes in evidence-output-parser.ts with keyword regex matching on description + acceptanceCriteria + tdd field'
+      refactor:
+        - 'Extract keyword lists into named constants for each type'
+        - 'Ensure regex patterns are compiled once (module-level const)'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add evidence completeness validation (validateEvidenceCompleteness)'
+    description: >
+      Create the main validation function that takes Evidence[] and parsed
+      tasks (from tasks.yaml) and returns a ValidationResult with all
+      detected quality/completeness issues. Checks three dimensions: (1) UI
+      tasks have app-level screenshots (reuses validateUiEvidenceHasAppProof),
+      (2) test tasks have TestOutput evidence, (3) CLI tasks have
+      TerminalRecording evidence. Returns structured ValidationError objects
+      with type, taskId, taskTitle, and message.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Returns { valid: true, errors: [] } when all tasks have appropriate evidence'
+      - 'Returns error when UI task has no Screenshot evidence with app-level proof'
+      - 'Returns error when test task has no TestOutput evidence'
+      - 'Returns error when CLI task has no TerminalRecording evidence'
+      - 'Returns multiple errors when multiple tasks lack evidence'
+      - 'Skips tasks with no inferred type (no completeness requirement)'
+      - 'ValidationError includes type, taskId, taskTitle, and human-readable message'
+      - 'Function is pure (no side effects, no I/O)'
+      - 'Function is exported from evidence-output-parser.ts'
+    tdd:
+      red:
+        - 'Write test: all tasks have matching evidence → { valid: true, errors: [] }'
+        - 'Write test: UI task with no screenshots → returns error with type "ui", taskId, message'
+        - 'Write test: UI task with only Storybook screenshots → returns error (reuses validateUiEvidenceHasAppProof logic)'
+        - 'Write test: test task with no TestOutput → returns error with type "completeness"'
+        - 'Write test: CLI task with no TerminalRecording → returns error with type "completeness"'
+        - 'Write test: multiple tasks missing evidence → returns all errors'
+        - 'Write test: task with no inferred type → no error (skipped)'
+        - 'Write test: empty tasks array → { valid: true, errors: [] }'
+        - 'Write test: empty evidence array with typed tasks → returns errors for each'
+      green:
+        - 'Define ValidationResult and ValidationError interfaces'
+        - 'Implement validateEvidenceCompleteness using inferTaskTypes + existing validateUiEvidenceHasAppProof'
+        - 'Map each task to expected evidence types, check evidence[] for matches'
+      refactor:
+        - 'Ensure ValidationError messages are human-readable per NFR-2'
+        - 'Extract evidence matching logic into small helpers if needed'
+    estimatedEffort: '1h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Add file existence validation (validateFileExistence)'
+    description: >
+      Create an async function that takes Evidence[] and verifies each
+      record's relativePath exists on disk with non-zero file size. Returns
+      an array of error messages for missing or empty files. Handles
+      ENOENT and permission errors gracefully (NFR-10) — never crashes.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Returns empty array when all evidence files exist with non-zero size'
+      - 'Returns error message when file does not exist (ENOENT)'
+      - 'Returns error message when file has zero size'
+      - 'Returns error message when file is not accessible (permission error)'
+      - 'Handles multiple missing files — returns error for each'
+      - 'Error messages include the file path and evidence description'
+      - 'Function never throws — all errors caught and returned as strings'
+      - 'Function is async (uses fs.promises.stat)'
+      - 'Function is exported from evidence-output-parser.ts'
+      - 'Execution time <500ms for 20 files (NFR-1)'
+    tdd:
+      red:
+        - 'Write test: all files exist with content → returns []'
+        - 'Write test: file does not exist → returns error with path'
+        - 'Write test: file exists but zero size → returns error'
+        - 'Write test: file not accessible (mock EACCES) → returns error (no crash)'
+        - 'Write test: multiple missing files → returns error for each'
+        - 'Write test: empty evidence array → returns []'
+      green:
+        - 'Implement validateFileExistence using fs.promises.stat with try/catch per file'
+        - 'Check stat.size > 0 for existing files'
+        - 'Catch ENOENT and EACCES separately with descriptive messages'
+      refactor:
+        - 'Use Promise.all for parallel stat calls (performance)'
+        - 'Normalize paths with path.resolve before stat'
+    estimatedEffort: '45min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Compose full validation pipeline (validateEvidence)'
+    description: >
+      Create a top-level async function validateEvidence that orchestrates
+      all three validation dimensions: completeness (validateEvidenceCompleteness),
+      file existence (validateFileExistence), and returns a unified
+      ValidationResult. This is the single function the evidence node will
+      call.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Calls validateEvidenceCompleteness and validateFileExistence'
+      - 'Merges errors from both into a single ValidationResult'
+      - 'Returns { valid: true, errors: [] } only when both pass'
+      - 'File existence errors have type "fileExistence" in ValidationError'
+      - 'Function is async (because validateFileExistence is async)'
+      - 'Function is exported from evidence-output-parser.ts'
+    tdd:
+      red:
+        - 'Write test: both validations pass → { valid: true, errors: [] }'
+        - 'Write test: completeness fails but files exist → returns completeness errors only'
+        - 'Write test: files missing but completeness passes → returns file errors only'
+        - 'Write test: both fail → returns merged errors from both'
+      green:
+        - 'Implement validateEvidence calling both sub-validators and merging results'
+      refactor:
+        - 'Ensure consistent error ordering (completeness errors first, then file errors)'
+    estimatedEffort: '30min'
+
+  # ── Phase 3: Retry Prompt Builder ──────────────────────────────────
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add buildEvidenceRetryPrompt function'
+    description: >
+      Create buildEvidenceRetryPrompt in evidence-prompts.ts that takes
+      the current state and an array of ValidationError objects. Returns
+      a prompt string that starts with the base evidence prompt (via
+      buildEvidencePrompt) and appends a "VALIDATION FEEDBACK" section
+      listing specific failures with task IDs, titles, and actionable
+      descriptions. This follows the repair.node.ts pattern of augmenting
+      retry prompts with validation errors.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Returns a string containing the base evidence prompt content'
+      - 'Includes a "VALIDATION FEEDBACK" section header'
+      - 'Lists each validation error with task ID and title when available'
+      - 'Formats UI errors: "Missing app-level screenshot for task-N (Task Title)"'
+      - 'Formats completeness errors: "No TestOutput evidence for task-N (Task Title)"'
+      - 'Formats file errors: "Evidence file not found: <path>"'
+      - 'Instructs agent to focus on fixing listed gaps, not recollecting everything'
+      - 'Function is exported from evidence-prompts.ts'
+    tdd:
+      red:
+        - 'Write test: with UI validation errors → prompt includes "Missing app-level screenshot" with task details'
+        - 'Write test: with completeness errors → prompt includes "No TestOutput evidence" with task list'
+        - 'Write test: with file existence errors → prompt includes "Evidence file not found" with paths'
+        - 'Write test: with mixed errors → prompt includes all error types'
+        - 'Write test: prompt includes base evidence prompt content (contains "EVIDENCE COLLECTION")'
+        - 'Write test: prompt includes instruction to focus on gaps'
+      green:
+        - 'Implement buildEvidenceRetryPrompt that calls buildEvidencePrompt for base content'
+        - 'Append formatted validation feedback section with errors grouped by type'
+      refactor:
+        - 'Extract error formatting into helper functions per error type'
+        - 'Ensure feedback section is clearly delineated from base prompt'
+    estimatedEffort: '45min'
+
+  # ── Phase 4: Evidence Node Retry Loop ──────────────────────────────
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Write failing tests for evidence node validation loop'
+    description: >
+      Add unit tests to evidence.node.test.ts covering the new validation
+      loop behavior: validation passes on first attempt (no retry), validation
+      fails then succeeds on retry, all retries exhausted with graceful
+      degradation. Tests mock validateEvidence and verify retry counting,
+      phase timing calls, and message logging.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'Test: validation passes first attempt → no retry, single phase activity recorded'
+      - 'Test: validation fails attempt 1, passes attempt 2 → two phase activities (evidence:attempt-1, evidence:attempt-2)'
+      - 'Test: validation fails all 3 attempts → graceful degradation, warnings in messages[], 3 phase activities'
+      - 'Test: retry uses buildEvidenceRetryPrompt with validation errors'
+      - 'Test: evidenceRetries state is updated on each attempt'
+      - 'Test: recordPhaseStart called with evidence:attempt-N for each attempt'
+      - 'Test: recordPhaseEnd called after each attempt (success or failure)'
+      - 'Test: evidence from all attempts is preserved (accumulate reducer)'
+      - 'Test: markPhaseComplete called only once (after loop completes)'
+      - 'All tests initially fail (RED phase)'
+    tdd:
+      red:
+        - 'Write all tests listed in acceptance criteria — they will fail because evidence.node.ts does not yet have the retry loop'
+      green:
+        - 'N/A — this task is RED only; GREEN is task-9'
+      refactor:
+        - 'N/A — refactoring happens in task-10'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Implement validation loop in createEvidenceNode'
+    description: >
+      Refactor createEvidenceNode to wrap evidence collection in a validation
+      loop. Read maxRetries from settings (default 3). On each iteration:
+      record phase start (evidence:attempt-N), execute agent with appropriate
+      prompt (base or retry), parse evidence, run validateEvidence, record
+      phase end. If valid, break. If invalid and retries remain, continue.
+      If exhausted, log warnings and proceed. Remove the old single-pass
+      recordPhaseStart('evidence') call — phase timing is now per-attempt.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Evidence collection runs in a loop with max attempts from settings (default 3)'
+      - 'First attempt uses buildEvidencePrompt, retries use buildEvidenceRetryPrompt'
+      - 'Each attempt wrapped in recordPhaseStart/recordPhaseEnd with evidence:attempt-N'
+      - 'Validation passes → loop exits, markPhaseComplete called'
+      - 'Validation fails, retries left → increment counter, continue loop'
+      - 'Validation fails, retries exhausted → log ERROR warnings to messages[], markPhaseComplete, return'
+      - 'Evidence from all attempts preserved (state update returns accumulated evidence)'
+      - 'evidenceRetries state channel updated with attempt count'
+      - 'All tests from task-8 pass (GREEN phase)'
+      - 'All existing evidence.node.test.ts tests still pass (no regressions)'
+    tdd:
+      red:
+        - 'Tests already written in task-8'
+      green:
+        - 'Refactor createEvidenceNode: add loop counter, read maxRetries from settings'
+        - 'Replace single recordPhaseStart("evidence") with per-attempt recordPhaseStart("evidence:attempt-N")'
+        - 'After parse, call validateEvidence with evidence and parsed tasks'
+        - 'On validation failure: build retry prompt with errors, continue loop'
+        - 'On exhausted retries: append warning messages, break'
+        - 'Ensure markPhaseComplete called once after loop (not per attempt)'
+      refactor:
+        - 'Extract loop body into helper if it improves readability'
+        - 'Verify logging levels: WARN for intermediate retries, ERROR for exhausted'
+    estimatedEffort: '1.5h'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Refactor and clean up evidence node implementation'
+    description: >
+      Review the evidence node retry loop for clarity, extract helpers if
+      the function is too long, ensure logging is consistent, and verify
+      all edge cases are handled. Update any existing tests that may need
+      adjustment due to the new phase timing pattern (evidence:attempt-N
+      instead of evidence).
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'createEvidenceNode function is readable and well-structured'
+      - 'Helper functions extracted where they improve clarity'
+      - 'Logging messages are consistent with other nodes (format, level)'
+      - 'All existing tests pass including any updated for new timing pattern'
+      - 'No TODO/FIXME comments remaining'
+    tdd:
+      red:
+        - 'N/A — refactoring task'
+      green:
+        - 'N/A — refactoring task'
+      refactor:
+        - 'Review function length — extract if > ~80 lines'
+        - 'Ensure error handling in loop matches patterns from other nodes'
+        - 'Update any tests that asserted on recordPhaseStart("evidence") to use evidence:attempt-1'
+    estimatedEffort: '30min'
+
+  # ── Phase 5: Integration Tests & Verification ──────────────────────
+
+  - id: task-11
+    phaseId: phase-5
+    title: 'Add integration test: validation failure → retry → success'
+    description: >
+      Add an integration test in evidence-flow.test.ts that configures the
+      stub executor to return insufficient evidence on first call (missing
+      app screenshots) and complete evidence on second call. Verify the
+      graph retries evidence collection and the final state contains
+      evidence from both attempts.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'Test configures executor to return insufficient evidence on first evidence call'
+      - 'Test configures executor to return complete evidence on second evidence call'
+      - 'Graph completes successfully (no error thrown)'
+      - 'Final state.evidence contains records from both attempts (accumulate)'
+      - 'Final state.messages contains retry-related message'
+      - 'Test passes reliably'
+    tdd:
+      red:
+        - 'Write integration test with two-stage executor mock'
+      green:
+        - 'Test should pass after task-9 implementation (if not, debug and fix)'
+      refactor:
+        - 'Extract canned evidence fixtures into shared test constants'
+    estimatedEffort: '45min'
+
+  - id: task-12
+    phaseId: phase-5
+    title: 'Add integration test: exhausted retries → graceful degradation'
+    description: >
+      Add an integration test that configures the stub executor to always
+      return insufficient evidence (every attempt fails validation). Verify
+      the graph still completes, evidence is returned (partial), and
+      warning messages are present in state.messages[].
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'Test configures executor to always return insufficient evidence'
+      - 'Graph completes without throwing (graceful degradation, FR-8/FR-13)'
+      - 'Final state.evidence is non-empty (partial evidence preserved)'
+      - 'Final state.messages contains validation warning with details about what failed'
+      - 'Graph proceeds to merge node (evidence does not block)'
+      - 'Test passes reliably'
+    tdd:
+      red:
+        - 'Write integration test with always-failing evidence mock'
+      green:
+        - 'Test should pass after task-9 implementation (if not, debug and fix)'
+      refactor:
+        - 'Verify warning message format matches NFR-2 (human-readable, actionable)'
+    estimatedEffort: '45min'
+
+  - id: task-13
+    phaseId: phase-5
+    title: 'Add integration test: phase activities recorded for each attempt'
+    description: >
+      Add an integration test (or extend existing tests) that verifies
+      recordPhaseStart is called with evidence:attempt-1, evidence:attempt-2,
+      etc. for each retry attempt. This validates FR-12 — each evidence
+      collection attempt is recorded as a separate phase activity.
+    state: Todo
+    dependencies:
+      - task-11
+      - task-12
+    acceptanceCriteria:
+      - 'Verify recordPhaseStart called with evidence:attempt-1 for first attempt'
+      - 'Verify recordPhaseStart called with evidence:attempt-2 for second attempt (in retry scenario)'
+      - 'Verify recordPhaseEnd called after each attempt with duration'
+      - 'Phase activities are distinct rows (not overwritten)'
+    tdd:
+      red:
+        - 'Write test or extend retry test to assert on recordPhaseStart/recordPhaseEnd call args'
+      green:
+        - 'Should pass with existing implementation from task-9'
+      refactor:
+        - 'Consolidate timing assertions if duplicated across tests'
+    estimatedEffort: '30min'
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Full verification: test suite, lint, typecheck, success criteria'
+    description: >
+      Run the complete validation suite (pnpm validate + pnpm test) and
+      verify all 13 success criteria from the spec are met. Fix any
+      regressions. Confirm zero test failures and clean build.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'pnpm validate passes (lint, format, typecheck, tsp)'
+      - 'pnpm test:unit passes with zero failures'
+      - 'pnpm test:int passes with zero failures'
+      - 'All 13 success criteria from spec.yaml verified'
+      - 'No TODO/FIXME comments in new code'
+      - 'No breaking changes to Evidence type or evidence state channel (NFR-9)'
+    tdd:
+      red:
+        - 'N/A — verification task'
+      green:
+        - 'N/A — verification task'
+      refactor:
+        - 'Fix any issues discovered during verification'
+    estimatedEffort: '30min'
+
+# Total effort estimate
+totalEstimate: '~8.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is structured as a bottom-up build across 5 phases with
+  14 tasks totaling approximately 8.5 hours of focused development.
+
+  First, we extend the TypeSpec settings schema and LangGraph state with the
+  evidenceRetries configuration and channel (Phase 1 — foundation). Then we
+  build the pure validation functions — task type inference, evidence
+  completeness checking, and file existence verification — all thoroughly
+  unit tested via TDD (Phase 2 — the validation engine). Next we create the
+  retry prompt builder that augments evidence prompts with structured
+  validation feedback (Phase 3). With all building blocks in place, we
+  integrate the validation loop into createEvidenceNode with per-attempt
+  phase timing tracking (Phase 4 — the core integration). Finally, we add
+  integration tests covering retry success, exhausted retries with graceful
+  degradation, and phase activity recording, then run full verification
+  (Phase 5).
+
+  Each phase builds on the prior phase's output. Pure functions are tested
+  in isolation before integration. The validation loop follows established
+  patterns (retryExecute for agent retries, validate/repair for feedback
+  loops). No new graph nodes are added — the loop is internal to
+  createEvidenceNode. Evidence accumulates across retries (state uses
+  accumulate reducer). Graceful degradation is preserved — validation never
+  blocks the merge phase.

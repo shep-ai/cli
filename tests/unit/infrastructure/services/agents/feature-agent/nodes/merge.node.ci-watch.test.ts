@@ -221,6 +221,7 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
     ciFixHistory: [],
     ciFixStatus: 'idle',
     evidence: [],
+    evidenceRetries: 0,
     ...overrides,
   } as FeatureAgentState;
 }

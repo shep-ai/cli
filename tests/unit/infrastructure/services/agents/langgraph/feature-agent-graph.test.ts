@@ -261,8 +261,8 @@ describe('createFeatureAgentGraph', () => {
         { configurable: { thread_id: 'test-thread-1' } }
       );
 
-      // 4 earlier nodes + 1 implement phase + 1 evidence sub-agent = 6 executor calls
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(6);
+      // 4 earlier nodes + 1 implement phase + 3 evidence sub-agent attempts = 8 executor calls
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(8);
       expect(result.currentNode).toBe('implement');
       expect(result.messages).toContainEqual(expect.stringContaining('[analyze]'));
       expect(result.error).toBeNull();
@@ -390,8 +390,8 @@ describe('createFeatureAgentGraph', () => {
         config
       );
 
-      // 4 earlier nodes + 1 implement phase + 1 evidence sub-agent = 6 executor calls
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(6);
+      // 4 earlier nodes + 1 implement phase + 3 evidence sub-agent attempts = 8 executor calls
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(8);
       expect(result.currentNode).toBe('implement');
     });
 
@@ -411,7 +411,8 @@ describe('createFeatureAgentGraph', () => {
         config
       );
 
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(6);
+      // 4 earlier nodes + 1 implement phase + 3 evidence sub-agent attempts = 8 executor calls
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(8);
       expect(result.currentNode).toBe('implement');
     });
 

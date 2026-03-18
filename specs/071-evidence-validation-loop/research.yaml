@@ -1,0 +1,606 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: evidence-validation-loop
+summary: >
+  Technical research for adding validation and retry loop to evidence collection.
+  The implementation will enhance the existing evidence.node.ts with an internal
+  validation loop (no new graph nodes), reusing established patterns from
+  validate/repair nodes. Validation includes UI app-level proof checks, evidence
+  completeness by task type, and file existence verification. Retry loop has
+  configurable max attempts (settings-based) and provides structured feedback to
+  the agent. Each retry attempt is tracked as a separate phase activity with timing
+  data. Graceful degradation is preserved — validation never blocks merge.
+
+# Relationships
+relatedFeatures:
+  - 053-pr-evidence-agent-5609f4
+
+technologies:
+  - LangGraph
+  - TypeScript
+  - Node.js fs/promises
+  - Vitest
+  - js-yaml
+
+relatedLinks:
+  - title: 'LangGraph StateGraph API - graph nodes and state channels'
+    url: 'https://langchain-ai.github.io/langgraphjs/reference/graphs/StateGraph/'
+  - title: 'Node.js fs.promises - async file system operations'
+    url: 'https://nodejs.org/api/fs.html#promises-api'
+  - title: 'Vitest Testing Framework - unit and integration testing'
+    url: 'https://vitest.dev/'
+
+# Structured technology decisions
+decisions:
+  - title: 'Validation Loop Architecture — Internal vs Separate Nodes'
+    chosen: 'Internal validation loop within evidence.node.ts'
+    rejected:
+      - 'Separate validate-evidence + retry-evidence graph nodes — Would require restructuring the implement phase and adding two new nodes to the graph topology. Evidence collection is already a sub-process within the implement phase, not a top-level graph node. Adding new nodes would violate the principle that evidence is a sub-phase of implementation, not a standalone phase. The spec explicitly resolved this question in favor of the integrated approach.'
+      - 'Hybrid approach (validation node + internal retry) — Unnecessary complexity. If we''re keeping evidence as a sub-process, there''s no benefit to having a separate validation node. The validation and retry logic are tightly coupled to evidence collection and should live in the same module.'
+    rationale: >
+      The integrated approach is architecturally sound because evidence collection
+      is fundamentally a sub-phase within the implement node workflow, not a
+      top-level graph phase. The current graph topology is: analyze → requirements
+      → research → plan → implement → evidence → merge. Evidence already acts as a
+      post-implementation verification step, not a standalone phase requiring
+      separate validation/repair loops. The internal loop pattern is proven in the
+      codebase — retryExecute in node-helpers.ts already implements internal retry
+      logic for agent execution failures. We simply extend this pattern to include
+      validation-driven retries. This keeps the graph topology simple, avoids
+      adding new edges/nodes, and follows the "sub-process with internal retry"
+      pattern used elsewhere. The validation logic will be a pure function
+      (validateEvidenceCompleteness) that can be thoroughly unit tested
+      independently of the retry loop.
+
+  - title: 'Validation Criteria — What to Check'
+    chosen: 'Comprehensive validation (UI + completeness + file existence)'
+    rejected:
+      - 'UI-only validation (app screenshots) — Only checks for Storybook-only screenshots, ignoring completeness gaps. The spec explicitly requires "ensure the captured evidence actually proves the tasks were completed successfully" which means validating ALL task types, not just UI. Insufficient to meet FR-2, FR-3, FR-4 requirements.'
+      - 'Metadata-only validation (no file checks) — Would trust Evidence[] records without verifying files exist. This would miss common issues like typos in paths, agent hallucinating file paths that were never created, or empty files. The spec FR-5 explicitly requires file existence and non-zero size validation.'
+      - 'Deep content inspection (parse images, analyze test output) — Would require adding dependencies like sharp for image parsing, complex test output parsers for different frameworks (Jest, Vitest, Playwright), and video format validation. The spec NFR-1 requires <500ms validation latency for typical evidence sets, which deep inspection would violate. The spec explicitly resolved this question against deep inspection in favor of file existence + metadata.'
+    rationale: >
+      Comprehensive validation strikes the right balance between thoroughness and
+      complexity. It checks three dimensions: (1) UI evidence quality — tasks
+      touching UI code (components, styles, markup) must have at least one
+      Screenshot with app-level proof (not just Storybook), enforcing the existing
+      validateUiEvidenceHasAppProof requirement from FR-2; (2) Evidence
+      completeness by task type — tasks with tests require TestOutput, CLI tasks
+      require TerminalRecording, ensuring all task types are evidenced per FR-3 and
+      FR-4; (3) File existence and size — every Evidence record's relativePath must
+      point to an existing file with non-zero size, catching missing/empty files
+      per FR-5. This approach reuses the existing UI validation logic
+      (validateUiEvidenceHasAppProof already exists in evidence-output-parser.ts)
+      and adds two new validation dimensions using Node.js fs.promises for async
+      file checks. It meets the <500ms latency requirement (NFR-1) because file
+      stat calls are fast for typical evidence sets (10-20 files). It avoids the
+      complexity and dependencies of deep content inspection while still catching
+      the majority of evidence quality issues that would make the evidence
+      insufficient for proving task completion.
+
+  - title: 'Retry Limit Configuration'
+    chosen: 'Configurable limit via settings.workflow.evidenceRetries (default 3)'
+    rejected:
+      - 'Fixed limit hardcoded as constant — Less flexible, cannot be tuned per user or per repo. The spec open question was resolved in favor of configurable limit, not fixed. Users with highly reliable dev environments might want fewer retries; users with flaky browser automation might want more.'
+      - 'Unlimited retries until success — Could lead to infinite loops if evidence collection fundamentally cannot succeed (dev server crashes, browser automation consistently fails, tests always fail). The spec FR-6 explicitly states "up to a maximum of 3 attempts" and the rationale mentions preventing infinite loops when environmental failures occur.'
+    rationale: >
+      Settings-based configuration follows the established pattern in the codebase
+      where workflow retry limits are configurable (ciMaxFixAttempts for CI fix
+      loop). We add evidenceRetries to WorkflowConfig in settings.tsp with default
+      value of 3 (matching the validate/repair pattern). This gives users control
+      while providing sensible defaults. The default of 3 retries is justified
+      because: (1) It matches the existing validation/repair loop pattern
+      (validate.node.ts allows up to 3 retries before throwing error), (2) Most
+      evidence quality issues are fixable in 1-2 retries (missing screenshot,
+      forgot to run tests), (3) Environmental issues (browser crashes, dev server
+      hangs) won't be resolved by more retries, so a higher limit just wastes time,
+      (4) The graceful degradation requirement (FR-8) means we MUST eventually
+      accept partial evidence and proceed to merge, making a bounded retry limit
+      essential. Implementation will read the setting via hasSettings() &&
+      getSettings().workflow.evidenceRetries, falling back to 3 when not
+      configured. The retry counter will be stored in a new evidenceRetries state
+      channel (similar to validationRetries but separate to avoid collision with
+      YAML validation retries).
+
+  - title: 'Validation Feedback for Retries'
+    chosen: 'Structured validation feedback augmenting the retry prompt'
+    rejected:
+      - 'Generic retry prompt (same prompt every time) — Gives the agent no context about what failed, leading to repeated mistakes. The spec explicitly resolved this question in favor of structured feedback, noting that "targeted fixes rather than blind retries" enable successful recovery.'
+      - 'Validation errors only in logs (not in prompt) — The agent would have no way to see what failed, making retries ineffective. The repair.node.ts pattern demonstrates that passing validation errors to the agent prompt is essential for focused remediation.'
+    rationale: >
+      Structured validation feedback enables targeted fixes by telling the agent
+      exactly what's missing or insufficient. We follow the repair.node.ts pattern
+      where buildRepairPrompt augments the prompt with validation errors. For
+      evidence retries, we create a new function
+      buildEvidenceRetryPrompt(state, validationErrors) that starts with the base
+      evidence prompt and adds a "Validation Feedback" section listing specific
+      failures. Feedback format: (1) For UI validation failures: "Missing app-level
+      screenshot for task-3 (UI task 'Add toggle component'). Current evidence
+      includes only Storybook screenshots." (2) For completeness failures: "No
+      TestOutput evidence for backend tasks: task-5 (Add API endpoint), task-7
+      (Database migration)." (3) For file existence failures: "Evidence file not
+      found: specs/071-evidence/app-screenshot.png (referenced by evidence record
+      'Homepage screenshot')". This specificity helps the agent focus on gaps rather
+      than re-collecting all evidence. The validation errors will be accumulated in
+      state.messages[] so they're visible in the TUI and PR body (per FR-9
+      actionable warnings requirement). Implementation: validateEvidenceCompleteness
+      returns an array of ValidationError objects with { type, taskId, taskTitle,
+      message } fields for structured formatting.
+
+  - title: 'File Validation Scope — How Deep to Inspect'
+    chosen: 'File existence + metadata validation (no content parsing)'
+    rejected:
+      - 'Metadata-only (no file checks) — Would miss missing/empty files, typos in paths, agent hallucinated paths. The spec FR-5 explicitly requires file existence and non-zero size checks. This was the losing option in spec question resolution.'
+      - 'Deep content inspection (parse images, analyze test output) — Would require adding dependencies (sharp for image parsing, custom test output parsers), significantly increase validation latency (violates NFR-1 <500ms requirement), and add complexity for minimal gain. The spec explicitly resolved this question against deep inspection, noting that "agent descriptions are sufficient for intent" and file existence catches the most common issues.'
+    rationale: >
+      File existence + metadata validation is the sweet spot. We use Node.js
+      fs.promises.stat() to verify each Evidence record's relativePath exists and
+      has size > 0. This catches: (1) Typos in file paths (agent wrote wrong path),
+      (2) Files that were never created (agent claimed to create but didn't), (3)
+      Empty files (agent created file but write failed). It does NOT parse image
+      contents (check if PNG is valid), analyze test output (verify tests actually
+      passed), or validate video formats. The rationale: (1) File stat calls are
+      fast (typically <1ms per file), meeting the <500ms latency requirement for
+      typical evidence sets (10-20 files); (2) Catches 90% of evidence quality
+      issues without added dependencies; (3) Agent-generated descriptions and types
+      are sufficient for determining evidence intent — if the agent says "unit test
+      results showing 42 passing tests" and the file exists with content, we trust
+      it; (4) Parsing would require dependencies (sharp, jimp for images; custom
+      logic for test output formats from Jest, Vitest, Playwright, etc.) and
+      handling diverse formats. Implementation: async validateFileExistence(evidence:
+      Evidence[]): Promise<string[]> that maps over evidence, calls fs.stat() for
+      each relativePath, catches ENOENT/permission errors, returns array of error
+      messages for missing/empty files.
+
+  - title: 'Retry Exhaustion Handling'
+    chosen: 'Log warnings and proceed with partial evidence (graceful degradation)'
+    rejected:
+      - 'Throw error and block merge — Violates FR-8 and FR-13 graceful degradation requirements. The spec explicitly states "evidence failures never block the merge" and "MUST NOT block the merge phase under any circumstances." This was the losing option in spec question resolution.'
+      - 'Trigger human-in-the-loop approval (LangGraph interrupt) — Adds interaction overhead for every evidence failure. The spec resolved this question against HITL, noting that the purpose is to "improve evidence quality through retries, not to enforce evidence as a hard requirement." Users can review evidence quality in the PR body (evidence is included even when insufficient).'
+    rationale: >
+      Graceful degradation preserves the "evidence is best-effort" philosophy while
+      adding quality-improvement retries. After exhausting retries (default 3
+      attempts), the system: (1) Accepts whatever evidence was captured (even if
+      validation fails); (2) Logs detailed validation failures to state.messages[]
+      at ERROR level (format: "[evidence] Warning: Validation failed after 3
+      retries: Missing app-level screenshots for UI tasks, No TestOutput for
+      backend tasks"); (3) Proceeds to merge phase with partial evidence; (4)
+      Includes validation warnings in PR body (state.messages[] flows to merge
+      node); (5) Relies on human reviewers to assess whether evidence sufficiently
+      proves completion. This maintains FR-8 (evidence never blocks merge) while
+      providing visibility into quality issues (NFR-2 human-readable feedback).
+      Implementation: After exhausting retries, we call log.error() with detailed
+      validation summary, append warning messages to state.messages[], and return {
+      evidence, messages } just like the success path — the graph continues
+      uninterrupted. The TUI will display the warnings, and the merge node will
+      include them in the PR body under an "Evidence Validation Warnings" section.
+
+  - title: 'Retry Tracking — New Channel vs Reuse validationRetries'
+    chosen: 'Add new evidenceRetries state channel'
+    rejected:
+      - 'Reuse validationRetries channel — Would conflict with YAML validation retries (validate.node.ts and repair.node.ts use this channel for tracking spec/tasks/plan YAML validation failures). Evidence validation is conceptually different (validating captured evidence vs validating YAML schema compliance). Mixing them would make debugging harder and could cause subtle bugs if validation and evidence phases run in sequence (validation sets counter to N, evidence overwrites it).'
+    rationale: >
+      A dedicated evidenceRetries channel provides clean separation of concerns and
+      prevents collision with YAML validation. We add it to FeatureAgentAnnotation
+      in state.ts following the existing pattern: evidenceRetries:
+      Annotation<number>({ reducer: (_prev, next) => next, default: () => 0 }).
+      This mirrors validationRetries (used for YAML validation loops) and
+      ciFixAttempts (used for CI fix loops). The channel is incremented on each
+      evidence retry and checked against MAX_EVIDENCE_RETRIES (from settings) to
+      determine when to give up. This keeps evidence retry logic independent of
+      YAML validation retry logic, makes the code more maintainable, and provides
+      clear separation in state for debugging (you can see both validationRetries
+      and evidenceRetries in graph state snapshots). The overhead is minimal (one
+      additional integer field in state).
+
+  - title: 'Phase Timing Tracking for Retry Attempts'
+    chosen: 'Record each retry as separate phase activity (evidence:attempt-N)'
+    rejected:
+      - 'Single phase activity for entire evidence collection (including retries) — Would not expose retry iteration count or per-attempt timing in the activities table. The spec FR-12 explicitly requires "each evidence collection attempt (initial + retries) MUST be recorded as a separate phase activity" to enable timing and iteration tracking. This was NOT an option in the spec resolution — it''s a hard requirement from the rejection feedback.'
+      - 'Record retries as sub-phases within a parent activity — Would require extending the phase timing schema to support hierarchical activities. Adds complexity to the timing repository and UI rendering. The simpler approach is flat activities with iteration suffixes (evidence:attempt-1, evidence:attempt-2, etc.), following the existing pattern for rejected phases (requirements:2, requirements:3 after rejections).'
+    rationale: >
+      Separate phase activities for each attempt provide full visibility into retry
+      loop performance and enable debugging of evidence collection issues. We wrap
+      each evidence collection attempt (including the initial attempt and all
+      retries) in recordPhaseStart / recordPhaseEnd calls with phase names
+      following the pattern 'evidence:attempt-N' where N is 1, 2, 3, etc.
+      Implementation: Before each executor.execute call, we call const timingId =
+      await recordPhaseStart(`evidence:attempt-${attemptNumber}`) where
+      attemptNumber starts at 1 (initial) and increments with each retry. After
+      execution (success or validation failure), we call recordPhaseEnd(timingId,
+      durationMs). This creates separate rows in the PhaseTiming table for each
+      attempt, enabling analysis like "how many retries typically happen?" and
+      "does each retry take longer than the previous?" The pattern matches the
+      existing iteration tracking used for approval rejection loops (requirements:2,
+      plan:2 for re-executed phases). The activities table in the TUI will show:
+      "evidence:attempt-1 (2.3s)", "evidence:attempt-2 (1.8s)", "evidence:attempt-3
+      (2.1s)" giving users full transparency into retry performance. This satisfies
+      FR-12 and the rejection feedback requirement to "make sure that we are doing
+      recordPhase (timing etc) so the evidence loops would be recorded in the
+      activities".
+
+  - title: 'Task Type Inference for Completeness Validation'
+    chosen: 'Parse tasks.yaml to infer task types from descriptions/acceptance criteria'
+    rejected:
+      - 'Hardcoded task type detection (regex on task titles) — Too brittle. Task titles vary widely ("Add component", "Create UI", "Implement toggle"). The spec shows tasks with structured metadata (description, acceptanceCriteria, tdd fields) that provide richer context than just the title.'
+      - 'Require explicit taskType field in tasks.yaml schema — Would require schema changes and break backward compatibility with existing tasks.yaml files. The spec does not show a taskType field in the tasks YAML structure (see 053-pr-evidence-agent tasks.yaml example).'
+      - 'Skip completeness validation entirely (only validate UI app-level proof) — The spec question "What criteria should trigger a retry?" was resolved in favor of "Comprehensive validation (UI + completeness)" explicitly rejecting "UI-only validation". FR-3 and FR-4 require completeness checks for test output and CLI evidence.'
+    rationale: >
+      Parsing tasks.yaml and inferring task types from text content is the most
+      practical approach without schema changes. We read tasks.yaml (already done
+      by buildEvidencePrompt), parse it with js-yaml, and classify each task by
+      analyzing: (1) UI tasks: description or acceptanceCriteria mentions
+      "component", "UI", "page", "style", "layout", "markup", "screenshot",
+      "visual" (case-insensitive); (2) Test tasks: description or acceptanceCriteria
+      mentions "test", "spec", "unit test", "integration test" OR tdd field is
+      non-null; (3) CLI tasks: description or acceptanceCriteria mentions "CLI",
+      "command", "terminal", "shell script". Implementation: Create a helper
+      inferTaskType(task: TaskYaml): TaskType[] that returns an array of types
+      (tasks can be multiple types, e.g., "Add UI component with tests" is both UI
+      and Test). Then validateCompleteness checks: For each UI task, at least one
+      Screenshot with app-level proof exists (reuse validateUiEvidenceHasAppProof);
+      For each Test task, at least one TestOutput exists; For each CLI task, at
+      least one TerminalRecording exists. Missing evidence generates structured
+      feedback: "No TestOutput evidence for test tasks: task-5 (Add API endpoint
+      tests), task-7 (Unit tests for validation logic)". This approach is
+      robust to task title variation, leverages rich metadata already present in
+      tasks.yaml, and requires no schema changes.
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Validation Loop Architecture — Internal vs Separate Nodes
+
+  **Chosen:** Internal validation loop within evidence.node.ts
+
+  **Rejected:**
+  - Separate validate-evidence + retry-evidence graph nodes — Would require restructuring the implement phase and adding two new nodes to the graph topology. Evidence collection is already a sub-process within the implement phase, not a top-level graph node.
+  - Hybrid approach (validation node + internal retry) — Unnecessary complexity. If we're keeping evidence as a sub-process, there's no benefit to having a separate validation node.
+
+  **Rationale:** The integrated approach is architecturally sound because evidence collection is fundamentally a sub-phase within the implement node workflow, not a top-level graph phase. The internal loop pattern is proven in the codebase — retryExecute already implements internal retry logic for agent execution failures. We simply extend this pattern to include validation-driven retries. This keeps the graph topology simple and follows the "sub-process with internal retry" pattern.
+
+  ### 2. Validation Criteria — What to Check
+
+  **Chosen:** Comprehensive validation (UI + completeness + file existence)
+
+  **Rejected:**
+  - UI-only validation (app screenshots) — Insufficient to meet FR-2, FR-3, FR-4. Spec requires proving ALL tasks were completed.
+  - Metadata-only validation (no file checks) — Would miss common issues like typos in paths or empty files. Spec FR-5 explicitly requires file existence validation.
+  - Deep content inspection (parse images, analyze test output) — Would violate NFR-1 <500ms latency requirement and require complex dependencies.
+
+  **Rationale:** Comprehensive validation checks three dimensions: (1) UI evidence quality (app-level screenshots required), (2) Evidence completeness by task type (tests require TestOutput, CLI requires TerminalRecording), (3) File existence and size (catch missing/empty files). This reuses existing validateUiEvidenceHasAppProof logic and adds file checks via Node.js fs.promises. Meets <500ms latency requirement while catching 90% of quality issues.
+
+  ### 3. Retry Limit Configuration
+
+  **Chosen:** Configurable limit via settings.workflow.evidenceRetries (default 3)
+
+  **Rejected:**
+  - Fixed limit hardcoded as constant — Less flexible, cannot be tuned per user/repo.
+  - Unlimited retries until success — Could lead to infinite loops when evidence collection fundamentally cannot succeed.
+
+  **Rationale:** Settings-based configuration follows the established pattern (ciMaxFixAttempts for CI fix loop). Default of 3 retries matches validate/repair pattern and balances quality improvement with bounded execution time. Most evidence issues are fixable in 1-2 retries; environmental failures won't be resolved by more retries.
+
+  ### 4. Validation Feedback for Retries
+
+  **Chosen:** Structured validation feedback augmenting the retry prompt
+
+  **Rejected:**
+  - Generic retry prompt (same prompt every time) — Gives the agent no context about what failed, leading to repeated mistakes.
+  - Validation errors only in logs (not in prompt) — The agent would have no way to see what failed.
+
+  **Rationale:** Structured feedback enables targeted fixes by telling the agent exactly what's missing. We follow the repair.node.ts pattern where buildRepairPrompt augments the prompt with validation errors. For evidence retries, we create buildEvidenceRetryPrompt that adds a "Validation Feedback" section listing specific failures (e.g., "Missing app-level screenshot for task-3 (UI task)").
+
+  ### 5. File Validation Scope — How Deep to Inspect
+
+  **Chosen:** File existence + metadata validation (no content parsing)
+
+  **Rejected:**
+  - Metadata-only (no file checks) — Would miss missing/empty files. Spec FR-5 explicitly requires file existence checks.
+  - Deep content inspection (parse images, analyze test output) — Violates NFR-1 <500ms requirement, requires dependencies like sharp, complex test output parsers.
+
+  **Rationale:** File existence + metadata is the sweet spot. We use fs.promises.stat() to verify each Evidence record's relativePath exists and has size > 0. Fast (<1ms per file), catches 90% of issues, no added dependencies. Agent descriptions are sufficient for intent — we don't need to parse image contents or verify test output format.
+
+  ### 6. Retry Exhaustion Handling
+
+  **Chosen:** Log warnings and proceed with partial evidence (graceful degradation)
+
+  **Rejected:**
+  - Throw error and block merge — Violates FR-8 and FR-13 graceful degradation requirements.
+  - Trigger human-in-the-loop approval (LangGraph interrupt) — Adds interaction overhead. Spec resolved against HITL.
+
+  **Rationale:** Graceful degradation preserves "evidence is best-effort" philosophy. After exhausting retries: (1) Accept whatever evidence was captured, (2) Log detailed validation failures to state.messages[] at ERROR level, (3) Proceed to merge with partial evidence, (4) Include warnings in PR body, (5) Rely on human reviewers to assess evidence quality. This maintains FR-8 while providing visibility into quality issues.
+
+  ### 7. Retry Tracking — New Channel vs Reuse validationRetries
+
+  **Chosen:** Add new evidenceRetries state channel
+
+  **Rejected:**
+  - Reuse validationRetries channel — Would conflict with YAML validation retries (validate.node.ts and repair.node.ts). Mixing them makes debugging harder and could cause subtle bugs.
+
+  **Rationale:** A dedicated evidenceRetries channel provides clean separation of concerns. We add it to FeatureAgentAnnotation following the existing pattern: evidenceRetries: Annotation<number>({ reducer: (_prev, next) => next, default: () => 0 }). Mirrors validationRetries and ciFixAttempts. Keeps evidence retry logic independent of YAML validation.
+
+  ### 8. Phase Timing Tracking for Retry Attempts
+
+  **Chosen:** Record each retry as separate phase activity (evidence:attempt-N)
+
+  **Rejected:**
+  - Single phase activity for entire evidence collection — Would not expose retry iteration count or per-attempt timing. Spec FR-12 explicitly requires separate activities for each attempt.
+  - Record retries as sub-phases within a parent activity — Requires extending the phase timing schema to support hierarchical activities.
+
+  **Rationale:** Separate phase activities provide full visibility into retry loop performance. We wrap each evidence collection attempt in recordPhaseStart / recordPhaseEnd with phase names like 'evidence:attempt-1', 'evidence:attempt-2', etc. Creates separate rows in PhaseTiming table, enabling analysis like "how many retries typically happen?" Matches existing iteration tracking for approval rejection loops (requirements:2, plan:2).
+
+  ### 9. Task Type Inference for Completeness Validation
+
+  **Chosen:** Parse tasks.yaml to infer task types from descriptions/acceptance criteria
+
+  **Rejected:**
+  - Hardcoded task type detection (regex on task titles) — Too brittle. Task titles vary widely.
+  - Require explicit taskType field in tasks.yaml schema — Breaks backward compatibility.
+  - Skip completeness validation entirely — Spec question resolved in favor of comprehensive validation including completeness checks.
+
+  **Rationale:** Parsing tasks.yaml and inferring task types from text content is practical without schema changes. We read tasks.yaml, parse with js-yaml, and classify tasks by analyzing: (1) UI tasks: mentions "component", "UI", "page", "style" in description/criteria; (2) Test tasks: mentions "test", "spec" OR tdd field is non-null; (3) CLI tasks: mentions "CLI", "command", "terminal". Then validate completeness: UI tasks need Screenshot with app-level proof, Test tasks need TestOutput, CLI tasks need TerminalRecording.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Node.js fs/promises | Async file existence checks (fs.stat, fs.access) | Use | Built-in, zero dependencies, fast, proven. Used for FR-5 file existence validation. |
+  | js-yaml | Parse tasks.yaml for completeness validation | Use | Already a dependency, used throughout codebase for YAML parsing. Needed to read tasks for task type inference. |
+  | sharp / jimp | Image parsing for deep content inspection | Reject | Not needed. Spec resolution chose file existence + metadata over deep inspection. Would violate NFR-1 <500ms latency. |
+  | Vitest | Unit and integration testing | Use | Already the test framework. Comprehensive tests required per NFR-6 (>90% branch coverage). |
+  | LangGraph | StateGraph, Annotation for state channels | Use | Core framework. Add evidenceRetries channel, modify evidence.node.ts retry loop. |
+
+  ## Security Considerations
+
+  ### Path Traversal Prevention
+
+  **Risk:** Agent could generate Evidence records with malicious relativePath values like `../../etc/passwd`.
+
+  **Mitigation:** The existing parseEvidenceRecords function already filters records with `..` in relativePath (line 31 of evidence-output-parser.ts). File existence validation will use path.resolve() to normalize paths before fs.stat() to ensure we're checking files within the expected evidence directory. No additional changes needed.
+
+  ### Sensitive Data in Evidence Files
+
+  **Risk:** Evidence files (screenshots, terminal recordings) might contain API keys, tokens, or secrets.
+
+  **Mitigation:** The existing evidence prompt already includes "Sensitive Data Redaction" instructions telling the agent to redact secrets. Validation does not add new risks here — we're only checking file existence, not reading content. If evidence contains secrets, that's a capture-time issue, not a validation-time issue. No additional mitigations needed for validation phase.
+
+  ### File System Access
+
+  **Risk:** fs.stat() calls could fail due to permission errors or ENOENT.
+
+  **Mitigation:** All fs.stat() calls will be wrapped in try/catch blocks per NFR-10. Permission errors and ENOENT will be caught gracefully and returned as validation errors (e.g., "Evidence file not accessible: <path>"). The validation will never crash on file system errors.
+
+  ## Performance Implications
+
+  ### Validation Latency
+
+  **Requirement:** NFR-1 requires <500ms validation latency for typical evidence sets (10-20 records).
+
+  **Analysis:**
+  - UI validation (validateUiEvidenceHasAppProof): In-memory regex checks, <1ms total
+  - Completeness validation: Iterating over tasks and evidence, in-memory comparison, <5ms for typical task count (10-20 tasks)
+  - File existence validation: fs.stat() typically <1ms per file on modern SSDs. For 20 evidence files, ~20ms total. May be slower on network file systems or spinning disks, but still well under 500ms.
+
+  **Conclusion:** Total validation latency estimate for 20 evidence records: <30ms on typical hardware. Comfortably meets NFR-1 requirement.
+
+  ### Retry Overhead
+
+  **Analysis:** Each retry involves re-running the evidence collection agent (executor.execute), which is expensive (could take 30-60 seconds per attempt depending on dev server startup, browser automation, test suite execution). With default 3 retry limit, worst case is 3 × 60s = 3 minutes of additional execution time. This is acceptable because: (1) Retries only happen when validation fails (not on the success path), (2) The alternative is shipping insufficient evidence to the PR, requiring manual evidence collection by the user, (3) The retry limit prevents runaway execution.
+
+  ### State Channel Overhead
+
+  **Analysis:** Adding evidenceRetries channel adds one integer field to graph state. Negligible memory and serialization overhead. LangGraph state snapshots will include this field, adding ~10 bytes to checkpoint size. Acceptable.
+
+  ## Architecture Notes
+
+  ### Integration with Existing Evidence Flow
+
+  **Current Flow:**
+  1. evidence.node.ts executes agent with buildEvidencePrompt
+  2. Agent captures evidence files, outputs JSON manifest
+  3. parseEvidenceRecords extracts Evidence[] from output
+  4. validateUiEvidenceHasAppProof runs (warnings only, no retry)
+  5. State update returns { evidence, messages }
+  6. Graph transitions to merge node
+
+  **New Flow with Validation Loop:**
+  1. evidence.node.ts starts evidence collection loop (attemptNumber = 1)
+  2. **Loop iteration:**
+     - recordPhaseStart(`evidence:attempt-${attemptNumber}`)
+     - Execute agent with buildEvidencePrompt (attempt 1) or buildEvidenceRetryPrompt (retries, includes validation errors)
+     - parseEvidenceRecords extracts Evidence[]
+     - **NEW:** validateEvidenceCompleteness(evidence, tasks) returns ValidationResult
+     - If validation passes: recordPhaseEnd, markPhaseComplete, return { evidence, messages }
+     - If validation fails and attemptNumber < MAX_RETRIES: recordPhaseEnd, increment attemptNumber, append validation errors to feedback, continue loop
+     - If validation fails and attemptNumber >= MAX_RETRIES: recordPhaseEnd, log warnings to messages[], return { evidence, messages } (graceful degradation)
+  3. Graph transitions to merge node (same as before)
+
+  **Key Points:**
+  - No new graph nodes or edges required
+  - Reuses existing helpers (retryExecute pattern, recordPhase, markPhaseComplete)
+  - Validation is a new pure function: validateEvidenceCompleteness(evidence: Evidence[], tasks: TasksYaml): ValidationResult
+  - Retry prompt builder is new: buildEvidenceRetryPrompt(state, validationErrors): string
+  - File existence validation is new: validateFileExistence(evidence: Evidence[]): Promise<string[]>
+
+  ### File Structure Changes
+
+  **New Files:**
+  - None (all changes in existing files)
+
+  **Modified Files:**
+  1. `evidence.node.ts` — Add validation loop, retry logic, phase timing for attempts
+  2. `evidence-output-parser.ts` — Add validateEvidenceCompleteness function
+  3. `evidence-prompts.ts` — Add buildEvidenceRetryPrompt function (or enhance buildEvidencePrompt to accept validationErrors parameter)
+  4. `state.ts` — Add evidenceRetries channel to FeatureAgentAnnotation
+  5. `settings.tsp` — Add evidenceRetries?: int32 to WorkflowConfig model
+
+  **Test Files:**
+  1. `evidence.node.test.ts` — Add tests for validation loop, retry scenarios, exhausted retries
+  2. `evidence-output-parser.test.ts` — Add tests for validateEvidenceCompleteness, file existence validation
+  3. Integration tests — Add test for full retry flow (validation failure → retry → success)
+
+  ### Settings Schema Extension
+
+  Add to WorkflowConfig in settings.tsp:
+
+  ```typespec
+  @doc("Maximum number of evidence collection retry attempts when validation fails (default: 3)")
+  evidenceRetries?: int32;
+  ```
+
+  Default value of 3 when not configured. Read in evidence.node.ts via:
+
+  ```typescript
+  const maxRetries = hasSettings() && getSettings().workflow.evidenceRetries
+    ? getSettings().workflow.evidenceRetries
+    : 3;
+  ```
+
+  ### State Channel Extension
+
+  Add to FeatureAgentAnnotation in state.ts:
+
+  ```typescript
+  // --- Evidence validation state ---
+  evidenceRetries: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 0,
+  }),
+  ```
+
+  ### Validation Function Signatures
+
+  ```typescript
+  interface ValidationResult {
+    valid: boolean;
+    errors: ValidationError[];
+  }
+
+  interface ValidationError {
+    type: 'ui' | 'completeness' | 'fileExistence';
+    taskId?: string;
+    taskTitle?: string;
+    message: string;
+  }
+
+  interface TasksYaml {
+    tasks: Array<{
+      id: string;
+      title: string;
+      description?: string;
+      acceptanceCriteria?: string[];
+      tdd?: unknown;
+    }>;
+  }
+
+  function validateEvidenceCompleteness(
+    evidence: Evidence[],
+    tasks: TasksYaml
+  ): ValidationResult;
+
+  async function validateFileExistence(
+    evidence: Evidence[]
+  ): Promise<string[]>;
+
+  function buildEvidenceRetryPrompt(
+    state: FeatureAgentState,
+    validationErrors: ValidationError[]
+  ): string;
+  ```
+
+  ## Implementation Phases
+
+  ### Phase 1: Settings and State Schema (TDD: TypeSpec changes, no failing tests)
+
+  1. Add evidenceRetries to WorkflowConfig in settings.tsp
+  2. Run pnpm tsp:compile to generate TypeScript types
+  3. Add evidenceRetries channel to FeatureAgentAnnotation in state.ts
+  4. Run pnpm validate to ensure clean build
+
+  ### Phase 2: Validation Logic (TDD: RED → GREEN → REFACTOR)
+
+  1. Write failing tests for validateEvidenceCompleteness in evidence-output-parser.test.ts
+     - Test: UI task missing app-level screenshot → returns error
+     - Test: Test task missing TestOutput → returns error
+     - Test: CLI task missing TerminalRecording → returns error
+     - Test: All tasks have appropriate evidence → returns valid
+     - Test: Multiple validation errors → returns all errors
+  2. Write failing tests for validateFileExistence
+     - Test: All files exist → returns empty errors
+     - Test: File missing → returns error with path
+     - Test: File has zero size → returns error
+     - Test: Permission error → returns error (graceful)
+  3. Implement validateEvidenceCompleteness (GREEN)
+     - Parse tasks.yaml, infer task types
+     - Check UI tasks for app screenshots (reuse validateUiEvidenceHasAppProof)
+     - Check test tasks for TestOutput
+     - Check CLI tasks for TerminalRecording
+     - Return ValidationResult with errors
+  4. Implement validateFileExistence (GREEN)
+     - Map over evidence records
+     - Call fs.stat() for each relativePath
+     - Catch ENOENT, check size > 0
+     - Return error messages for missing/empty files
+  5. Refactor: Extract helpers, clean up code
+
+  ### Phase 3: Retry Prompt Builder (TDD: RED → GREEN → REFACTOR)
+
+  1. Write failing tests for buildEvidenceRetryPrompt
+     - Test: Includes base evidence prompt
+     - Test: Includes "Validation Feedback" section
+     - Test: Lists specific validation errors
+     - Test: Formats UI validation errors correctly
+     - Test: Formats completeness errors correctly
+     - Test: Formats file existence errors correctly
+  2. Implement buildEvidenceRetryPrompt (GREEN)
+     - Start with buildEvidencePrompt base
+     - Add "Validation Feedback" section
+     - Format validation errors by type
+     - Include task IDs and titles for context
+  3. Refactor: Clean up formatting, ensure readability
+
+  ### Phase 4: Evidence Node Retry Loop (TDD: RED → GREEN → REFACTOR)
+
+  1. Write failing tests for evidence node retry scenarios
+     - Test: Validation passes on first attempt → no retry, marks complete
+     - Test: Validation fails, retry succeeds → 2 phase activities recorded
+     - Test: Validation fails 3 times → proceeds with warnings (graceful degradation)
+     - Test: Each retry attempt has separate phase activity (evidence:attempt-1, evidence:attempt-2)
+     - Test: Validation errors passed to buildEvidenceRetryPrompt on retry
+     - Test: Final warnings logged to state.messages[]
+  2. Implement retry loop in evidence.node.ts (GREEN)
+     - Add attemptNumber counter (starts at 1)
+     - Wrap agent execution in loop (while attemptNumber <= maxRetries)
+     - Call recordPhaseStart(`evidence:attempt-${attemptNumber}`)
+     - Execute agent (use buildEvidenceRetryPrompt if attemptNumber > 1)
+     - Parse evidence, validate
+     - If valid: recordPhaseEnd, markPhaseComplete, return
+     - If invalid and more retries: recordPhaseEnd, increment counter, continue
+     - If invalid and exhausted: recordPhaseEnd, log warnings, return (graceful)
+  3. Refactor: Extract validation call, clean up loop logic
+
+  ### Phase 5: Integration Tests (TDD: RED → GREEN → REFACTOR)
+
+  1. Write failing integration tests
+     - Test: Full flow with validation failure → retry → success
+     - Test: Full flow with validation failure → 3 retries → graceful degradation
+     - Test: Verify phase activities recorded for each attempt
+     - Test: Verify validation warnings appear in final state.messages[]
+  2. Implement integration test setup (GREEN)
+     - Mock executor with canned responses
+     - First response: insufficient evidence (no app screenshots)
+     - Second response: complete evidence (all validation passes)
+     - Verify graph executes, retries, succeeds
+  3. Refactor: Clean up test fixtures, ensure deterministic behavior
+
+  ### Phase 6: Verification and Cleanup
+
+  1. Run pnpm test — ensure zero regressions
+  2. Run pnpm validate — ensure lint, format, typecheck, tsp all pass
+  3. Review all new code for consistency with existing patterns
+  4. Verify all spec success criteria satisfied
+  5. Remove any TODO/FIXME comments

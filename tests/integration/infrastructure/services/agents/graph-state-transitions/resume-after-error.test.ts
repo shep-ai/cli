@@ -245,11 +245,11 @@ describe('Graph State Transitions › Resume After Error', () => {
     // Capture baseline message count before resume
     // Invocation #2: resume with same config (same thread_id + checkpointer)
     // Should NOT re-execute analyze, requirements, research, plan
-    // Should ONLY re-execute implement (+ evidence runs after)
+    // Should ONLY re-execute implement (+ 3 evidence retry attempts after)
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(2);
+    expect(executor.callCount).toBe(4);
     expect(getExecutedNodes(executor.prompts)).toEqual(['implement']);
   });
 
@@ -268,11 +268,11 @@ describe('Graph State Transitions › Resume After Error', () => {
     executor.clearThrow();
     executor.resetCounts();
 
-    // Invocation #2: should skip analyze + requirements, re-run research + plan + implement + evidence
+    // Invocation #2: should skip analyze + requirements, re-run research + plan + implement + 3 evidence attempts
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(4);
+    expect(executor.callCount).toBe(6);
     expect(getExecutedNodes(executor.prompts)).toEqual(['research', 'plan', 'implement']);
   });
 
@@ -291,11 +291,11 @@ describe('Graph State Transitions › Resume After Error', () => {
     executor.clearThrow();
     executor.resetCounts();
 
-    // Invocation #2: nothing was completed, so all nodes run (including evidence)
+    // Invocation #2: nothing was completed, so all nodes run (including 3 evidence attempts)
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(6);
+    expect(executor.callCount).toBe(8);
     expect(getExecutedNodes(executor.prompts)).toEqual([
       'analyze',
       'requirements',
@@ -320,11 +320,11 @@ describe('Graph State Transitions › Resume After Error', () => {
     executor.clearThrow();
     executor.resetCounts();
 
-    // Invocation #2: skip analyze + req + research, re-run plan + implement + evidence
+    // Invocation #2: skip analyze + req + research, re-run plan + implement + 3 evidence attempts
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(3);
+    expect(executor.callCount).toBe(5);
     expect(getExecutedNodes(executor.prompts)).toEqual(['plan', 'implement']);
   });
 
@@ -347,14 +347,14 @@ describe('Graph State Transitions › Resume After Error', () => {
     await expect(graph.invoke(initialState, config)).rejects.toThrow();
     expect(executor.callCount).toBe(1); // Only implement was attempted
 
-    // Invocation #3: finally succeed (implement + evidence)
+    // Invocation #3: finally succeed (implement + 3 evidence attempts)
     executor.clearThrow();
     executor.resetCounts();
 
     const result = await graph.invoke(initialState, config);
 
     expectNoInterrupts(result);
-    expect(executor.callCount).toBe(2);
+    expect(executor.callCount).toBe(4);
     expect(getExecutedNodes(executor.prompts)).toEqual(['implement']);
   });
 });

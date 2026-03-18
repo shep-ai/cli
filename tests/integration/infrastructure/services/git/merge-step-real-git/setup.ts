@@ -291,6 +291,7 @@ export function makeState(overrides: Partial<FeatureAgentState>): FeatureAgentSt
     ciFixHistory: [],
     ciFixStatus: 'idle',
     evidence: [],
+    evidenceRetries: 0,
     model: undefined,
     resumeReason: undefined,
     ...overrides,
