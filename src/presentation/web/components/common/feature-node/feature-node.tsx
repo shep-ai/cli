@@ -22,6 +22,8 @@ import {
   featureNodeStateConfig,
   lifecycleDisplayLabels,
   lifecycleRunningVerbs,
+  lifecycleBorderColors,
+  stateBorderColors,
 } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
 import { getAgentTypeIcon, agentTypeLabels, type AgentTypeValue } from './agent-type-icons';
@@ -155,24 +157,15 @@ export function FeatureNode({
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
+          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border border-l-3 p-3 shadow-sm',
+          stateBorderColors[data.state] ?? lifecycleBorderColors[data.lifecycle],
           selected && 'ring-primary ring-2',
           data.state === 'deleting' && 'opacity-60'
         )}
       >
-        {/* Top row: lifecycle label + inline icons (deployment, fast mode, agent) */}
-        <div className="flex items-center justify-between">
-          <span
-            data-testid="feature-node-lifecycle-label"
-            className={cn('text-[10px] font-semibold tracking-wider')}
-          >
-            {data.state === 'blocked'
-              ? 'BLOCKED'
-              : data.state === 'pending'
-                ? 'PENDING'
-                : lifecycleDisplayLabels[data.lifecycle]}
-          </span>
-          <div className="flex items-center gap-0.5">
+        {/* Inline icons — absolute top-right corner */}
+        {(data.deployment || data.fastMode || data.agentType) ? (
+          <div className="absolute top-2 right-2 flex items-center gap-0.5">
             {data.deployment ? (
               <TooltipProvider>
                 <Tooltip>
@@ -195,7 +188,7 @@ export function FeatureNode({
                         }
                       }}
                       className={cn(
-                        'nodrag -mt-1 p-1',
+                        'nodrag p-1',
                         data.deployment.status === DeploymentState.Ready && data.deployment.url
                           ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
                           : 'cursor-default'
@@ -220,7 +213,7 @@ export function FeatureNode({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span data-testid="feature-node-fast-mode-badge" className="-mt-1 p-1">
+                    <span data-testid="feature-node-fast-mode-badge" className="p-1">
                       <Zap className="h-3.5 w-3.5 text-amber-500" />
                     </span>
                   </TooltipTrigger>
@@ -243,7 +236,7 @@ export function FeatureNode({
                         data.onSettings?.();
                       }}
                       className={cn(
-                        'nodrag -mt-1 -mr-1 p-1',
+                        'nodrag -mr-1 p-1',
                         data.onSettings
                           ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
                           : 'cursor-default'
@@ -266,10 +259,10 @@ export function FeatureNode({
               </TooltipProvider>
             ) : null}
           </div>
-        </div>
+        ) : null}
 
         {/* Name */}
-        <h3 className="mt-1 truncate text-sm font-bold">{data.name}</h3>
+        <h3 className="truncate text-sm font-bold">{data.name}</h3>
 
         {/* Description */}
         {data.description ? (
@@ -283,20 +276,30 @@ export function FeatureNode({
 
         {/* Bottom section — pushed to bottom for consistent card height */}
         <div className="mt-auto pt-2">
+          {/* Feature ID — always visible, truncated, copiable */}
+          {data.featureId ? (
+            <div className="mb-1.5 flex items-baseline gap-1">
+              <span className="text-muted-foreground/50 text-[10px]">ID</span>
+              <button
+                type="button"
+                data-testid="feature-node-id"
+                className="nodrag text-muted-foreground/60 hover:text-muted-foreground cursor-pointer font-mono text-[10px] transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(data.featureId);
+                }}
+                title={`Click to copy: ${data.featureId}`}
+              >
+                {data.featureId.slice(0, 6)}
+              </button>
+            </div>
+          ) : null}
           {data.state === 'deleting' ? (
             <>
-              {/* Deleting status: trash icon + "Deleting..." text */}
+              {/* Deleting status: spinner + "Deleting..." text */}
               <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <Trash2 className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gray-400" />
                 <span className="text-muted-foreground">Deleting…</span>
-              </div>
-
-              {/* Indeterminate progress bar */}
-              <div
-                data-testid="feature-node-progress-bar"
-                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
-              >
-                <div className="motion-safe:animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
               </div>
             </>
           ) : data.state === 'creating' ? (
@@ -306,29 +309,13 @@ export function FeatureNode({
                 <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
                 <span className="text-muted-foreground">{getBadgeText(data)}</span>
               </div>
-
-              {/* Indeterminate progress bar */}
-              <div
-                data-testid="feature-node-progress-bar"
-                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
-              >
-                <div className="motion-safe:animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
-              </div>
             </>
           ) : data.state === 'running' ? (
             <>
-              {/* Running status: agent icon + verb */}
+              {/* Running status: spinner + verb */}
               <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5 shrink-0" />
+                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
                 <span className="text-muted-foreground">{getBadgeText(data)}</span>
-              </div>
-
-              {/* Indeterminate progress bar */}
-              <div
-                data-testid="feature-node-progress-bar"
-                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
-              >
-                <div className="animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
               </div>
             </>
           ) : config.showProgressBar ? (
@@ -351,16 +338,6 @@ export function FeatureNode({
             </>
           ) : (
             <>
-              {/* featureId row + sessions button */}
-              <div className="text-muted-foreground flex items-center justify-between text-[10px]">
-                <span>{data.featureId}</span>
-                {(data.worktreePath ?? data.repositoryPath) ? (
-                  <FeatureSessionsDropdown
-                    repositoryPath={data.worktreePath ?? data.repositoryPath}
-                  />
-                ) : null}
-              </div>
-
               {/* State badge */}
               <div className="mt-1.5 flex items-center gap-1.5">
                 <div
