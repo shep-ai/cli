@@ -1,0 +1,17 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fix-copy-worktree-path
+
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > renders the Open trigger button 178ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > shows dropdown items when clicked 105ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > calls openInIde when IDE item is clicked 86ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > calls openInShell when Terminal item is clicked 95ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > calls openSpecsFolder when Specs Folder item is clicked 93ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > disables trigger button when any action is loading 17ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > disables Specs Folder item when showSpecs is false 74ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > shows Copy path item in the dropdown 45ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  19:34:16
+   Duration  2.39s (transform 140ms, setup 389ms, import 516ms, tests 695ms, environment 613ms)
+
