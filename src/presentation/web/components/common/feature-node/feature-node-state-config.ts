@@ -42,6 +42,24 @@ export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
   maintain: 'COMPLETED',
 };
 
+/** Left border color for each lifecycle phase. */
+export const lifecycleBorderColors: Record<FeatureLifecyclePhase, string> = {
+  pending: 'border-l-slate-400',
+  requirements: 'border-l-violet-500',
+  research: 'border-l-cyan-500',
+  implementation: 'border-l-blue-500',
+  review: 'border-l-amber-500',
+  deploy: 'border-l-emerald-500',
+  maintain: 'border-l-gray-400',
+};
+
+/** State-based left border overrides (takes precedence over lifecycle). */
+export const stateBorderColors: Partial<Record<FeatureNodeState, string>> = {
+  blocked: 'border-l-gray-400',
+  error: 'border-l-red-500',
+  deleting: 'border-l-gray-300',
+};
+
 /** Present-participle verbs for the running badge, keyed by lifecycle phase. */
 export const lifecycleRunningVerbs: Record<FeatureLifecyclePhase, string> = {
   pending: 'Waiting to start',
