@@ -68,17 +68,18 @@ describe('DeploymentService', () => {
   });
 
   describe('start', () => {
-    it('should call spawn with correct args (shell, cwd, detached)', () => {
+    it('should call spawn with correct args (shell, cwd, platform-specific options)', () => {
       service.start('feature-1', '/project/path');
 
+      const isWindows = process.platform === 'win32';
       expect(deps.spawn).toHaveBeenCalledWith(
         'npm',
         ['run', 'dev'],
         expect.objectContaining({
           shell: true,
           cwd: '/project/path',
-          detached: true,
           stdio: ['ignore', 'pipe', 'pipe'],
+          ...(isWindows ? { windowsHide: true } : { detached: true }),
         })
       );
     });

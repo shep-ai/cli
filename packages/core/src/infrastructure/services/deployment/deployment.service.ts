@@ -201,9 +201,12 @@ export class DeploymentService implements IDeploymentService {
     const child = this.deps.spawn(packageManager, args, {
       shell: true,
       cwd: targetPath,
-      detached: true,
+      // On Unix, detached: true creates a process group via setsid() so we can
+      // kill the entire tree with process.kill(-pid). On Windows this flag causes
+      // CREATE_NEW_CONSOLE which opens a visible terminal window and disconnects
+      // stdout/stderr — we don't need it because taskkill /F /T handles tree kill.
+      ...(IS_WINDOWS ? { windowsHide: true } : { detached: true }),
       stdio: ['ignore', 'pipe', 'pipe'] as const,
-      ...(IS_WINDOWS ? { windowsHide: true } : {}),
     });
 
     if (!child.pid) {
