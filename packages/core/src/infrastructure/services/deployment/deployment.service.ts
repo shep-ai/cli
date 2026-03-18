@@ -191,8 +191,25 @@ export class DeploymentService implements IDeploymentService {
     }
 
     // Build spawn args based on package manager
-    const { packageManager, scriptName, command } = detection;
+    const { packageManager, scriptName, command, needsInstall } = detection;
     const args = packageManager === 'npm' ? ['run', scriptName] : [scriptName];
+
+    // Install dependencies if node_modules is missing (e.g. fresh worktree)
+    if (needsInstall) {
+      log.info(`node_modules missing in "${targetPath}" — running ${packageManager} install`);
+      try {
+        execFileSync(packageManager, ['install'], {
+          cwd: targetPath,
+          shell: true,
+          stdio: 'ignore',
+          ...(IS_WINDOWS ? { windowsHide: true } : {}),
+        });
+        log.info('Dependencies installed successfully');
+      } catch (err) {
+        log.error(`Dependency install failed: ${err}`);
+        throw new Error(`Failed to install dependencies: ${err}`);
+      }
+    }
 
     log.info(
       `Spawning dev server: command="${command}", packageManager="${packageManager}", scriptName="${scriptName}", cwd="${targetPath}"`

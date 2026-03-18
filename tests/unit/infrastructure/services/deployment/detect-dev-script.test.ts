@@ -33,7 +33,7 @@ describe('detectDevScript', () => {
         scripts: { dev: 'next dev', build: 'next build' },
       })
     );
-    mockExistsSync.mockReturnValue(false);
+    mockExistsSync.mockImplementation((path) => String(path).endsWith('node_modules'));
 
     const result = detectDevScript('/project');
 
@@ -42,6 +42,7 @@ describe('detectDevScript', () => {
       packageManager: 'npm',
       scriptName: 'dev',
       command: 'npm run dev',
+      needsInstall: false,
     });
   });
 
@@ -52,7 +53,8 @@ describe('detectDevScript', () => {
       })
     );
     mockExistsSync.mockImplementation((path) => {
-      return String(path).endsWith('pnpm-lock.yaml');
+      const p = String(path);
+      return p.endsWith('pnpm-lock.yaml') || p.endsWith('node_modules');
     });
 
     const result = detectDevScript('/project');
@@ -62,6 +64,7 @@ describe('detectDevScript', () => {
       packageManager: 'pnpm',
       scriptName: 'dev',
       command: 'pnpm dev',
+      needsInstall: false,
     });
   });
 
@@ -72,8 +75,8 @@ describe('detectDevScript', () => {
       })
     );
     mockExistsSync.mockImplementation((path) => {
-      if (String(path).endsWith('yarn.lock')) return true;
-      return false;
+      const p = String(path);
+      return p.endsWith('yarn.lock') || p.endsWith('node_modules');
     });
 
     const result = detectDevScript('/project');
@@ -83,6 +86,7 @@ describe('detectDevScript', () => {
       packageManager: 'yarn',
       scriptName: 'dev',
       command: 'yarn dev',
+      needsInstall: false,
     });
   });
 
@@ -101,6 +105,7 @@ describe('detectDevScript', () => {
       packageManager: 'npm',
       scriptName: 'start',
       command: 'npm run start',
+      needsInstall: true,
     });
   });
 
@@ -119,6 +124,7 @@ describe('detectDevScript', () => {
       packageManager: 'npm',
       scriptName: 'serve',
       command: 'npm run serve',
+      needsInstall: true,
     });
   });
 
@@ -183,6 +189,7 @@ describe('detectDevScript', () => {
       packageManager: 'npm',
       scriptName: 'dev',
       command: 'npm run dev',
+      needsInstall: true,
     });
   });
 
@@ -193,7 +200,8 @@ describe('detectDevScript', () => {
       })
     );
     mockExistsSync.mockImplementation((path) => {
-      return String(path).endsWith('pnpm-lock.yaml');
+      const p = String(path);
+      return p.endsWith('pnpm-lock.yaml') || p.endsWith('node_modules');
     });
 
     const result = detectDevScript('/project');
@@ -208,12 +216,29 @@ describe('detectDevScript', () => {
       })
     );
     mockExistsSync.mockImplementation((path) => {
-      return String(path).endsWith('yarn.lock');
+      const p = String(path);
+      return p.endsWith('yarn.lock') || p.endsWith('node_modules');
     });
 
     const result = detectDevScript('/project');
 
     expect(result.success && result.command).toBe('yarn dev');
+  });
+
+  it('should set needsInstall true when node_modules is missing', () => {
+    mockReadFileSync.mockReturnValue(
+      JSON.stringify({
+        scripts: { dev: 'vite' },
+      })
+    );
+    mockExistsSync.mockImplementation((path) => {
+      const p = String(path);
+      return p.endsWith('pnpm-lock.yaml'); // node_modules missing
+    });
+
+    const result = detectDevScript('/project');
+
+    expect(result.success && result.needsInstall).toBe(true);
   });
 
   it('should prioritize pnpm-lock.yaml over yarn.lock when both exist', () => {
@@ -222,7 +247,7 @@ describe('detectDevScript', () => {
         scripts: { dev: 'vite' },
       })
     );
-    mockExistsSync.mockReturnValue(true); // all lockfiles exist
+    mockExistsSync.mockReturnValue(true); // all lockfiles + node_modules exist
 
     const result = detectDevScript('/project');
 

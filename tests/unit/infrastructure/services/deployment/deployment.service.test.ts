@@ -45,6 +45,7 @@ function createMockDeps(mockChild?: ReturnType<typeof createMockChild>): Deploym
       packageManager: 'npm',
       scriptName: 'dev',
       command: 'npm run dev',
+      needsInstall: false,
     }),
     kill: vi.fn(),
     isAlive: vi.fn().mockReturnValue(true),
