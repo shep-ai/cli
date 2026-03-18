@@ -402,10 +402,7 @@ describe('createEvidenceNode', () => {
       const node = createEvidenceNode(executor);
       await expect(node(baseState())).rejects.toThrow('Execution failed');
 
-      expect(mockRecordPhaseStart).toHaveBeenCalledWith(
-        'evidence:attempt-1',
-        expect.any(Object)
-      );
+      expect(mockRecordPhaseStart).toHaveBeenCalledWith('evidence:attempt-1', expect.any(Object));
       expect(mockRecordPhaseEnd).toHaveBeenCalledWith(
         'timing-456',
         expect.any(Number),
@@ -575,10 +572,7 @@ describe('createEvidenceNode', () => {
       expect(executor.execute).toHaveBeenCalledTimes(1);
       // Single phase activity recorded
       expect(mockRecordPhaseStart).toHaveBeenCalledTimes(1);
-      expect(mockRecordPhaseStart).toHaveBeenCalledWith(
-        'evidence:attempt-1',
-        expect.any(Object)
-      );
+      expect(mockRecordPhaseStart).toHaveBeenCalledWith('evidence:attempt-1', expect.any(Object));
       expect(mockRecordPhaseEnd).toHaveBeenCalledTimes(1);
     });
 
