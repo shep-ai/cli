@@ -694,6 +694,79 @@ describe('createMergeNode — CI watch/fix loop', () => {
   });
 
   // ────────────────────────────────────────────────────────────────────────────
+  // Executor failure resilience
+  // ────────────────────────────────────────────────────────────────────────────
+
+  describe('executor failure resilience', () => {
+    it('should continue loop when fix executor throws, counting it as a failed attempt', async () => {
+      // Executor fails on attempt 1, succeeds on attempt 2 (CI passes after fix)
+      deps.executor.execute = vi
+        .fn()
+        .mockResolvedValueOnce({ result: 'commit-push-pr done' }) // agent call 1
+        .mockRejectedValueOnce(new Error('API rate limit')) // fix attempt 1 fails
+        .mockResolvedValueOnce({ result: 'fix applied' }); // fix attempt 2 succeeds
+      deps.gitPrService.watchCi = vi
+        .fn()
+        .mockResolvedValueOnce({ status: 'failure' }) // initial watch: fail
+        .mockResolvedValueOnce({ status: 'success' }); // after fix attempt 2: success
+      deps.gitPrService.getCiStatus = vi
+        .fn()
+        .mockResolvedValue({ status: 'failure', runUrl: SAMPLE_RUN_URL });
+
+      const node = createMergeNode(deps);
+      const result = await node(baseState({ push: true }));
+
+      // Fix attempt 1 failed (executor error), fix attempt 2 succeeded
+      expect(result.ciFixAttempts).toBe(2);
+      expect(result.ciFixStatus).toBe('success');
+    });
+
+    it('should exhaust all attempts when executor keeps failing', async () => {
+      mockGetSettings.mockReturnValue({
+        workflow: { ciMaxFixAttempts: 2, ciWatchTimeoutMs: 600_000, ciLogMaxChars: 50_000 },
+      });
+      deps.executor.execute = vi
+        .fn()
+        .mockResolvedValueOnce({ result: 'commit-push-pr done' }) // agent call 1
+        .mockRejectedValue(new Error('Executor keeps failing')); // all fix attempts fail
+      deps.gitPrService.watchCi = vi.fn().mockResolvedValue({ status: 'failure' });
+      deps.gitPrService.getCiStatus = vi
+        .fn()
+        .mockResolvedValue({ status: 'failure', runUrl: SAMPLE_RUN_URL });
+
+      const node = createMergeNode(deps);
+      await expect(node(baseState({ push: true }))).rejects.toThrow(/CI/i);
+
+      // getFailureLogs called twice (once per fix attempt, even though executor failed)
+      expect(deps.gitPrService.getFailureLogs).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // watchCi non-timeout error resilience
+  // ────────────────────────────────────────────────────────────────────────────
+
+  describe('watchCi non-timeout error resilience', () => {
+    it('should continue loop when watchCi throws a non-timeout error', async () => {
+      // watchCi fails with GIT_ERROR on attempt 1, succeeds on attempt 2
+      deps.gitPrService.watchCi = vi
+        .fn()
+        .mockResolvedValueOnce({ status: 'failure' }) // initial watch: fail
+        .mockRejectedValueOnce(new GitPrError('gh CLI failed', GitPrErrorCode.GIT_ERROR)) // after fix 1: error
+        .mockResolvedValueOnce({ status: 'success' }); // after fix 2: success
+      deps.gitPrService.getCiStatus = vi
+        .fn()
+        .mockResolvedValue({ status: 'failure', runUrl: SAMPLE_RUN_URL });
+
+      const node = createMergeNode(deps);
+      const result = await node(baseState({ push: true }));
+
+      expect(result.ciFixAttempts).toBe(2);
+      expect(result.ciFixStatus).toBe('success');
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
   // Fail-fast / bounded execution (NFR-3)
   // ────────────────────────────────────────────────────────────────────────────
 

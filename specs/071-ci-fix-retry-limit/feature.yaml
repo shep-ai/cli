@@ -1,0 +1,33 @@
+feature:
+  id: 071-ci-fix-retry-limit
+  name: ci-fix-retry-limit
+  number: 71
+  branch: feat/071-ci-fix-retry-limit
+  lifecycle: research
+  createdAt: '2026-03-18T17:14:47Z'
+status:
+  phase: research
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-18T17:14:47Z'
+  lastUpdatedBy: feature-agent
+  completedPhases:
+    - fast-implement
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-18T17:14:47Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

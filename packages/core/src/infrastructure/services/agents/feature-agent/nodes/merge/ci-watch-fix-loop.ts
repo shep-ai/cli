@@ -154,9 +154,28 @@ export async function runCiWatchFixLoop(
 
     log.info(`CI fix attempt ${ciFixAttempts + 1}/${maxAttempts} for run ${runId}`);
 
-    // Invoke fix executor
+    // Invoke fix executor — maxAttempts:1 prevents retryExecute's internal
+    // retry logic from consuming CI fix attempts behind the outer loop's back.
+    // Each CI fix is a unique attempt with distinct failure logs and prompt;
+    // the outer loop already handles iteration.
     const fixPrompt = buildCiWatchFixPrompt(failureLogs, ciFixAttempts + 1, maxAttempts, branch);
-    await retryExecute(executor, fixPrompt, options, { logger: log });
+    try {
+      await retryExecute(executor, fixPrompt, options, { maxAttempts: 1, logger: log });
+    } catch (execErr) {
+      // If the fix executor fails, count it as a failed attempt and continue
+      // the loop rather than killing the entire CI fix process.
+      const execMsg = execErr instanceof Error ? execErr.message : String(execErr);
+      log.info(`CI fix executor failed on attempt ${ciFixAttempts + 1}: ${execMsg}`);
+      ciFixAttempts++;
+      ciFixHistory.push({
+        attempt: ciFixAttempts,
+        startedAt,
+        failureSummary: `Executor error: ${execMsg.slice(0, 500)}`,
+        outcome: 'failed',
+      });
+      messages.push(`[merge] CI fix attempt ${ciFixAttempts}/${maxAttempts} — executor failed`);
+      continue;
+    }
     ciFixAttempts++;
 
     // Get updated run URL (new run triggered by push in fix)
@@ -179,7 +198,18 @@ export async function runCiWatchFixLoop(
         ciFixStatus = 'timeout';
         break;
       }
-      throw err;
+      // For non-timeout watchCi errors (e.g. GIT_ERROR), treat as a failed
+      // attempt and continue the loop instead of killing it.
+      const watchMsg = err instanceof Error ? err.message : String(err);
+      log.info(`CI watch failed during fix attempt ${ciFixAttempts}: ${watchMsg}`);
+      ciFixHistory.push({
+        attempt: ciFixAttempts,
+        startedAt,
+        failureSummary: failureLogs.slice(0, 500),
+        outcome: 'failed',
+      });
+      messages.push(`[merge] CI fix attempt ${ciFixAttempts}/${maxAttempts} — watch failed`);
+      continue;
     }
 
     // Update runUrl to the run that was actually watched (avoids mismatch
