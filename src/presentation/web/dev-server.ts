@@ -18,6 +18,7 @@ import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
+import type { IDeploymentService } from '@/application/ports/output/services/deployment-service.interface.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
@@ -132,6 +133,12 @@ async function main() {
     console.log('\n[dev-server] Shutting down...');
     const forceExit = setTimeout(() => process.exit(0), 2000);
     try {
+      try {
+        const deploymentService = container.resolve<IDeploymentService>('IDeploymentService');
+        deploymentService.stopAll();
+      } catch {
+        /* not initialized */
+      }
       try {
         getNotificationWatcher().stop();
       } catch {
