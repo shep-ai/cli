@@ -2,8 +2,8 @@
  * Migration 043: Set hide_ci_status default to true for existing rows.
  *
  * Migration 042 added the column with DEFAULT 0 (show). The default has
- * been changed to 1 (hide). This migration flips existing rows that still
- * have the old default.
+ * been changed to 1 (hide). This migration updates existing rows to match
+ * the new default.
  */
 
 import type { MigrationParams } from 'umzug';
