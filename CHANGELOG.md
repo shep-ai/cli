@@ -1,3 +1,10 @@
+## [1.131.1](https://github.com/shep-ai/cli/compare/v1.131.0...v1.131.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* **web:** detect default branch for merge review diff ([#424](https://github.com/shep-ai/cli/issues/424)) ([2ecf3c1](https://github.com/shep-ai/cli/commit/2ecf3c1381dbcd439e36dc39ee61e0355a68db03))
+
 # [1.131.0](https://github.com/shep-ai/cli/compare/v1.130.1...v1.131.0) (2026-03-18)
 
 
