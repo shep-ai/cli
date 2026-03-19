@@ -54,7 +54,9 @@ You MUST write the COMPLETE file (not a partial update). Preserve the existing n
   technologies:
     - (list each technology relevant to implementing this feature)
 
-  relatedLinks: []
+  relatedLinks:
+    - title: '(Human-readable title for the resource)'
+      url: '(URL to external documentation or reference)'
 
   openQuestions: []
 

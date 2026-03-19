@@ -99,7 +99,9 @@ You MUST write TWO files:
   relatedFeatures: []
   technologies:
     - (technologies needed)
-  relatedLinks: []
+  relatedLinks:
+    - title: '(Human-readable title for the resource)'
+      url: '(URL to external documentation or reference)'
 
   phases:
     - id: phase-1
@@ -148,7 +150,9 @@ You MUST write TWO files:
 
   relatedFeatures: []
   technologies: []
-  relatedLinks: []
+  relatedLinks:
+    - title: '(Human-readable title for the resource)'
+      url: '(URL to external documentation or reference)'
 
   tasks:
     - id: task-1
