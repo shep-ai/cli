@@ -1,0 +1,170 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remote-repo-support
+number: 072
+branch: feat/072-remote-repo-support
+oneLiner: Enable creating features on remote repos without cloning first via shep feat new --remote
+userQuery: >
+  Assume I want to contribute to an open source repo and I don't open the repo add this support in SHEP
+summary: >
+  Add a streamlined workflow for contributing to open-source or remote repositories without
+  requiring the user to manually clone them first. Introduces a --remote flag on shep feat new
+  that accepts a GitHub URL (or owner/repo shorthand), auto-clones the repo, registers it,
+  and immediately creates a feature with an agent — all in one command. The Web UI feature
+  creation drawer also gains inline GitHub import so users can pick a remote repo and start
+  a feature without leaving the create form.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Commander.js (CLI framework)
+  - tsyringe (DI container)
+  - Next.js (Web UI - server actions)
+  - React (Web UI components)
+  - gh CLI (GitHub repository operations)
+  - SQLite (better-sqlite3 persistence)
+  - TypeSpec (domain model definitions)
+  - git worktrees
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - Should the --remote flag work with non-GitHub URLs (e.g. GitLab, Bitbucket) in the future, or GitHub-only for now?
+  - Should we fork the repo automatically if the user doesn't have push access (typical OSS contribution flow)?
+  - Should the githubImport feature flag gate this new flow, or should it be always-on since the existing import infra is stable?
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Currently, to contribute to an open-source repository using Shep, a user must:
+
+  1. Manually clone the repo (`git clone` or `shep repo add --url`)
+  2. Navigate to the cloned directory
+  3. Run `shep feat new "description"`
+
+  This three-step process adds friction. The user must leave the Shep workflow to clone,
+  remember the clone path, and then re-enter the workflow. The user's request is clear:
+  "I want to contribute to an open source repo and I don't have it locally — Shep should
+  handle that for me."
+
+  The **existing infrastructure** already supports most of this:
+  - `ImportGitHubRepositoryUseCase` handles URL parsing, auth checks, cloning, and registration
+  - `GitHubRepositoryService` wraps the `gh` CLI for all GitHub operations
+  - `CreateFeatureUseCase` creates worktrees and spawns agents
+  - The `Repository` entity already has `remoteUrl` support (migration 040)
+  - The Web UI has a `GitHubImportDialog` component (gated behind `githubImport` feature flag)
+
+  What's missing is **orchestration** — a single-step flow that chains import + feature creation.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project is a pnpm monorepo with Clean Architecture:
+
+  ```
+  packages/core/src/
+    domain/          # TypeSpec-generated types (Repository, Feature, etc.)
+    application/     # Use cases and port interfaces
+      use-cases/repositories/   # AddRepositoryUseCase, ImportGitHubRepositoryUseCase
+      use-cases/features/create/ # CreateFeatureUseCase (two-phase: createRecord + initializeAndSpawn)
+      ports/output/services/     # IWorktreeService, IGitHubRepositoryService, IGitPrService
+    infrastructure/  # Implementations (SQLite repos, git services, DI container)
+      services/git/  # WorktreeService, GitPrService
+      services/external/ # GitHubRepositoryService (wraps gh CLI)
+
+  src/presentation/
+    cli/commands/repo/add.command.ts    # shep repo add (existing GitHub import)
+    cli/commands/feat/new.command.ts    # shep feat new (defaults to cwd)
+    tui/wizards/github-import.wizard.ts # Interactive GitHub import wizard
+    web/components/common/github-import-dialog/ # Web UI import dialog
+    web/components/common/feature-create-drawer/ # Web UI feature creation
+    web/app/actions/create-feature.ts   # Server action for feature creation
+    web/app/actions/import-github-repository.ts # Server action for import
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Dependencies point inward (presentation → application → domain)
+  - **Dependency Injection**: tsyringe container with interface tokens (e.g. `'IGitHubRepositoryService'`)
+  - **Two-Phase Feature Creation**: `createRecord()` (fast DB write) → `initializeAndSpawn()` (git + AI)
+  - **Worktree Isolation**: Each feature gets its own worktree at `~/.shep/repos/{HASH}/wt/{SLUG}/`
+  - **Feature Flags**: `githubImport` flag gates GitHub import UI (DB-primary, env-var fallback)
+  - **Output Ports**: All external operations (git, gh, filesystem) behind interfaces
+
+  ### Relevant Technologies
+
+  - **gh CLI**: Used for `checkAuth()`, `cloneRepository()`, `listUserRepositories()`, `parseGitHubUrl()`
+  - **Commander.js**: CLI command framework with options/arguments
+  - **Inquirer**: TUI interactive prompts (select, input)
+  - **Next.js Server Actions**: Web UI backend calls (createFeature, importGitHubRepository)
+  - **TypeSpec**: Domain models in `tsp/` → `packages/core/src/domain/generated/output.ts`
+  - **better-sqlite3**: Persistence with umzug migrations
+
+  ### Key Existing Code
+
+  **ImportGitHubRepositoryUseCase** (`packages/core/src/application/use-cases/repositories/import-github-repository.use-case.ts`):
+  - Parses GitHub URLs (HTTPS, SSH, owner/repo shorthand)
+  - Deduplicates by normalized remoteUrl
+  - Clones via `gh repo clone` with progress callback
+  - Registers repo via AddRepositoryUseCase
+  - Updates repository record with normalized remoteUrl
+
+  **CreateFeatureUseCase** (`packages/core/src/application/use-cases/features/create/create-feature.use-case.ts`):
+  - Phase 1 (createRecord): Resolves/creates Repository entity, creates Feature + AgentRun records
+  - Phase 2 (initializeAndSpawn): ensureGitRepository, create worktree, scaffold specs, spawn agent
+  - Accepts `repositoryPath` as primary input
+
+  **feat new command** (`src/presentation/cli/commands/feat/new.command.ts`):
+  - Defaults `repoPath` to `process.cwd()` or `--repo` flag
+  - No support for remote URLs currently
+
+  **Feature creation web action** (`src/presentation/web/app/actions/create-feature.ts`):
+  - Requires `repositoryPath` (local filesystem path)
+  - Two-phase: createRecord returns immediately, initializeAndSpawn fires in background
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/commands/feat/new.command.ts` | High | Add --remote flag, orchestrate import-then-create flow |
+  | `packages/core/src/application/use-cases/features/create/` | Medium | New composite use case or extended input to handle remote URL |
+  | `src/presentation/web/components/common/feature-create-drawer/` | Medium | Add inline GitHub import option in repository selector |
+  | `src/presentation/web/app/actions/create-feature.ts` | Medium | Support remoteUrl input alongside repositoryPath |
+  | `src/presentation/tui/wizards/` | Low | Optional: add remote repo prompt to feat new interactive flow |
+  | `packages/core/src/application/use-cases/repositories/import-github-repository.use-case.ts` | Low | May need minor adjustments for composability |
+  | `src/presentation/web/lib/feature-flags.ts` | Low | May need to gate new UI or remove flag if feature is always-on |
+
+  ## Dependencies
+
+  **Existing Code (Already Implemented):**
+  - `ImportGitHubRepositoryUseCase` — full GitHub clone + registration pipeline
+  - `GitHubRepositoryService` — `gh` CLI wrapper with URL parsing, auth, clone
+  - `CreateFeatureUseCase` — two-phase feature creation with worktree setup
+  - `Repository.remoteUrl` — domain model field + DB column (migration 040)
+  - `GitHubImportDialog` — Web UI component for GitHub import
+  - `githubImportWizard` — TUI interactive import wizard
+
+  **External Dependencies:**
+  - `gh` CLI — must be installed and authenticated for GitHub operations
+  - `git` — for worktree operations
+
+  ## Size Estimate
+
+  **M** — Most infrastructure exists. Primary work is orchestration:
+  - CLI: Add --remote flag to feat new, wire ImportGitHubRepositoryUseCase → CreateFeatureUseCase (~1 day)
+  - Application: Create composite use case or extend CreateFeatureInput (~0.5 day)
+  - Web UI: Add inline import option to feature-create-drawer repository selector (~1 day)
+  - Tests: Unit tests for new orchestration, integration tests for full flow (~1 day)
+  - Total: ~3-4 days of focused work
+
+  ---
+
+  _Analysis complete — proceed with research phase_
