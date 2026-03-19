@@ -39,10 +39,10 @@ function getBadgeIcon(data: FeatureNodeData): LucideIcon {
 
 /** Short, friendly label for each action-required gate. */
 function getActionRequiredLabel(data: FeatureNodeData): string {
-  if (data.lifecycle === 'requirements') return 'Requirements Ready';
-  if (data.lifecycle === 'implementation') return 'Technical Plan Ready';
-  if (data.lifecycle === 'review') return 'Ready to Merge';
-  return 'Ready for Review';
+  if (data.lifecycle === 'requirements') return 'Review Requirements';
+  if (data.lifecycle === 'implementation') return 'Review Technical Plan';
+  if (data.lifecycle === 'review') return 'Review Changes';
+  return 'Review';
 }
 
 function getBadgeText(data: FeatureNodeData): string {
@@ -320,32 +320,19 @@ export function FeatureNode({
                 <span className="text-muted-foreground">{getBadgeText(data)}</span>
               </div>
             ) : data.state === 'action-required' ? (
-              <div className="flex items-center gap-2" data-testid="feature-node-badge">
-                <div className="relative flex items-center gap-1.5">
-                  <span className="relative shrink-0">
-                    <span className="absolute inset-0 animate-pulse rounded-full bg-amber-400/30 blur-[5px]" />
-                    {(() => {
-                      const BadgeIcon = getBadgeIcon(data);
-                      return <BadgeIcon className="relative h-3.5 w-3.5 text-amber-500" />;
-                    })()}
-                  </span>
-                  <span className="animate-shimmer translate-y-px text-[11px] font-medium bg-[length:200%_100%] bg-clip-text text-transparent bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 dark:from-amber-400 dark:via-amber-200 dark:to-amber-400">
-                    {getBadgeText(data)}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  aria-label={getActionRequiredLabel(data)}
-                  data-testid="feature-node-approve-button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                  className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
-                >
-                  <Eye className="h-3 w-3" />
-                  Review
-                </button>
-              </div>
+              <button
+                type="button"
+                aria-label={getActionRequiredLabel(data)}
+                data-testid="feature-node-approve-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                className="nodrag relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 overflow-hidden rounded-md bg-gradient-to-b from-neutral-800 via-neutral-900 to-neutral-950 px-3 py-1.5 text-[11px] font-semibold transition-all hover:from-neutral-700 hover:via-neutral-800 hover:to-neutral-900 active:from-neutral-900 active:to-black"
+              >
+                <span className="pointer-events-none absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/15 to-transparent bg-[length:200%_100%]" />
+                <Eye className="relative h-3 w-3 text-amber-400" />
+                <span className="relative animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-400 bg-clip-text text-transparent">{getActionRequiredLabel(data)}</span>
+              </button>
             ) : data.state === 'error' && data.onRetry ? (
               <button
                 type="button"
