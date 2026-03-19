@@ -1,3 +1,10 @@
+# [1.133.0](https://github.com/shep-ai/cli/compare/v1.132.0...v1.133.0) (2026-03-19)
+
+
+### Features
+
+* **tui:** add github cli prerequisite notice to onboarding ([#427](https://github.com/shep-ai/cli/issues/427)) ([53b30f1](https://github.com/shep-ai/cli/commit/53b30f1038c1a74e2c9577078e84ab788d74fa41))
+
 # [1.132.0](https://github.com/shep-ai/cli/compare/v1.131.1...v1.132.0) (2026-03-19)
 
 
