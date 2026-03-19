@@ -138,14 +138,14 @@ export function FeatureNode({
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
+          'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm dark:bg-neutral-800/80',
           data.state === 'action-required' && 'border-amber-300/60 dark:border-amber-700/40',
           selected && 'ring-primary ring-2',
           data.state === 'deleting' && 'opacity-60'
         )}
       >
-        {/* Phase dot + label — absolute top-right corner */}
-        <div className="absolute top-3 right-4">
+        {/* Phase dot + label — absolute top-right corner (hidden during creation) */}
+        {data.state !== 'creating' ? <div className="absolute top-3 right-4">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -159,13 +159,13 @@ export function FeatureNode({
                   </span>
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-56">
+              <TooltipContent side="bottom" className="max-w-56 bg-white text-neutral-900 shadow-lg dark:bg-neutral-100 dark:text-neutral-900">
                 <p className="font-semibold">{lifecyclePhaseBadge[data.lifecycle].tooltip}</p>
-                <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{lifecyclePhaseBadge[data.lifecycle].description}</p>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-500">{lifecyclePhaseBadge[data.lifecycle].description}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        </div>
+        </div> : null}
 
         {/* Agent icon + Name */}
         <div className="flex items-center gap-1.5">

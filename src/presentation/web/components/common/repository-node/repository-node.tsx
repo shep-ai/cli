@@ -172,7 +172,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data.onClick?.();
           }
         }}
-        className="nodrag bg-card flex w-[26rem] cursor-pointer flex-col overflow-hidden rounded-xl border shadow-sm"
+        className="nodrag bg-card flex w-[26rem] cursor-pointer flex-col overflow-hidden rounded-xl border shadow-sm dark:bg-neutral-800/80"
       >
         {/* Row 1: Repository name + action buttons */}
         <div className="flex items-center gap-3 px-4 py-3">
@@ -287,7 +287,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             {/* Row 2: Branch + behind status */}
             <div
               data-testid="repository-node-git-info"
-              className="text-muted-foreground border-t px-4 py-2"
+              className="text-muted-foreground border-t border-border/50 px-4 py-2"
             >
               <div className="flex items-center gap-3 text-xs">
                 <span
@@ -312,7 +312,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             {data.commitMessage ? (
               <div
                 data-testid="repository-node-commit-info"
-                className="text-muted-foreground border-t px-4 py-2"
+                className="text-muted-foreground border-t border-border/50 px-4 py-2"
               >
                 <div className="flex items-center gap-2 text-xs">
                   <GitCommitHorizontal className="h-3 w-3 shrink-0" />
@@ -337,7 +337,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
           <>
             <div
               data-testid="repository-node-not-repo"
-              className="text-muted-foreground border-t px-4 py-2"
+              className="text-muted-foreground border-t border-border/50 px-4 py-2"
             >
               <div className="flex items-center gap-2 text-xs">
                 <FolderOpen className="h-3 w-3 shrink-0" />
@@ -346,7 +346,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                 </span>
               </div>
             </div>
-            <div className="text-muted-foreground border-t px-4 py-2">
+            <div className="text-muted-foreground border-t border-border/50 px-4 py-2">
               <div className="flex items-center gap-2 text-xs opacity-40">
                 <GitBranch className="h-3 w-3 shrink-0" />
                 <span>Not a git repository</span>
@@ -356,13 +356,13 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
         ) : data.gitInfoStatus !== 'ready' ? (
           /* Loading — show skeleton placeholders for both rows */
           <>
-            <div data-testid="repository-node-git-loading" className="border-t px-4 py-2">
+            <div data-testid="repository-node-git-loading" className="border-t border-border/50 px-4 py-2">
               <div className="flex h-4 items-center gap-2 text-xs">
                 <GitBranch className="text-muted-foreground h-3 w-3 shrink-0" />
                 <span className="bg-muted h-3 w-20 animate-pulse rounded" />
               </div>
             </div>
-            <div className="border-t px-4 py-2">
+            <div className="border-t border-border/50 px-4 py-2">
               <div className="flex h-4 items-center gap-2 text-xs">
                 <GitCommitHorizontal className="text-muted-foreground h-3 w-3 shrink-0" />
                 <span className="bg-muted h-3 w-36 animate-pulse rounded" />
@@ -375,7 +375,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
         {featureFlags.envDeploy && data.repositoryPath ? (
           <div
             data-testid="repository-node-dev-preview"
-            className="border-t px-4 py-2"
+            className="border-t border-border/50 px-4 py-2"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 text-xs">
@@ -408,7 +408,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="ml-auto flex items-center">
+                    <span className={cn('ml-auto flex items-center', !isDeploymentActive && !deployAction.deployError && '[&_button]:text-green-600 [&_button]:hover:text-green-700 dark:[&_button]:text-green-400 dark:[&_button]:hover:text-green-300')}>
                       <ActionButton
                         label={
                           deployAction.deployError
