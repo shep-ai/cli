@@ -93,7 +93,8 @@ Save all evidence files to the shep home folder:
       })}`
     : `\n## Git Operations
 
-Do NOT commit or push any files. Evidence is stored locally only.`;
+Do NOT commit or push any evidence files. Evidence is stored locally only.
+However, if you make code fixes during evidence collection, those fixes MUST be committed (see "Handling Code Fixes" above).`;
 
   return `You are a senior software engineer performing the EVIDENCE COLLECTION phase of feature development.
 
@@ -219,10 +220,19 @@ If no evidence can be captured (e.g., no UI to screenshot, no tests to run), out
 []
 \`\`\`
 
+## Handling Code Fixes During Evidence Collection
+
+If you discover that tests fail, the build breaks, or something needs a fix while collecting evidence:
+1. **Fix the issue first** — make the necessary code changes
+2. **Commit the fix immediately** with a descriptive conventional commit message (e.g. \`fix(scope): resolve test failure discovered during evidence collection\`)${state.push ? `\n3. **Push the fix**: \`git push -u origin HEAD\`` : ''}
+3. **Then continue** capturing evidence — the evidence should reflect the working state after the fix
+
+This ensures implementation changes and evidence remain in separate commits with a clean history.
+
 ## Constraints
 
-- Capture evidence for completed tasks only — do NOT modify any implementation code
 - Capture evidence that proves the feature works — prioritize screenshots for UI changes, test output for logic changes
+- If you need to fix code to make evidence pass, commit the fix BEFORE capturing/committing evidence
 - If a screenshot capture fails, document the failure reason in the evidence description and try alternative approaches before giving up
 - Do NOT capture evidence for documentation-only changes or spec files
 ${commitSection}`;
@@ -288,6 +298,7 @@ ${formatValidationErrors(errors)}
 ### Instructions
 
 - Review the issues above and capture the missing evidence
+- If you need to fix code to resolve a gap (e.g., a failing test), commit the fix FIRST before recapturing evidence
 - Focus on the specific gaps listed — do not re-capture evidence that already exists
 - Ensure new evidence files are saved to the correct paths
 - Output ALL evidence records (both previously captured and newly captured) in the JSON output block`;

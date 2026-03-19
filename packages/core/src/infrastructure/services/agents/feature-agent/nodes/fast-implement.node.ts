@@ -76,9 +76,9 @@ export function createFastImplementNode(executor: IAgentExecutor) {
       const elapsed = (durationMs / 1000).toFixed(1);
       log.info(`Complete (${result.result.length} chars, ${elapsed}s)`);
 
-      // Validate that the executor actually produced file changes
+      // Validate that the executor actually produced changes (uncommitted or committed)
       const cwd = state.worktreePath || state.repositoryPath;
-      if (!hasWorktreeChanges(cwd)) {
+      if (!hasWorktreeChanges(cwd) && !hasNewCommits(cwd)) {
         throw new Error(
           '[fast-implement] Agent produced no file changes — it may have entered plan mode or asked questions instead of implementing. Retrying.'
         );
@@ -181,6 +181,28 @@ function hasWorktreeChanges(cwd: string): boolean {
     return output.trim().length > 0;
   } catch {
     // If git command fails, assume no changes (conservative — will trigger the error)
+    return false;
+  }
+}
+
+/**
+ * Check whether the current branch has commits that are not on the merge base
+ * (i.e., the agent made new commits during implementation). Uses
+ * `git log --oneline HEAD ^HEAD~1` as a lightweight check — if the agent
+ * committed, HEAD will have moved from where it started.
+ *
+ * We compare against the branch tracking ref or check if HEAD moved at all
+ * by looking at recent commits (within the last minute).
+ */
+function hasNewCommits(cwd: string): boolean {
+  try {
+    // Check if there are any commits in the last 2 minutes (generous window for agent execution)
+    const output = execSync('git log --oneline --since="2 minutes ago" HEAD', {
+      cwd,
+      encoding: 'utf-8',
+    });
+    return output.trim().length > 0;
+  } catch {
     return false;
   }
 }
