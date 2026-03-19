@@ -1,10 +1,48 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
-import type { FeatureCreateDrawerProps } from '@/components/common/feature-create-drawer';
+import { FeatureCreateDrawer, RepositoryCombobox } from '@/components/common/feature-create-drawer';
+import type {
+  FeatureCreateDrawerProps,
+  RepositoryOption,
+} from '@/components/common/feature-create-drawer';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
+import { FeatureFlagsProvider } from '@/hooks/feature-flags-context';
+import type { FeatureFlagsState } from '@/lib/feature-flags';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+
+// Mock GitHubImportDialog
+const mockGitHubImportDialog = vi.fn();
+vi.mock('@/components/common/github-import-dialog', () => ({
+  GitHubImportDialog: (props: {
+    open: boolean;
+    onOpenChange: (v: boolean) => void;
+    onImportComplete: (repo: unknown) => void;
+  }) => {
+    mockGitHubImportDialog(props);
+    if (!props.open) return null;
+    return (
+      <div data-testid="github-import-dialog">
+        <button
+          data-testid="github-import-complete-btn"
+          onClick={() =>
+            props.onImportComplete({
+              id: 'imported-repo-1',
+              name: 'imported-repo',
+              path: '/repos/imported-repo',
+              remoteUrl: 'https://github.com/owner/imported-repo',
+            })
+          }
+        >
+          Import
+        </button>
+        <button data-testid="github-import-close-btn" onClick={() => props.onOpenChange(false)}>
+          Close
+        </button>
+      </div>
+    );
+  },
+}));
 
 // Mock pickFiles client helper
 const mockPickFiles = vi.fn<() => Promise<FileAttachment[] | null>>();
@@ -1209,6 +1247,183 @@ describe('FeatureCreateDrawer', () => {
 
       expect(onSubmit).toHaveBeenCalledOnce();
       expect(onSubmit.mock.calls[0][0].repositoryPath).toBe('/Users/dev/new-project');
+    });
+  });
+
+  describe('GitHub import end-to-end flow', () => {
+    const sampleRepos: RepositoryOption[] = [
+      { id: 'repo-001', name: 'my-app', path: '/Users/dev/projects/my-app' },
+    ];
+
+    const githubImportFlags: FeatureFlagsState = {
+      skills: false,
+      envDeploy: false,
+      debug: false,
+      githubImport: true,
+      adoptBranch: false,
+      reactFileManager: false,
+    };
+
+    function renderDrawerWithFlags(overrides: Partial<FeatureCreateDrawerProps> = {}) {
+      const props = { ...defaultProps, ...overrides };
+      return render(
+        <FeatureFlagsProvider flags={githubImportFlags}>
+          <DrawerCloseGuardProvider>
+            <FeatureCreateDrawer {...props} />
+          </DrawerCloseGuardProvider>
+        </FeatureFlagsProvider>
+      );
+    }
+
+    it('imported repo appears in repository list and can be used to submit', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawerWithFlags({ repositoryPath: '', repositories: sampleRepos, onSubmit });
+
+      // Open combobox and click import from GitHub
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('import-github-item'));
+
+      // Complete the import
+      await user.click(screen.getByTestId('github-import-complete-btn'));
+
+      // Combobox should show the imported repo name
+      await waitFor(() => {
+        expect(screen.getByTestId('repository-combobox')).toHaveTextContent('imported-repo');
+      });
+
+      // Fill description and submit
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add dark mode');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0].repositoryPath).toBe('/repos/imported-repo');
+      expect(onSubmit.mock.calls[0][0].description).toBe('Add dark mode');
+    });
+
+    it('import error in dialog does not affect form state', async () => {
+      const user = userEvent.setup();
+      renderDrawerWithFlags({ repositoryPath: '', repositories: sampleRepos });
+
+      // Open combobox and click import
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('import-github-item'));
+
+      // Close dialog without importing
+      await user.click(screen.getByTestId('github-import-close-btn'));
+
+      // Dialog should be closed
+      expect(screen.queryByTestId('github-import-dialog')).not.toBeInTheDocument();
+
+      // Combobox should still show placeholder (no repo selected)
+      expect(screen.getByTestId('repository-combobox')).toHaveTextContent('Select repository...');
+    });
+  });
+
+  describe('GitHub import trigger in RepositoryCombobox', () => {
+    const sampleRepos: RepositoryOption[] = [
+      { id: 'repo-001', name: 'my-app', path: '/Users/dev/projects/my-app' },
+    ];
+
+    const allFlagsOff: FeatureFlagsState = {
+      skills: false,
+      envDeploy: false,
+      debug: false,
+      githubImport: false,
+      adoptBranch: false,
+      reactFileManager: false,
+    };
+
+    const githubImportOn: FeatureFlagsState = {
+      ...allFlagsOff,
+      githubImport: true,
+    };
+
+    function renderComboboxWithFlags(flags: FeatureFlagsState) {
+      const onChange = vi.fn();
+      const onAddRepository = vi.fn();
+      return render(
+        <FeatureFlagsProvider flags={flags}>
+          <RepositoryCombobox
+            repositories={sampleRepos}
+            value={undefined}
+            onChange={onChange}
+            onAddRepository={onAddRepository}
+          />
+        </FeatureFlagsProvider>
+      );
+    }
+
+    it('shows Import from GitHub button when githubImport flag is true', async () => {
+      const user = userEvent.setup();
+      renderComboboxWithFlags(githubImportOn);
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      expect(screen.getByTestId('import-github-item')).toBeInTheDocument();
+      expect(screen.getByText('Import from GitHub...')).toBeInTheDocument();
+    });
+
+    it('does not show Import from GitHub button when githubImport flag is false', async () => {
+      const user = userEvent.setup();
+      renderComboboxWithFlags(allFlagsOff);
+
+      await user.click(screen.getByTestId('repository-combobox'));
+
+      expect(screen.queryByTestId('import-github-item')).not.toBeInTheDocument();
+    });
+
+    it('opens GitHubImportDialog when Import from GitHub is clicked', async () => {
+      const user = userEvent.setup();
+      renderComboboxWithFlags(githubImportOn);
+
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('import-github-item'));
+
+      expect(screen.getByTestId('github-import-dialog')).toBeInTheDocument();
+    });
+
+    it('auto-selects imported repo and calls onAddRepository after successful import', async () => {
+      const onChange = vi.fn();
+      const onAddRepository = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <FeatureFlagsProvider flags={githubImportOn}>
+          <RepositoryCombobox
+            repositories={sampleRepos}
+            value={undefined}
+            onChange={onChange}
+            onAddRepository={onAddRepository}
+          />
+        </FeatureFlagsProvider>
+      );
+
+      // Open combobox and click import
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('import-github-item'));
+
+      // Click the mock import complete button
+      await user.click(screen.getByTestId('github-import-complete-btn'));
+
+      expect(onAddRepository).toHaveBeenCalledWith({
+        id: 'imported-repo-1',
+        name: 'imported-repo',
+        path: '/repos/imported-repo',
+      });
+      expect(onChange).toHaveBeenCalledWith('/repos/imported-repo');
+    });
+
+    it('closes dialog after successful import', async () => {
+      const user = userEvent.setup();
+      renderComboboxWithFlags(githubImportOn);
+
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('import-github-item'));
+      expect(screen.getByTestId('github-import-dialog')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('github-import-complete-btn'));
+
+      expect(screen.queryByTestId('github-import-dialog')).not.toBeInTheDocument();
     });
   });
 });
