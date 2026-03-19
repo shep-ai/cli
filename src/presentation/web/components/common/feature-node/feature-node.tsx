@@ -143,27 +143,39 @@ export function FeatureNode({
         )}
       >
         {/* Phase dot + label — absolute top-right corner (hidden during creation) */}
-        {data.state !== 'creating' ? <div className="absolute top-3 right-4">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  data-testid="feature-node-phase-badge"
-                  className="flex items-center gap-1.5"
-                >
-                  <span className="text-muted-foreground text-[10px]">
-                    {lifecyclePhaseBadge[data.lifecycle].tooltip}
+        {data.state !== 'creating' ? (
+          <div className="absolute top-3 right-4">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    data-testid="feature-node-phase-badge"
+                    className="flex items-center gap-1.5"
+                  >
+                    <span className="text-muted-foreground text-[10px]">
+                      {lifecyclePhaseBadge[data.lifecycle].tooltip}
+                    </span>
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 -translate-y-px rounded-full',
+                        lifecyclePhaseBadge[data.lifecycle].dot
+                      )}
+                    />
                   </span>
-                  <span className={cn('h-1.5 w-1.5 -translate-y-px rounded-full', lifecyclePhaseBadge[data.lifecycle].dot)} />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-56 bg-white text-neutral-900 shadow-lg dark:bg-neutral-100 dark:text-neutral-900">
-                <p className="font-semibold">{lifecyclePhaseBadge[data.lifecycle].tooltip}</p>
-                <p className="mt-1 text-xs leading-relaxed text-neutral-500">{lifecyclePhaseBadge[data.lifecycle].description}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div> : null}
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  className="max-w-56 bg-white text-neutral-900 shadow-lg dark:bg-neutral-100 dark:text-neutral-900"
+                >
+                  <p className="font-semibold">{lifecyclePhaseBadge[data.lifecycle].tooltip}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+                    {lifecyclePhaseBadge[data.lifecycle].description}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        ) : null}
 
         {/* Agent icon + Name */}
         <div className="flex items-center gap-1.5">
@@ -205,20 +217,27 @@ export function FeatureNode({
           ) : null}
 
           {/* Status text for blocked / error / pending (above bottom row) */}
-          {!config.showProgressBar && !['deleting', 'creating', 'running', 'done', 'action-required', 'pending', 'blocked'].includes(data.state) ? (
+          {!config.showProgressBar &&
+          ![
+            'deleting',
+            'creating',
+            'running',
+            'done',
+            'action-required',
+            'pending',
+            'blocked',
+          ].includes(data.state) ? (
             <div
               data-testid="feature-node-badge"
               className="relative flex min-w-0 items-center gap-1.5 text-xs"
             >
               {(() => {
                 const BadgeIcon = getBadgeIcon(data);
-                return (
-                  <BadgeIcon
-                    className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)}
-                  />
-                );
+                return <BadgeIcon className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)} />;
               })()}
-              <span className={cn('translate-y-px truncate text-[11px] font-medium', config.badgeClass)}>
+              <span
+                className={cn('translate-y-px truncate text-[11px] font-medium', config.badgeClass)}
+              >
                 {getBadgeText(data)}
               </span>
             </div>
@@ -327,9 +346,11 @@ export function FeatureNode({
                 onClick={() => {}}
                 className="nodrag relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 overflow-hidden rounded-md bg-gradient-to-b from-neutral-800 via-neutral-900 to-neutral-950 px-3 py-1.5 text-[11px] font-semibold transition-all hover:from-neutral-700 hover:via-neutral-800 hover:to-neutral-900 active:from-neutral-900 active:to-black"
               >
-                <span className="pointer-events-none absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/15 to-transparent bg-[length:200%_100%]" />
+                <span className="animate-shimmer pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent bg-[length:200%_100%]" />
                 <Eye className="relative h-3 w-3 text-amber-400" />
-                <span className="relative animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-400 bg-clip-text text-transparent">{getActionRequiredLabel(data)}</span>
+                <span className="animate-shimmer relative bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-400 bg-[length:200%_100%] bg-clip-text text-transparent">
+                  {getActionRequiredLabel(data)}
+                </span>
               </button>
             ) : data.state === 'error' && data.onRetry ? (
               <button

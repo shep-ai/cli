@@ -65,14 +65,17 @@ export const lifecycleAccentColors: Record<FeatureLifecyclePhase, string> = {
 };
 
 /** Phase badge: short letter, color classes, and user-friendly tooltip. */
-export const lifecyclePhaseBadge: Record<FeatureLifecyclePhase, {
-  letter: string;
-  bg: string;
-  text: string;
-  dot: string;
-  tooltip: string;
-  description: string;
-}> = {
+export const lifecyclePhaseBadge: Record<
+  FeatureLifecyclePhase,
+  {
+    letter: string;
+    bg: string;
+    text: string;
+    dot: string;
+    tooltip: string;
+    description: string;
+  }
+> = {
   pending: {
     letter: 'P',
     bg: 'bg-stone-100 dark:bg-stone-800',
@@ -87,7 +90,8 @@ export const lifecyclePhaseBadge: Record<FeatureLifecyclePhase, {
     text: 'text-fuchsia-600 dark:text-fuchsia-300',
     dot: 'bg-fuchsia-500',
     tooltip: 'Requirements',
-    description: 'Gathering what to build — the AI is writing a product requirements document (PRD) based on your request.',
+    description:
+      'Gathering what to build — the AI is writing a product requirements document (PRD) based on your request.',
   },
   research: {
     letter: 'D',
@@ -95,7 +99,8 @@ export const lifecyclePhaseBadge: Record<FeatureLifecyclePhase, {
     text: 'text-teal-600 dark:text-teal-300',
     dot: 'bg-teal-500',
     tooltip: 'Research',
-    description: 'Exploring your codebase — the AI is analyzing existing code, patterns, and dependencies to plan the best approach.',
+    description:
+      'Exploring your codebase — the AI is analyzing existing code, patterns, and dependencies to plan the best approach.',
   },
   implementation: {
     letter: 'I',
@@ -103,7 +108,8 @@ export const lifecyclePhaseBadge: Record<FeatureLifecyclePhase, {
     text: 'text-indigo-600 dark:text-indigo-300',
     dot: 'bg-indigo-500',
     tooltip: 'Implementation',
-    description: 'Writing code — the AI is implementing the feature, writing tests, and making sure everything compiles.',
+    description:
+      'Writing code — the AI is implementing the feature, writing tests, and making sure everything compiles.',
   },
   review: {
     letter: 'M',
@@ -111,7 +117,8 @@ export const lifecyclePhaseBadge: Record<FeatureLifecyclePhase, {
     text: 'text-orange-600 dark:text-orange-300',
     dot: 'bg-orange-500',
     tooltip: 'Merge Review',
-    description: 'Ready to merge — the code is complete. Review the changes and approve to merge into your repository.',
+    description:
+      'Ready to merge — the code is complete. Review the changes and approve to merge into your repository.',
   },
   deploy: {
     letter: 'Q',
@@ -119,7 +126,8 @@ export const lifecyclePhaseBadge: Record<FeatureLifecyclePhase, {
     text: 'text-lime-600 dark:text-lime-300',
     dot: 'bg-lime-500',
     tooltip: 'Deploy & QA',
-    description: 'Deploying and testing — the feature is being deployed to a preview environment for quality checks.',
+    description:
+      'Deploying and testing — the feature is being deployed to a preview environment for quality checks.',
   },
   maintain: {
     letter: '✓',

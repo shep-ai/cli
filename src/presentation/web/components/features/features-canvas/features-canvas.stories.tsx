@@ -862,7 +862,8 @@ const fullSpectrumNodes: CanvasNodeType[] = [
     position: { x: COL[1], y: ROW_H },
     data: {
       name: 'GraphQL API Layer',
-      description: 'Replace REST endpoints with GraphQL schema, resolvers, and client-side codegen for type-safe queries',
+      description:
+        'Replace REST endpoints with GraphQL schema, resolvers, and client-side codegen for type-safe queries',
       featureId: 'c4a6b8d0-2e4f-49a1-b3c5-d7e9f1a3b5c7',
       lifecycle: 'implementation',
       state: 'action-required',
