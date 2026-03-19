@@ -1,3 +1,10 @@
+## [1.134.1](https://github.com/shep-ai/cli/compare/v1.134.0...v1.134.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* **agents:** use structured relatedLinks format in spec prompts ([#429](https://github.com/shep-ai/cli/issues/429)) ([ff9e920](https://github.com/shep-ai/cli/commit/ff9e92097371830fcd18994040e7dbcaf294b863))
+
 # [1.134.0](https://github.com/shep-ai/cli/compare/v1.133.0...v1.134.0) (2026-03-19)
 
 
