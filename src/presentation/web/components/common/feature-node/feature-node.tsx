@@ -322,11 +322,11 @@ export function FeatureNode({
           ) : (
             <>
               {/* State badge + action buttons */}
-              <div className="mt-1.5 flex flex-col gap-1.5">
+              <div className="mt-1.5 flex items-center justify-between gap-2">
                 {/* Status line */}
                 <div
                   data-testid="feature-node-badge"
-                  className="flex items-center gap-1.5 text-xs"
+                  className="flex min-w-0 items-center gap-1.5 text-xs"
                 >
                   {(() => {
                     const BadgeIcon = getBadgeIcon(data);
@@ -341,7 +341,7 @@ export function FeatureNode({
                   </span>
                 </div>
 
-                {/* Inline action buttons — compact, colored, sleek */}
+                {/* Action buttons — right-aligned, consistent style */}
                 {data.state === 'action-required' ? (
                   <button
                     type="button"
@@ -350,10 +350,10 @@ export function FeatureNode({
                     onClick={(e) => {
                       e.stopPropagation();
                     }}
-                    className="nodrag inline-flex w-fit cursor-pointer items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-all hover:border-amber-300 hover:bg-amber-100 active:bg-amber-150 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-950/60"
+                    className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
                   >
                     <Check className="h-3 w-3" />
-                    {getActionRequiredLabel(data)}
+                    Approve
                   </button>
                 ) : null}
                 {data.state === 'error' && data.onRetry ? (
@@ -365,7 +365,7 @@ export function FeatureNode({
                       e.stopPropagation();
                       data.onRetry!(data.featureId);
                     }}
-                    className="nodrag inline-flex w-fit cursor-pointer items-center gap-1 rounded border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-700 transition-all hover:border-red-300 hover:bg-red-100 active:bg-red-150 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/60"
+                    className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
                   >
                     <RotateCcw className="h-3 w-3" />
                     Retry
@@ -380,7 +380,7 @@ export function FeatureNode({
                       e.stopPropagation();
                       data.onStart!(data.featureId);
                     }}
-                    className="nodrag inline-flex w-fit cursor-pointer items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 transition-all hover:border-blue-300 hover:bg-blue-100 active:bg-blue-150 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-950/60"
+                    className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
                   >
                     <Play className="h-3 w-3" />
                     Start
