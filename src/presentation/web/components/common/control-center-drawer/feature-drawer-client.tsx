@@ -233,8 +233,9 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   );
 
   const mergeFeatureId =
-    featureNode?.lifecycle === 'review' &&
-    (featureNode?.state === 'action-required' || featureNode?.state === 'error')
+    (featureNode?.lifecycle === 'review' &&
+      (featureNode?.state === 'action-required' || featureNode?.state === 'error')) ||
+    (featureNode?.lifecycle === 'maintain' && featureNode?.pr)
       ? featureNode.featureId
       : null;
   const isLoadingMerge = useArtifactFetch(
