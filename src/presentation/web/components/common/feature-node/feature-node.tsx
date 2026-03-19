@@ -23,8 +23,7 @@ import {
   lifecyclePhaseBadge,
 } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
-import { getAgentTypeIcon, agentTypeLabels, type AgentTypeValue } from './agent-type-icons';
-import { getModelMeta } from '@/lib/model-metadata';
+import { getAgentTypeIcon } from './agent-type-icons';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
 import { FeatureSessionsDropdown } from './feature-sessions-dropdown';
 
@@ -145,7 +144,7 @@ export function FeatureNode({
         )}
       >
         {/* Phase dot + label — absolute top-right corner */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-3 right-4">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -167,8 +166,13 @@ export function FeatureNode({
           </TooltipProvider>
         </div>
 
-        {/* Name */}
-        <h3 className="truncate text-sm font-bold">{data.name}</h3>
+        {/* Agent icon + Name */}
+        <div className="flex items-center gap-1.5">
+          {data.agentType ? (
+            <AgentIcon agentType={data.agentType} className="h-4 w-4 shrink-0" />
+          ) : null}
+          <h3 className="min-w-0 truncate text-sm font-bold">{data.name}</h3>
+        </div>
 
         {/* Description */}
         {data.description ? (
@@ -225,42 +229,22 @@ export function FeatureNode({
           <div className="mt-1.5 flex min-h-[26px] items-center justify-between gap-2">
             {/* Left: Agent icons + ID */}
             <div className="flex items-center gap-1.5" style={{ transform: 'translateY(1px)' }}>
-              {data.agentType ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={
-                          agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType
-                        }
-                        data-testid="feature-node-agent-badge"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          data.onSettings?.();
-                        }}
-                        className={cn(
-                          'nodrag',
-                          data.onSettings
-                            ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
-                            : 'cursor-default'
-                        )}
-                      >
-                        <AgentIcon agentType={data.agentType} className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <span className="font-medium">
-                        {agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType}
-                      </span>
-                      {data.modelId ? (
-                        <span className="ml-1 opacity-70">
-                          · {getModelMeta(data.modelId).displayName || data.modelId}
-                        </span>
-                      ) : null}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+              {data.featureId ? (
+                <div className="flex items-baseline gap-1">
+                  <span className="text-muted-foreground/50 text-[10px]">ID</span>
+                  <button
+                    type="button"
+                    data-testid="feature-node-id"
+                    className="nodrag text-muted-foreground/60 hover:text-muted-foreground cursor-pointer font-mono text-[10px] transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(data.featureId);
+                    }}
+                    title={`Click to copy: ${data.featureId}`}
+                  >
+                    {data.featureId.slice(0, 6)}
+                  </button>
+                </div>
               ) : null}
               {data.deployment ? (
                 <TooltipProvider>
@@ -316,23 +300,6 @@ export function FeatureNode({
                     <TooltipContent side="top">Fast Mode</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              ) : null}
-              {data.featureId ? (
-                <div className="flex items-baseline gap-1">
-                  <span className="text-muted-foreground/50 text-[10px]">ID</span>
-                  <button
-                    type="button"
-                    data-testid="feature-node-id"
-                    className="nodrag text-muted-foreground/60 hover:text-muted-foreground cursor-pointer font-mono text-[10px] transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(data.featureId);
-                    }}
-                    title={`Click to copy: ${data.featureId}`}
-                  >
-                    {data.featureId.slice(0, 6)}
-                  </button>
-                </div>
               ) : null}
             </div>
 
