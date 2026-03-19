@@ -18,14 +18,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
 import {
   featureNodeStateConfig,
-  lifecycleDisplayLabels,
   lifecycleRunningVerbs,
   lifecyclePhaseBadge,
 } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
 import { getAgentTypeIcon } from './agent-type-icons';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
-import { FeatureSessionsDropdown } from './feature-sessions-dropdown';
 
 function AgentIcon({ agentType, className }: { agentType?: string; className?: string }) {
   const IconComponent = getAgentTypeIcon(agentType);
@@ -325,6 +323,7 @@ export function FeatureNode({
                 type="button"
                 aria-label={getActionRequiredLabel(data)}
                 data-testid="feature-node-approve-button"
+                // eslint-disable-next-line @typescript-eslint/no-empty-function -- click bubbles to card's onNodeClick
                 onClick={() => {}}
                 className="nodrag relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 overflow-hidden rounded-md bg-gradient-to-b from-neutral-800 via-neutral-900 to-neutral-950 px-3 py-1.5 text-[11px] font-semibold transition-all hover:from-neutral-700 hover:via-neutral-800 hover:to-neutral-900 active:from-neutral-900 active:to-black"
               >
