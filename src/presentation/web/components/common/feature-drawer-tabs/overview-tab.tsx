@@ -82,14 +82,16 @@ export function OverviewTab({ data }: OverviewTabProps) {
             </div>
           </div>
         ) : null}
-        {isCompleted && data.pr ? <FeaturePrInfo pr={data.pr} /> : null}
+        {isCompleted && data.pr ? (
+          <FeaturePrInfo pr={data.pr} hideCiStatus={data.hideCiStatus} />
+        ) : null}
       </div>
       <FeatureInfo data={data} />
       {!isCompleted && data.pr ? (
         <>
           <Separator />
           <div className="p-4">
-            <FeaturePrInfo pr={data.pr} />
+            <FeaturePrInfo pr={data.pr} hideCiStatus={data.hideCiStatus} />
           </div>
         </>
       ) : null}
@@ -206,7 +208,13 @@ const prStatusStyles: Record<PrStatus, string> = {
   [PrStatus.Closed]: 'border-transparent bg-red-50 text-red-700 hover:bg-red-50',
 };
 
-function FeaturePrInfo({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
+function FeaturePrInfo({
+  pr,
+  hideCiStatus,
+}: {
+  pr: NonNullable<FeatureNodeData['pr']>;
+  hideCiStatus?: boolean;
+}) {
   return (
     <div data-testid="feature-drawer-pr">
       <div className="space-y-3">
@@ -222,7 +230,7 @@ function FeaturePrInfo({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
           </a>
           <Badge className={prStatusStyles[pr.status]}>{pr.status}</Badge>
         </div>
-        {pr.ciStatus ? (
+        {pr.ciStatus && hideCiStatus !== true ? (
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-medium">CI Status</span>
             <CiStatusBadge status={pr.ciStatus} />

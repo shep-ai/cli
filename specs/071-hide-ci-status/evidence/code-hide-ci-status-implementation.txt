@@ -1,0 +1,16 @@
+              How often to poll GitHub for CI run status updates
+            </p>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="hide-ci-status">Hide CI Status</Label>
+              <p className="text-muted-foreground text-xs">
+                Hide CI status badges from feature drawer and merge review
+              </p>
+            </div>
+            <Switch
+              id="hide-ci-status"
+              data-testid="hide-ci-status-switch"
+              checked={hideCiStatus}
+              onCheckedChange={(v) => handleSwitchChange('hideCiStatus', setHideCiStatus, v)}
+            />

@@ -1,0 +1,488 @@
+name: hide-ci-status
+number: 71
+branch: feat/hide-ci-status
+oneLiner: Add user setting to hide CI status badges in web UI
+summary: >
+  Add a user preference to the Settings entity (WorkflowConfig) to hide CI
+  status badges from the web UI feature drawer and merge review components. When
+  enabled, the CI status row will be hidden while preserving the underlying data
+  and functionality.
+phase: Requirements
+sizeEstimate: S
+relatedFeatures: []
+technologies:
+  - TypeSpec (domain model definition)
+  - React (web UI components)
+  - Next.js (web application framework)
+  - SQLite (settings persistence)
+  - tsyringe (dependency injection)
+  - Vitest (unit testing)
+  - React Testing Library (component testing)
+relatedLinks: []
+openQuestions:
+  - question: >-
+      Should the setting hide CI status in both feature drawer and merge review,
+      or should they be independently controllable?
+    resolved: true
+    options:
+      - option: Single toggle for both
+        description: >-
+          One hideCiStatus boolean that affects both feature drawer overview tab
+          and merge review drawer. Simpler UX, easier to understand, fewer
+          settings to manage. Users who want to hide CI status typically want it
+          hidden everywhere.
+        selected: true
+      - option: Independent toggles
+        description: >-
+          Separate hideCiStatusInOverview and hideCiStatusInMergeReview
+          booleans. More granular control but adds complexity. Users might want
+          different visibility in different contexts (e.g., hide in overview but
+          show in merge review for final validation).
+        selected: false
+    selectionRationale: >-
+      Single toggle is recommended because it aligns with the primary use case:
+      users who monitor CI externally want consistent hiding across all UI
+      surfaces. Independent toggles add cognitive overhead for minimal benefit.
+      If users need granular control in the future, we can split the setting via
+      a follow-up feature.
+    answer: Single toggle for both
+  - question: >-
+      Should the setting default to showing or hiding CI status for new
+      installations?
+    resolved: true
+    options:
+      - option: Default to showing (false)
+        description: >-
+          hideCiStatus defaults to false, so CI badges are visible by default.
+          Conservative choice that matches current behavior. Users who want to
+          hide must opt-in. Safer for users who rely on CI status visibility.
+        selected: true
+      - option: Default to hiding (true)
+        description: >-
+          hideCiStatus defaults to true, so CI badges are hidden by default.
+          Users who want to see CI status must opt-in. Could reduce visual
+          clutter for new users but may confuse users who expect to see CI
+          status.
+        selected: false
+    selectionRationale: >-
+      Default to showing is strongly recommended to maintain backward
+      compatibility and avoid surprising existing users. CI status is valuable
+      information for most users, and hiding it by default could lead to
+      confusion. Users who want minimal UI can easily opt-in to hiding.
+    answer: Default to showing (false)
+  - question: >-
+      Should the setting be in WorkflowConfig or a new dedicated UiPreferences
+      config?
+    resolved: true
+    options:
+      - option: Add to WorkflowConfig
+        description: >-
+          Add hideCiStatus to the existing WorkflowConfig model. CI status is
+          workflow-related (PR/CI), so it fits thematically. No new top-level
+          config needed. Simpler implementation.
+        selected: true
+      - option: Create UiPreferences config
+        description: >-
+          Create a new Settings.uiPreferences: UiPreferences model for UI-only
+          settings like hideCiStatus, theme, density, etc. Better separation of
+          concerns. Future UI settings have a clear home. Requires new TypeSpec
+          model and database column.
+        selected: false
+    selectionRationale: >-
+      WorkflowConfig is recommended because CI status is semantically part of
+      the PR/CI workflow, not a pure UI preference like theme or font size.
+      Adding to WorkflowConfig is faster (no new model needed) and keeps related
+      settings together. If we accumulate many UI-only settings in the future,
+      we can refactor to UiPreferences then.
+    answer: Add to WorkflowConfig
+  - question: >-
+      Should hiding CI status also hide the entire PR metadata card, or just the
+      CI status row?
+    resolved: true
+    options:
+      - option: Hide only CI status row
+        description: >-
+          When hideCiStatus is true, only the CI status row (lines 225-230 in
+          overview-tab, 258-263 in merge-review) is hidden. PR number, merge
+          conflicts, and commit hash remain visible. Surgical change with
+          minimal impact on other PR information.
+        selected: true
+      - option: Hide entire PR metadata card
+        description: >-
+          When hideCiStatus is true, hide the entire PR metadata card including
+          PR link, status badge, merge conflicts, and commit hash. Maximum
+          decluttering but loses valuable PR context that is unrelated to CI
+          status.
+        selected: false
+    selectionRationale: >-
+      Hide only CI status row is strongly recommended because the PR link, merge
+      conflict indicator, and commit hash provide valuable context independent
+      of CI status. Users who hide CI status likely still want to see merge
+      conflicts and PR links. Hiding only the CI row is precise and respects
+      user intent.
+    answer: Hide only CI status row
+  - question: >-
+      Should the settings UI placement be in the Workflow section or a new UI
+      Preferences section?
+    resolved: true
+    options:
+      - option: Workflow section
+        description: >-
+          Add "Hide CI Status" switch to the existing Workflow settings section
+          (WorkflowSettingsSection component). Consistent with WorkflowConfig
+          placement in the domain model. Users looking for CI settings will find
+          it naturally.
+        selected: true
+      - option: New UI Preferences section
+        description: >-
+          Create a new "UI Preferences" settings section for display-only
+          settings. Better separation of workflow behavior vs UI display.
+          Requires new settings section component and navigation entry.
+        selected: false
+    selectionRationale: >-
+      Workflow section is recommended for consistency with the domain model.
+      Since hideCiStatus lives in WorkflowConfig, placing the UI control in the
+      Workflow settings section creates a clear mapping between backend and
+      frontend. Creating a new section for one toggle is premature.
+    answer: Workflow section
+  - question: >-
+      Should we add a visual indicator in the settings UI when CI status is
+      hidden?
+    resolved: true
+    options:
+      - option: No indicator needed
+        description: >-
+          The switch state in settings is sufficient. No additional warnings or
+          badges. Users who enable the setting understand the consequence.
+          Simpler UI.
+        selected: true
+      - option: Show info badge when enabled
+        description: >-
+          Display a small info icon or badge next to the switch label when
+          hideCiStatus is true, with a tooltip explaining that CI status is
+          hidden across the UI. Helps prevent users from forgetting they enabled
+          this setting.
+        selected: false
+    selectionRationale: >-
+      No indicator is recommended because the switch state clearly shows whether
+      CI status is hidden. Users who enable this setting are making a deliberate
+      choice and do not need constant reminders. Over-explaining the setting
+      clutters the UI unnecessarily.
+    answer: No indicator needed
+content: >
+  ## Problem Statement
+
+
+  The CI status badge is currently always visible in the web UI's feature drawer
+  (overview tab,
+
+  lines 225-230) and merge review drawer (lines 258-263) when PR data exists.
+  Users may want to
+
+  hide this information to reduce visual clutter or because they monitor CI
+  status through other
+
+  means (GitHub notifications, external dashboards, Slack integrations, IDE
+  extensions).
+
+
+  Currently, there is no way to hide the CI status display without losing the
+  underlying data.
+
+  The underlying `pr.ciStatus` field will continue to be fetched and stored—this
+  feature only
+
+  controls whether the UI renders the badge.
+
+
+  ## Success Criteria
+
+
+  - [ ] **Settings schema updated**: TypeSpec Settings.workflow model includes
+  `hideCiStatus?: boolean` field (defaults to false)
+
+  - [ ] **TypeScript generated**: Running `pnpm tsp:compile` produces the
+  updated Settings interface with hideCiStatus in WorkflowConfig
+
+  - [ ] **Database schema updated**: SQLite settings table includes
+  `hide_ci_status` INTEGER column (0 = show, 1 = hide, default: 0)
+
+  - [ ] **Mapper layer updated**: SQLiteSettingsMapper correctly maps
+  `hide_ci_status` column to/from `workflow.hideCiStatus` field
+
+  - [ ] **Feature drawer respects setting**: OverviewTab component conditionally
+  renders CI status row (lines 225-230) only when
+  `settings.workflow.hideCiStatus !== true`
+
+  - [ ] **Merge review respects setting**: MergeReview component conditionally
+  renders CI status row (lines 258-263) only when
+  `settings.workflow.hideCiStatus !== true`
+
+  - [ ] **Settings UI control added**: WorkflowSettingsSection includes a Switch
+  for "Hide CI Status" that updates `workflow.hideCiStatus` via
+  updateSettingsAction
+
+  - [ ] **Server actions pass setting**: get-feature-drawer-data and
+  get-merge-review-data server actions include `hideCiStatus` in their response
+  payloads
+
+  - [ ] **Tests pass (overview-tab)**: Unit tests verify CI status row is hidden
+  when `hideCiStatus: true` and shown when `hideCiStatus: false`
+
+  - [ ] **Tests pass (merge-review)**: Unit tests verify CI status row is hidden
+  when `hideCiStatus: true` and shown when `hideCiStatus: false`
+
+  - [ ] **Tests pass (settings)**: Unit tests verify the hideCiStatus switch in
+  WorkflowSettingsSection saves correctly
+
+  - [ ] **Tests pass (mapper)**: Integration tests verify settings mapper
+  correctly persists and retrieves `hideCiStatus` from SQLite
+
+  - [ ] **No regressions**: All existing tests pass; CI status data is still
+  fetched and stored, only display is affected
+
+
+  ## Functional Requirements
+
+
+  - **FR-1**: The Settings entity MUST include a `workflow.hideCiStatus` boolean
+  field (optional, defaults to false)
+
+  - **FR-2**: The SQLite settings table MUST store `hideCiStatus` as an INTEGER
+  column (`hide_ci_status`, 0 = show, 1 = hide)
+
+  - **FR-3**: The settings mapper MUST correctly convert between
+  `workflow.hideCiStatus` (boolean) and `hide_ci_status` (INTEGER 0/1)
+
+  - **FR-4**: The OverviewTab component MUST hide the CI status row (lines
+  225-230) when `settings.workflow.hideCiStatus === true`
+
+  - **FR-5**: The MergeReview component MUST hide the CI status row (lines
+  258-263) when `settings.workflow.hideCiStatus === true`
+
+  - **FR-6**: When `hideCiStatus` is true, other PR metadata (PR link, merge
+  conflicts, commit hash) MUST remain visible
+
+  - **FR-7**: The WorkflowSettingsSection component MUST render a Switch control
+  labeled "Hide CI Status"
+
+  - **FR-8**: Toggling the "Hide CI Status" switch MUST call
+  `updateSettingsAction` with `workflow.hideCiStatus` set to the new value
+
+  - **FR-9**: The settings UI MUST save the `hideCiStatus` value immediately on
+  switch toggle (optimistic update pattern used in other workflow settings)
+
+  - **FR-10**: The `get-feature-drawer-data` server action MUST include
+  `hideCiStatus` in its response to enable client-side conditional rendering
+
+  - **FR-11**: The `get-merge-review-data` server action MUST include
+  `hideCiStatus` in its response to enable client-side conditional rendering
+
+  - **FR-12**: The underlying `pr.ciStatus` data MUST continue to be fetched and
+  stored regardless of the `hideCiStatus` setting (this is a display-only
+  preference)
+
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1 (Backward Compatibility)**: The `hideCiStatus` field MUST be
+  optional in TypeSpec and default to false to preserve existing behavior for
+  all users
+
+  - **NFR-2 (Data Integrity)**: Hiding CI status MUST NOT affect data fetching,
+  storage, or business logic—only UI rendering
+
+  - **NFR-3 (Performance)**: The conditional rendering logic MUST NOT introduce
+  measurable performance overhead (simple boolean check)
+
+  - **NFR-4 (Consistency)**: The setting MUST apply uniformly across both
+  feature drawer and merge review components (single source of truth)
+
+  - **NFR-5 (Testability)**: All conditional rendering logic MUST be covered by
+  unit tests with both `hideCiStatus: true` and `hideCiStatus: false` scenarios
+
+  - **NFR-6 (Accessibility)**: The settings Switch component MUST be
+  keyboard-accessible and screen-reader-friendly (inherited from shadcn/ui
+  Switch)
+
+  - **NFR-7 (UX)**: The settings UI MUST provide immediate visual feedback
+  (switch state change + "Saving..." indicator) when the user toggles the
+  setting
+
+  - **NFR-8 (Maintainability)**: The TypeSpec-first approach MUST be
+  preserved—domain model changes start in `tsp/`, not in generated TypeScript
+
+  - **NFR-9 (Migration Safety)**: Existing settings rows in the database MUST
+  NOT be affected by the new column addition (default value: 0 ensures existing
+  rows show CI status)
+
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | Should the setting hide CI status in both feature drawer and merge
+  review, or should they be independently controllable? | **Single toggle for
+  both** | Users who hide CI status typically want consistent behavior across
+  all UI surfaces. Independent toggles add cognitive overhead for minimal UX
+  benefit. Single toggle is simpler and aligns with primary use case. |
+
+  | 2 | Should the setting default to showing or hiding CI status for new
+  installations? | **Default to showing (false)** | Backward compatibility and
+  user expectations. CI status is valuable information; hiding by default could
+  confuse users. Opt-in hiding is safer. |
+
+  | 3 | Should the setting be in WorkflowConfig or a new dedicated UiPreferences
+  config? | **Add to WorkflowConfig** | CI status is semantically part of PR/CI
+  workflow, not a pure UI preference. Faster implementation (no new model). If
+  many UI-only settings emerge later, we can refactor to UiPreferences. |
+
+  | 4 | Should hiding CI status also hide the entire PR metadata card, or just
+  the CI status row? | **Hide only CI status row** | PR link, merge conflicts,
+  and commit hash provide valuable context independent of CI status. Surgical
+  change respects user intent without removing unrelated information. |
+
+  | 5 | Should the settings UI placement be in the Workflow section or a new UI
+  Preferences section? | **Workflow section** | Consistent with WorkflowConfig
+  placement in domain model. Users looking for CI settings will naturally find
+  it in the Workflow section. Creating a new section for one toggle is
+  premature. |
+
+  | 6 | Should we add a visual indicator in the settings UI when CI status is
+  hidden? | **No indicator needed** | Switch state clearly communicates whether
+  CI status is hidden. Users making this choice do not need constant reminders.
+  Simpler UI without over-explanation. |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | tsp/domain/entities/settings.tsp | Medium | Add `hideCiStatus?: boolean`
+  field to WorkflowConfig model (line ~328 after commitEvidence) |
+
+  | packages/core/src/domain/generated/output.ts | Low | Auto-generated from
+  TypeSpec (run `pnpm tsp:compile`) |
+
+  |
+  packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+  | Medium | Add `hide_ci_status` column mapping to toDatabase/fromDatabase
+  functions |
+
+  | src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx
+  | Low | Conditionally render CI status row (lines 225-230) based on
+  settings.workflow.hideCiStatus |
+
+  | src/presentation/web/components/common/merge-review/merge-review.tsx | Low |
+  Conditionally render CI status row (lines 258-263) based on
+  settings.workflow.hideCiStatus |
+
+  |
+  src/presentation/web/components/features/settings/workflow-settings-section.tsx
+  | Low | Add Switch component for "Hide CI Status" preference (after CI
+  Settings section, before Stage Timeouts) |
+
+  | src/presentation/web/app/actions/get-feature-drawer-data.ts | Low | Pass
+  hideCiStatus flag from settings to client |
+
+  | src/presentation/web/app/actions/get-merge-review-data.ts | Low | Pass
+  hideCiStatus flag from settings to client |
+
+  |
+  tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx
+  | Low | Add test case for hidden CI status |
+
+  |
+  tests/unit/presentation/web/components/common/merge-review/merge-review.test.tsx
+  | Low | Add test case for hidden CI status |
+
+  |
+  tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx
+  | Low | Add test for hideCiStatus switch |
+
+  | tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts
+  | Low | Add test for hide_ci_status column mapping |
+
+  | Database migration | High | Add `hide_ci_status` INTEGER column to settings
+  table (default: 0 = show) |
+
+
+  ## Dependencies
+
+
+  - **Existing infrastructure:**
+    - Settings entity (TypeSpec model + SQLite repository)
+    - Settings service singleton (`getSettings()` accessor)
+    - WorkflowConfig nested within Settings
+    - Server Actions pattern (`updateSettingsAction`)
+    - Settings mapper layer (TypeScript ↔ SQLite conversion)
+
+  - **Existing components:**
+    - CiStatusBadge component (`src/presentation/web/components/common/ci-status-badge/`)
+    - FeaturePrInfo section in overview-tab.tsx (lines 209-254)
+    - PR metadata card in merge-review.tsx (lines 227-279)
+    - WorkflowSettingsSection component with Switch controls (lines 260-490)
+    - Switch component from shadcn/ui (`src/presentation/web/components/ui/switch.tsx`)
+
+  - **Testing utilities:**
+    - Vitest for unit/integration tests
+    - React Testing Library for component tests
+    - In-memory SQLite for repository tests
+
+  ## Size Estimate
+
+
+  **S** — This is a small feature (hours, not days):
+
+
+  - **Scope:** Single boolean field addition to existing Settings entity
+
+  - **Complexity:** Low - straightforward conditional rendering, no new business
+  logic
+
+  - **Files touched:** ~13 files (1 TypeSpec, 1 mapper, 2 components, 1 settings
+  UI, 2 server actions, ~5 test files, 1 migration)
+
+  - **Risk:** Very low - purely additive, no breaking changes, existing data
+  unaffected by new optional field
+
+  - **Testing:** Simple boolean state tests (show vs hide), no edge cases beyond
+  true/false
+
+  - **No new dependencies:** Uses existing patterns (Settings entity,
+  WorkflowConfig, Switch component, optimistic update)
+
+
+  The implementation is straightforward because:
+
+  1. Settings infrastructure already exists (TypeSpec → SQLite → singleton
+  service → server actions)
+
+  2. Components already conditionally render sections (same pattern as
+  `pr.mergeable === false` on lines 231-239 in overview-tab)
+
+  3. No business logic changes—just hide/show UI based on user preference
+
+  4. WorkflowSettingsSection already has Switch controls with optimistic update
+  pattern (lines 280-353)
+
+  5. Server actions already pass settings to components (just need to include
+  new field in response)
+
+
+  ---
+
+
+  _Requirements phase complete — ready for research phase_
+rejectionFeedback:
+  - iteration: 1
+    message: Resolve merge conflicts
+    phase: merge
+    timestamp: '2026-03-19T16:38:01.759Z'

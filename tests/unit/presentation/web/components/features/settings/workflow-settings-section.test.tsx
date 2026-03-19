@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { WorkflowSettingsSection } from '@/components/features/settings/workflow-settings-section';
 
 const mockUpdateSettingsAction = vi.fn();
@@ -23,6 +23,7 @@ const defaultWorkflow = {
   enableEvidence: false,
   commitEvidence: false,
   ciWatchEnabled: true,
+  hideCiStatus: false,
 };
 
 describe('WorkflowSettingsSection', () => {
@@ -99,5 +100,60 @@ describe('WorkflowSettingsSection', () => {
     render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
     expect(screen.getByText('Approval Gates')).toBeDefined();
     expect(screen.getByText('CI Settings')).toBeDefined();
+  });
+
+  it('renders hide ci status switch', () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    expect(screen.getByTestId('hide-ci-status-switch')).toBeDefined();
+  });
+
+  it('hide ci status switch is unchecked when hideCiStatus is false', () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    const switchElement = screen.getByTestId('hide-ci-status-switch');
+    expect(switchElement.getAttribute('data-state')).toBe('unchecked');
+  });
+
+  it('hide ci status switch is checked when hideCiStatus is true', () => {
+    const workflowWithHidden = { ...defaultWorkflow, hideCiStatus: true };
+    render(<WorkflowSettingsSection workflow={workflowWithHidden} />);
+    const switchElement = screen.getByTestId('hide-ci-status-switch');
+    expect(switchElement.getAttribute('data-state')).toBe('checked');
+  });
+
+  it('toggling hide ci status switch calls updateSettingsAction with hideCiStatus: true', async () => {
+    render(<WorkflowSettingsSection workflow={defaultWorkflow} />);
+    const switchElement = screen.getByTestId('hide-ci-status-switch');
+
+    fireEvent.click(switchElement);
+
+    // Wait for async action
+    await vi.waitFor(() => {
+      expect(mockUpdateSettingsAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflow: expect.objectContaining({
+            hideCiStatus: true,
+          }),
+        })
+      );
+    });
+  });
+
+  it('toggling hide ci status switch off calls updateSettingsAction with hideCiStatus: false', async () => {
+    const workflowWithHidden = { ...defaultWorkflow, hideCiStatus: true };
+    render(<WorkflowSettingsSection workflow={workflowWithHidden} />);
+    const switchElement = screen.getByTestId('hide-ci-status-switch');
+
+    fireEvent.click(switchElement);
+
+    // Wait for async action
+    await vi.waitFor(() => {
+      expect(mockUpdateSettingsAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflow: expect.objectContaining({
+            hideCiStatus: false,
+          }),
+        })
+      );
+    });
   });
 });

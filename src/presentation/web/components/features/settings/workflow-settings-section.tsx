@@ -37,6 +37,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const [ciPollInterval, setCiPollInterval] = useState(
     workflow.ciWatchPollIntervalSeconds != null ? String(workflow.ciWatchPollIntervalSeconds) : ''
   );
+  const [hideCiStatus, setHideCiStatus] = useState(workflow.hideCiStatus !== false);
   // Per-stage timeout states (seconds for display)
   // Defaults: feature agent stages = 1_800_000 ms (1800s), analyze-repo = 600_000 ms (600s)
   const st = workflow.stageTimeouts;
@@ -95,6 +96,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
       allowPlan?: boolean;
       allowMerge?: boolean;
       ciWatchEnabled?: boolean;
+      hideCiStatus?: boolean;
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
@@ -119,6 +121,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
           allowMerge: overrides.allowMerge ?? allowMerge,
         },
         ciWatchEnabled: overrides.ciWatchEnabled ?? ciWatchEnabled,
+        hideCiStatus: overrides.hideCiStatus ?? hideCiStatus,
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
@@ -148,7 +151,14 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   }
 
   function handleSwitchChange(
-    key: 'openPr' | 'pushOnComplete' | 'allowPrd' | 'allowPlan' | 'allowMerge' | 'ciWatchEnabled',
+    key:
+      | 'openPr'
+      | 'pushOnComplete'
+      | 'allowPrd'
+      | 'allowPlan'
+      | 'allowMerge'
+      | 'ciWatchEnabled'
+      | 'hideCiStatus',
     setter: (v: boolean) => void,
     value: boolean
   ) {
@@ -443,6 +453,20 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
             <p className="text-muted-foreground text-xs">
               How often to poll GitHub for CI run status updates
             </p>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="hide-ci-status">Hide CI Status</Label>
+              <p className="text-muted-foreground text-xs">
+                Hide CI status badges from feature drawer and merge review
+              </p>
+            </div>
+            <Switch
+              id="hide-ci-status"
+              data-testid="hide-ci-status-switch"
+              checked={hideCiStatus}
+              onCheckedChange={(v) => handleSwitchChange('hideCiStatus', setHideCiStatus, v)}
+            />
           </div>
         </div>
 

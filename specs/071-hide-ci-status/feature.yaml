@@ -1,0 +1,40 @@
+feature:
+  id: 071-hide-ci-status
+  name: hide-ci-status
+  number: 71
+  branch: feat/071-hide-ci-status
+  lifecycle: research
+  createdAt: '2026-03-17T17:11:24Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 14
+    total: 14
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-03-17T18:26:38.155Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1-foundation
+    - phase-2-infrastructure
+    - phase-3-presentation
+    - phase-4-integration
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-17T17:11:24Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

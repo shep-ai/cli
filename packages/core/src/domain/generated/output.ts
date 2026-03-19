@@ -432,6 +432,10 @@ export type WorkflowConfig = {
    * Maximum number of evidence collection retry attempts when validation fails (default: 3)
    */
   evidenceRetries?: number;
+  /**
+   * Hide CI status badges from UI (default: true)
+   */
+  hideCiStatus?: boolean;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',

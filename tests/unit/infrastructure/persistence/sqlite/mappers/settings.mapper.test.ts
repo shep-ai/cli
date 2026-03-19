@@ -125,6 +125,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     workflow_open_pr_on_impl_complete: 0,
     workflow_enable_evidence: 0,
     workflow_commit_evidence: 0,
+    hide_ci_status: 1,
     ci_watch_enabled: 1,
     ci_max_fix_attempts: null,
     ci_watch_timeout_ms: null,
@@ -664,6 +665,83 @@ describe('Settings Mapper', () => {
       const row = toDatabase(original);
       const restored = fromDatabase(row);
       expect(restored.workflow.analyzeRepoTimeouts).toEqual(original.workflow.analyzeRepoTimeouts);
+    });
+  });
+
+  describe('toDatabase() - hideCiStatus', () => {
+    it('should map workflow.hideCiStatus=true to hide_ci_status=1', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          hideCiStatus: true,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.hide_ci_status).toBe(1);
+    });
+
+    it('should map workflow.hideCiStatus=false to hide_ci_status=0', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          hideCiStatus: false,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.hide_ci_status).toBe(0);
+    });
+
+    it('should map workflow.hideCiStatus=undefined to hide_ci_status=1', () => {
+      const settings = createTestSettings();
+      const row = toDatabase(settings);
+      expect(row.hide_ci_status).toBe(1);
+    });
+  });
+
+  describe('fromDatabase() - hideCiStatus', () => {
+    it('should map hide_ci_status=1 to workflow.hideCiStatus=true', () => {
+      const row = createTestRow({ hide_ci_status: 1 });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.hideCiStatus).toBe(true);
+    });
+
+    it('should map hide_ci_status=0 to workflow.hideCiStatus=false', () => {
+      const row = createTestRow({ hide_ci_status: 0 });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.hideCiStatus).toBe(false);
+    });
+  });
+
+  describe('round-trip - hideCiStatus', () => {
+    it('should preserve hideCiStatus=true through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          hideCiStatus: true,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.hideCiStatus).toBe(true);
+    });
+
+    it('should preserve hideCiStatus=false through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          hideCiStatus: false,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.hideCiStatus).toBe(false);
+    });
+
+    it('should preserve hideCiStatus=undefined through toDatabase → fromDatabase as true', () => {
+      const original = createTestSettings();
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.hideCiStatus).toBe(true);
     });
   });
 });

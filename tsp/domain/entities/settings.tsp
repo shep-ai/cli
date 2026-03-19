@@ -328,6 +328,15 @@ model WorkflowConfig {
 
   @doc("Maximum number of evidence collection retry attempts when validation fails (default: 3)")
   evidenceRetries?: int32;
+
+  /**
+   * Whether to hide CI status badges from the web UI (feature drawer and merge review).
+   * When true, the CI status row is hidden from the UI while the underlying data
+   * is still fetched and stored. Useful for users who monitor CI status through
+   * other means (GitHub notifications, Slack, IDE extensions).
+   */
+  @doc("Hide CI status badges from UI (default: true)")
+  hideCiStatus?: boolean;
 }
 
 @doc("AI coding agent configuration")

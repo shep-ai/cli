@@ -137,6 +137,42 @@ describe('OverviewTab', () => {
       expect(link).toHaveAttribute('href', 'https://github.com/org/repo/pull/42');
     });
 
+    describe('CI status visibility', () => {
+      it('shows CI status row when hideCiStatus is false', () => {
+        renderOverviewTab({ ...defaultData, pr: prData, hideCiStatus: false });
+        expect(screen.getByText('CI Status')).toBeInTheDocument();
+        expect(screen.getByText('Passing')).toBeInTheDocument();
+      });
+
+      it('shows CI status row when hideCiStatus is undefined (default behavior)', () => {
+        renderOverviewTab({ ...defaultData, pr: prData, hideCiStatus: undefined });
+        expect(screen.getByText('CI Status')).toBeInTheDocument();
+        expect(screen.getByText('Passing')).toBeInTheDocument();
+      });
+
+      it('hides CI status row when hideCiStatus is true', () => {
+        renderOverviewTab({ ...defaultData, pr: prData, hideCiStatus: true });
+        expect(screen.queryByText('CI Status')).not.toBeInTheDocument();
+        expect(screen.queryByText('Passing')).not.toBeInTheDocument();
+      });
+
+      it('still shows other PR metadata when CI status is hidden', () => {
+        renderOverviewTab({
+          ...defaultData,
+          pr: { ...prData, mergeable: false },
+          hideCiStatus: true,
+        });
+        // PR link should be visible
+        expect(screen.getByRole('link', { name: /PR #42/i })).toBeInTheDocument();
+        // Merge conflicts should be visible
+        expect(screen.getByTestId('pr-merge-conflict')).toBeInTheDocument();
+        // Commit hash should be visible
+        expect(screen.getByText('abc1234')).toBeInTheDocument();
+        // But CI status should be hidden
+        expect(screen.queryByText('CI Status')).not.toBeInTheDocument();
+      });
+    });
+
     it('renders PR info inside status section when lifecycle is maintain (completed)', () => {
       renderOverviewTab({
         ...defaultData,

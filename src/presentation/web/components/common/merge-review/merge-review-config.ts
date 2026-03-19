@@ -75,6 +75,8 @@ export interface MergeReviewData {
   warning?: string;
   /** Evidence captured during implementation (paths are absolute) */
   evidence?: MergeReviewEvidence[];
+  /** Whether to hide CI status badges from UI (global workflow setting) */
+  hideCiStatus?: boolean;
 }
 
 /** Props for the merge review content component */

@@ -1,0 +1,301 @@
+name: hide-ci-status
+summary: >
+  Implementation follows TypeSpec-first workflow: define hideCiStatus in WorkflowConfig,
+  generate TypeScript types, create SQLite migration 042 for hide_ci_status column (INTEGER
+  DEFAULT 0), update settings mapper with boolean ↔ INTEGER conversion, add conditional
+  rendering to OverviewTab and MergeReview components, integrate Switch control in
+  WorkflowSettingsSection with optimistic update pattern, and add comprehensive test
+  coverage (mapper, components, settings UI). Zero new dependencies. Four phases: Foundation
+  (TypeSpec + migration), Infrastructure (mapper + repository), Presentation (UI components),
+  Integration (settings UI + server actions).
+
+relatedFeatures: []
+technologies:
+  - TypeSpec (domain model definition)
+  - SQLite (settings table with INTEGER column)
+  - better-sqlite3 (database driver)
+  - umzug v3 (migration framework)
+  - React (conditional rendering)
+  - Next.js (server actions)
+  - shadcn/ui Switch (settings toggle)
+  - tsyringe (DI for settings service)
+  - Vitest (unit testing)
+  - React Testing Library (component testing)
+
+relatedLinks:
+  - title: 'TypeSpec Language Documentation'
+    url: 'https://typespec.io/'
+  - title: 'better-sqlite3 Documentation'
+    url: 'https://github.com/WiseLibs/better-sqlite3'
+  - title: 'umzug v3 Migration Framework'
+    url: 'https://github.com/sequelize/umzug'
+
+phases:
+  - id: phase-1-foundation
+    name: 'Foundation & Domain Setup'
+    description: >
+      Define the domain model in TypeSpec and establish database schema. This phase creates
+      the foundation by adding hideCiStatus to WorkflowConfig (TypeSpec), compiling to
+      TypeScript types, and creating SQLite migration 042 to add hide_ci_status column.
+      This must come first because all subsequent phases depend on the domain type and
+      database schema existing.
+    parallel: false
+
+  - id: phase-2-infrastructure
+    name: 'Infrastructure Layer (Mapper & Persistence)'
+    description: >
+      Update the persistence layer to handle the new field. This phase modifies the settings
+      mapper to convert between domain boolean (hideCiStatus) and database INTEGER
+      (hide_ci_status 0/1), updates SettingsRow interface, and adds test coverage for
+      round-trip mapping. This must come after phase 1 (needs TypeSpec types and migration)
+      and before phase 3 (UI needs mapper to save/load settings).
+    parallel: false
+
+  - id: phase-3-presentation
+    name: 'Presentation Layer (UI Components)'
+    description: >
+      Add conditional rendering to feature drawer and merge review components. This phase
+      updates OverviewTab and MergeReview to hide CI status row when hideCiStatus is true,
+      modifies server actions to pass the setting, updates types, and adds component tests.
+      This must come after phase 2 (needs mapper to load settings) and before phase 4
+      (settings UI needs components to be wired for end-to-end verification).
+    parallel: false
+
+  - id: phase-4-integration
+    name: 'Settings UI Integration'
+    description: >
+      Add user-facing settings control and verify end-to-end flow. This phase adds Switch
+      to WorkflowSettingsSection, implements optimistic update pattern, adds settings UI
+      tests, and performs integration verification. This must come last because it ties
+      together all previous phases (domain model, mapper, UI components) into the complete
+      user workflow.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/infrastructure/persistence/sqlite/migrations/042-add-hide-ci-status.ts
+
+filesToModify:
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+  - src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx
+  - src/presentation/web/components/common/merge-review/merge-review.tsx
+  - src/presentation/web/components/features/settings/workflow-settings-section.tsx
+  - src/presentation/web/app/actions/get-feature-drawer-data.ts
+  - src/presentation/web/app/actions/get-merge-review-data.ts
+  - tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts
+  - tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx
+  - tests/unit/presentation/web/components/common/merge-review/merge-review.test.tsx
+  - tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature integrates into the existing Clean Architecture by adding a single boolean
+  preference (hideCiStatus) to the WorkflowConfig domain model and propagating it through
+  all architectural layers:
+
+  **Domain Layer (TypeSpec):** The hideCiStatus field is defined in
+  `tsp/domain/entities/settings.tsp` within the WorkflowConfig model (line ~328, after
+  commitEvidence). This is the single source of truth. The field is optional
+  (`hideCiStatus?: boolean`) for backward compatibility—existing installations default
+  to false (show CI status).
+
+  **Infrastructure Layer (SQLite + Mapper):** The persistence layer stores hideCiStatus
+  as an INTEGER column (`hide_ci_status`, 0 = show, 1 = hide) in the settings table.
+  Migration 042 adds the column with `NOT NULL DEFAULT 0` to ensure existing rows
+  automatically get "show" behavior. The settings mapper
+  (`packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts`)
+  handles boolean ↔ INTEGER conversion in toDatabase() and fromDatabase() functions,
+  following the exact pattern of 30+ existing boolean settings (ci_watch_enabled,
+  workflow_enable_evidence, etc.).
+
+  **Presentation Layer (React Components):** The web UI consumes hideCiStatus via server
+  actions and conditionally renders the CI status row using `{hideCiStatus !== true ? ... : null}`
+  pattern. Two components are affected: OverviewTab (lines 225-230) and MergeReview
+  (lines 258-263). Both already use conditional rendering for other PR sections
+  (merge conflicts, commit hash), so this follows existing patterns. The settings UI
+  (WorkflowSettingsSection) adds a Switch control with optimistic update pattern,
+  matching 7 existing boolean settings (ci_watch_enabled, workflow_enable_evidence, etc.).
+
+  **Server Actions:** The get-feature-drawer-data and get-merge-review-data server actions
+  are modified to include hideCiStatus in their response payloads. This follows the
+  existing pattern for workflow.enableEvidence and workflow.commitEvidence.
+
+  **Dependency Flow (Clean Architecture):** Domain ← Infrastructure ← Presentation.
+  The domain model has zero dependencies. The infrastructure depends on the domain
+  (Settings type). The presentation depends on the domain (Settings type) but not on
+  infrastructure details (doesn't know about SQLite). Server actions bridge presentation
+  and application layers.
+
+  ## Key Design Decisions
+
+  ### 1. WorkflowConfig vs UiPreferences
+
+  **Chosen:** Add hideCiStatus to existing WorkflowConfig model
+
+  **Rationale:** CI status is semantically part of the PR/CI workflow domain, not a pure
+  UI preference like theme or font size. The spec explicitly resolved this (openQuestion #3).
+  Existing evidence settings (enableEvidence, commitEvidence) are already in WorkflowConfig
+  and follow the same pattern (boolean preferences affecting PR/CI behavior). Adding
+  hideCiStatus alongside them creates a consistent settings group. Creating a new
+  UiPreferences model would be premature abstraction for one field and add complexity
+  (new TypeSpec model, new database table, new mapper layer, new settings section UI).
+  If we accumulate many UI-only settings in the future, we can refactor to UiPreferences then.
+
+  ### 2. SQLite INTEGER 0/1 vs TEXT "true"/"false"
+
+  **Chosen:** INTEGER column with 0 = show, 1 = hide
+
+  **Rationale:** This matches all 30+ existing boolean settings in the settings table
+  (sys_auto_update, notif_in_app_enabled, workflow_open_pr_on_impl_complete, ci_watch_enabled).
+  SQLite has no native BOOLEAN type—it's aliased to INTEGER. Using INTEGER 0/1 aligns
+  with SQLite documentation and codebase conventions. The mapper already handles boolean ↔
+  INTEGER conversion for all existing settings. Using TEXT would violate conventions and
+  complicate mapper logic. NOT NULL DEFAULT 0 ensures existing settings rows (from
+  pre-migration databases) automatically get "show CI status" behavior without requiring
+  data migration scripts.
+
+  ### 3. Migration 042 Pattern
+
+  **Chosen:** Individual .ts file with idempotent column check, following migrations 035-041 pattern
+
+  **Rationale:** Migrations 035-041 establish the pattern: individual .ts files in migrations/
+  directory for runtime discovery, version control granularity, and rollback support. Migration
+  037 (ci_watch_enabled) and 040 (feature_flag_adopt_branch) are exact precedents for adding
+  boolean settings columns. The idempotent check (`db.pragma('table_info(settings)')`)
+  prevents errors on re-run (critical for development). ALTER TABLE with DEFAULT clause
+  is atomic and safe—SQLite applies the default to existing rows in a single transaction.
+  No manual data migration needed. The down() function is a no-op (void db;) following
+  established pattern.
+
+  ### 4. Default to false (Show CI Status)
+
+  **Chosen:** hideCiStatus defaults to false in TypeSpec, database (DEFAULT 0), mapper, and UI
+
+  **Rationale:** The spec resolved this (openQuestion #2) choosing "default to showing" for
+  backward compatibility and user expectations. CI status is valuable information for most
+  users. Hiding it by default could confuse users who expect to see it. Existing users
+  upgrading to this version will see no behavior change until they explicitly opt-in to
+  hiding. TypeSpec field is optional (hideCiStatus?: boolean) so omission defaults to
+  undefined, which the UI interprets as false via `hideCiStatus !== true` conditionals.
+  The database migration uses DEFAULT 0 so existing settings rows automatically get the
+  correct behavior. All UI components use `hideCiStatus !== true` checks, so undefined/false
+  both mean "show CI status".
+
+  ### 5. Single Toggle vs Independent Toggles
+
+  **Chosen:** Single hideCiStatus boolean affects both feature drawer and merge review
+
+  **Rationale:** The spec resolved this (openQuestion #1) choosing a single toggle because
+  users who hide CI status typically want consistent behavior across all UI surfaces.
+  Independent toggles (hideCiStatusInOverview, hideCiStatusInMergeReview) would add
+  cognitive overhead and settings clutter for minimal UX benefit. The primary use case
+  is users who monitor CI externally (GitHub notifications, Slack, IDE extensions) and
+  want minimal UI everywhere. If granular control is needed in the future, we can split
+  the setting via a follow-up feature.
+
+  ### 6. Hide Only CI Status Row vs Entire PR Metadata Card
+
+  **Chosen:** Hide only the CI status row (lines 225-230 in overview-tab, 258-263 in merge-review)
+
+  **Rationale:** The spec resolved this (openQuestion #4) choosing surgical hiding because
+  PR link, merge conflict indicator, and commit hash provide valuable context independent
+  of CI status. Users who hide CI status likely still want to see merge conflicts and PR
+  links. Hiding only the CI row is precise and respects user intent without removing
+  unrelated information. This is a simple conditional wrapper around the CI status row,
+  leaving all other PR metadata visible.
+
+  ### 7. Settings UI Placement in Workflow Section
+
+  **Chosen:** Add Switch to existing WorkflowSettingsSection after CI Settings section
+
+  **Rationale:** The spec resolved this (openQuestion #5) choosing the Workflow section
+  for consistency with the domain model. Since hideCiStatus lives in WorkflowConfig,
+  placing the UI control in the Workflow settings section creates a clear mapping between
+  backend and frontend. Users looking for CI settings will naturally find it in the
+  Workflow section. The placement after "Watch CI" (lines 360-373) is semantic—CI watch
+  and CI status hiding are related workflow preferences. Creating a new "UI Preferences"
+  section for one toggle would be premature abstraction.
+
+  ### 8. Conditional Rendering vs CSS display:none
+
+  **Chosen:** React conditional rendering ({hideCiStatus !== true ? ... : null})
+
+  **Rationale:** Conditional rendering is the React best practice for show/hide logic.
+  CSS display:none keeps the DOM node in memory and is less performant. Conditional
+  rendering completely removes the node from the virtual DOM, reducing reconciliation
+  overhead. Both OverviewTab and MergeReview already use conditional rendering for other
+  PR sections (pr.mergeable === false for merge conflicts, pr.commitHash for commit
+  display). This pattern is consistent with existing codebase conventions and has zero
+  performance overhead (simple boolean check during render phase).
+
+  ### 9. TDD Strategy
+
+  **Chosen:** Test-first for mapper, components, and settings UI with RED-GREEN-REFACTOR cycles
+
+  **Rationale:** The CLAUDE.md rules mandate TDD for all code changes. Each task defines
+  explicit TDD cycles: (1) RED: Write failing test asserting expected behavior;
+  (2) GREEN: Minimal implementation to pass test; (3) REFACTOR: Clean up, extract helpers,
+  improve naming. For mapper: test round-trip conversion (hideCiStatus: true → hide_ci_status: 1 →
+  hideCiStatus: true). For components: test CI status row presence/absence based on
+  hideCiStatus value. For settings UI: test switch toggle saves correct value. This
+  approach ensures every line of code is covered by tests before merging.
+
+  ## Implementation Strategy
+
+  The implementation follows a strict bottom-up, layer-by-layer approach to respect Clean
+  Architecture dependency rules and ensure each layer is fully tested before the next
+  layer depends on it:
+
+  **Phase 1 (Foundation):** Establish the domain model and database schema first. TypeSpec
+  definition → compile to TypeScript → create migration. This must be first because all
+  subsequent phases depend on the Settings type and database column existing. Tests verify
+  TypeSpec compilation succeeds and migration is idempotent.
+
+  **Phase 2 (Infrastructure):** Update the persistence layer to handle the new field.
+  Mapper updates → mapper tests. This must come after phase 1 (needs TypeSpec types and
+  migration) and before phase 3 (UI needs mapper to load settings). Tests verify round-trip
+  mapping correctness (boolean ↔ INTEGER conversion).
+
+  **Phase 3 (Presentation):** Add conditional rendering to UI components. Component updates →
+  server action updates → type updates → component tests. This must come after phase 2
+  (needs mapper to load settings) and before phase 4 (settings UI needs components wired
+  for end-to-end verification). Tests verify CI status row is hidden when hideCiStatus: true
+  and shown when hideCiStatus: false.
+
+  **Phase 4 (Integration):** Add user-facing settings control. Settings UI update → settings
+  UI tests → integration verification. This must come last because it ties together all
+  previous phases (domain model, mapper, UI components) into the complete user workflow.
+  Tests verify the switch exists, toggles state, and calls updateSettingsAction with
+  correct payload.
+
+  **Why This Order:**
+
+  1. TypeSpec first ensures type safety propagates through all layers (TypeScript compiler
+     catches type errors immediately)
+  2. Migration before mapper ensures database schema exists when mapper tests run
+  3. Mapper before UI ensures settings can be persisted/retrieved when UI renders
+  4. Components before settings UI ensures conditional rendering works before users can toggle it
+  5. Each phase is independently testable—no integration tests needed until phase 4
+
+  **Parallel Opportunities:** None. Each phase strictly depends on the previous phase.
+  However, within phase 3, OverviewTab and MergeReview component updates can be done in
+  parallel after server action updates (they're independent components consuming the same data).
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | **Migration fails on existing databases** | Use idempotent column check (`db.pragma('table_info(settings)')`) to skip column addition if it already exists. Follow exact pattern from migrations 037 and 040. Test migration on fresh database and pre-existing database. |
+  | **TypeSpec compilation breaks existing types** | Add hideCiStatus as optional field (`hideCiStatus?: boolean`) to ensure backward compatibility. Run `pnpm tsp:compile` in task 2 and verify no existing types are affected. Check git diff on generated/output.ts. |
+  | **Mapper breaks existing settings persistence** | Add comprehensive round-trip tests for hideCiStatus mapping. Verify existing mapper tests still pass (1200+ tests). Use defensive coding: `settings.workflow.hideCiStatus ? 1 : 0` handles undefined/false gracefully. |
+  | **UI components break when hideCiStatus is undefined** | Use `hideCiStatus !== true` conditionals instead of `!hideCiStatus` to handle undefined/null/false consistently. Add test cases for undefined, false, and true values. |
+  | **Settings UI doesn't save correctly** | Follow exact pattern from ci_watch_enabled (lines 360-373) for Switch component and handleSwitchChange. Add test verifying updateSettingsAction is called with correct payload. Use optimistic update pattern with "Saving..." indicator. |
+  | **Server actions don't pass hideCiStatus to components** | Update FeatureNodeData and MergeReviewData types to include hideCiStatus?: boolean. Add explicit type checks (TypeScript compiler enforces). Add component tests that verify props are received. |
+  | **Tests fail due to missing test data setup** | Update test factories/fixtures to include hideCiStatus in mock settings objects. Use default value (false) in existing tests to preserve current behavior. Add dedicated tests with hideCiStatus: true. |
+  | **Regression in existing CI status functionality** | Run full test suite after each phase (`pnpm test`). Verify CI status data is still fetched/stored when hideCiStatus: true (only display is affected). Add integration test verifying pr.ciStatus field is populated regardless of hideCiStatus. |
+  | **Merge conflicts with other branches** | Feature is isolated to Settings domain and two UI components. Low conflict risk. If conflicts occur, prioritize preserving TypeSpec definitions (single source of truth) and re-generate TypeScript. |
+  | **Performance regression from conditional rendering** | Benchmark OverviewTab and MergeReview render times before/after changes. Conditional rendering should be faster (fewer DOM nodes). If regression detected, investigate memo/useMemo opportunities. |

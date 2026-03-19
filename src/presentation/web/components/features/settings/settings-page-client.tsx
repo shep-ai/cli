@@ -380,6 +380,7 @@ export function SettingsPageClient({
   const [enableEvidence, setEnableEvidence] = useState(settings.workflow.enableEvidence);
   const [commitEvidence, setCommitEvidence] = useState(settings.workflow.commitEvidence);
   const [ciWatchEnabled, setCiWatchEnabled] = useState(settings.workflow.ciWatchEnabled !== false);
+  const [hideCiStatus, setHideCiStatus] = useState(settings.workflow.hideCiStatus !== false);
   const [ciMaxFix, setCiMaxFix] = useState(
     settings.workflow.ciMaxFixAttempts != null ? String(settings.workflow.ciMaxFixAttempts) : ''
   );
@@ -495,6 +496,7 @@ export function SettingsPageClient({
       enableEvidence?: boolean;
       commitEvidence?: boolean;
       ciWatchEnabled?: boolean;
+      hideCiStatus?: boolean;
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
@@ -521,6 +523,7 @@ export function SettingsPageClient({
         enableEvidence: overrides.enableEvidence ?? enableEvidence,
         commitEvidence: overrides.commitEvidence ?? commitEvidence,
         ciWatchEnabled: overrides.ciWatchEnabled ?? ciWatchEnabled,
+        hideCiStatus: overrides.hideCiStatus ?? hideCiStatus,
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
@@ -1039,6 +1042,17 @@ export function SettingsPageClient({
                 suffix="sec"
               />
             </SettingsRow>
+            <SwitchRow
+              label="Hide CI status"
+              description="Hide CI status badges from feature drawer and merge review"
+              id="hide-ci-status"
+              testId="switch-hide-ci-status"
+              checked={hideCiStatus}
+              onChange={(v) => {
+                setHideCiStatus(v);
+                save(buildWorkflowPayload({ hideCiStatus: v }));
+              }}
+            />
           </SettingsSection>
           <SectionHint
             links={[
