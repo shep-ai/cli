@@ -21,7 +21,7 @@ _Describe a feature in plain English — Shep researches, plans, codes, tests, a
 
 <br />
 
-<img src="docs/screenshots/features-guide/01-dashboard-canvas.png" alt="Shep AI — Control Center Dashboard" width="900" />
+<img src="docs/screenshots/cover.png" alt="Shep AI" width="900" />
 
 </div>
 
