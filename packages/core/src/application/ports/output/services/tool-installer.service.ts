@@ -16,6 +16,13 @@ export interface AvailableTerminalEntry {
   available: boolean;
 }
 
+export interface TerminalOpenConfig {
+  /** Platform-resolved openDirectory command string, still containing {dir} placeholder */
+  openDirectory: string;
+  /** Whether to spawn with shell: true */
+  shell: boolean;
+}
+
 /**
  * Service interface for tool installation management.
  */
@@ -56,4 +63,14 @@ export interface IToolInstallerService {
    * @returns Array of terminal entries with id, name, and availability
    */
   listAvailableTerminals(): Promise<AvailableTerminalEntry[]>;
+
+  /**
+   * Get the open-directory configuration for a terminal by its tool ID.
+   * Returns the platform-resolved openDirectory command and shell preference.
+   * Safe to call from Next.js server actions via DI (no import.meta.url dependency).
+   *
+   * @param terminalId - Tool ID (e.g. 'warp', 'iterm2', 'system-terminal')
+   * @returns Config with openDirectory command and shell flag, or null if not found
+   */
+  getTerminalOpenConfig(terminalId: string): TerminalOpenConfig | null;
 }

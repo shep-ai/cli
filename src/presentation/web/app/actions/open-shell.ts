@@ -6,13 +6,8 @@ import { isAbsolute } from 'node:path';
 import { spawn } from 'node:child_process';
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
-import { getTerminalEntries } from '@shepai/core/infrastructure/services/tool-installer/tool-metadata';
-
-/** Resolves a platform-keyed value to the current platform string. */
-function resolvePlatformValue(value: string | Record<string, string>): string {
-  if (typeof value === 'string') return value;
-  return value[platform()] ?? Object.values(value)[0];
-}
+import { resolve } from '@/lib/server-container';
+import type { IToolInstallerService } from '@shepai/core/application/ports/output/services/tool-installer.service';
 
 // Fallback commands for the "system" terminal when no tool metadata entry exists.
 // Uses a record lookup instead of if/else to prevent the bundler from
@@ -53,40 +48,41 @@ export async function openShell(
       return { success: false, error: `Path does not exist: ${targetPath}` };
     }
 
-    // Try to find the terminal in tool metadata for non-system terminals
+    // Try to find the terminal in tool metadata via DI container.
+    // Using DI (not a direct import from tool-metadata) ensures that
+    // TOOL_METADATA is read from the correct tools/ directory path — it is loaded once
+    // in the Node.js CLI bootstrap context where import.meta.url resolves correctly.
+    // Direct imports of tool-metadata break in standalone production builds.
     if (terminalPref !== 'system') {
-      const entries = getTerminalEntries();
-      const terminalEntry = entries.find(([id]) => id === terminalPref);
+      try {
+        const service = resolve<IToolInstallerService>('IToolInstallerService');
+        const config = service.getTerminalOpenConfig(terminalPref);
 
-      if (terminalEntry) {
-        const [, meta] = terminalEntry;
-        if (meta.openDirectory) {
-          const openCmd = resolvePlatformValue(meta.openDirectory);
-          if (openCmd.includes('{dir}')) {
-            const resolved = openCmd.replace('{dir}', targetPath);
-            const useShell = meta.spawnOptions?.shell === true;
+        if (config?.openDirectory.includes('{dir}')) {
+          const resolved = config.openDirectory.replace('{dir}', targetPath);
 
-            if (useShell) {
-              const child = spawn(resolved, [], {
-                detached: true,
-                stdio: 'ignore',
-                shell: true,
-              });
-              child.on('error', () => undefined);
-              child.unref();
-            } else {
-              const [command, ...args] = resolved.split(/\s+/);
-              const child = spawn(command, args, {
-                detached: true,
-                stdio: 'ignore',
-              });
-              child.on('error', () => undefined);
-              child.unref();
-            }
-
-            return { success: true, path: targetPath, shell };
+          if (config.shell) {
+            const child = spawn(resolved, [], {
+              detached: true,
+              stdio: 'ignore',
+              shell: true,
+            });
+            child.on('error', () => undefined);
+            child.unref();
+          } else {
+            const [command, ...args] = resolved.split(/\s+/);
+            const child = spawn(command, args, {
+              detached: true,
+              stdio: 'ignore',
+            });
+            child.on('error', () => undefined);
+            child.unref();
           }
+
+          return { success: true, path: targetPath, shell };
         }
+      } catch {
+        // DI container not available — fall through to system terminal
       }
     }
 

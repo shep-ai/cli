@@ -30,6 +30,7 @@ describe('InstallToolUseCase', () => {
           toolName: 'test-tool',
         }),
       listAvailableTerminals: vi.fn(),
+      getTerminalOpenConfig: vi.fn(),
     };
 
     useCase = new InstallToolUseCase(mockService);

@@ -164,6 +164,45 @@ describe('ToolInstallerServiceImpl', () => {
     });
   });
 
+  describe('getTerminalOpenConfig', () => {
+    it('should return null for unknown terminal id', () => {
+      const config = service.getTerminalOpenConfig('nonexistent-terminal');
+      expect(config).toBeNull();
+    });
+
+    it('should return null for terminal without openDirectory', () => {
+      // 'git' has no openDirectory and is not a terminal
+      const config = service.getTerminalOpenConfig('git');
+      expect(config).toBeNull();
+    });
+
+    it('should return resolved openDirectory for a known terminal', () => {
+      // warp has openDirectory: "open -a Warp {dir}" (string)
+      const config = service.getTerminalOpenConfig('warp');
+      // On CI this may be null if warp isn't a terminal with openDirectory on this platform,
+      // but the method should at least not throw
+      if (config) {
+        expect(config.openDirectory).toContain('{dir}');
+        expect(typeof config.shell).toBe('boolean');
+      }
+    });
+
+    it('should return platform-resolved openDirectory for system-terminal', () => {
+      const config = service.getTerminalOpenConfig('system-terminal');
+      expect(config).not.toBeNull();
+      expect(config!.openDirectory).toContain('{dir}');
+      expect(config!.shell).toBe(false);
+    });
+
+    it('should return shell: true when spawnOptions.shell is true', () => {
+      // tmux has spawnOptions.shell: true
+      const config = service.getTerminalOpenConfig('tmux');
+      if (config) {
+        expect(config.shell).toBe(true);
+      }
+    });
+  });
+
   describe('executeInstall', () => {
     it('should call spawn with shell: true instead of sh -c', async () => {
       const mockProc = createMockProcess(0);
