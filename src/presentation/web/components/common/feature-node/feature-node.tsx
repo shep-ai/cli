@@ -10,7 +10,7 @@ import {
   Globe,
   RotateCcw,
   Play,
-  Check,
+  Eye,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -39,12 +39,12 @@ function getBadgeIcon(data: FeatureNodeData): LucideIcon {
   return config.icon;
 }
 
-/** Short, consistent label for each action-required gate. */
+/** Short, friendly label for each action-required gate. */
 function getActionRequiredLabel(data: FeatureNodeData): string {
-  if (data.lifecycle === 'requirements') return 'Review Requirements';
-  if (data.lifecycle === 'implementation') return 'Review Plan';
-  if (data.lifecycle === 'review') return 'Review Merge';
-  return 'Action Required';
+  if (data.lifecycle === 'requirements') return 'PRD Ready';
+  if (data.lifecycle === 'implementation') return 'Plan Ready';
+  if (data.lifecycle === 'review') return 'Merge Ready';
+  return 'Ready for Review';
 }
 
 function getBadgeText(data: FeatureNodeData): string {
@@ -326,17 +326,17 @@ export function FeatureNode({
                 {/* Status line */}
                 <div
                   data-testid="feature-node-badge"
-                  className="flex min-w-0 items-center gap-1.5 text-xs"
+                  className="flex min-h-[26px] min-w-0 items-center gap-1.5 text-xs"
                 >
                   {(() => {
                     const BadgeIcon = getBadgeIcon(data);
                     return (
                       <BadgeIcon
-                        className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)}
+                        className={cn('h-3.5 w-3.5 shrink-0', data.state === 'action-required' ? 'text-muted-foreground' : config.badgeClass)}
                       />
                     );
                   })()}
-                  <span className={cn('truncate text-[11px] font-medium', config.badgeClass)}>
+                  <span className={cn('truncate text-[11px] font-medium', data.state === 'action-required' ? 'text-muted-foreground' : config.badgeClass)}>
                     {getBadgeText(data)}
                   </span>
                 </div>
@@ -352,8 +352,8 @@ export function FeatureNode({
                     }}
                     className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
                   >
-                    <Check className="h-3 w-3" />
-                    Approve
+                    <Eye className="h-3 w-3" />
+                    Review
                   </button>
                 ) : null}
                 {data.state === 'error' && data.onRetry ? (
