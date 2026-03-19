@@ -5,11 +5,11 @@ name: ci-fix-retry-limit
 number: 071
 branch: feat/071-ci-fix-retry-limit
 oneLiner: >
-  Max fix attempts is set to 10 but it stops after 3 tries — fix it
+  Max fix attempts is set to 10 but it stops after 3 tries - fix it
 userQuery: >
-  Max fix attempts is set to 10 but it stops after 3 tries — fix it
+  Max fix attempts is set to 10 but it stops after 3 tries - fix it
 summary: >
-  Max fix attempts is set to 10 but it stops after 3 tries — fix it
+  Max fix attempts is set to 10 but it stops after 3 tries - fix it
 phase: Analysis
 sizeEstimate: M
 
@@ -31,7 +31,7 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  Max fix attempts is set to 10 but it stops after 3 tries — fix it
+  Max fix attempts is set to 10 but it stops after 3 tries - fix it
 
   ## Success Criteria
 

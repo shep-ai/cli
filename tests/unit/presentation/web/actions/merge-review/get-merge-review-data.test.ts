@@ -4,6 +4,7 @@ import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 const mockFindById = vi.fn();
 const mockGetPrDiffSummary = vi.fn();
 const mockGetFileDiffs = vi.fn();
+const mockGetDefaultBranch = vi.fn<(cwd: string) => Promise<string>>().mockResolvedValue('main');
 const mockComputeWorktreePath = vi.fn(
   (_repoPath: string, branch: string) => `/computed/wt/${branch.replace(/\//g, '-')}`
 );
@@ -14,7 +15,11 @@ vi.mock('@/lib/server-container', () => ({
   resolve: (token: string) => {
     if (token === 'IFeatureRepository') return { findById: mockFindById };
     if (token === 'IGitPrService')
-      return { getPrDiffSummary: mockGetPrDiffSummary, getFileDiffs: mockGetFileDiffs };
+      return {
+        getPrDiffSummary: mockGetPrDiffSummary,
+        getFileDiffs: mockGetFileDiffs,
+        getDefaultBranch: mockGetDefaultBranch,
+      };
     throw new Error(`Unknown token: ${token}`);
   },
 }));
@@ -230,6 +235,33 @@ describe('getMergeReviewData server action', () => {
     const result = await getMergeReviewData('feat-123');
 
     expect(result).toMatchObject({ branch: undefined });
+  });
+
+  it('uses detected default branch instead of hardcoded main', async () => {
+    mockGetDefaultBranch.mockResolvedValue('master');
+    mockFindById.mockResolvedValue(baseFeature);
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+
+    const result = await getMergeReviewData('feat-123');
+
+    expect(result).toMatchObject({
+      branch: { source: 'feat/test-feature', target: 'master' },
+      diffSummary: baseDiffSummary,
+    });
+    expect(mockGetPrDiffSummary).toHaveBeenCalledWith('/tmp/worktree', 'master');
+  });
+
+  it('falls back to main when getDefaultBranch fails', async () => {
+    mockGetDefaultBranch.mockRejectedValue(new Error('detection failed'));
+    mockFindById.mockResolvedValue(baseFeature);
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+
+    const result = await getMergeReviewData('feat-123');
+
+    expect(result).toMatchObject({
+      branch: { source: 'feat/test-feature', target: 'main' },
+    });
+    expect(mockGetPrDiffSummary).toHaveBeenCalledWith('/tmp/worktree', 'main');
   });
 
   it('returns error when repository throws', async () => {

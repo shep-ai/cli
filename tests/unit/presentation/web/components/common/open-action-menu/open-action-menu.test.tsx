@@ -100,4 +100,35 @@ describe('OpenActionMenu', () => {
 
     expect(screen.getByText('Copy path')).toBeInTheDocument();
   });
+
+  it('copies repositoryPath when worktreePath is not provided', async () => {
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<OpenActionMenu actions={defaultActions} repositoryPath="/home/user/repo" showSpecs />);
+
+    await user.click(screen.getByRole('button', { name: /open/i }));
+    await user.click(screen.getByText('Copy path'));
+
+    expect(writeText).toHaveBeenCalledWith('/home/user/repo');
+    writeText.mockRestore();
+  });
+
+  it('copies worktreePath when provided', async () => {
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <OpenActionMenu
+        actions={defaultActions}
+        repositoryPath="/home/user/repo"
+        worktreePath="/home/user/repo/.worktrees/feature-login"
+        showSpecs
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /open/i }));
+    await user.click(screen.getByText('Copy path'));
+
+    expect(writeText).toHaveBeenCalledWith('/home/user/repo/.worktrees/feature-login');
+    writeText.mockRestore();
+  });
 });

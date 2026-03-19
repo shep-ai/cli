@@ -1,3 +1,31 @@
+# [1.132.0](https://github.com/shep-ai/cli/compare/v1.131.1...v1.132.0) (2026-03-19)
+
+
+### Features
+
+* **agents:** add incremental commits to implement and evidence prompts ([#426](https://github.com/shep-ai/cli/issues/426)) ([5d99069](https://github.com/shep-ai/cli/commit/5d990698edbe12a8bb0215b52633dfdb6fe517d8))
+
+## [1.131.1](https://github.com/shep-ai/cli/compare/v1.131.0...v1.131.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* **web:** detect default branch for merge review diff ([#424](https://github.com/shep-ai/cli/issues/424)) ([2ecf3c1](https://github.com/shep-ai/cli/commit/2ecf3c1381dbcd439e36dc39ee61e0355a68db03))
+
+# [1.131.0](https://github.com/shep-ai/cli/compare/v1.130.1...v1.131.0) (2026-03-18)
+
+
+### Bug Fixes
+
+* **web:** copy worktree path instead of repository path ([#422](https://github.com/shep-ai/cli/issues/422)) ([41789c7](https://github.com/shep-ai/cli/commit/41789c74e94123fe99d346e4727aa3f0322881bb))
+* **agents:** prevent retryexecute from consuming ci fix attempts behind outer loop ([#420](https://github.com/shep-ai/cli/issues/420)) ([f617f6f](https://github.com/shep-ai/cli/commit/f617f6f229b8eb9c1c5faa0b1e2558b51a9a7980))
+
+
+### Features
+
+* **agents:** add evidence validation and retry loop to evidence collection ([#419](https://github.com/shep-ai/cli/issues/419)) ([4efcd98](https://github.com/shep-ai/cli/commit/4efcd9894a89d43c24b9a9046d8e5b9123275b3e))
+* squash merge feat/fix-spec-yaml-generation into main ([c28cd4e](https://github.com/shep-ai/cli/commit/c28cd4e726646994801f2dfb7216c1e592b1c9b3))
+
 ## [1.130.1](https://github.com/shep-ai/cli/compare/v1.130.0...v1.130.1) (2026-03-18)
 
 

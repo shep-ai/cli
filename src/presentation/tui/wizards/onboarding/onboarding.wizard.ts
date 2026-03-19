@@ -25,6 +25,13 @@ function showWelcomeBanner(): void {
   console.log(pc.cyan(pc.bold('  Welcome to Shep AI CLI')));
   console.log(pc.dim("  Let's set up your environment in 3 quick steps."));
   console.log();
+  console.log(
+    pc.yellow('  ⚠ Prerequisite: ') +
+      pc.bold('GitHub CLI (gh)') +
+      pc.dim(' is required for full CI/CD self-healing capabilities.')
+  );
+  console.log(pc.dim('  Install it from: ') + pc.underline('https://cli.github.com/'));
+  console.log();
 }
 
 /**

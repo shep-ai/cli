@@ -129,6 +129,17 @@ describe('onboardingWizard', () => {
     exitSpy.mockRestore();
   });
 
+  it('should display GitHub CLI prerequisite notice in welcome banner', async () => {
+    const consoleSpy = vi.spyOn(console, 'log');
+
+    await onboardingWizard(mockAgentStep, mockIdeStep, mockWorkflowStep);
+
+    const allLogs = consoleSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(allLogs).toContain('GitHub CLI (gh)');
+    expect(allLogs).toContain('https://cli.github.com/');
+    expect(allLogs).toContain('CI/CD self-healing');
+  });
+
   it('should re-throw non-ExitPromptError errors', async () => {
     const failingStep = vi
       .fn<() => Promise<AgentConfigResult>>()

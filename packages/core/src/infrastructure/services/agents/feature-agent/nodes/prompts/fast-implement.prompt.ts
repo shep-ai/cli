@@ -189,7 +189,9 @@ ${userQuery}
 3. Run the test suite and fix any failures
 4. Run the linter and fix any issues
 5. Ensure the project builds successfully
-6. Do NOT commit, push, or create a PR — just make the code changes
+6. Commit your work with descriptive conventional commit messages (e.g. \`feat(scope): description\`)
+   - Commit incrementally as you complete logical units of work — do NOT wait until the end
+   - Each commit should be a coherent, working unit${state.push ? `\n7. Push to remote after committing: \`git push -u origin HEAD\`\n   - Do NOT wait for or watch CI — just push and finish` : ''}
 
 ## Working Directory
 
@@ -224,7 +226,6 @@ ${dirListing}
 
 - Implement ONLY what the user requested — nothing more
 - Follow existing codebase conventions and patterns
-- Do NOT commit, push, or create pull requests
 - Do NOT modify any spec YAML files
 - Keep changes focused and minimal
 - Do NOT enter plan mode — implement directly without planning phases

@@ -77,13 +77,25 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         }
       : undefined;
 
-    const branch = feature.branch ? { source: feature.branch, target: 'main' } : undefined;
-
     const worktreePath =
       feature.worktreePath ??
       (feature.repositoryPath && feature.branch
         ? computeWorktreePath(feature.repositoryPath, feature.branch)
         : null);
+
+    // Detect the actual default branch (main, master, etc.) for diff comparison.
+    const gitPrService = resolve<IGitPrService>('IGitPrService');
+    const diffCwd = worktreePath ?? feature.repositoryPath ?? null;
+    let defaultBranch = 'main';
+    if (diffCwd) {
+      try {
+        defaultBranch = await gitPrService.getDefaultBranch(diffCwd);
+      } catch {
+        // Fall back to 'main' if detection fails
+      }
+    }
+
+    const branch = feature.branch ? { source: feature.branch, target: defaultBranch } : undefined;
 
     // Load evidence manifest (best-effort).
     // Evidence is stored independently of the worktree at:
@@ -120,10 +132,9 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
     }
 
     try {
-      const gitPrService = resolve<IGitPrService>('IGitPrService');
       const [diffSummary, fileDiffs] = await Promise.all([
-        gitPrService.getPrDiffSummary(worktreePath, 'main'),
-        gitPrService.getFileDiffs(worktreePath, 'main').catch(() => undefined),
+        gitPrService.getPrDiffSummary(worktreePath, defaultBranch),
+        gitPrService.getFileDiffs(worktreePath, defaultBranch).catch(() => undefined),
       ]);
       return { pr, branch, diffSummary, fileDiffs, evidence, hideCiStatus: workflow.hideCiStatus };
     } catch {
