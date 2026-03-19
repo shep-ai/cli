@@ -1,3 +1,10 @@
+# [1.135.0](https://github.com/shep-ai/cli/compare/v1.134.1...v1.135.0) (2026-03-19)
+
+
+### Features
+
+* **ci:** add --compact flag to gh run watch ([#428](https://github.com/shep-ai/cli/issues/428)) ([2d8f428](https://github.com/shep-ai/cli/commit/2d8f428e881cfc7bee51e4705c9d1521c233516d))
+
 ## [1.134.1](https://github.com/shep-ai/cli/compare/v1.134.0...v1.134.1) (2026-03-19)
 
 
