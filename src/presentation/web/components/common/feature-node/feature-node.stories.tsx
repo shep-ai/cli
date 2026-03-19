@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { expect, fn, waitFor } from '@storybook/test';
 import { ReactFlowProvider, ReactFlow, useNodesState } from '@xyflow/react';
-import { DeploymentState } from '@shepai/core/domain/generated/output';
+import { DeploymentState, PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { FeatureNode } from './feature-node';
 import type { AgentTypeValue } from './agent-type-icons';
 import type {
@@ -156,8 +156,8 @@ const allStatesData: FeatureNodeData[] = [
     pr: {
       url: 'https://github.com/user/my-repo/pull/87',
       number: 87,
-      status: 'open',
-      ciStatus: 'success',
+      status: PrStatus.Open,
+      ciStatus: CiStatus.Success,
       mergeable: true,
     },
   },
@@ -181,8 +181,8 @@ const allStatesData: FeatureNodeData[] = [
     pr: {
       url: 'https://github.com/user/my-repo/pull/85',
       number: 85,
-      status: 'merged',
-      ciStatus: 'success',
+      status: PrStatus.Merged,
+      ciStatus: CiStatus.Success,
     },
     deployment: { status: DeploymentState.Ready, url: 'http://localhost:3002' },
   },
@@ -222,8 +222,8 @@ const allStatesData: FeatureNodeData[] = [
     pr: {
       url: 'https://github.com/user/my-repo/pull/86',
       number: 86,
-      status: 'open',
-      ciStatus: 'failure',
+      status: PrStatus.Open,
+      ciStatus: CiStatus.Failure,
     },
     onRetry: fn(),
   },

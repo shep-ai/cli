@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
 import type { Edge } from '@xyflow/react';
-import { DeploymentState } from '@shepai/core/domain/generated/output';
+import { DeploymentState, PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { FeaturesCanvas } from './features-canvas';
 import type { CanvasNodeType } from './features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
@@ -112,8 +112,8 @@ const multipleNodes: FeatureNodeType[] = [
       pr: {
         url: 'https://github.com/user/my-repo/pull/42',
         number: 42,
-        status: 'merged',
-        ciStatus: 'success',
+        status: PrStatus.Merged,
+        ciStatus: CiStatus.Success,
       },
       deployment: { status: DeploymentState.Ready, url: 'http://localhost:3002' },
     },
@@ -140,8 +140,8 @@ const multipleNodes: FeatureNodeType[] = [
       pr: {
         url: 'https://github.com/user/my-repo/pull/43',
         number: 43,
-        status: 'open',
-        ciStatus: 'pending',
+        status: PrStatus.Open,
+        ciStatus: CiStatus.Pending,
         mergeable: true,
       },
     },
@@ -826,8 +826,8 @@ const fullSpectrumNodes: CanvasNodeType[] = [
       pr: {
         url: 'https://github.com/acme/platform/pull/142',
         number: 142,
-        status: 'open',
-        ciStatus: 'pending',
+        status: PrStatus.Open,
+        ciStatus: CiStatus.Pending,
       },
       deployment: { status: DeploymentState.Ready, url: 'http://localhost:4001' },
     },
@@ -899,8 +899,8 @@ const fullSpectrumNodes: CanvasNodeType[] = [
       pr: {
         url: 'https://github.com/acme/platform/pull/143',
         number: 143,
-        status: 'open',
-        ciStatus: 'success',
+        status: PrStatus.Open,
+        ciStatus: CiStatus.Success,
         mergeable: true,
       },
       deployment: { status: DeploymentState.Ready, url: 'http://localhost:4002' },
@@ -932,8 +932,8 @@ const fullSpectrumNodes: CanvasNodeType[] = [
       pr: {
         url: 'https://github.com/acme/platform/pull/140',
         number: 140,
-        status: 'merged',
-        ciStatus: 'success',
+        status: PrStatus.Merged,
+        ciStatus: CiStatus.Success,
       },
       deployment: { status: DeploymentState.Ready, url: 'http://localhost:4003' },
     },
@@ -960,8 +960,8 @@ const fullSpectrumNodes: CanvasNodeType[] = [
       pr: {
         url: 'https://github.com/acme/platform/pull/120',
         number: 120,
-        status: 'merged',
-        ciStatus: 'success',
+        status: PrStatus.Merged,
+        ciStatus: CiStatus.Success,
       },
     },
   },
@@ -987,8 +987,8 @@ const fullSpectrumNodes: CanvasNodeType[] = [
       pr: {
         url: 'https://github.com/acme/platform/pull/145',
         number: 145,
-        status: 'merged',
-        ciStatus: 'success',
+        status: PrStatus.Merged,
+        ciStatus: CiStatus.Success,
       },
     },
   },
