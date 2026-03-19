@@ -1,3 +1,10 @@
+# [1.134.0](https://github.com/shep-ai/cli/compare/v1.133.0...v1.134.0) (2026-03-19)
+
+
+### Features
+
+* **web:** add user setting to hide ci status badges in web ui ([#418](https://github.com/shep-ai/cli/issues/418)) ([8585e78](https://github.com/shep-ai/cli/commit/8585e783b75c9b0a883ec3e89944bc0a0dc910c7))
+
 # [1.133.0](https://github.com/shep-ai/cli/compare/v1.132.0...v1.133.0) (2026-03-19)
 
 
