@@ -1,3 +1,10 @@
+## [1.135.2](https://github.com/shep-ai/cli/compare/v1.135.1...v1.135.2) (2026-03-19)
+
+
+### Bug Fixes
+
+* **web:** fetch merge review data for maintain lifecycle features ([#432](https://github.com/shep-ai/cli/issues/432)) ([79d4884](https://github.com/shep-ai/cli/commit/79d488449ec33dde1c95a0c8f306bf08f9113bac))
+
 ## [1.135.1](https://github.com/shep-ai/cli/compare/v1.135.0...v1.135.1) (2026-03-19)
 
 
