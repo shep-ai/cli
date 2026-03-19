@@ -18,6 +18,7 @@ import { platform } from 'node:os';
 import type {
   IToolInstallerService,
   AvailableTerminalEntry,
+  TerminalOpenConfig,
 } from '../../../application/ports/output/services/tool-installer.service.js';
 import type {
   ToolInstallationStatus,
@@ -246,6 +247,23 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
     }
 
     return results;
+  }
+
+  getTerminalOpenConfig(terminalId: string): TerminalOpenConfig | null {
+    const meta = TOOL_METADATA[terminalId];
+    if (!meta?.openDirectory) return null;
+
+    const openDirectory =
+      typeof meta.openDirectory === 'string'
+        ? meta.openDirectory
+        : (meta.openDirectory[platform()] ?? Object.values(meta.openDirectory)[0]);
+
+    if (!openDirectory) return null;
+
+    return {
+      openDirectory,
+      shell: meta.spawnOptions?.shell === true,
+    };
   }
 
   /**

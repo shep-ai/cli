@@ -7,6 +7,12 @@ vi.mock('@shepai/core/infrastructure/services/settings.service', () => ({
   getSettings: mockGetSettings,
 }));
 
+const mockGetTerminalOpenConfig = vi.fn();
+const mockResolve = vi.fn();
+vi.mock('@/lib/server-container', () => ({
+  resolve: (...args: unknown[]) => mockResolve(...args),
+}));
+
 const MOCK_WORKTREE_PATH = '/mock/.shep/repos/abc123/wt/feat-test';
 vi.mock('@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path', () => ({
   computeWorktreePath: () => MOCK_WORKTREE_PATH,
@@ -35,9 +41,7 @@ vi.mock('node:path', async () => {
   return { ...actual, isAbsolute: (p: string) => mockIsAbsolute(p) };
 });
 
-vi.mock('@shepai/core/infrastructure/services/tool-installer/tool-metadata', () => ({
-  getTerminalEntries: () => [],
-}));
+// No longer mocking tool-metadata — open-shell should use DI container instead
 
 const { openShell } = await import('../../../../../src/presentation/web/app/actions/open-shell.js');
 
@@ -51,6 +55,8 @@ describe('openShell server action', () => {
     mockSpawn.mockReturnValue({ unref: mockUnref, on: mockOn });
     mockPlatform.mockReturnValue('darwin');
     mockIsAbsolute.mockImplementation((p: string) => /^\//.test(p));
+    mockGetTerminalOpenConfig.mockReturnValue(null);
+    mockResolve.mockReturnValue({ getTerminalOpenConfig: mockGetTerminalOpenConfig });
   });
 
   it('returns error for empty repositoryPath', async () => {
@@ -195,6 +201,66 @@ describe('openShell server action', () => {
       stdio: 'ignore',
     });
     expect(result.path).toBe('/home/user/project');
+  });
+
+  it('uses DI container to resolve terminal config for non-system terminal', async () => {
+    mockPlatform.mockReturnValue('darwin');
+    mockGetSettings.mockReturnValue({
+      environment: { shellPreference: 'zsh', terminalPreference: 'warp' },
+    });
+    mockGetTerminalOpenConfig.mockReturnValue({
+      openDirectory: 'open -a Warp {dir}',
+      shell: false,
+    });
+
+    const result = await openShell({ repositoryPath: '/home/user/project' });
+
+    expect(result.success).toBe(true);
+    expect(mockResolve).toHaveBeenCalledWith('IToolInstallerService');
+    expect(mockGetTerminalOpenConfig).toHaveBeenCalledWith('warp');
+    expect(mockSpawn).toHaveBeenCalledWith('open', ['-a', 'Warp', '/home/user/project'], {
+      detached: true,
+      stdio: 'ignore',
+    });
+  });
+
+  it('uses DI container with shell: true for terminals requiring shell spawn', async () => {
+    mockPlatform.mockReturnValue('darwin');
+    mockGetSettings.mockReturnValue({
+      environment: { shellPreference: 'zsh', terminalPreference: 'tmux' },
+    });
+    mockGetTerminalOpenConfig.mockReturnValue({
+      openDirectory: 'tmux new-session -c {dir}',
+      shell: true,
+    });
+
+    const result = await openShell({ repositoryPath: '/home/user/project' });
+
+    expect(result.success).toBe(true);
+    expect(mockSpawn).toHaveBeenCalledWith('tmux new-session -c /home/user/project', [], {
+      detached: true,
+      stdio: 'ignore',
+      shell: true,
+    });
+  });
+
+  it('falls back to system terminal when DI resolve fails', async () => {
+    mockPlatform.mockReturnValue('darwin');
+    mockGetSettings.mockReturnValue({
+      environment: { shellPreference: 'zsh', terminalPreference: 'warp' },
+    });
+    mockResolve.mockImplementation(() => {
+      throw new Error('DI not available');
+    });
+
+    const result = await openShell({ repositoryPath: '/home/user/project' });
+
+    expect(result.success).toBe(true);
+    // Should fall back to system terminal
+    expect(mockSpawn).toHaveBeenCalledWith('open', ['-a', 'Terminal', '/home/user/project'], {
+      detached: true,
+      stdio: 'ignore',
+    });
   });
 
   it('returns error when repositoryPath does not exist and no branch provided', async () => {

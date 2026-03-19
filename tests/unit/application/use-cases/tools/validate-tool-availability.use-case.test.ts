@@ -28,6 +28,7 @@ describe('ValidateToolAvailabilityUseCase', () => {
       getInstallCommand: vi.fn(),
       executeInstall: vi.fn(),
       listAvailableTerminals: vi.fn(),
+      getTerminalOpenConfig: vi.fn(),
     };
 
     useCase = new ValidateToolAvailabilityUseCase(mockService);
