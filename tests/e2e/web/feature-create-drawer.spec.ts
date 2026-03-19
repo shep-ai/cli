@@ -51,13 +51,23 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       })
     );
 
-    // Navigate directly to create drawer route (repo param required to enable submit)
-    await page.goto('/create?repo=/fake/repo');
+    // Navigate to create drawer route
+    await page.goto('/create');
 
     // Wait for the drawer to appear — use heading role to avoid matching sidebar text
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,
     });
+
+    // Select a repository — if the combobox is shown, pick the first option;
+    // if a repo was pre-selected via URL, the combobox won't appear.
+    const combobox = page.getByTestId('repository-combobox');
+    if (await combobox.isVisible()) {
+      await combobox.click();
+      const firstOption = page.getByRole('option').first();
+      await expect(firstOption).toBeVisible({ timeout: 5000 });
+      await firstOption.click();
+    }
 
     // Fill in the description (name input was removed — description is now the primary field)
     const descriptionInput = page.getByPlaceholder(
@@ -95,7 +105,7 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       })
     );
 
-    await page.goto('/create?repo=/fake/repo');
+    await page.goto('/create');
 
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,
@@ -160,7 +170,7 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       });
     });
 
-    await page.goto('/create?repo=/fake/repo');
+    await page.goto('/create');
 
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,

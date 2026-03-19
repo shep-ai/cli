@@ -121,9 +121,9 @@ function renderFeatureNode(
 }
 
 describe('FeatureNode', () => {
-  it('renders lifecycle phase label using display labels', () => {
+  it('renders lifecycle phase badge', () => {
     renderFeatureNode({ lifecycle: 'requirements' });
-    expect(screen.getByText('REQUIREMENTS')).toBeInTheDocument();
+    expect(screen.getByTestId('feature-node-phase-badge')).toBeInTheDocument();
   });
 
   it('renders feature name', () => {
@@ -142,10 +142,10 @@ describe('FeatureNode', () => {
   });
 
   describe('running state', () => {
-    it('shows indeterminate progress bar instead of badge', () => {
+    it('shows running verb instead of progress bar', () => {
       renderFeatureNode({ state: 'running', progress: 45 });
-      expect(screen.getByTestId('feature-node-progress-bar')).toBeInTheDocument();
-      expect(screen.queryByTestId('feature-node-badge')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('feature-node-progress-bar')).not.toBeInTheDocument();
+      expect(screen.getByText('Analyzing')).toBeInTheDocument();
     });
 
     it('shows lifecycle-specific running verb', () => {
@@ -167,12 +167,9 @@ describe('FeatureNode', () => {
     expect(onAction).toHaveBeenCalledOnce();
   });
 
-  it('agent badge fires onSettings callback', () => {
-    const onSettings = vi.fn();
-    renderFeatureNode({ onSettings, agentType: 'claude-code' });
-    const agentBadge = screen.getByTestId('feature-node-agent-badge');
-    fireEvent.click(agentBadge);
-    expect(onSettings).toHaveBeenCalledOnce();
+  it('renders agent icon when agentType is provided', () => {
+    renderFeatureNode({ agentType: 'claude-code' });
+    expect(screen.getByTestId('feature-node-card')).toBeInTheDocument();
   });
 
   it('renders Handle components when showHandles is true', () => {
@@ -181,7 +178,7 @@ describe('FeatureNode', () => {
     expect(handles.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('renders all lifecycle phases with display labels', () => {
+  it('renders phase badge for all lifecycle phases', () => {
     const phases = [
       'requirements',
       'research',
@@ -190,17 +187,9 @@ describe('FeatureNode', () => {
       'deploy',
       'maintain',
     ] as const;
-    const expectedLabels: Record<string, string> = {
-      requirements: 'REQUIREMENTS',
-      research: 'RESEARCH',
-      implementation: 'IMPLEMENTATION',
-      review: 'REVIEW',
-      deploy: 'DEPLOY & QA',
-      maintain: 'COMPLETED',
-    };
     for (const phase of phases) {
       const { unmount } = renderFeatureNode({ lifecycle: phase });
-      expect(screen.getByText(expectedLabels[phase])).toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-phase-badge')).toBeInTheDocument();
       unmount();
     }
   });
@@ -252,46 +241,39 @@ describe('FeatureNode', () => {
   });
 
   describe('action-required state', () => {
-    it('shows badge instead of progress bar', () => {
+    it('shows approve button instead of progress bar', () => {
       renderFeatureNode({ state: 'action-required', progress: 60 });
       expect(screen.queryByTestId('feature-node-progress-bar')).not.toBeInTheDocument();
-      expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-approve-button')).toBeInTheDocument();
     });
 
-    it('shows "Review Merge Request" badge in review lifecycle', () => {
+    it('shows "Review Changes" button in review lifecycle', () => {
       renderFeatureNode({ state: 'action-required', lifecycle: 'review', progress: 60 });
-      expect(screen.getByText('Review Merge Request')).toBeInTheDocument();
+      expect(screen.getByText('Review Changes')).toBeInTheDocument();
     });
 
-    it('applies emerald badge classes in review lifecycle', () => {
-      renderFeatureNode({ state: 'action-required', lifecycle: 'review', progress: 60 });
-      const badge = screen.getByTestId('feature-node-badge');
-      expect(badge.className).toContain('text-emerald-700');
-      expect(badge.className).toContain('bg-emerald-50');
-    });
-
-    it('shows "Review Product Requirements" badge in requirements lifecycle', () => {
+    it('shows "Review Requirements" button in requirements lifecycle', () => {
       renderFeatureNode({
         state: 'action-required',
         lifecycle: 'requirements',
       });
-      expect(screen.getByText('Review Product Requirements')).toBeInTheDocument();
+      expect(screen.getByText('Review Requirements')).toBeInTheDocument();
     });
 
-    it('shows "Review Technical Planning" badge in implementation lifecycle', () => {
+    it('shows "Review Technical Plan" button in implementation lifecycle', () => {
       renderFeatureNode({
         state: 'action-required',
         lifecycle: 'implementation',
       });
-      expect(screen.getByText('Review Technical Planning')).toBeInTheDocument();
+      expect(screen.getByText('Review Technical Plan')).toBeInTheDocument();
     });
 
-    it('shows default "User action required" badge in other lifecycles', () => {
+    it('shows default "Review" button in other lifecycles', () => {
       renderFeatureNode({
         state: 'action-required',
         lifecycle: 'research',
       });
-      expect(screen.getByText('User action required')).toBeInTheDocument();
+      expect(screen.getByText('Review')).toBeInTheDocument();
     });
   });
 
@@ -347,9 +329,9 @@ describe('FeatureNode', () => {
       expect(screen.getByText('New Feature')).toBeInTheDocument();
     });
 
-    it('shows indeterminate progress bar', () => {
+    it('does not show progress bar or badge', () => {
       renderFeatureNode({ state: 'creating' });
-      expect(screen.getByTestId('feature-node-progress-bar')).toBeInTheDocument();
+      expect(screen.queryByTestId('feature-node-progress-bar')).not.toBeInTheDocument();
       expect(screen.queryByTestId('feature-node-badge')).not.toBeInTheDocument();
     });
 

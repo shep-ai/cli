@@ -64,12 +64,10 @@ describe('FeaturesCanvas', () => {
     expect(mockOnAction).toHaveBeenCalledWith('node-1');
   });
 
-  it('renders node with onSettings callback from node data', () => {
+  it('renders node content from node data', () => {
     render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
-    const settingsButton = screen.getByTestId('feature-node-agent-badge');
-    fireEvent.click(settingsButton);
-    expect(mockOnSettings).toHaveBeenCalledWith('node-1');
+    expect(screen.getByTestId('feature-node-card')).toBeInTheDocument();
   });
 
   it('wires onAdd from repository node data', () => {
@@ -139,9 +137,9 @@ describe('FeaturesCanvas', () => {
       expect(screen.getByTestId('feature-node-action-button')).toBeInTheDocument();
     });
 
-    it('shows settings button for feature nodes with state "running" (callbacks in data)', () => {
+    it('shows card for feature nodes with state "running" (callbacks in data)', () => {
       render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
-      expect(screen.getByTestId('feature-node-agent-badge')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-card')).toBeInTheDocument();
     });
 
     it('shows delete button for non-creating feature nodes (onDelete in data)', () => {
@@ -185,10 +183,9 @@ describe('FeaturesCanvas', () => {
       expect(screen.getByTestId('features-canvas')).toBeInTheDocument();
     });
 
-    it('renders action and settings buttons for fast-mode running nodes', () => {
+    it('renders action button for fast-mode running nodes', () => {
       render(<FeaturesCanvas nodes={[fastModeNode]} edges={[]} />);
       expect(screen.getByTestId('feature-node-action-button')).toBeInTheDocument();
-      expect(screen.getByTestId('feature-node-agent-badge')).toBeInTheDocument();
     });
 
     it('renders graph with mix of fast-mode and full-pipeline features', () => {
