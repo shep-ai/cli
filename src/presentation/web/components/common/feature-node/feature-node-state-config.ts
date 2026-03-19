@@ -53,11 +53,88 @@ export const lifecycleBorderColors: Record<FeatureLifecyclePhase, string> = {
   maintain: 'border-l-gray-400',
 };
 
+/** Accent bar background color for each lifecycle phase. */
+export const lifecycleAccentColors: Record<FeatureLifecyclePhase, string> = {
+  pending: 'bg-slate-400',
+  requirements: 'bg-violet-500',
+  research: 'bg-cyan-500',
+  implementation: 'bg-blue-500',
+  review: 'bg-amber-500',
+  deploy: 'bg-emerald-500',
+  maintain: 'bg-gray-400',
+};
+
+/** Phase badge: short letter, color classes, and user-friendly tooltip. */
+export const lifecyclePhaseBadge: Record<FeatureLifecyclePhase, {
+  letter: string;
+  bg: string;
+  text: string;
+  tooltip: string;
+  description: string;
+}> = {
+  pending: {
+    letter: 'P',
+    bg: 'bg-slate-100 dark:bg-slate-800',
+    text: 'text-slate-600 dark:text-slate-300',
+    tooltip: 'Pending',
+    description: 'Waiting to start — the feature is queued and ready to go.',
+  },
+  requirements: {
+    letter: 'R',
+    bg: 'bg-violet-100 dark:bg-violet-900/40',
+    text: 'text-violet-600 dark:text-violet-300',
+    tooltip: 'Requirements',
+    description: 'Gathering what to build — the AI is writing a product requirements document (PRD) based on your request.',
+  },
+  research: {
+    letter: 'D',
+    bg: 'bg-cyan-100 dark:bg-cyan-900/40',
+    text: 'text-cyan-600 dark:text-cyan-300',
+    tooltip: 'Research',
+    description: 'Exploring your codebase — the AI is analyzing existing code, patterns, and dependencies to plan the best approach.',
+  },
+  implementation: {
+    letter: 'I',
+    bg: 'bg-blue-100 dark:bg-blue-900/40',
+    text: 'text-blue-600 dark:text-blue-300',
+    tooltip: 'Implementation',
+    description: 'Writing code — the AI is implementing the feature, writing tests, and making sure everything compiles.',
+  },
+  review: {
+    letter: 'M',
+    bg: 'bg-amber-100 dark:bg-amber-900/40',
+    text: 'text-amber-600 dark:text-amber-300',
+    tooltip: 'Merge Review',
+    description: 'Ready for merge — the code is complete and a pull request is open for your review.',
+  },
+  deploy: {
+    letter: 'Q',
+    bg: 'bg-emerald-100 dark:bg-emerald-900/40',
+    text: 'text-emerald-600 dark:text-emerald-300',
+    tooltip: 'Deploy & QA',
+    description: 'Deploying and testing — the feature is being deployed to a preview environment for quality checks.',
+  },
+  maintain: {
+    letter: '✓',
+    bg: 'bg-gray-100 dark:bg-gray-800',
+    text: 'text-gray-500 dark:text-gray-400',
+    tooltip: 'Completed',
+    description: 'All done — the feature has been merged and delivered successfully.',
+  },
+};
+
 /** State-based left border overrides (takes precedence over lifecycle). */
 export const stateBorderColors: Partial<Record<FeatureNodeState, string>> = {
   blocked: 'border-l-gray-400',
   error: 'border-l-red-500',
   deleting: 'border-l-gray-300',
+};
+
+/** State-based accent bar overrides (takes precedence over lifecycle). */
+export const stateAccentColors: Partial<Record<FeatureNodeState, string>> = {
+  blocked: 'bg-gray-400',
+  error: 'bg-red-500',
+  deleting: 'bg-gray-300',
 };
 
 /** Present-participle verbs for the running badge, keyed by lifecycle phase. */

@@ -20,8 +20,7 @@ import {
   featureNodeStateConfig,
   lifecycleDisplayLabels,
   lifecycleRunningVerbs,
-  lifecycleBorderColors,
-  stateBorderColors,
+  lifecyclePhaseBadge,
 } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
 import { getAgentTypeIcon, agentTypeLabels, type AgentTypeValue } from './agent-type-icons';
@@ -140,8 +139,7 @@ export function FeatureNode({
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border border-l-3 p-3 shadow-sm',
-          stateBorderColors[data.state] ?? lifecycleBorderColors[data.lifecycle],
+          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
           selected && 'ring-primary ring-2',
           data.state === 'deleting' && 'opacity-60'
         )}
@@ -244,14 +242,36 @@ export function FeatureNode({
           </div>
         ) : null}
 
-        {/* Name */}
-        <h3 className="truncate text-sm font-bold">{data.name}</h3>
+        {/* Phase badge + Name */}
+        <div className="flex items-center gap-1.5">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  data-testid="feature-node-phase-badge"
+                  className={cn(
+                    'flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold',
+                    lifecyclePhaseBadge[data.lifecycle].bg,
+                    lifecyclePhaseBadge[data.lifecycle].text,
+                  )}
+                >
+                  {lifecyclePhaseBadge[data.lifecycle].letter}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-56">
+                <p className="font-semibold">{lifecyclePhaseBadge[data.lifecycle].tooltip}</p>
+                <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{lifecyclePhaseBadge[data.lifecycle].description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <h3 className="min-w-0 truncate text-sm font-bold">{data.name}</h3>
+        </div>
 
         {/* Description */}
         {data.description ? (
           <p
             data-testid="feature-node-description"
-            className="text-muted-foreground mt-0.5 truncate text-xs"
+            className="text-muted-foreground mt-0.5 line-clamp-2 text-xs"
           >
             {data.description}
           </p>
@@ -327,6 +347,7 @@ export function FeatureNode({
                 <div
                   data-testid="feature-node-badge"
                   className="flex min-h-[26px] min-w-0 items-center gap-1.5 text-xs"
+                  style={{ transform: 'translateY(2px)' }}
                 >
                   {(() => {
                     const BadgeIcon = getBadgeIcon(data);
@@ -336,7 +357,7 @@ export function FeatureNode({
                       />
                     );
                   })()}
-                  <span className={cn('truncate text-[11px] font-medium', data.state === 'action-required' ? 'text-muted-foreground' : config.badgeClass)}>
+                  <span className={cn('translate-y-px truncate text-[11px] font-medium', data.state === 'action-required' ? 'text-muted-foreground' : config.badgeClass)}>
                     {getBadgeText(data)}
                   </span>
                 </div>
