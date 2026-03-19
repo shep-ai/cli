@@ -1,3 +1,10 @@
+# [1.132.0](https://github.com/shep-ai/cli/compare/v1.131.1...v1.132.0) (2026-03-19)
+
+
+### Features
+
+* **agents:** add incremental commits to implement and evidence prompts ([#426](https://github.com/shep-ai/cli/issues/426)) ([5d99069](https://github.com/shep-ai/cli/commit/5d990698edbe12a8bb0215b52633dfdb6fe517d8))
+
 ## [1.131.1](https://github.com/shep-ai/cli/compare/v1.131.0...v1.131.1) (2026-03-19)
 
 
