@@ -139,123 +139,24 @@ export function FeatureNode({
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
+          'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
           selected && 'ring-primary ring-2',
           data.state === 'deleting' && 'opacity-60'
         )}
       >
-        {/* Inline icons — absolute top-right corner */}
-        {(data.deployment || data.fastMode || data.agentType) ? (
-          <div className="absolute top-2 right-2 flex items-center gap-0.5">
-            {data.deployment ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={
-                        data.deployment.status === DeploymentState.Booting
-                          ? 'Deploying'
-                          : 'Open dev server'
-                      }
-                      data-testid="feature-node-deployment-indicator"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (
-                          data.deployment?.status === DeploymentState.Ready &&
-                          data.deployment.url
-                        ) {
-                          window.open(data.deployment.url, '_blank', 'noopener,noreferrer');
-                        }
-                      }}
-                      className={cn(
-                        'nodrag p-1',
-                        data.deployment.status === DeploymentState.Ready && data.deployment.url
-                          ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
-                          : 'cursor-default'
-                      )}
-                    >
-                      {data.deployment.status === DeploymentState.Booting ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
-                      ) : (
-                        <Globe className="h-3.5 w-3.5 text-green-600" />
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {data.deployment.status === DeploymentState.Booting
-                      ? 'Deploying...'
-                      : (data.deployment.url ?? 'Live')}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : null}
-            {data.fastMode ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span data-testid="feature-node-fast-mode-badge" className="p-1">
-                      <Zap className="h-3.5 w-3.5 text-amber-500" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Fast Mode</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : null}
-            {data.agentType ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={
-                        agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType
-                      }
-                      data-testid="feature-node-agent-badge"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        data.onSettings?.();
-                      }}
-                      className={cn(
-                        'nodrag -mr-1 p-1',
-                        data.onSettings
-                          ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
-                          : 'cursor-default'
-                      )}
-                    >
-                      <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <span className="font-medium">
-                      {agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType}
-                    </span>
-                    {data.modelId ? (
-                      <span className="ml-1 opacity-70">
-                        · {getModelMeta(data.modelId).displayName || data.modelId}
-                      </span>
-                    ) : null}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : null}
-          </div>
-        ) : null}
-
-        {/* Phase badge + Name */}
-        <div className="flex items-center gap-1.5">
+        {/* Phase dot + label — absolute top-right corner */}
+        <div className="absolute top-4 right-4">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
                   data-testid="feature-node-phase-badge"
-                  className={cn(
-                    'flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold',
-                    lifecyclePhaseBadge[data.lifecycle].bg,
-                    lifecyclePhaseBadge[data.lifecycle].text,
-                  )}
+                  className="flex items-center gap-1"
                 >
-                  {lifecyclePhaseBadge[data.lifecycle].letter}
+                  <span className={cn('h-1.5 w-1.5 -translate-y-px rounded-full', lifecyclePhaseBadge[data.lifecycle].dot)} />
+                  <span className="text-muted-foreground text-[10px]">
+                    {lifecyclePhaseBadge[data.lifecycle].tooltip}
+                  </span>
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-56">
@@ -264,14 +165,16 @@ export function FeatureNode({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <h3 className="min-w-0 truncate text-sm font-bold">{data.name}</h3>
         </div>
+
+        {/* Name */}
+        <h3 className="truncate text-sm font-bold">{data.name}</h3>
 
         {/* Description */}
         {data.description ? (
           <p
             data-testid="feature-node-description"
-            className="text-muted-foreground mt-0.5 line-clamp-2 text-xs"
+            className="text-muted-foreground mt-1 line-clamp-2 text-xs"
           >
             {data.description}
           </p>
@@ -280,55 +183,12 @@ export function FeatureNode({
         {/* Bottom section — pushed to bottom for consistent card height */}
         <div className="mt-auto pt-2">
           {/* Feature ID — always visible, truncated, copiable */}
-          {data.featureId ? (
-            <div className="mb-1.5 flex items-baseline gap-1">
-              <span className="text-muted-foreground/50 text-[10px]">ID</span>
-              <button
-                type="button"
-                data-testid="feature-node-id"
-                className="nodrag text-muted-foreground/60 hover:text-muted-foreground cursor-pointer font-mono text-[10px] transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigator.clipboard.writeText(data.featureId);
-                }}
-                title={`Click to copy: ${data.featureId}`}
-              >
-                {data.featureId.slice(0, 6)}
-              </button>
-            </div>
-          ) : null}
-          {data.state === 'deleting' ? (
+          {/* Progress bar (if applicable) */}
+          {config.showProgressBar ? (
             <>
-              {/* Deleting status: spinner + "Deleting..." text */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gray-400" />
-                <span className="text-muted-foreground">Deleting…</span>
-              </div>
-            </>
-          ) : data.state === 'creating' ? (
-            <>
-              {/* Creating status: loader icon + "Creating..." text */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                <span className="text-muted-foreground">{getBadgeText(data)}</span>
-              </div>
-            </>
-          ) : data.state === 'running' ? (
-            <>
-              {/* Running status: spinner + verb */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                <span className="text-muted-foreground">{getBadgeText(data)}</span>
-              </div>
-            </>
-          ) : config.showProgressBar ? (
-            <>
-              {/* Bottom row: progress percentage */}
               <div className="text-muted-foreground flex items-center justify-end text-[10px]">
                 <span>{data.progress}%</span>
               </div>
-
-              {/* Determinate progress bar */}
               <div
                 data-testid="feature-node-progress-bar"
                 className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
@@ -339,87 +199,226 @@ export function FeatureNode({
                 />
               </div>
             </>
-          ) : (
-            <>
-              {/* State badge + action buttons */}
-              <div className="mt-1.5 flex items-center justify-between gap-2">
-                {/* Status line */}
-                <div
-                  data-testid="feature-node-badge"
-                  className="relative flex min-h-[26px] min-w-0 items-center gap-1.5 text-xs"
-                  style={{ transform: 'translateY(2px)' }}
-                >
-                  {(() => {
-                    const BadgeIcon = getBadgeIcon(data);
-                    return (
-                      <span className="relative shrink-0">
-                        {data.state === 'action-required' ? (
-                          <span className="absolute inset-0 animate-pulse rounded-full bg-amber-400/30 blur-[5px]" />
-                        ) : null}
-                        <BadgeIcon
-                          className={cn('relative h-3.5 w-3.5', data.state === 'action-required' ? 'text-amber-500' : config.badgeClass)}
-                        />
+          ) : null}
+
+          {/* Status text for blocked / error / pending (above bottom row) */}
+          {!config.showProgressBar && !['deleting', 'creating', 'running', 'done', 'action-required'].includes(data.state) ? (
+            <div
+              data-testid="feature-node-badge"
+              className="relative flex min-w-0 items-center gap-1.5 text-xs"
+            >
+              {(() => {
+                const BadgeIcon = getBadgeIcon(data);
+                return (
+                  <BadgeIcon
+                    className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)}
+                  />
+                );
+              })()}
+              <span className={cn('translate-y-px truncate text-[11px] font-medium', config.badgeClass)}>
+                {getBadgeText(data)}
+              </span>
+            </div>
+          ) : null}
+
+          {/* Bottom row: Phase + ID ... right-side content */}
+          <div className="mt-1.5 flex min-h-[26px] items-center justify-between gap-2">
+            {/* Left: Agent icons + ID */}
+            <div className="flex items-center gap-1.5" style={{ transform: 'translateY(1px)' }}>
+              {data.agentType ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={
+                          agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType
+                        }
+                        data-testid="feature-node-agent-badge"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          data.onSettings?.();
+                        }}
+                        className={cn(
+                          'nodrag',
+                          data.onSettings
+                            ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
+                            : 'cursor-default'
+                        )}
+                      >
+                        <AgentIcon agentType={data.agentType} className="h-3 w-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <span className="font-medium">
+                        {agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType}
                       </span>
-                    );
-                  })()}
-                  <span className={cn(
-                    'translate-y-px truncate text-[11px] font-medium',
-                    data.state === 'action-required'
-                      ? 'animate-shimmer bg-[length:200%_100%] bg-clip-text text-transparent bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 dark:from-amber-400 dark:via-amber-200 dark:to-amber-400'
-                      : config.badgeClass
-                  )}>
+                      {data.modelId ? (
+                        <span className="ml-1 opacity-70">
+                          · {getModelMeta(data.modelId).displayName || data.modelId}
+                        </span>
+                      ) : null}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+              {data.deployment ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={
+                          data.deployment.status === DeploymentState.Booting
+                            ? 'Deploying'
+                            : 'Open dev server'
+                        }
+                        data-testid="feature-node-deployment-indicator"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (
+                            data.deployment?.status === DeploymentState.Ready &&
+                            data.deployment.url
+                          ) {
+                            window.open(data.deployment.url, '_blank', 'noopener,noreferrer');
+                          }
+                        }}
+                        className={cn(
+                          'nodrag',
+                          data.deployment.status === DeploymentState.Ready && data.deployment.url
+                            ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
+                            : 'cursor-default'
+                        )}
+                      >
+                        {data.deployment.status === DeploymentState.Booting ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                        ) : (
+                          <Globe className="h-3 w-3 text-green-600" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {data.deployment.status === DeploymentState.Booting
+                        ? 'Deploying...'
+                        : (data.deployment.url ?? 'Live')}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+              {data.fastMode ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span data-testid="feature-node-fast-mode-badge">
+                        <Zap className="h-3 w-3 text-amber-500" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Fast Mode</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+              {data.featureId ? (
+                <div className="flex items-baseline gap-1">
+                  <span className="text-muted-foreground/50 text-[10px]">ID</span>
+                  <button
+                    type="button"
+                    data-testid="feature-node-id"
+                    className="nodrag text-muted-foreground/60 hover:text-muted-foreground cursor-pointer font-mono text-[10px] transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(data.featureId);
+                    }}
+                    title={`Click to copy: ${data.featureId}`}
+                  >
+                    {data.featureId.slice(0, 6)}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Right: in-progress status or action buttons */}
+            {data.state === 'deleting' ? (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gray-400" />
+                <span className="text-muted-foreground">Deleting…</span>
+              </div>
+            ) : data.state === 'creating' ? (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                <span className="text-muted-foreground">{getBadgeText(data)}</span>
+              </div>
+            ) : data.state === 'running' ? (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                <span className="text-muted-foreground">{getBadgeText(data)}</span>
+              </div>
+            ) : data.state === 'action-required' ? (
+              <div className="flex items-center gap-2" data-testid="feature-node-badge">
+                <div className="relative flex items-center gap-1.5">
+                  <span className="relative shrink-0">
+                    <span className="absolute inset-0 animate-pulse rounded-full bg-amber-400/30 blur-[5px]" />
+                    {(() => {
+                      const BadgeIcon = getBadgeIcon(data);
+                      return <BadgeIcon className="relative h-3.5 w-3.5 text-amber-500" />;
+                    })()}
+                  </span>
+                  <span className="animate-shimmer translate-y-px text-[11px] font-medium bg-[length:200%_100%] bg-clip-text text-transparent bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 dark:from-amber-400 dark:via-amber-200 dark:to-amber-400">
                     {getBadgeText(data)}
                   </span>
                 </div>
-
-                {/* Action buttons — right-aligned, consistent style */}
-                {data.state === 'action-required' ? (
-                  <button
-                    type="button"
-                    aria-label={getActionRequiredLabel(data)}
-                    data-testid="feature-node-approve-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                    className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
-                  >
-                    <Eye className="h-3 w-3" />
-                    Review
-                  </button>
-                ) : null}
-                {data.state === 'error' && data.onRetry ? (
-                  <button
-                    type="button"
-                    aria-label="Retry"
-                    data-testid="feature-node-retry-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      data.onRetry!(data.featureId);
-                    }}
-                    className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Retry
-                  </button>
-                ) : null}
-                {data.state === 'pending' && data.onStart ? (
-                  <button
-                    type="button"
-                    aria-label="Start"
-                    data-testid="feature-node-start-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      data.onStart!(data.featureId);
-                    }}
-                    className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
-                  >
-                    <Play className="h-3 w-3" />
-                    Start
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  aria-label={getActionRequiredLabel(data)}
+                  data-testid="feature-node-approve-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                >
+                  <Eye className="h-3 w-3" />
+                  Review
+                </button>
               </div>
-            </>
-          )}
+            ) : data.state === 'error' && data.onRetry ? (
+              <button
+                type="button"
+                aria-label="Retry"
+                data-testid="feature-node-retry-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRetry!(data.featureId);
+                }}
+                className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Retry
+              </button>
+            ) : data.state === 'done' ? (
+              <div className="flex items-center gap-1.5 text-xs" data-testid="feature-node-badge">
+                {(() => {
+                  const BadgeIcon = getBadgeIcon(data);
+                  return <BadgeIcon className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)} />;
+                })()}
+                <span className={cn('text-[11px] font-medium', config.badgeClass)}>
+                  {getBadgeText(data)}
+                </span>
+              </div>
+            ) : data.state === 'pending' && data.onStart ? (
+              <button
+                type="button"
+                aria-label="Start"
+                data-testid="feature-node-start-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onStart!(data.featureId);
+                }}
+                className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
+              >
+                <Play className="h-3 w-3" />
+                Start
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 

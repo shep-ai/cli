@@ -720,7 +720,7 @@ export const FastModeFeatures: Story = {
 //   running (impl)                                                               pending
 //   running (review)                                                             fast running
 
-const COL = [0, 370, 740, 1110];
+const COL = [0, 420, 840, 1260];
 const ROW_H = 210;
 
 const fullSpectrumNodes: CanvasNodeType[] = [
@@ -862,7 +862,7 @@ const fullSpectrumNodes: CanvasNodeType[] = [
     position: { x: COL[1], y: ROW_H },
     data: {
       name: 'GraphQL API Layer',
-      description: 'Replace REST — awaiting tech plan approval',
+      description: 'Replace REST endpoints with GraphQL schema, resolvers, and client-side codegen for type-safe queries',
       featureId: 'c4a6b8d0-2e4f-49a1-b3c5-d7e9f1a3b5c7',
       lifecycle: 'implementation',
       state: 'action-required',

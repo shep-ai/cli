@@ -69,55 +69,63 @@ export const lifecyclePhaseBadge: Record<FeatureLifecyclePhase, {
   letter: string;
   bg: string;
   text: string;
+  dot: string;
   tooltip: string;
   description: string;
 }> = {
   pending: {
     letter: 'P',
-    bg: 'bg-slate-100 dark:bg-slate-800',
-    text: 'text-slate-600 dark:text-slate-300',
+    bg: 'bg-stone-100 dark:bg-stone-800',
+    text: 'text-stone-500 dark:text-stone-400',
+    dot: 'bg-stone-400',
     tooltip: 'Pending',
     description: 'Waiting to start — the feature is queued and ready to go.',
   },
   requirements: {
     letter: 'R',
-    bg: 'bg-violet-100 dark:bg-violet-900/40',
-    text: 'text-violet-600 dark:text-violet-300',
+    bg: 'bg-fuchsia-100 dark:bg-fuchsia-900/40',
+    text: 'text-fuchsia-600 dark:text-fuchsia-300',
+    dot: 'bg-fuchsia-500',
     tooltip: 'Requirements',
     description: 'Gathering what to build — the AI is writing a product requirements document (PRD) based on your request.',
   },
   research: {
     letter: 'D',
-    bg: 'bg-cyan-100 dark:bg-cyan-900/40',
-    text: 'text-cyan-600 dark:text-cyan-300',
+    bg: 'bg-teal-100 dark:bg-teal-900/40',
+    text: 'text-teal-600 dark:text-teal-300',
+    dot: 'bg-teal-500',
     tooltip: 'Research',
     description: 'Exploring your codebase — the AI is analyzing existing code, patterns, and dependencies to plan the best approach.',
   },
   implementation: {
     letter: 'I',
-    bg: 'bg-blue-100 dark:bg-blue-900/40',
-    text: 'text-blue-600 dark:text-blue-300',
+    bg: 'bg-indigo-100 dark:bg-indigo-900/40',
+    text: 'text-indigo-600 dark:text-indigo-300',
+    dot: 'bg-indigo-500',
     tooltip: 'Implementation',
     description: 'Writing code — the AI is implementing the feature, writing tests, and making sure everything compiles.',
   },
   review: {
     letter: 'M',
-    bg: 'bg-amber-100 dark:bg-amber-900/40',
-    text: 'text-amber-600 dark:text-amber-300',
+    bg: 'bg-orange-100 dark:bg-orange-900/40',
+    text: 'text-orange-600 dark:text-orange-300',
+    dot: 'bg-orange-500',
     tooltip: 'Merge Review',
     description: 'Ready to merge — the code is complete. Review the changes and approve to merge into your repository.',
   },
   deploy: {
     letter: 'Q',
-    bg: 'bg-emerald-100 dark:bg-emerald-900/40',
-    text: 'text-emerald-600 dark:text-emerald-300',
+    bg: 'bg-lime-100 dark:bg-lime-900/40',
+    text: 'text-lime-600 dark:text-lime-300',
+    dot: 'bg-lime-500',
     tooltip: 'Deploy & QA',
     description: 'Deploying and testing — the feature is being deployed to a preview environment for quality checks.',
   },
   maintain: {
     letter: '✓',
-    bg: 'bg-gray-100 dark:bg-gray-800',
-    text: 'text-gray-500 dark:text-gray-400',
+    bg: 'bg-emerald-100 dark:bg-emerald-900/40',
+    text: 'text-emerald-500 dark:text-emerald-400',
+    dot: 'bg-emerald-500',
     tooltip: 'Completed',
     description: 'All done — the feature has been merged and delivered successfully.',
   },
