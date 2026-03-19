@@ -4,15 +4,13 @@ import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import {
   Plus,
-  FileText,
-  Wrench,
-  GitMerge,
   Trash2,
   Zap,
   Loader2,
   Globe,
   RotateCcw,
   Play,
+  Check,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -38,27 +36,15 @@ function AgentIcon({ agentType, className }: { agentType?: string; className?: s
 
 function getBadgeIcon(data: FeatureNodeData): LucideIcon {
   const config = featureNodeStateConfig[data.state];
-  if (data.state === 'action-required') {
-    if (data.lifecycle === 'requirements') return FileText;
-    if (data.lifecycle === 'implementation') return Wrench;
-    if (data.lifecycle === 'review') return GitMerge;
-  }
   return config.icon;
 }
 
-/** Returns override badge classes for action-required based on lifecycle phase. */
-function getActionRequiredBadgeClasses(data: FeatureNodeData): {
-  badgeClass: string;
-  badgeBgClass: string;
-} | null {
-  if (data.state !== 'action-required') return null;
-  if (data.lifecycle === 'implementation') {
-    return { badgeClass: 'text-indigo-700', badgeBgClass: 'bg-indigo-50' };
-  }
-  if (data.lifecycle === 'review') {
-    return { badgeClass: 'text-emerald-700', badgeBgClass: 'bg-emerald-50' };
-  }
-  return null; // requirements stays amber (default)
+/** Short, consistent label for each action-required gate. */
+function getActionRequiredLabel(data: FeatureNodeData): string {
+  if (data.lifecycle === 'requirements') return 'Review Requirements';
+  if (data.lifecycle === 'implementation') return 'Review Plan';
+  if (data.lifecycle === 'review') return 'Review Merge';
+  return 'Action Required';
 }
 
 function getBadgeText(data: FeatureNodeData): string {
@@ -75,10 +61,7 @@ function getBadgeText(data: FeatureNodeData): string {
     case 'pending':
       return 'Pending';
     case 'action-required':
-      if (data.lifecycle === 'requirements') return 'Review Product Requirements';
-      if (data.lifecycle === 'implementation') return 'Review Technical Planning';
-      if (data.lifecycle === 'review') return 'Review Merge Request';
-      return config.label;
+      return getActionRequiredLabel(data);
     case 'error':
       return data.errorMessage ?? 'Something went wrong';
     default:
@@ -338,35 +321,51 @@ export function FeatureNode({
             </>
           ) : (
             <>
-              {/* State badge */}
-              <div className="mt-1.5 flex items-center gap-1.5">
+              {/* State badge + action buttons */}
+              <div className="mt-1.5 flex flex-col gap-1.5">
+                {/* Status line */}
                 <div
                   data-testid="feature-node-badge"
-                  className={(() => {
-                    const override = getActionRequiredBadgeClasses(data);
-                    return cn(
-                      'flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                      override?.badgeBgClass ?? config.badgeBgClass,
-                      override?.badgeClass ?? config.badgeClass
-                    );
-                  })()}
+                  className="flex items-center gap-1.5 text-xs"
                 >
                   {(() => {
                     const BadgeIcon = getBadgeIcon(data);
-                    return <BadgeIcon className="h-3.5 w-3.5 shrink-0" />;
+                    return (
+                      <BadgeIcon
+                        className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)}
+                      />
+                    );
                   })()}
-                  <span className="truncate">{getBadgeText(data)}</span>
+                  <span className={cn('truncate text-[11px] font-medium', config.badgeClass)}>
+                    {getBadgeText(data)}
+                  </span>
                 </div>
+
+                {/* Inline action buttons — compact, colored, sleek */}
+                {data.state === 'action-required' ? (
+                  <button
+                    type="button"
+                    aria-label={getActionRequiredLabel(data)}
+                    data-testid="feature-node-approve-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    className="nodrag inline-flex w-fit cursor-pointer items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 transition-all hover:border-amber-300 hover:bg-amber-100 active:bg-amber-150 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-950/60"
+                  >
+                    <Check className="h-3 w-3" />
+                    {getActionRequiredLabel(data)}
+                  </button>
+                ) : null}
                 {data.state === 'error' && data.onRetry ? (
                   <button
                     type="button"
-                    aria-label="Retry feature"
+                    aria-label="Retry"
                     data-testid="feature-node-retry-button"
                     onClick={(e) => {
                       e.stopPropagation();
                       data.onRetry!(data.featureId);
                     }}
-                    className="nodrag flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-200"
+                    className="nodrag inline-flex w-fit cursor-pointer items-center gap-1 rounded border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-700 transition-all hover:border-red-300 hover:bg-red-100 active:bg-red-150 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/60"
                   >
                     <RotateCcw className="h-3 w-3" />
                     Retry
@@ -375,13 +374,13 @@ export function FeatureNode({
                 {data.state === 'pending' && data.onStart ? (
                   <button
                     type="button"
-                    aria-label="Start feature"
+                    aria-label="Start"
                     data-testid="feature-node-start-button"
                     onClick={(e) => {
                       e.stopPropagation();
                       data.onStart!(data.featureId);
                     }}
-                    className="nodrag flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200"
+                    className="nodrag inline-flex w-fit cursor-pointer items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 transition-all hover:border-blue-300 hover:bg-blue-100 active:bg-blue-150 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-950/60"
                   >
                     <Play className="h-3 w-3" />
                     Start
