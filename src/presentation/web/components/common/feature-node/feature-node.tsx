@@ -40,9 +40,9 @@ function getBadgeIcon(data: FeatureNodeData): LucideIcon {
 
 /** Short, friendly label for each action-required gate. */
 function getActionRequiredLabel(data: FeatureNodeData): string {
-  if (data.lifecycle === 'requirements') return 'PRD Ready';
-  if (data.lifecycle === 'implementation') return 'Plan Ready';
-  if (data.lifecycle === 'review') return 'Merge Ready';
+  if (data.lifecycle === 'requirements') return 'Requirements Ready';
+  if (data.lifecycle === 'implementation') return 'Technical Plan Ready';
+  if (data.lifecycle === 'review') return 'Ready to Merge';
   return 'Ready for Review';
 }
 
@@ -346,18 +346,28 @@ export function FeatureNode({
                 {/* Status line */}
                 <div
                   data-testid="feature-node-badge"
-                  className="flex min-h-[26px] min-w-0 items-center gap-1.5 text-xs"
+                  className="relative flex min-h-[26px] min-w-0 items-center gap-1.5 text-xs"
                   style={{ transform: 'translateY(2px)' }}
                 >
                   {(() => {
                     const BadgeIcon = getBadgeIcon(data);
                     return (
-                      <BadgeIcon
-                        className={cn('h-3.5 w-3.5 shrink-0', data.state === 'action-required' ? 'text-muted-foreground' : config.badgeClass)}
-                      />
+                      <span className="relative shrink-0">
+                        {data.state === 'action-required' ? (
+                          <span className="absolute inset-0 animate-pulse rounded-full bg-amber-400/30 blur-[5px]" />
+                        ) : null}
+                        <BadgeIcon
+                          className={cn('relative h-3.5 w-3.5', data.state === 'action-required' ? 'text-amber-500' : config.badgeClass)}
+                        />
+                      </span>
                     );
                   })()}
-                  <span className={cn('translate-y-px truncate text-[11px] font-medium', data.state === 'action-required' ? 'text-muted-foreground' : config.badgeClass)}>
+                  <span className={cn(
+                    'translate-y-px truncate text-[11px] font-medium',
+                    data.state === 'action-required'
+                      ? 'animate-shimmer bg-[length:200%_100%] bg-clip-text text-transparent bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 dark:from-amber-400 dark:via-amber-200 dark:to-amber-400'
+                      : config.badgeClass
+                  )}>
                     {getBadgeText(data)}
                   </span>
                 </div>

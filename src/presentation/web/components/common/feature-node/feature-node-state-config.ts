@@ -105,7 +105,7 @@ export const lifecyclePhaseBadge: Record<FeatureLifecyclePhase, {
     bg: 'bg-amber-100 dark:bg-amber-900/40',
     text: 'text-amber-600 dark:text-amber-300',
     tooltip: 'Merge Review',
-    description: 'Ready for merge — the code is complete and a pull request is open for your review.',
+    description: 'Ready to merge — the code is complete. Review the changes and approve to merge into your repository.',
   },
   deploy: {
     letter: 'Q',

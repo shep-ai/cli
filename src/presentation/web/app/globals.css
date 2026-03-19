@@ -73,6 +73,7 @@
   --animate-indeterminate-progress: indeterminate-progress 1.5s ease-in-out infinite;
   --animate-option-highlight: option-highlight 1.5s ease-out;
   --animate-pulse-cta: pulse-cta 2s ease-in-out infinite;
+  --animate-shimmer: shimmer 3s ease-in-out infinite;
 }
 
 /* Dark Mode Theme Overrides */
