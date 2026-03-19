@@ -1,0 +1,17 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-gh-cli-onboarding-check
+
+ ✓  web  tests/unit/presentation/web/features/control-center/welcome-agent-setup.test.tsx > WelcomeAgentSetup > renders agent list after loading 24ms
+ ✓  web  tests/unit/presentation/web/features/control-center/welcome-agent-setup.test.tsx > WelcomeAgentSetup > shows model list after selecting an agent with models 210ms
+ ✓  web  tests/unit/presentation/web/features/control-center/welcome-agent-setup.test.tsx > WelcomeAgentSetup > auto-completes for agents without models 232ms
+ ✓  web  tests/unit/presentation/web/features/control-center/welcome-agent-setup.test.tsx > WelcomeAgentSetup > completes after selecting agent and model 442ms
+ ✓  web  tests/unit/presentation/web/features/control-center/welcome-agent-setup.test.tsx > WelcomeAgentSetup > renders GitHub CLI prerequisite notice on agent selection step 41ms
+ ✓  web  tests/unit/presentation/web/features/control-center/welcome-agent-setup.test.tsx > WelcomeAgentSetup > hides GitHub CLI notice on model selection step 176ms
+ ✓  web  tests/unit/presentation/web/features/control-center/welcome-agent-setup.test.tsx > WelcomeAgentSetup > shows loading state initially 3ms
+ ✓  web  tests/unit/presentation/web/features/control-center/welcome-agent-setup.test.tsx > WelcomeAgentSetup > renders step indicator 7ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  14:38:08
+   Duration  1.77s (transform 59ms, setup 107ms, import 112ms, tests 1.13s, environment 357ms)
+

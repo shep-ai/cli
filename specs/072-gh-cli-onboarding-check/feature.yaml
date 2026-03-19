@@ -1,0 +1,33 @@
+feature:
+  id: 072-gh-cli-onboarding-check
+  name: gh-cli-onboarding-check
+  number: 72
+  branch: feat/072-gh-cli-onboarding-check
+  lifecycle: research
+  createdAt: '2026-03-19T12:27:59Z'
+status:
+  phase: research
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-19T12:27:59Z'
+  lastUpdatedBy: feature-agent
+  completedPhases:
+    - fast-implement
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-19T12:27:59Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []
