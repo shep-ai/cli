@@ -277,14 +277,33 @@ describe('buildFastImplementPrompt', () => {
     expect(prompt).toContain('src/');
   });
 
-  it('should include instruction to NOT commit/push/PR', () => {
+  it('should include instruction to commit incrementally', () => {
     setupFileMocks();
     const state = createMockState();
 
     const prompt = buildFastImplementPrompt(state);
 
-    expect(prompt).toContain('Do NOT commit, push, or create a PR');
-    expect(prompt).toContain('Do NOT commit, push, or create pull requests');
+    expect(prompt).toContain('Commit your work with descriptive conventional commit messages');
+    expect(prompt).toContain('Commit incrementally');
+  });
+
+  it('should include push instruction when push=true', () => {
+    setupFileMocks();
+    const state = createMockState({ push: true });
+
+    const prompt = buildFastImplementPrompt(state);
+
+    expect(prompt).toContain('Push to remote after committing');
+    expect(prompt).toContain('git push -u origin HEAD');
+  });
+
+  it('should NOT include push instruction when push=false', () => {
+    setupFileMocks();
+    const state = createMockState({ push: false });
+
+    const prompt = buildFastImplementPrompt(state);
+
+    expect(prompt).not.toContain('Push to remote after committing');
   });
 
   it('should output under 10,000 chars with typical inputs', () => {
