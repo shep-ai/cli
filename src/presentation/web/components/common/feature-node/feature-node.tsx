@@ -139,6 +139,7 @@ export function FeatureNode({
         aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
           'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
+          data.state === 'action-required' && 'border-amber-300/60 dark:border-amber-700/40',
           selected && 'ring-primary ring-2',
           data.state === 'deleting' && 'opacity-60'
         )}
@@ -206,7 +207,7 @@ export function FeatureNode({
           ) : null}
 
           {/* Status text for blocked / error / pending (above bottom row) */}
-          {!config.showProgressBar && !['deleting', 'creating', 'running', 'done', 'action-required'].includes(data.state) ? (
+          {!config.showProgressBar && !['deleting', 'creating', 'running', 'done', 'action-required', 'pending', 'blocked'].includes(data.state) ? (
             <div
               data-testid="feature-node-badge"
               className="relative flex min-w-0 items-center gap-1.5 text-xs"
@@ -324,9 +325,7 @@ export function FeatureNode({
                 type="button"
                 aria-label={getActionRequiredLabel(data)}
                 data-testid="feature-node-approve-button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
+                onClick={() => {}}
                 className="nodrag relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 overflow-hidden rounded-md bg-gradient-to-b from-neutral-800 via-neutral-900 to-neutral-950 px-3 py-1.5 text-[11px] font-semibold transition-all hover:from-neutral-700 hover:via-neutral-800 hover:to-neutral-900 active:from-neutral-900 active:to-black"
               >
                 <span className="pointer-events-none absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/15 to-transparent bg-[length:200%_100%]" />
@@ -347,6 +346,16 @@ export function FeatureNode({
                 <RotateCcw className="h-3 w-3" />
                 Retry
               </button>
+            ) : data.state === 'blocked' ? (
+              <div className="flex items-center gap-1.5 text-xs" data-testid="feature-node-badge">
+                {(() => {
+                  const BadgeIcon = getBadgeIcon(data);
+                  return <BadgeIcon className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)} />;
+                })()}
+                <span className={cn('truncate text-[11px] font-medium', config.badgeClass)}>
+                  {getBadgeText(data)}
+                </span>
+              </div>
             ) : data.state === 'done' ? (
               <div className="flex items-center gap-1.5 text-xs" data-testid="feature-node-badge">
                 {(() => {
