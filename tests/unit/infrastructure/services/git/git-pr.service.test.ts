@@ -464,7 +464,7 @@ describe('GitPrService', () => {
       expect(mockExec).toHaveBeenNthCalledWith(
         2,
         'gh',
-        ['run', 'watch', '789', '--exit-status', '--interval', '30'],
+        ['run', 'watch', '789', '--exit-status', '--compact', '--interval', '30'],
         expect.objectContaining({ cwd: '/repo' })
       );
       expect(result.status).toBe('success');
@@ -638,7 +638,7 @@ describe('GitPrService', () => {
       expect(mockExec).toHaveBeenNthCalledWith(
         2,
         'gh',
-        ['run', 'watch', '789', '--exit-status', '--interval', '30'],
+        ['run', 'watch', '789', '--exit-status', '--compact', '--interval', '30'],
         {
           cwd: '/repo',
           timeout: 30000,
