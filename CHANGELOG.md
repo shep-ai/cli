@@ -1,3 +1,10 @@
+## [1.135.1](https://github.com/shep-ai/cli/compare/v1.135.0...v1.135.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* **web:** resolve terminal metadata via di container in open-shell ([#431](https://github.com/shep-ai/cli/issues/431)) ([596fe28](https://github.com/shep-ai/cli/commit/596fe2897506fb96240368b49e560ee9ccb5317e))
+
 # [1.135.0](https://github.com/shep-ai/cli/compare/v1.134.1...v1.135.0) (2026-03-19)
 
 
