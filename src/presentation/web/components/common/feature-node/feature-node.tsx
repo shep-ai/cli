@@ -151,12 +151,12 @@ export function FeatureNode({
               <TooltipTrigger asChild>
                 <span
                   data-testid="feature-node-phase-badge"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1.5"
                 >
-                  <span className={cn('h-1.5 w-1.5 -translate-y-px rounded-full', lifecyclePhaseBadge[data.lifecycle].dot)} />
                   <span className="text-muted-foreground text-[10px]">
                     {lifecyclePhaseBadge[data.lifecycle].tooltip}
                   </span>
+                  <span className={cn('h-1.5 w-1.5 -translate-y-px rounded-full', lifecyclePhaseBadge[data.lifecycle].dot)} />
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-56 bg-white text-neutral-900 shadow-lg dark:bg-neutral-100 dark:text-neutral-900">
