@@ -1,0 +1,223 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "shep-doctor"
+summary: >
+  Implementation plan for the shep doctor feature — a self-healing CLI command that diagnoses
+  shep operation failures, opens structured GitHub issues on shep-ai/cli, optionally invokes
+  an AI agent to attempt a fix, and opens a PR. Supports both maintainer (direct push) and
+  external contributor (fork) flows via auto-detected push access. Built with a single
+  DoctorDiagnoseUseCase orchestrating injected services, following Clean Architecture with
+  TypeSpec-first domain models, TDD throughout, and full interface segregation.
+
+relatedFeatures:
+  - "041-ci-watch-fix-loop"
+
+technologies:
+  - "Commander.js"
+  - "tsyringe"
+  - "@inquirer/prompts"
+  - "gh CLI"
+  - "Vitest"
+  - "TypeSpec"
+  - "node:os"
+  - "node:crypto"
+  - "node:fs/promises"
+
+relatedLinks:
+  - title: "GitHub Issue #436 - Feature request: Shep doctor"
+    url: "https://github.com/shep-ai/cli/issues/436"
+  - title: "gh CLI issue create documentation"
+    url: "https://cli.github.com/manual/gh_issue_create"
+  - title: "gh API permissions endpoint"
+    url: "https://docs.github.com/en/rest/repos/repos#get-a-repository"
+
+phases:
+  - id: phase-1
+    name: "Domain Models & TypeSpec"
+    description: >
+      Define the DoctorDiagnosticReport value object in TypeSpec and extend WorkflowConfig
+      with doctorMaxFixAttempts. Compile TypeSpec to generate domain types. This must come
+      first because all subsequent layers depend on these domain types.
+    parallel: false
+
+  - id: phase-2
+    name: "Service Interfaces (Output Ports)"
+    description: >
+      Define the new IGitHubIssueService interface and extend IGitHubRepositoryService
+      and IGitPrService with new method signatures. These ports establish the contracts
+      that infrastructure implementations and the use case both depend on.
+    parallel: false
+
+  - id: phase-3
+    name: "Infrastructure Service Implementations"
+    description: >
+      Implement GitHubIssueService (wrapping gh issue create), add checkPushAccess() and
+      forkRepository() to GitHubRepositoryService, and add createPrFromArgs() to GitPrService.
+      Each implementation is independently testable against its interface contract.
+    parallel: false
+
+  - id: phase-4
+    name: "Use Case Orchestration"
+    description: >
+      Implement DoctorDiagnoseUseCase with the full sequential workflow: collect diagnostics,
+      create issue, check permissions, setup repo (clone or fork+clone), invoke agent, create
+      PR. All external operations are injected, enabling comprehensive unit testing with mocks.
+    parallel: false
+
+  - id: phase-5
+    name: "CLI Command & DI Wiring"
+    description: >
+      Create the doctor.command.ts CLI command with argument/option parsing, interactive
+      prompts, progress display, and error handling. Register all new components in the
+      DI container. Wire the command into the CLI program.
+    parallel: false
+
+  - id: phase-6
+    name: "Integration Testing & Polish"
+    description: >
+      Add integration tests covering the end-to-end doctor workflow with mocked external
+      services. Validate both maintainer and contributor flows. Verify graceful degradation
+      on failures. Final cleanup and edge case handling.
+    parallel: false
+
+filesToCreate:
+  - "tsp/domain/value-objects/doctor-diagnostic-report.tsp"
+  - "packages/core/src/application/ports/output/services/github-issue-service.interface.ts"
+  - "packages/core/src/application/use-cases/doctor/doctor-diagnose.use-case.ts"
+  - "packages/core/src/infrastructure/services/external/github-issue.service.ts"
+  - "src/presentation/cli/commands/doctor.command.ts"
+  - "tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts"
+  - "tests/unit/infrastructure/services/github-issue.service.test.ts"
+  - "tests/unit/infrastructure/services/github-repository-push-access.test.ts"
+  - "tests/unit/infrastructure/services/git-pr-create-from-args.test.ts"
+  - "tests/integration/application/use-cases/doctor/doctor-workflow.test.ts"
+
+filesToModify:
+  - "tsp/domain/entities/settings.tsp"
+  - "packages/core/src/application/ports/output/services/github-repository-service.interface.ts"
+  - "packages/core/src/application/ports/output/services/git-pr-service.interface.ts"
+  - "packages/core/src/infrastructure/services/external/github-repository.service.ts"
+  - "packages/core/src/infrastructure/services/git/git-pr.service.ts"
+  - "packages/core/src/infrastructure/di/container.ts"
+  - "src/presentation/cli/index.ts"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The shep doctor feature is a self-healing meta-command where shep diagnoses its own failures
+  and attempts to fix itself. It follows the codebase's Clean Architecture with four layers:
+
+  **Domain Layer (TypeSpec):** A new `DoctorDiagnosticReport` value object captures structured
+  diagnostic data (user description, failed agent run summaries, system info, CLI version).
+  `WorkflowConfig` is extended with `doctorMaxFixAttempts` for configurable retry behavior.
+
+  **Application Layer (Use Case + Ports):** A single `DoctorDiagnoseUseCase` orchestrates the
+  sequential workflow: collect -> diagnose -> issue -> fix -> PR. A new `IGitHubIssueService`
+  output port defines the issue creation contract. `IGitHubRepositoryService` gains
+  `checkPushAccess()` and `forkRepository()`. `IGitPrService` gains `createPrFromArgs()`.
+
+  **Infrastructure Layer (Implementations):** `GitHubIssueService` wraps `gh issue create`.
+  `GitHubRepositoryService` adds push access detection via `gh api` and fork via `gh repo fork`.
+  `GitPrService` adds programmatic PR creation with `--repo` flag support for cross-fork PRs.
+
+  **Presentation Layer (CLI):** A top-level `shep doctor` command handles argument parsing,
+  interactive prompts (@inquirer/prompts), progress display (spinner/messages), and flags
+  (--fix, --no-fix, --workdir).
+
+  ### Dependency Flow
+
+  ```
+  CLI Command -> resolves -> DoctorDiagnoseUseCase
+                                +-- IAgentRunRepository (query failed runs)
+                                +-- IVersionService (CLI version)
+                                +-- IGitHubIssueService (create issue) --[NEW]
+                                +-- IGitHubRepositoryService (push access, fork, clone)
+                                +-- IGitPrService (push, create PR)
+                                +-- IAgentExecutorProvider (AI fix attempt)
+                                +-- ISettingsRepository (doctorMaxFixAttempts)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Single Use Case Orchestration (vs. multiple use cases or LangGraph)
+
+  The doctor workflow is inherently sequential -- each step depends on prior outputs (diagnosis
+  feeds issue body, issue number feeds branch name, branch feeds PR). A single
+  `DoctorDiagnoseUseCase` keeps the flow readable and matches the codebase pattern (e.g.,
+  CreateFeatureUseCase handles multi-step orchestrations). LangGraph would be overkill for
+  a linear, non-iterative flow.
+
+  ### 2. New IGitHubIssueService (vs. extending IExternalIssueFetcher)
+
+  The existing `IExternalIssueFetcher` is a read-only fetcher for external issue references.
+  Adding write operations would violate ISP. A new `IGitHubIssueService` with `createIssue()`
+  follows the codebase pattern of focused service interfaces with co-located error types.
+
+  ### 3. Extending IGitHubRepositoryService (vs. new services)
+
+  Push access detection and forking are GitHub repository operations that naturally extend the
+  existing `IGitHubRepositoryService` (which already has `checkAuth()`, `cloneRepository()`).
+  Creating separate IPermissionService or IForkService would over-fragment for single methods.
+
+  ### 4. createPrFromArgs() on IGitPrService (vs. reusing pr.yaml pattern)
+
+  The existing `createPr()` reads from a pr.yaml file (feature workflow pattern). Doctor needs
+  programmatic PR creation with explicit args including `--repo` for cross-fork PRs. A new
+  method with typed parameters is cleaner than writing a temp YAML file.
+
+  ### 5. Auto-detect Push Access (vs. always fork or user flag)
+
+  Using `gh api repos/shep-ai/cli --jq '.permissions.push'` automatically detects whether the
+  user is a maintainer or external contributor. Maintainers get the streamlined direct-push
+  flow; contributors automatically fork. Falls back to fork on any detection failure (NFR-9).
+
+  ### 6. Configurable Max Fix Attempts (default 1)
+
+  `doctorMaxFixAttempts` in WorkflowConfig defaults to 1, matching the spec's "single attempt"
+  resolution while allowing power users to increase it. Follows the existing `ciMaxFixAttempts`
+  pattern.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Domain)** comes first because TypeSpec types are the foundation -- every other
+  layer imports from `domain/generated/output.ts`. The DoctorDiagnosticReport value object
+  and WorkflowConfig extension must compile before any code referencing them.
+
+  **Phase 2 (Ports)** defines interface contracts before implementations. This allows the use
+  case and infrastructure to be developed independently against the same contract, and enables
+  TDD since tests mock the interfaces.
+
+  **Phase 3 (Infrastructure)** implements the service contracts. Each new service/method is
+  independently testable with an injected ExecFunction mock. The three implementations
+  (GitHubIssueService, push access, fork, createPrFromArgs) have no mutual dependencies.
+
+  **Phase 4 (Use Case)** orchestrates the full workflow with all dependencies injected. By this
+  point, all interfaces are defined and can be mocked for comprehensive unit testing. The use
+  case is the core logic layer and gets the most thorough test coverage.
+
+  **Phase 5 (CLI + DI)** is the presentation/wiring layer. The command resolves the use case
+  from the DI container and handles user interaction (prompts, flags, progress). DI registration
+  connects implementations to interfaces.
+
+  **Phase 6 (Integration)** validates the full workflow with more realistic scenarios, testing
+  both maintainer and contributor paths end-to-end with mocked externals.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | gh CLI not installed or not authenticated | Validate prerequisites first with IToolInstallerService.checkAvailability('gh') and IGitHubRepositoryService.checkAuth(). Display clear installation/auth instructions on failure. |
+  | Push access detection fails (network, rate limit) | Fall back to fork path as safe default (NFR-9). Log a warning but don't crash. |
+  | Agent execution fails during fix attempt | Catch and report gracefully. The issue is already created, so the user still gets value. Display the issue URL and inform about the fix failure. |
+  | Sensitive data in diagnostic report | Exclude settings entirely. Include only agentType, agentName, status, error, timestamps from agent runs. Redact home directory in file paths. Never include prompt or result fields. |
+  | Temp directory cleanup on failure | Use try/finally pattern. Only clean up temp dirs (not --workdir specified dirs). |
+  | Cross-fork PR targeting wrong repo | Always pass --repo shep-ai/cli explicitly for contributor flow. Maintainer flow runs gh pr create from within the cloned shep-ai/cli directory. |
+  | TypeSpec compilation breaks existing generated code | DoctorDiagnosticReport is additive (new value object). WorkflowConfig extension adds an optional field. Neither should break existing generated types. Verify with pnpm tsp:compile. |
+  | Fork already exists for the user | gh repo fork is idempotent -- it detects existing forks and returns them. No special handling needed. |
+
+  ---
+
+  _Plan complete -- proceed with implementation_
