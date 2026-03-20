@@ -1,13 +1,23 @@
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — success[2m > [22mshould call gh issue create with correct flags and return URL + number[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — success[2m > [22mshould handle issue URL without trailing newline[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — success[2m > [22mshould create issue with no labels[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — success[2m > [22mshould return number 0 when URL cannot be parsed[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — error handling[2m > [22mshould throw GH_NOT_FOUND when gh CLI is not installed[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — error handling[2m > [22mshould throw AUTH_FAILURE when gh is not authenticated[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — error handling[2m > [22mshould throw AUTH_FAILURE on 403 errors[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — error handling[2m > [22mshould throw NETWORK_ERROR on connection failures[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — error handling[2m > [22mshould throw NETWORK_ERROR on timeout[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — error handling[2m > [22mshould throw CREATE_FAILED for unknown errors[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts[2m > [22mGitHubIssueCreatorService[2m > [22mcreateIssue() — error handling[2m > [22mshould preserve cause on error[32m 0[2mms[22m[39m
-[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[32m11 passed[39m[22m[90m (11)[39m
+GitHubIssueCreatorService Unit Tests
+=====================================
+File: tests/unit/infrastructure/services/external/github-issue-creator.service.test.ts
+Run: npx vitest run <file> --reporter=verbose
+Date: 2026-03-21
+
+GitHubIssueCreatorService > createIssue() -- success
+  [PASS] should call gh issue create with correct flags and return URL + number (5ms)
+  [PASS] should handle issue URL without trailing newline (1ms)
+  [PASS] should create issue with no labels (1ms)
+  [PASS] should return number 0 when URL cannot be parsed (1ms)
+
+GitHubIssueCreatorService > createIssue() -- error handling
+  [PASS] should throw GH_NOT_FOUND when gh CLI is not installed (2ms)
+  [PASS] should throw AUTH_FAILURE when gh is not authenticated (0ms)
+  [PASS] should throw AUTH_FAILURE on 403 errors (0ms)
+  [PASS] should throw NETWORK_ERROR on connection failures (0ms)
+  [PASS] should throw NETWORK_ERROR on timeout (1ms)
+  [PASS] should throw CREATE_FAILED for unknown errors (0ms)
+  [PASS] should preserve cause on error (0ms)
+
+Test Files  1 passed (1)
+     Tests  11 passed (11)

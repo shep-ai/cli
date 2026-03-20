@@ -1,26 +1,50 @@
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mdiagnostic collection[2m > [22mshould return diagnostic report with failed agent runs from repository[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mdiagnostic collection[2m > [22mshould only include failed/errored runs (running/completed excluded)[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mdiagnostic collection[2m > [22mshould include at most 10 runs even if more exist[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mdiagnostic collection[2m > [22mshould exclude prompt and result fields from run summaries[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mdiagnostic collection[2m > [22mshould include CLI version and system info in report[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mdiagnostic collection[2m > [22mshould include user description in the diagnostic report[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mdiagnostic collection[2m > [22mshould handle gh version check failure gracefully[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22missue creation[2m > [22mshould create issue with formatted body and return issueUrl[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22missue creation[2m > [22mshould include [shep doctor] prefix in issue title[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22missue creation[2m > [22mshould include diagnostic context in issue body[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22missue creation[2m > [22mshould include footer tag in issue body[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mno-fix flow[2m > [22mshould skip entire fix workflow and return only issueUrl[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mmaintainer flow (has push access)[2m > [22mshould clone directly, push, and create same-repo PR[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mmaintainer flow (has push access)[2m > [22mshould create branch named doctor/fix-<issue-number>[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mcontributor flow (no push access)[2m > [22mshould fork, clone fork, and create cross-fork PR with --repo[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22magent invocation[2m > [22mshould invoke agent with structured prompt containing issue context[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22magent invocation[2m > [22mshould pass cwd option pointing to cloned directory[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mgraceful degradation[2m > [22mshould return issueUrl with prUrl undefined when agent fails[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mgraceful degradation[2m > [22mshould fall back to contributor flow when push access check fails[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mgraceful degradation[2m > [22mshould handle no uncommitted changes after agent run[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mtemp directory cleanup[2m > [22mshould clean up temp directory on success when no workdir specified[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mtemp directory cleanup[2m > [22mshould clean up temp directory on failure when no workdir specified[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mtemp directory cleanup[2m > [22mshould NOT clean up when workdir is specified[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts[2m > [22mDoctorDiagnoseUseCase[2m > [22mPR creation details[2m > [22mshould reference issue in PR title and body[32m 1[2mms[22m[39m
-[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[32m24 passed[39m[22m[90m (24)[39m
+DoctorDiagnoseUseCase Unit Tests
+=================================
+File: tests/unit/application/use-cases/doctor/doctor-diagnose.use-case.test.ts
+Run: npx vitest run <file> --reporter=verbose
+Date: 2026-03-21
+
+DoctorDiagnoseUseCase > diagnostic collection
+  [PASS] should return diagnostic report with failed agent runs from repository (8ms)
+  [PASS] should only include failed/errored runs (running/completed excluded) (2ms)
+  [PASS] should include at most 10 runs even if more exist (4ms)
+  [PASS] should exclude prompt and result fields from run summaries (3ms)
+  [PASS] should include CLI version and system info in report (1ms)
+  [PASS] should include user description in the diagnostic report (1ms)
+  [PASS] should handle gh version check failure gracefully (1ms)
+
+DoctorDiagnoseUseCase > issue creation
+  [PASS] should create issue with formatted body and return issueUrl (3ms)
+  [PASS] should include [shep doctor] prefix in issue title (1ms)
+  [PASS] should include diagnostic context in issue body (1ms)
+  [PASS] should include footer tag in issue body (4ms)
+
+DoctorDiagnoseUseCase > no-fix flow
+  [PASS] should skip entire fix workflow and return only issueUrl (1ms)
+
+DoctorDiagnoseUseCase > maintainer flow (has push access)
+  [PASS] should clone directly, push, and create same-repo PR (3ms)
+  [PASS] should create branch named doctor/fix-<issue-number> (11ms)
+
+DoctorDiagnoseUseCase > contributor flow (no push access)
+  [PASS] should fork, clone fork, and create cross-fork PR with --repo (1ms)
+
+DoctorDiagnoseUseCase > agent invocation
+  [PASS] should invoke agent with structured prompt containing issue context (1ms)
+  [PASS] should pass cwd option pointing to cloned directory (4ms)
+
+DoctorDiagnoseUseCase > graceful degradation
+  [PASS] should return issueUrl with prUrl undefined when agent fails (1ms)
+  [PASS] should fall back to contributor flow when push access check fails (1ms)
+  [PASS] should handle no uncommitted changes after agent run (12ms)
+
+DoctorDiagnoseUseCase > temp directory cleanup
+  [PASS] should clean up temp directory on success when no workdir specified (3ms)
+  [PASS] should clean up temp directory on failure when no workdir specified (1ms)
+  [PASS] should NOT clean up when workdir is specified (1ms)
+
+DoctorDiagnoseUseCase > PR creation details
+  [PASS] should reference issue in PR title and body (2ms)
+
+Test Files  1 passed (1)
+     Tests  24 passed (24)

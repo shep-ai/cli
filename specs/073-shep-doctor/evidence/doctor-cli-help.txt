@@ -1,4 +1,7 @@
-$ shep doctor --help
+Doctor CLI Help Output
+=======================
+Command: node dist/src/presentation/cli/index.js doctor --help
+Date: 2026-03-21
 
 Usage: shep doctor [options] [description]
 

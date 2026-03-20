@@ -1,9 +1,13 @@
+Build Output
+=============
+Command: pnpm build
+Date: 2026-03-21
 
-> @shepai/cli@1.135.2 build /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-shep-doctor
+> @shepai/cli@1.135.2 build
 > pnpm build:cli
 
-
-> @shepai/cli@1.135.2 build:cli /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-shep-doctor
+> @shepai/cli@1.135.2 build:cli
 > tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && shx mkdir -p dist/packages/core/src/infrastructure/services/tool-installer && shx rm -rf dist/packages/core/src/infrastructure/services/tool-installer/tools && shx cp -r packages/core/src/infrastructure/services/tool-installer/tools dist/packages/core/src/infrastructure/services/tool-installer/tools
 
-=== Build: SUCCESS ===
+Build completed successfully with no errors.
+TypeScript compilation, path alias resolution, and tool installer asset copy all succeeded.
