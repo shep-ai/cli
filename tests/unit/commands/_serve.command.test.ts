@@ -37,7 +37,10 @@ vi.mock('@/infrastructure/di/container.js', () => ({
         token === 'IAgentRunRepository' ||
         token === 'IPhaseTimingRepository' ||
         token === 'IFeatureRepository' ||
-        token === 'INotificationService'
+        token === 'INotificationService' ||
+        token === 'IWorkflowRepository' ||
+        token === 'IWorkflowExecutionRepository' ||
+        token === 'IClock'
       ) {
         return {};
       }
@@ -63,6 +66,16 @@ vi.mock('@/infrastructure/services/notifications/notification-watcher.service.js
     start: vi.fn(),
     stop: vi.fn(),
   }),
+}));
+
+// Mock workflow scheduler
+vi.mock('@/infrastructure/services/workflow-scheduler/workflow-scheduler.service.js', () => ({
+  initializeWorkflowScheduler: vi.fn(),
+  getWorkflowScheduler: vi.fn().mockReturnValue({
+    start: vi.fn().mockResolvedValue(undefined),
+    stop: vi.fn(),
+  }),
+  hasWorkflowScheduler: vi.fn().mockReturnValue(true),
 }));
 
 const mockWebServerService = {
