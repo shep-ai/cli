@@ -41,12 +41,10 @@ describe('ListGitHubRepositoriesUseCase', () => {
         .mockResolvedValue([createMockRepo()]),
       parseGitHubUrl: vi.fn(),
       checkPushAccess: vi.fn().mockResolvedValue(false),
-      forkRepository: vi
-        .fn()
-        .mockResolvedValue({
-          nameWithOwner: 'user/repo',
-          cloneUrl: 'https://github.com/user/repo.git',
-        }),
+      forkRepository: vi.fn().mockResolvedValue({
+        nameWithOwner: 'user/repo',
+        cloneUrl: 'https://github.com/user/repo.git',
+      }),
     };
 
     useCase = new ListGitHubRepositoriesUseCase(mockGitHubService);
