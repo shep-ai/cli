@@ -14,7 +14,10 @@ summary: >
   .shep/specs/ within each worktree. This follows established dotfile conventions
   (like .git/, .vscode/, .claude/) and consolidates shep-generated artifacts under
   a single .shep/ directory for cleaner project roots and future extensibility.
-phase: Analysis
+  Existing features with absolute specs/ paths in the database remain functional
+  with no migration required. All skill scripts, documentation, tests, and config
+  files are updated to reflect the new path.
+phase: Requirements
 sizeEstimate: M
 
 # Relationships
@@ -33,11 +36,78 @@ relatedLinks:
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - "Should existing features with specs/ paths in the database be migrated automatically, or only new features use .shep/specs/?"
-  - "Should the .shep/ directory (containing specs) be committed to git, or should it be gitignored with only a subset tracked?"
-  - "Does the .shep/ directory in the worktree need any other files besides specs (e.g., evidence, local config) to justify the directory restructuring now?"
+  - question: "Should existing specs/ directories in worktrees be migrated automatically to .shep/specs/?"
+    resolved: true
+    options:
+      - option: "No migration"
+        description: "Existing features store absolute paths in the database. Old features continue pointing at specs/ and work fine. New features use .shep/specs/. No file-moving logic needed. Simplest approach with zero risk to existing data."
+        selected: true
+      - option: "Auto-migrate on next access"
+        description: "When a feature is accessed and its specPath points to specs/, move the directory to .shep/specs/ and update the DB record. Adds complexity, risk of partial moves, and requires atomic file operations. Benefits: eventual consistency."
+        selected: false
+      - option: "One-time CLI migration command"
+        description: "Add a shep migrate command that moves all specs/ directories to .shep/specs/ and updates DB records. Requires building a new command, testing edge cases (permissions, partial worktrees). Benefits: explicit user control."
+        selected: false
+    selectionRationale: "No migration is recommended because the database stores absolute paths — existing features naturally continue to work at their original specs/ location. The dual-path state is invisible to users since they interact through shep commands, not raw file paths. This avoids the risk and complexity of file-moving logic for zero user-facing benefit."
+    answer: "No migration"
 
-# Markdown content (the actual spec)
+  - question: "Should the spec-initializer also check .shep/specs/ when scanning for the next available NNN number?"
+    resolved: true
+    options:
+      - option: "Scan .shep/specs/ only"
+        description: "Only scan the new .shep/specs/ directory for existing NNN prefixes. Simple but could produce number collisions if old specs/ directories exist in the same worktree."
+        selected: false
+      - option: "Scan both specs/ and .shep/specs/"
+        description: "Scan both directories and take the max NNN from either. Prevents number collisions during the transition period where a worktree might have both old and new spec directories."
+        selected: true
+      - option: "Scan .shep/specs/ only with DB cross-check"
+        description: "Scan .shep/specs/ on disk plus query the database for existing feature numbers in this worktree. More robust but adds a DB dependency to the spec initializer."
+        selected: false
+    selectionRationale: "Scanning both directories prevents number collisions during the transition period at minimal cost — it is a single additional readdir call that gracefully handles the directory not existing. This is the safest approach."
+    answer: "Scan both specs/ and .shep/specs/"
+
+  - question: "Should the test fixture directory specs/032-example-specs/ also move to .shep/specs/?"
+    resolved: true
+    options:
+      - option: "Move fixtures to .shep/specs/"
+        description: "Keeps fixture location consistent with production paths. However, .shep/ is conventionally for generated/runtime artifacts, and test fixtures are committed source code."
+        selected: false
+      - option: "Move fixtures to tests/fixtures/"
+        description: "Relocate specs/032-example-specs/ to a dedicated test fixtures directory like tests/fixtures/spec-yaml-samples/. Separates test data from production spec output. Cleaner project root."
+        selected: true
+      - option: "Keep fixtures in specs/"
+        description: "Leave the test fixture directory at specs/032-example-specs/. Minimizes changes but leaves a specs/ directory in the project root, partially defeating the purpose of this feature."
+        selected: false
+    selectionRationale: "Moving fixtures to tests/fixtures/ is recommended because it cleanly separates test data from production output. Leaving fixtures in specs/ would mean the project root still has a specs/ directory, undermining the goal of a clean root. The .shep/ directory is for runtime-generated artifacts, not committed test fixtures."
+    answer: "Move fixtures to tests/fixtures/"
+
+  - question: "Should .shep/ be added to .gitignore in user repositories?"
+    resolved: true
+    options:
+      - option: "Do not gitignore .shep/"
+        description: "Spec files inside .shep/specs/ are committed to git for PR review and history. Not ignoring allows specs to be part of the repository history, which is the current behavior with specs/."
+        selected: true
+      - option: "Gitignore .shep/ entirely"
+        description: "Treat all .shep/ contents as ephemeral. Specs would not be committed. This breaks the current workflow where specs are reviewed in PRs."
+        selected: false
+      - option: "Selective gitignore with exceptions"
+        description: "Gitignore .shep/ but whitelist .shep/specs/. Adds complexity and may confuse users. Git exception patterns can be fragile."
+        selected: false
+    selectionRationale: "Spec files must remain committed to git — they are part of the PR review workflow and feature history. The .shep/ directory in worktrees should NOT be gitignored, matching the current behavior where specs/ is fully tracked."
+    answer: "Do not gitignore .shep/"
+
+  - question: "How should the .shep/ directory be created?"
+    resolved: true
+    options:
+      - option: "Implicit via mkdir -p"
+        description: "Use recursive directory creation (mkdir -p equivalent via fs.mkdir recursive:true) when creating .shep/specs/NNN-feature/. The .shep/ parent is created automatically. No separate initialization step needed."
+        selected: true
+      - option: "Explicit init step"
+        description: "Add a dedicated .shep/ directory initialization service that creates the directory structure with a README or .gitkeep. More ceremony but documents the directory purpose."
+        selected: false
+    selectionRationale: "Implicit creation via recursive mkdir is recommended because the spec initializer already uses recursive directory creation. Adding an explicit init step would add unnecessary complexity for a directory that only needs to exist when specs are written."
+    answer: "Implicit via mkdir -p"
+
 content: |
   ## Problem Statement
 
@@ -53,100 +123,101 @@ content: |
   Note: This `.shep/` directory is **per-worktree** (inside the repo checkout), distinct from
   the global `~/.shep/` home directory that stores databases, daemon state, and attachments.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] New features create spec directories at `.shep/specs/NNN-feature/` instead of `specs/NNN-feature/`
+  - [ ] `.shep/` parent directory is created automatically via recursive mkdir when first spec is initialized
+  - [ ] Existing features with absolute `specs/` paths in the database continue to function without modification
+  - [ ] Spec number scanning checks both `specs/` and `.shep/specs/` to prevent NNN collisions during transition
+  - [ ] `init-feature.sh` shell script creates specs at `.shep/specs/` path
+  - [ ] All SKILL.md documentation files reference `.shep/specs/` paths
+  - [ ] `CLAUDE.md` updated to reference `.shep/specs/`
+  - [ ] `.prettierignore` updated to ignore `.shep/specs/` instead of `specs/`
+  - [ ] Test fixture `specs/032-example-specs/` relocated to `tests/fixtures/spec-yaml-samples/`
+  - [ ] All unit tests updated to construct `.shep/specs/` paths in temp directories
+  - [ ] All integration tests updated to use `.shep/specs/` paths
+  - [ ] E2E test updated to verify spec directory at `.shep/specs/`
+  - [ ] Evidence collection works correctly with new spec directory location
+  - [ ] All unit, integration, and e2e tests pass
 
-  The codebase follows Clean Architecture with four layers in `packages/core/src/`:
+  ## Functional Requirements
 
-  - `domain/` — Core entities including the Feature model with `specPath` field
-  - `application/` — Use cases (CreateFeature, etc.) and output port interfaces (ISpecInitializer)
-  - `infrastructure/` — Concrete implementations: spec-initializer service, file I/O, SQLite repos
-  - `presentation/` — CLI commands, TUI, Web UI
+  - **FR-1: New spec path construction** — The `SpecInitializerService.initialize()` method must construct spec directories at `join(basePath, '.shep', 'specs', specDirName)` instead of `join(basePath, 'specs', specDirName)`. The `.shep/specs/` parent directories must be created recursively if they do not exist.
 
-  Key directories and files involved:
+  - **FR-2: Dual-directory NNN scanning** — The `SpecInitializerService.scanNextNumber()` method must scan both `join(basePath, 'specs')` and `join(basePath, '.shep', 'specs')` for existing NNN-prefixed directories, returning the next number after the maximum found across both locations. This prevents number collisions during the transition period.
 
-  | Path | Purpose |
-  | ---- | ------- |
-  | `packages/core/src/infrastructure/services/spec/spec-initializer.service.ts` | Creates spec directories and template files — **primary path construction point** |
-  | `packages/core/src/application/ports/output/services/spec-initializer.interface.ts` | Interface contract for spec initialization |
-  | `packages/core/src/infrastructure/services/filesystem/shep-directory.service.ts` | Manages global `~/.shep/` directory (distinct from per-project `.shep/`) |
-  | `packages/core/src/infrastructure/repositories/sqlite-feature.repository.ts` | Stores `spec_path` column with absolute paths |
-  | `packages/core/src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts` | Maps `specPath` between domain and DB |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts` | `readSpecFile()` helper used by agent nodes |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts` | Calculates relative spec paths for evidence storage |
-  | `.claude/skills/shep-kit-new-feature/scripts/init-feature.sh` | Shell script that creates `specs/NNN-feature/` |
-  | `.claude/skills/shep-kit-*/SKILL.md` | Multiple skill docs referencing `specs/` paths |
-  | `tsp/domain/entities/feature.tsp` | TypeSpec definition of `specPath` field |
+  - **FR-3: Backward compatibility** — Existing features with `specPath` values pointing to `specs/` must continue to function. No database migration, no path rewriting. All downstream consumers (agent nodes, evidence, merge flow) already use the stored absolute `specPath` and will work with either path.
 
-  ### Architecture Patterns
+  - **FR-4: Shell script update** — The `init-feature.sh` script must construct spec directories at `.shep/specs/NNN-feature-name/` instead of `specs/NNN-feature-name/`. The `mkdir -p` command ensures parent directory creation.
 
-  **Path Resolution Chain:**
-  1. `CreateFeatureUseCase` calls `worktreeService.getWorktreePath()` to get the worktree base path
-  2. `specInitializer.initialize(basePath, ...)` constructs `join(basePath, 'specs', specDirName)`
-  3. The resulting absolute path is stored in `feature.specPath` and persisted in SQLite
-  4. All downstream consumers (agent nodes, evidence, merge flow) use the stored `specPath`
+  - **FR-5: Test fixture relocation** — The test fixture directory `specs/032-example-specs/` must be moved to `tests/fixtures/spec-yaml-samples/`. All test files referencing this fixture path must be updated: `spec-yaml-parser.test.ts`, `spec-yaml-artifact-parsing.test.ts`, and `spec-yaml-backward-compatibility.test.ts`.
 
-  **Key Insight:** The path construction is centralized in `spec-initializer.service.ts` line 282:
-  `const specDir = join(basePath, 'specs', specDirName)`. Changing this single line (plus the
-  scan at line 317) propagates through the entire system since all consumers read from the
-  stored `specPath` value.
+  - **FR-6: Documentation update** — All documentation referencing `specs/NNN-feature-name/` paths must be updated to `.shep/specs/NNN-feature-name/`. This includes `CLAUDE.md`, all `SKILL.md` files in `.claude/skills/shep-kit-*/`, and `docs/development/spec-driven-workflow.md`.
 
-  **Database Storage:** The `spec_path` column stores absolute paths. Existing features in the
-  database will still point to `specs/` paths. New features will point to `.shep/specs/` paths.
-  Since paths are absolute, both old and new paths will work simultaneously.
+  - **FR-7: Config file update** — `.prettierignore` must replace the `specs/` entry with `.shep/specs/` (or `.shep/` if broader ignoring is appropriate). No changes needed to `.gitignore` since spec files remain committed to git.
 
-  ### Relevant Technologies
+  ## Non-Functional Requirements
 
-  - **Node.js fs/path modules** — All file operations use `node:fs/promises` and `node:path`
-  - **SQLite via better-sqlite3** — Feature records store `spec_path` as TEXT
-  - **TypeSpec** — Domain model defines `specPath` field on Feature entity
-  - **Vitest** — Test framework for unit, integration, and e2e tests
-  - **Shell scripts** — `init-feature.sh` constructs spec paths in bash
+  - **NFR-1: Zero downtime** — The change must not break any in-progress features. Since existing features use absolute paths stored in the database, they are unaffected by the path constant change.
+
+  - **NFR-2: Cross-platform path handling** — All path construction must use `path.join()` (not string concatenation) to ensure correct separators on Windows. Stored paths must continue to use forward-slash normalization per existing codebase conventions.
+
+  - **NFR-3: Idempotent directory creation** — Creating `.shep/specs/NNN-feature/` must be safe to call multiple times without error, using `{ recursive: true }` on `mkdir`.
+
+  - **NFR-4: No performance regression** — The additional `readdir` call for dual-directory scanning (FR-2) must gracefully handle non-existent directories via try/catch, adding negligible overhead.
+
+  - **NFR-5: Test coverage** — All modified code paths must have corresponding test updates. The spec-initializer unit tests must verify the new `.shep/specs/` path construction and the dual-directory scanning behavior.
+
+  - **NFR-6: Clean project root** — After this change, no `specs/` directory should be created in worktree roots for new features. The only top-level shep artifact directory should be `.shep/`.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should existing specs/ directories be migrated? | No migration | Absolute paths in DB mean old features work as-is. Zero risk, zero complexity. |
+  | 2 | Should NNN scanning check both directories? | Scan both specs/ and .shep/specs/ | Prevents number collisions during transition with minimal cost (one extra readdir). |
+  | 3 | Should test fixtures move to .shep/specs/? | Move to tests/fixtures/ | Test fixtures are committed source code, not runtime artifacts. Keeps project root clean. |
+  | 4 | Should .shep/ be gitignored? | No | Spec files must remain in git for PR review workflow, matching current specs/ behavior. |
+  | 5 | How should .shep/ directory be created? | Implicit via mkdir -p | Spec initializer already uses recursive mkdir. No separate init step needed. |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `packages/core/src/infrastructure/services/spec/spec-initializer.service.ts` | High | Primary path construction — change `'specs'` to `'.shep/specs'` in `join()` calls (lines 282, 317) |
+  | `packages/core/src/infrastructure/services/spec/spec-initializer.service.ts` | High | Primary path construction — change `'specs'` to `'.shep/specs'` in `join()` calls (lines 282, 317). Add dual-directory scanning. |
   | `.claude/skills/shep-kit-new-feature/scripts/init-feature.sh` | High | Shell script hardcodes `SPEC_DIR="specs/${NNN}-${FEATURE_NAME}"` — must update to `.shep/specs/` |
   | `.claude/skills/shep-kit-*/SKILL.md` | Medium | 8+ skill docs reference `specs/NNN-feature-name/` paths — all need updating |
   | `.claude/skills/shep-kit-new-feature-fast/SKILL.md` | Medium | References `specs/` in shell snippets and instructions |
   | `.claude/skills/shep-kit-parallel-task/SKILL.md` | Medium | References `specs/` for worktree spec creation |
   | `.prettierignore` | Low | Currently ignores `specs/` — needs updating to `.shep/specs/` |
-  | `.gitignore` | Low | May need `.shep/` entries depending on what should be tracked vs ignored |
   | `CLAUDE.md` | Low | References `specs/NNN-feature-name/` in workflow documentation |
   | `docs/development/spec-driven-workflow.md` | Low | Documentation references to spec directory location |
-  | `tests/unit/infrastructure/services/spec-initializer.service.test.ts` | Medium | Tests construct `join(tempDir, 'specs', ...)` paths — must update |
-  | `tests/unit/infrastructure/services/spec-yaml-parser.test.ts` | Low | References `specs/032-example-specs` test fixtures |
-  | `tests/e2e/cli/feat.test.ts` | Medium | E2E test checks `join(worktreePath, 'specs', ...)` |
-  | `tests/integration/infrastructure/services/agents/` | Medium | Multiple integration tests construct `specs/` paths |
-  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts` | Low | Uses `relative()` to compute spec path — will automatically produce correct relative path |
+  | `specs/032-example-specs/` | Medium | Test fixtures must relocate to `tests/fixtures/spec-yaml-samples/` |
+  | `tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts` | Medium | Tests construct `join(tempDir, 'specs', ...)` paths — must update to `.shep/specs/` |
+  | `tests/unit/domain/factories/spec-yaml-parser.test.ts` | Low | References `specs/032-example-specs` — update to `tests/fixtures/spec-yaml-samples` |
+  | `tests/unit/domain/factories/spec-yaml-artifact-parsing.test.ts` | Low | References `specs/032-example-specs` — update to `tests/fixtures/spec-yaml-samples` |
+  | `tests/unit/infrastructure/spec-yaml-backward-compatibility.test.ts` | Low | Scans `specs/` directory — must update to `.shep/specs/` or `tests/fixtures/` |
+  | `tests/e2e/cli/feat.test.ts` | Medium | E2E test checks `join(worktreePath, 'specs', ...)` — update to `.shep/specs/` |
+  | `tests/integration/infrastructure/services/agents/` | Medium | Multiple integration tests construct `specs/` paths — update to `.shep/specs/` |
+  | `tests/unit/infrastructure/services/agents/executors/dev-executor.service.test.ts` | Low | Constructs `specs/042-dark-mode` paths — update to `.shep/specs/` |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts` | Low | Uses `relative()` to compute spec path — automatically produces correct relative path from new location |
 
   ## Dependencies
 
-  - **spec-initializer.service.ts** is the single source of truth for path construction — all other changes cascade from this
+  - **spec-initializer.service.ts** is the single source of truth for path construction — all other production code changes cascade from this
   - **SQLite database** stores absolute paths — existing records remain valid; no migration needed
   - **TypeSpec domain model** defines `specPath` as optional string — no schema change needed
   - **Git worktree structure** is managed by `worktree.service.ts` — the worktree base path doesn't change
   - **Evidence storage** uses `state.specDir` for relative path calculation — automatically adjusts
-
-  ## Success Criteria
-
-  - [ ] New features create spec directories at `.shep/specs/NNN-feature/` instead of `specs/NNN-feature/`
-  - [ ] Existing features with `specs/` paths continue to work (absolute paths in DB unchanged)
-  - [ ] All skill scripts and documentation reference `.shep/specs/` paths
-  - [ ] `.prettierignore` updated to ignore `.shep/specs/` instead of `specs/`
-  - [ ] All unit, integration, and e2e tests pass with updated paths
-  - [ ] Evidence collection works correctly with new spec directory location
+  - **Test fixtures** at `specs/032-example-specs/` must move before the backward-compatibility test can be updated (it scans the `specs/` directory)
 
   ## Size Estimate
 
-  **M** — The core change is small (one path constant), but the ripple effects touch
-  ~15 files across skills, tests, documentation, and config files. Each change is
-  straightforward but the breadth of updates and test verification requires careful
-  attention. Estimated 1-2 days of focused work.
+  **M** — The core production change is small (two lines in spec-initializer.service.ts plus
+  dual-directory scanning), but the ripple effects touch ~20 files across skills, tests,
+  documentation, config files, and test fixtures. Each individual change is straightforward,
+  but the breadth of updates and comprehensive test verification requires careful attention.
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Requirements phase complete — proceed with /shep-kit:research_
