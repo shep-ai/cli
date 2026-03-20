@@ -1,0 +1,538 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "shep-doctor"
+summary: >
+  Technical research for the shep doctor feature covering architecture, service design,
+  CLI patterns, diagnostic collection, GitHub integration (issue creation, fork detection,
+  PR creation), AI agent invocation, and security considerations. Key decisions include
+  a new IGitHubIssueService interface for issue creation, extending IGitHubRepositoryService
+  for push-access detection, using @inquirer/prompts for interactive input, and leveraging
+  the existing IAgentExecutorProvider for fix attempts.
+
+relatedFeatures:
+  - "041-ci-watch-fix-loop"
+
+technologies:
+  - "Commander.js"
+  - "tsyringe"
+  - "@inquirer/prompts"
+  - "gh CLI"
+  - "Vitest"
+  - "TypeSpec"
+  - "node:os"
+  - "node:fs/promises"
+
+relatedLinks:
+  - title: "GitHub Issue #436 - Feature request: Shep doctor"
+    url: "https://github.com/shep-ai/cli/issues/436"
+  - title: "gh CLI issue create documentation"
+    url: "https://cli.github.com/manual/gh_issue_create"
+  - title: "gh CLI repo fork documentation"
+    url: "https://cli.github.com/manual/gh_repo_fork"
+  - title: "gh API permissions endpoint"
+    url: "https://docs.github.com/en/rest/repos/repos#get-a-repository"
+
+decisions:
+  - title: "Use case orchestration strategy"
+    chosen: "Single DoctorDiagnoseUseCase with step-based orchestration"
+    rejected:
+      - "Multiple small use cases (DiagnoseUseCase, CreateIssueUseCase, FixUseCase) — over-fragmented for a sequential workflow; adds DI complexity and cross-use-case coordination without clear benefit. The steps are tightly coupled (each step depends on outputs of prior steps)."
+      - "LangGraph agent workflow — heavyweight for a deterministic sequential flow; LangGraph is appropriate for iterative AI-driven loops (like ci-watch-fix) but doctor's flow is linear: collect -> diagnose -> issue -> fix -> PR. No conditional branching or retry loops in v1."
+    rationale: >
+      The existing codebase uses single use cases for multi-step orchestrations (e.g.,
+      CreateFeatureUseCase handles analysis, repository setup, and feature creation in one
+      execute() call). The doctor workflow is inherently sequential with each step depending
+      on the prior step's output (diagnosis feeds issue body, issue number feeds branch name,
+      branch feeds PR). A single use case keeps the flow readable and testable with clear
+      input/output. The use case delegates to injected services for each external operation,
+      maintaining clean architecture separation.
+
+  - title: "GitHub issue creation service design"
+    chosen: "New IGitHubIssueService interface in application/ports/output/services/"
+    rejected:
+      - "Extend IExternalIssueFetcher with createIssue() — violates interface segregation principle. IExternalIssueFetcher is a read-only fetcher designed for external issue references (GitHub issues, Jira tickets). Adding write operations changes its contract and responsibilities."
+      - "Direct gh CLI calls in the use case — violates clean architecture (infrastructure concern in application layer), untestable without mocking subprocess calls, and inconsistent with how every other external operation is abstracted in the codebase."
+    rationale: >
+      The codebase consistently defines service interfaces as output ports in
+      application/ports/output/services/ with co-located DTOs and error types. A new
+      IGitHubIssueService follows this exact pattern (see IGitPrService, IGitHubRepositoryService).
+      The interface will define createIssue() and return a structured result with issue URL
+      and number. The implementation wraps gh CLI calls via the injected ExecFunction,
+      matching the pattern in GitPrService and GitHubRepositoryService. This keeps the use
+      case testable with a simple mock.
+
+  - title: "Push access detection approach"
+    chosen: "Add checkPushAccess(repoNameWithOwner) method to IGitHubRepositoryService"
+    rejected:
+      - "New dedicated IPermissionService — over-engineering for a single method call. Permission checking is a GitHub repository operation and belongs with the existing repository service that already handles auth checks and repo operations."
+      - "Check push access in the CLI command layer — violates clean architecture. Permission logic is a business concern that belongs in the use case or infrastructure service, not the presentation layer."
+    rationale: >
+      IGitHubRepositoryService already handles GitHub repository operations (checkAuth,
+      cloneRepository, listUserRepositories). Adding a checkPushAccess() method that calls
+      gh api repos/{owner}/{repo} --jq '.permissions.push' is a natural extension of this
+      service. It uses the same ExecFunction injection and error handling patterns. The method
+      returns a boolean, with false as the safe fallback on any error (network, rate limit,
+      API change). This follows NFR-9 (permission check resilience).
+
+  - title: "Repository fork handling"
+    chosen: "Add forkRepository(repoNameWithOwner) method to IGitHubRepositoryService"
+    rejected:
+      - "New IForkService interface — unnecessary fragmentation. Forking is a GitHub repository operation, not a separate domain concept. The existing service already handles clone and list operations on GitHub repos."
+      - "Inline gh repo fork call in the use case — violates clean architecture and makes the fork operation untestable without subprocess mocking."
+    rationale: >
+      The fork operation naturally belongs with IGitHubRepositoryService which already
+      manages repository-level GitHub operations. The gh repo fork command is idempotent
+      (NFR-3) — if a fork already exists, gh detects it and returns the existing fork.
+      The method returns the fork's nameWithOwner (e.g., username/cli) so the use case
+      knows where to clone from. This mirrors the cloneRepository pattern already in the
+      service.
+
+  - title: "Interactive prompting library"
+    chosen: "@inquirer/prompts (confirm, input)"
+    rejected:
+      - "node:readline — lower-level, requires manual cleanup, missing features like Ctrl+C handling. Only used in one legacy command (init.command.ts). The rest of the codebase uses @inquirer/prompts."
+      - "Custom prompt utility — unnecessary when @inquirer/prompts is already a project dependency with established patterns for confirm() and input() across multiple commands."
+    rationale: >
+      @inquirer/prompts is the established prompting library in the codebase, used in
+      del.command.ts (confirm), model.command.ts (select), and workflow.command.ts (select).
+      It provides clean APIs for confirm() (fix attempt gate) and input() (problem description
+      fallback). The Ctrl+C handling pattern (checking err.message.includes('force closed'))
+      is well-established. No new dependency needed.
+
+  - title: "Diagnostic context collection scope"
+    chosen: "Agent runs + CLI version + system info (OS, Node, gh version)"
+    rejected:
+      - "User description only — insufficient for meaningful bug reports. Developers need error messages, stack traces, and environment info to reproduce issues."
+      - "Full dump with settings — risks exposing agent.token and other secrets. Settings contain sensitive auth data that must never appear in public GitHub issues."
+    rationale: >
+      The spec requires full diagnostic dump (open question #4), but with sanitization per
+      NFR-2. The practical implementation collects: (1) recent failed agent runs from
+      IAgentRunRepository.list() filtered in-memory to failed/errored status (last 10),
+      (2) CLI version from IVersionService, (3) system info via process.version,
+      process.platform, process.arch (matching version.command.ts pattern), (4) gh CLI
+      version via gh --version. Agent run records naturally contain error messages and
+      agent types without secrets. Settings are excluded entirely to prevent leaking
+      agent.token or other credentials.
+
+  - title: "PR creation approach for cross-fork PRs"
+    chosen: "Add createPrFromArgs() to IGitPrService with --repo flag support"
+    rejected:
+      - "Reuse existing IGitPrService.createPr(cwd, prYamlPath) — requires writing a temp YAML file just to pass structured data. The pr.yaml pattern is designed for the feature workflow where an agent generates the YAML, not for programmatic PR creation."
+      - "Create PR in IGitHubIssueService — muddies the issue service with PR concerns and violates single responsibility. PR creation belongs with the existing PR service."
+    rationale: >
+      The existing createPr() reads from a pr.yaml file because the feature workflow
+      generates pr.yaml files. Doctor needs programmatic PR creation with specific args
+      (title, body, labels, --repo flag for cross-fork). A new method with explicit
+      parameters is more direct. For the maintainer flow, gh pr create runs in the cloned
+      shep-ai/cli directory. For the external contributor flow, gh pr create --repo shep-ai/cli
+      targets the upstream. This also benefits any future feature needing programmatic PR creation.
+
+  - title: "Working directory management"
+    chosen: "os.tmpdir() with UUID subdirectory by default, --workdir override"
+    rejected:
+      - "Always use current working directory — pollutes the user's project with a shep-ai/cli clone. The user runs shep doctor in their own project, not in the shep codebase."
+      - "XDG cache directory — overly complex for a temp clone that will be deleted after the PR is created. The OS temp directory is the standard location for ephemeral data."
+    rationale: >
+      The temp directory (os.tmpdir()/shep-doctor-<uuid>/) is appropriate because the clone
+      is ephemeral — it exists only for the duration of the fix attempt. After PR creation,
+      it's cleaned up (NFR-8). The --workdir flag overrides this for power users who want to
+      inspect the fix locally. The uuid suffix prevents collisions if multiple doctor sessions
+      run concurrently.
+
+  - title: "Agent execution for fix attempts"
+    chosen: "IAgentExecutorProvider.getExecutor() with repositoryPath pointing to cloned dir"
+    rejected:
+      - "Spawn a new shep process in the cloned directory — over-engineering. The agent executor already supports running in any directory via the repositoryPath option."
+      - "Hardcode agent type (e.g., always Claude Code) — violates the mandatory rule that no component may hardcode an agent type. All resolution must flow through IAgentExecutorProvider."
+    rationale: >
+      The codebase's mandatory rule requires all agent invocations to go through
+      IAgentExecutorProvider, which reads the configured agent type from settings. The
+      IAgentExecutor.execute(prompt, options) method accepts AgentExecutionOptions which
+      includes repositoryPath. The doctor use case sets repositoryPath to the cloned
+      shep-ai/cli directory. This is identical to how the feature agent works.
+
+  - title: "Settings extension for doctor configuration"
+    chosen: "Add optional doctorMaxFixAttempts field to WorkflowConfig in TypeSpec"
+    rejected:
+      - "New top-level DoctorConfig section in Settings — over-engineering for a single config field. Doctor only needs max fix attempts, which is conceptually similar to ciMaxFixAttempts."
+      - "Hardcode max attempts to 1 — the spec's open question #5 resolved to 'configurable via settings'. While the default should be 1, power users should be able to increase it."
+    rationale: >
+      WorkflowConfig already contains ciMaxFixAttempts for the CI watch-fix loop pattern.
+      Adding doctorMaxFixAttempts follows the same pattern and keeps all workflow-related
+      configuration in one place. The TypeSpec model in tsp/domain/entities/settings.tsp
+      is extended with an optional int32 field defaulting to 1.
+
+  - title: "TypeSpec domain model additions"
+    chosen: "Add DoctorDiagnosticReport value object in TypeSpec"
+    rejected:
+      - "No TypeSpec models, use plain TypeScript interfaces — violates the mandatory TypeSpec-first rule. All domain models must be defined in TypeSpec."
+      - "Full DoctorSession entity with BaseEntity — over-engineering. Doctor doesn't need persistence; it's a run-once command. A value object for the diagnostic report is sufficient."
+    rationale: >
+      The mandatory rule requires TypeSpec-first domain models. A DoctorDiagnosticReport
+      value object captures the structured diagnostic data (user description, failed runs
+      summary, system info, CLI version) that gets formatted into the issue body. Defined in
+      tsp/domain/value-objects/doctor-diagnostic-report.tsp. It's a value object (no
+      BaseEntity) because it's transient — created during the doctor flow and never persisted.
+
+openQuestions:
+  - question: "Should the doctor service interface be a single IDoctorGitHubService or split into IGitHubIssueService and extend IGitHubRepositoryService?"
+    resolved: true
+    options:
+      - option: "Single IDoctorGitHubService"
+        description: "One interface handling issue creation, PR creation, fork management, and permission checks specifically for the doctor workflow. Cohesive but tightly coupled to the doctor feature."
+        selected: false
+      - option: "IGitHubIssueService + extend IGitHubRepositoryService"
+        description: "A new IGitHubIssueService for issue creation (reusable beyond doctor), and extend IGitHubRepositoryService with checkPushAccess() and forkRepository() (reusable for any GitHub repo operation). More interfaces but more reusable."
+        selected: true
+      - option: "Extend IGitHubRepositoryService only"
+        description: "Add all new methods (createIssue, checkPushAccess, forkRepository) to the existing interface. Keeps interface count low but violates ISP by mixing read, write, and permission operations."
+        selected: false
+    selectionRationale: >
+      Splitting into IGitHubIssueService (for issue creation) and extending
+      IGitHubRepositoryService (for push access and fork) follows the interface segregation
+      principle and makes each capability independently reusable. Issue creation is a distinct
+      responsibility from repository management. The push access check and fork operation are
+      natural extensions of the existing repository service. This matches the spec's resolved
+      question #7 which chose a new IGitHubIssueService.
+
+  - question: "How should the PR be created for the doctor fix — reuse IGitPrService or new method?"
+    resolved: true
+    options:
+      - option: "Reuse IGitPrService.createPr(cwd, prYamlPath)"
+        description: "Write a temporary pr.yaml file and pass it to the existing method. Reuses existing code but requires constructing a YAML file just to pass structured data, which is indirect."
+        selected: false
+      - option: "Add createPrFromArgs() to IGitPrService"
+        description: "Add a new method to IGitPrService that accepts title, body, labels, base branch, and optional --repo flag as parameters instead of reading from YAML. More flexible and direct."
+        selected: true
+      - option: "Put PR creation in IGitHubIssueService"
+        description: "Handle PR creation alongside issue creation in the same service. Keeps doctor-related GitHub operations together but muddies the issue service with PR concerns."
+        selected: false
+    selectionRationale: >
+      Adding a createPrFromArgs() method to IGitPrService is the cleanest approach. The
+      existing createPr() method reads from a YAML file because the feature workflow
+      generates pr.yaml files. Doctor needs to create PRs programmatically with specific
+      args (title, body, labels, --repo flag for cross-fork). A new method with explicit
+      parameters is more direct than writing a temp YAML file.
+
+  - question: "How should the fix attempt prompt be structured for the AI agent?"
+    resolved: true
+    options:
+      - option: "Minimal prompt with issue body only"
+        description: "Pass the issue body text as the prompt. Simple but lacks specific instructions for the agent on how to approach the fix."
+        selected: false
+      - option: "Structured prompt with issue context and fix instructions"
+        description: "Build a prompt that includes: the issue title, the error context from failed runs, specific instructions to analyze the codebase and propose a fix, and guidelines to run tests. Gives the agent clear direction."
+        selected: true
+      - option: "Use a prompt template file"
+        description: "Store the fix prompt template as a file in the codebase and interpolate issue-specific data. More maintainable for complex prompts but adds file management overhead for a single use case."
+        selected: false
+    selectionRationale: >
+      A structured prompt built programmatically in the use case gives the agent the best
+      chance of producing a useful fix. The prompt includes the issue title (what's wrong),
+      error context (specific errors and stack traces from failed agent runs), and
+      instructions (analyze the codebase, identify the root cause, implement a fix, run
+      tests). This mirrors how the feature agent receives structured prompts with context.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Use Case Orchestration Strategy
+
+  **Chosen:** Single DoctorDiagnoseUseCase with step-based orchestration
+
+  **Rejected:**
+  - Multiple small use cases (DiagnoseUseCase, CreateIssueUseCase, FixUseCase) — over-fragmented for a sequential workflow; adds DI complexity and cross-use-case coordination without clear benefit
+  - LangGraph agent workflow — heavyweight for a deterministic sequential flow; doctor's steps are linear, not iterative
+
+  **Rationale:** The existing codebase uses single use cases for multi-step orchestrations. The doctor workflow is inherently sequential with each step depending on the prior step's output. A single use case keeps the flow readable and testable.
+
+  ### 2. GitHub Issue Creation Service Design
+
+  **Chosen:** New IGitHubIssueService interface in application/ports/output/services/
+
+  **Rejected:**
+  - Extend IExternalIssueFetcher — violates ISP; the fetcher is read-only by design
+  - Direct gh CLI calls in the use case — violates clean architecture, untestable
+
+  **Rationale:** Follows the codebase's consistent pattern of service interfaces as output ports with co-located DTOs and error types. The implementation wraps gh CLI calls via ExecFunction.
+
+  ### 3. Push Access Detection
+
+  **Chosen:** Add checkPushAccess(repoNameWithOwner) to IGitHubRepositoryService
+
+  **Rejected:**
+  - New IPermissionService — over-engineering for a single method
+  - Check in CLI command layer — violates clean architecture
+
+  **Rationale:** IGitHubRepositoryService already handles GitHub repo operations. Push access detection is a natural extension using `gh api repos/{owner}/{repo} --jq '.permissions.push'`. Returns boolean with false as safe fallback.
+
+  ### 4. Repository Fork Handling
+
+  **Chosen:** Add forkRepository(repoNameWithOwner) to IGitHubRepositoryService
+
+  **Rejected:**
+  - New IForkService — unnecessary fragmentation
+  - Inline in use case — violates clean architecture
+
+  **Rationale:** Forking is a GitHub repository operation. `gh repo fork` is idempotent (detects existing forks). Returns fork's nameWithOwner for downstream clone.
+
+  ### 5. Interactive Prompting Library
+
+  **Chosen:** @inquirer/prompts (confirm, input)
+
+  **Rejected:**
+  - node:readline — lower-level, legacy; only used in one old command
+  - Custom utility — unnecessary when @inquirer/prompts is already used
+
+  **Rationale:** Established library in the codebase with patterns for confirm(), input(), and Ctrl+C handling.
+
+  ### 6. Diagnostic Context Collection Scope
+
+  **Chosen:** Agent runs + CLI version + system info (OS, Node, gh version)
+
+  **Rejected:**
+  - User description only — insufficient for meaningful bug reports
+  - Full dump with settings — risks exposing agent.token and other secrets
+
+  **Rationale:** Recent failed agent runs contain error messages and stack traces — the most actionable data. System info (process.version, process.platform) matches the existing version.command.ts pattern. Settings are excluded per NFR-2.
+
+  ### 7. PR Creation for Cross-Fork PRs
+
+  **Chosen:** Add createPrFromArgs() to IGitPrService with --repo flag support
+
+  **Rejected:**
+  - Reuse existing createPr(cwd, prYamlPath) — requires writing a temp YAML file, which is indirect
+  - Put PR creation in IGitHubIssueService — muddies the issue service with PR concerns
+
+  **Rationale:** The existing createPr() reads from pr.yaml files (feature workflow pattern). Doctor needs programmatic PR creation with specific args including --repo for cross-fork PRs. A new method with explicit parameters is cleaner.
+
+  ### 8. Working Directory Management
+
+  **Chosen:** os.tmpdir() with UUID subdirectory, --workdir override
+
+  **Rejected:**
+  - Current working directory — pollutes user's project
+  - XDG cache — overly complex for ephemeral data
+
+  **Rationale:** Temp directory is appropriate for an ephemeral clone. UUID prevents collisions. Cleaned up after PR creation (NFR-8). --workdir preserves for power users.
+
+  ### 9. Agent Execution for Fix Attempts
+
+  **Chosen:** IAgentExecutorProvider.getExecutor() with repositoryPath option
+
+  **Rejected:**
+  - Spawn new shep process — over-engineering; agent executor supports any directory
+  - Hardcode agent type — violates mandatory agent resolution rule
+
+  **Rationale:** Mandatory rule requires all agent invocations through IAgentExecutorProvider. The executor accepts repositoryPath in AgentExecutionOptions.
+
+  ### 10. Settings Extension for Doctor Configuration
+
+  **Chosen:** Add optional doctorMaxFixAttempts to WorkflowConfig in TypeSpec
+
+  **Rejected:**
+  - New DoctorConfig section — over-engineering for one field
+  - Hardcode to 1 — spec resolves to "configurable via settings"
+
+  **Rationale:** WorkflowConfig already has ciMaxFixAttempts. Adding doctorMaxFixAttempts follows the same pattern. Default is 1 for v1.
+
+  ### 11. TypeSpec Domain Model Additions
+
+  **Chosen:** DoctorDiagnosticReport value object
+
+  **Rejected:**
+  - Plain TypeScript interfaces — violates mandatory TypeSpec-first rule
+  - Full DoctorSession entity — over-engineering; doctor doesn't need persistence
+
+  **Rationale:** A value object captures diagnostic data (description, failed runs, system info, version). Defined in tsp/domain/value-objects/ and compiled to generated output.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @inquirer/prompts | Interactive user input (confirm, input) | Use (existing) | Already a project dependency; used in 5+ commands for confirm/select/input prompts |
+  | Commander.js | CLI command definition | Use (existing) | Core CLI framework; all commands use it |
+  | tsyringe | Dependency injection | Use (existing) | Core DI framework; all services and use cases use it |
+  | gh CLI | GitHub operations (issues, PRs, forks, API) | Use (existing runtime dep) | Required for all GitHub interactions; already used by GitPrService and GitHubRepositoryService |
+  | node:os | Temp directory, platform info | Use (built-in) | os.tmpdir() for working directory; os.platform()/os.arch() for diagnostics |
+  | node:crypto | UUID generation for temp directory | Use (built-in) | crypto.randomUUID() for unique temp directory names |
+  | node:fs/promises | Temp directory creation and cleanup | Use (built-in) | mkdir, rm for temp directory lifecycle |
+  | picocolors | Terminal color output | Use (existing) | Already used via the colors/fmt utilities in presentation/cli/ui/ |
+  | @octokit/rest | GitHub API client | Reject | Over-engineering when gh CLI handles all needed operations. Adding a full API client introduces auth complexity and a large dependency. |
+  | simple-git | Git operations library | Reject | The codebase uses ExecFunction to shell out to git directly. Adding a git library would be inconsistent with the existing pattern. |
+  | ora | Spinner library | Reject | The codebase has its own spinner utility (src/presentation/cli/ui/spinner.ts) that integrates with the existing UI patterns. |
+
+  ## Security Considerations
+
+  ### Sensitive Data Sanitization (NFR-2)
+
+  The diagnostic report included in the GitHub issue must be sanitized:
+
+  1. **Agent run records**: Include agentType, agentName, status, error, and timestamps. Exclude prompt and result fields which may contain user code or secrets.
+  2. **Settings exclusion**: Never include any settings data. The agent.token field contains API keys. Even "redacted" settings could leak structure information.
+  3. **Environment variables**: Do not collect or include environment variables. They commonly contain secrets (API_KEY, TOKEN, etc.).
+  4. **File paths**: Include repository paths but redact the user's home directory to prevent leaking usernames (replace with ~/).
+  5. **Log files**: Do not include raw log file contents. They may contain agent prompts with user code or API responses with sensitive data.
+
+  ### GitHub Token Permissions
+
+  The gh CLI uses the user's existing GitHub authentication. The doctor feature requires:
+  - `repo` scope for issue creation and PR creation on shep-ai/cli
+  - `read:org` scope for permission checks (if shep-ai is an org)
+  - `workflow` scope is NOT required (doctor doesn't modify GitHub Actions)
+
+  If the user's token lacks required scopes, gh CLI will return appropriate errors which the service handles gracefully.
+
+  ### Cross-Fork PR Security
+
+  When an external contributor forks and opens a PR, the PR content is visible to the upstream maintainers. The agent's fix attempt may include:
+  - Code changes (intended and safe)
+  - Commit messages (safe)
+  - No secrets since the agent runs with the user's local shep-ai/cli clone, not the user's project
+
+  ## Performance Implications
+
+  ### Diagnostic Collection (NFR-6: < 2 seconds)
+
+  - `IAgentRunRepository.list()` returns all records (SELECT * FROM agent_runs). For users with many agent runs, this could be slow. Mitigation: filter in-memory to last 10 failed/errored runs, and consider adding a listRecent(limit, statusFilter) method if performance is an issue.
+  - `IVersionService.getVersion()` is synchronous (reads from package.json at startup). Instant.
+  - `process.version`, `process.platform`, `process.arch` are synchronous globals. Instant.
+  - `gh --version` is a local command, typically < 100ms.
+
+  ### Permission Check (NFR-6: < 3 seconds)
+
+  - `gh api repos/shep-ai/cli --jq '.permissions.push'` is a single HTTP request. Typically 200-500ms.
+  - Cached for the session duration — only called once.
+
+  ### Network-Bound Operations
+
+  These are inherently slow and get spinners (NFR-7):
+  - `gh issue create` — 1-3 seconds (API call)
+  - `gh repo fork` — 5-15 seconds (creates fork on GitHub)
+  - `gh repo clone` — varies by repo size (shep-ai/cli is moderate)
+  - Agent execution — 30 seconds to several minutes depending on the agent and model
+  - `gh pr create` — 1-3 seconds (API call)
+
+  ### Cleanup
+
+  Temp directory cleanup (rm -rf) is fast for the cloned repo. Performed in a finally block to ensure cleanup even on failure. Skipped when --workdir is specified.
+
+  ## Architecture Notes
+
+  ### Layer Mapping
+
+  ```
+  Presentation (CLI)
+    doctor.command.ts
+      - Resolves DoctorDiagnoseUseCase from container
+      - Handles --fix/--no-fix/--workdir flags
+      - Collects user description (arg or @inquirer/prompts input)
+      - Displays progress via messages.*/spinner()
+
+  Application (Use Cases)
+    DoctorDiagnoseUseCase
+      - @inject('IAgentRunRepository')      — query failed runs
+      - @inject('IVersionService')           — CLI version
+      - @inject('IGitHubIssueService')       — create issue
+      - @inject('IGitHubRepositoryService')  — push access check, fork, clone
+      - @inject('IGitPrService')             — create PR
+      - @inject('IAgentExecutorProvider')    — get agent for fix attempt
+      - @inject('ISettingsRepository')       — read doctorMaxFixAttempts
+
+  Application (Ports)
+    IGitHubIssueService (NEW)
+      - createIssue(repo, title, body, labels) -> { url, number }
+      - Co-located: GitHubIssueCreateError, GitHubIssueCreateResult
+    IGitHubRepositoryService (EXTENDED)
+      - checkPushAccess(repoNameWithOwner) -> boolean
+      - forkRepository(repoNameWithOwner) -> { nameWithOwner }
+    IGitPrService (EXTENDED)
+      - createPrFromArgs(cwd, { title, body, labels, base, repo? }) -> PrCreateResult
+
+  Infrastructure (Implementations)
+    GitHubIssueService (NEW) — wraps gh issue create
+    GitHubRepositoryService (EXTENDED) — adds checkPushAccess, forkRepository
+    GitPrService (EXTENDED) — adds createPrFromArgs
+
+  Domain (TypeSpec)
+    DoctorDiagnosticReport (NEW value object)
+    WorkflowConfig (EXTENDED with doctorMaxFixAttempts)
+  ```
+
+  ### DI Registration
+
+  New registrations needed in container.ts:
+  - `container.registerSingleton<IGitHubIssueService>('IGitHubIssueService', GitHubIssueService)`
+  - `container.registerSingleton(DoctorDiagnoseUseCase)`
+
+  No new registration for IGitHubRepositoryService or IGitPrService — they are already registered as singletons. The new methods are added to existing implementations.
+
+  ### CLI Command Registration
+
+  In src/presentation/cli/index.ts:
+  - `import { createDoctorCommand } from './commands/doctor.command.js'`
+  - `program.addCommand(createDoctorCommand())`
+
+  ### Existing Infrastructure Reuse
+
+  | Component | How It's Reused |
+  | --------- | --------------- |
+  | IAgentRunRepository.list() | Query recent failed agent runs for diagnostics |
+  | IVersionService.getVersion() | Include CLI version in diagnostic report |
+  | IToolInstallerService.checkAvailability('gh') | Validate gh CLI is installed before starting |
+  | IGitHubRepositoryService.checkAuth() | Validate gh is authenticated before starting |
+  | IGitHubRepositoryService.cloneRepository() | Clone shep-ai/cli (or fork) for fix attempt |
+  | IAgentExecutorProvider.getExecutor() | Get configured AI agent for fix attempt |
+  | IGitPrService.pushBranch() | Push fix branch to remote |
+  | spinner() | Show progress for async operations |
+  | messages.success/error/warning/info() | User-facing status messages |
+  | colors, symbols, fmt | Consistent CLI output formatting |
+  | @inquirer/prompts confirm() | Fix attempt confirmation gate |
+  | @inquirer/prompts input() | Interactive problem description input |
+
+  ### Flow Diagram
+
+  ```
+  User: shep doctor ["description"]
+    |
+    +- 1. Validate prerequisites (gh installed, gh authenticated)
+    |
+    +- 2. Collect problem description (arg or interactive prompt)
+    |
+    +- 3. Collect diagnostics
+    |     +-- Query IAgentRunRepository for recent failed runs
+    |     +-- Get CLI version from IVersionService
+    |     +-- Gather system info (Node, OS, gh version)
+    |
+    +- 4. Format and create GitHub issue
+    |     +-- Build structured issue body from DoctorDiagnosticReport
+    |     +-- IGitHubIssueService.createIssue() -> issue URL + number
+    |
+    +- 5. Fix confirmation gate (--fix / --no-fix / interactive prompt)
+    |     +-- If no-fix -> display issue URL, exit
+    |
+    +- 6. Detect push access
+    |     +-- IGitHubRepositoryService.checkPushAccess('shep-ai/cli')
+    |
+    +- 7a. Maintainer flow (has push access):
+    |     +-- Clone shep-ai/cli directly
+    |     +-- Create branch: doctor/fix-<issue-number>
+    |     +-- Run agent fix attempt
+    |     +-- Push branch to origin
+    |     +-- Create same-repo PR
+    |
+    +- 7b. Contributor flow (no push access):
+    |     +-- Fork shep-ai/cli (idempotent)
+    |     +-- Clone the fork
+    |     +-- Create branch: doctor/fix-<issue-number>
+    |     +-- Run agent fix attempt
+    |     +-- Push branch to fork
+    |     +-- Create cross-fork PR (--repo shep-ai/cli)
+    |
+    +- 8. Display results (issue URL, PR URL) and cleanup temp dir
+  ```
+
+  ---
+
+  _Research complete — proceed with planning_
