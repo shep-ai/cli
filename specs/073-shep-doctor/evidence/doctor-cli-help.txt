@@ -1,0 +1,14 @@
+$ shep doctor --help
+
+Usage: shep doctor [options] [description]
+
+Diagnose shep failures, open a GitHub issue, and optionally attempt a fix
+
+Arguments:
+  description       Problem description (prompted interactively if omitted)
+
+Options:
+  --fix             Skip confirmation and attempt a fix automatically
+  --no-fix          Skip the fix attempt entirely (only create the issue)
+  --workdir <path>  Custom directory for the cloned repository
+  -h, --help        display help for command
