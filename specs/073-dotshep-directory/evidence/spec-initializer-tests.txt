@@ -25,7 +25,7 @@
  ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should use hint when no spec directories exist 1ms
  ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should skip over existing spec numbers in legacy specs/ 2ms
  ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should skip over existing spec numbers in .shep/specs/ 1ms
- ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should take max across legacy specs/ and .shep/specs/ 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should take max across legacy specs/ and .shep/specs/ 2ms
  ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should scan shep-managed directory when repositoryPath provided 2ms
  ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should use hint when it exceeds existing numbers 1ms
  ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should handle gaps in existing spec numbers 1ms
@@ -46,6 +46,6 @@
 
  Test Files  1 passed (1)
       Tests  42 passed (42)
-   Start at  00:43:30
-   Duration  156ms (transform 32ms, setup 0ms, import 42ms, tests 54ms, environment 0ms)
+   Start at  00:56:59
+   Duration  145ms (transform 29ms, setup 0ms, import 39ms, tests 53ms, environment 0ms)
 

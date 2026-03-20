@@ -43,6 +43,6 @@
 
  Test Files  1 passed (1)
       Tests  39 passed (39)
-   Start at  00:44:33
-   Duration  302ms (transform 59ms, setup 0ms, import 235ms, tests 5ms, environment 0ms)
+   Start at  00:57:29
+   Duration  251ms (transform 56ms, setup 0ms, import 190ms, tests 5ms, environment 0ms)
 
