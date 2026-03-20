@@ -128,6 +128,7 @@ import { SyncRepositoryMainUseCase } from '../../application/use-cases/repositor
 import { RebaseFeatureOnMainUseCase } from '../../application/use-cases/features/rebase-feature-on-main.use-case.js';
 import { GetBranchSyncStatusUseCase } from '../../application/use-cases/features/get-branch-sync-status.use-case.js';
 import { ConflictResolutionService } from '../services/agents/conflict-resolution/conflict-resolution.service.js';
+import { DoctorDiagnoseUseCase } from '../../application/use-cases/doctor/doctor-diagnose.use-case.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -398,6 +399,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(SyncRepositoryMainUseCase);
   container.registerSingleton(RebaseFeatureOnMainUseCase);
   container.registerSingleton(GetBranchSyncStatusUseCase);
+  container.registerSingleton(DoctorDiagnoseUseCase);
 
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
