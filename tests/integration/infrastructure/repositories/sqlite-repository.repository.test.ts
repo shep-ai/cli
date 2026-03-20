@@ -76,6 +76,13 @@ describe('SQLiteRepositoryRepository', () => {
       expect(result.id).toBe('repo-1');
       expect(result.path).toBe('/Users/test/my-project');
     });
+
+    it('should default specStorageMode to in-repo when not specified', async () => {
+      const repo = createTestRepo();
+      const result = await repository.create(repo);
+
+      expect(result.specStorageMode).toBe('in-repo');
+    });
   });
 
   describe('findById()', () => {
@@ -223,6 +230,19 @@ describe('SQLiteRepositoryRepository', () => {
       expect(updated.name).toBe('new-name');
       expect(updated.path).toBe('/Users/test/my-project');
       expect(updated.remoteUrl).toBe('https://github.com/owner/repo');
+    });
+
+    it('should update specStorageMode and persist it', async () => {
+      await repository.create(createTestRepo());
+
+      const updated = await repository.update('repo-1', {
+        specStorageMode: 'shep-managed',
+      });
+
+      expect(updated.specStorageMode).toBe('shep-managed');
+
+      const found = await repository.findById('repo-1');
+      expect(found!.specStorageMode).toBe('shep-managed');
     });
 
     it('should throw for nonexistent id', async () => {
