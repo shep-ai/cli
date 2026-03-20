@@ -11,7 +11,7 @@ Document technical decisions, library evaluations, and architectural choices for
 
 ## Prerequisites
 
-- Feature spec exists at `specs/NNN-feature-name/spec.yaml` (YAML source of truth)
+- Feature spec exists at `.shep/specs/NNN-feature-name/spec.yaml` (YAML source of truth)
 - On the feature branch `feat/NNN-feature-name`
 
 ## GATE CHECK (Mandatory)
@@ -32,7 +32,7 @@ Determine which feature we're researching:
 
 - Check current branch name
 - Or ask user which spec to research
-- Read `specs/NNN-feature-name/spec.yaml` for context
+- Read `.shep/specs/NNN-feature-name/spec.yaml` for context
 
 ### 2. Identify Technical Decisions
 
@@ -74,7 +74,7 @@ Identify and document:
 
 ### 5. Write research.yaml and Generate Markdown
 
-Write research output to `specs/NNN-feature-name/research.yaml` (the source of truth):
+Write research output to `.shep/specs/NNN-feature-name/research.yaml` (the source of truth):
 
 - Technology decisions with rationale (structured `decisions` array)
 - Library analysis table
@@ -98,7 +98,7 @@ updatedAt: '<today's date>'
 **Update feature.yaml:**
 
 ```yaml
-# specs/NNN-feature-name/feature.yaml
+# .shep/specs/NNN-feature-name/feature.yaml
 feature:
   lifecycle: 'planning' # Update from "research"
 
@@ -119,7 +119,7 @@ checkpoints:
 ### 7. Commit
 
 ```bash
-git add specs/NNN-feature-name/
+git add .shep/specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name research"
 ```
 

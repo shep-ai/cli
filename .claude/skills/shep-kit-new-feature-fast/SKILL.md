@@ -49,7 +49,7 @@ Examples:
 
 ```bash
 # Determine next spec number
-NEXT_NUM=$(ls -d specs/[0-9][0-9][0-9]-* 2>/dev/null | sort | tail -1 | grep -oP '^\d{3}' | xargs -I{} printf "%03d" $(({} + 1)))
+NEXT_NUM=$(ls -d .shep/specs/[0-9][0-9][0-9]-* specs/[0-9][0-9][0-9]-* 2>/dev/null | sort | tail -1 | grep -oP '^\d{3}' | xargs -I{} printf "%03d" $(({} + 1)))
 # If no specs exist, use 001
 [ -z "$NEXT_NUM" ] && NEXT_NUM="001"
 
@@ -72,7 +72,7 @@ Before writing any YAML, perform thorough codebase analysis. This is the foundat
 Analyze:
 
 - **Architecture**: Read `CLAUDE.md`, `AGENTS.md`, key source directories
-- **Existing specs**: Read `specs/*/spec.yaml` for dependencies and landscape
+- **Existing specs**: Read `.shep/specs/*/spec.yaml` (or `specs/*/spec.yaml` for legacy) for dependencies and landscape
 - **Affected code**: Identify files, modules, patterns relevant to the feature
 - **Testing patterns**: Check existing test structure, frameworks, conventions
 - **Domain models**: Check TypeSpec definitions if relevant (`tsp/`)
@@ -222,7 +222,7 @@ errors:
 
 ```bash
 # Stage and commit everything
-git add specs/<NNN>-<FEATURE_NAME>/
+git add .shep/specs/<NNN>-<FEATURE_NAME>/
 git commit -m "feat(specs): add <NNN>-<FEATURE_NAME> fast-track specification"
 ```
 

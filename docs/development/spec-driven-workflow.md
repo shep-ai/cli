@@ -76,16 +76,8 @@ Two pnpm scripts support the YAML-first workflow:
 ## Directory Structure
 
 ```
-specs/                              # Root-level spec directory
-├── 001-feature-name/               # Legacy (Markdown-first, specs 001-010)
-│   ├── spec.md                     # Requirements & scope
-│   ├── research.md                 # Technical decisions
-│   ├── plan.md                     # Implementation strategy
-│   ├── tasks.md                    # Task breakdown
-│   ├── feature.yaml                # Status tracking
-│   ├── data-model.md               # Entity changes (if needed)
-│   └── contracts/                  # API specs (if needed)
-├── 011-feature-name/               # YAML-first (specs 011+)
+.shep/specs/                        # Spec directory (inside .shep/)
+├── NNN-feature-name/               # YAML-first (specs 011+)
 │   ├── spec.yaml                   # Requirements & scope (SOURCE OF TRUTH)
 │   ├── research.yaml               # Technical decisions (SOURCE OF TRUTH)
 │   ├── plan.yaml                   # Implementation strategy (SOURCE OF TRUTH)
@@ -99,6 +91,10 @@ specs/                              # Root-level spec directory
 │   └── contracts/                  # API specs (if needed)
 └── ...
 ```
+
+**Note:** Legacy specs (001-010) may still exist under `specs/` in some worktrees. Existing features with absolute paths in the database continue to work at their original location. The spec-initializer scans both `specs/` and `.shep/specs/` to prevent number collisions.
+
+**Storage modes:** By default, specs are stored in-repo at `.shep/specs/` (committed to git). For repos that should not have spec artifacts committed, the per-repo `specStorageMode` setting can be set to `"shep-managed"`, which stores specs at `~/.shep/repos/<hash>/specs/` instead.
 
 ## The Workflow
 
@@ -117,7 +113,7 @@ specs/                              # Root-level spec directory
 7. Markdown auto-generated via `pnpm spec:generate-md`
 8. spec.yaml and spec.md committed to feature branch
 
-**Output**: `specs/NNN-feature-name/spec.yaml` (source of truth) + `spec.md` (auto-generated)
+**Output**: `.shep/specs/NNN-feature-name/spec.yaml` (source of truth) + `spec.md` (auto-generated)
 
 ### Step 2: Research (`/shep-kit:research`)
 
@@ -131,7 +127,7 @@ specs/                              # Root-level spec directory
 4. Documents trade-offs and recommendations in `research.yaml`
 5. You review decisions
 
-**Output**: `specs/NNN-feature-name/research.yaml` (source of truth) + `research.md` (auto-generated)
+**Output**: `.shep/specs/NNN-feature-name/research.yaml` (source of truth) + `research.md` (auto-generated)
 
 ### Step 3: Plan (`/shep-kit:plan`)
 
@@ -155,10 +151,10 @@ specs/                              # Root-level spec directory
 
 **Output**:
 
-- `specs/NNN-feature-name/plan.yaml` - Architecture and TDD-compliant strategy (source of truth)
-- `specs/NNN-feature-name/tasks.yaml` - TDD task breakdown (source of truth)
-- `specs/NNN-feature-name/plan.md` + `tasks.md` - Auto-generated Markdown
-- `specs/NNN-feature-name/data-model.md` - Entity changes (if needed)
+- `.shep/specs/NNN-feature-name/plan.yaml` - Architecture and TDD-compliant strategy (source of truth)
+- `.shep/specs/NNN-feature-name/tasks.yaml` - TDD task breakdown (source of truth)
+- `.shep/specs/NNN-feature-name/plan.md` + `tasks.md` - Auto-generated Markdown
+- `.shep/specs/NNN-feature-name/data-model.md` - Entity changes (if needed)
 
 ### Step 4: Implement (`/shep-kit:implement`)
 
@@ -335,15 +331,15 @@ Entity changes (when needed) containing:
 ## Branch & Numbering Convention
 
 - **Branch format**: `feat/NNN-feature-name`
-- **Spec directory**: `specs/NNN-feature-name/`
+- **Spec directory**: `.shep/specs/NNN-feature-name/`
 - **Numbering**: Sequential (001, 002, 003...)
 - **Names**: kebab-case (e.g., `user-authentication`, `payment-integration`)
 
-The next number is determined by scanning existing `specs/` directories.
+The next number is determined by scanning both `.shep/specs/` and `specs/` directories (the latter for backward compatibility).
 
 ## Dependency Discovery
 
-When creating a new spec, the agent scans all existing spec files (`specs/*/spec.yaml` for YAML-first specs, `specs/*/spec.md` for legacy specs) to:
+When creating a new spec, the agent scans all existing spec files (`.shep/specs/*/spec.yaml` and `specs/*/spec.yaml` for legacy) to:
 
 - Understand the feature landscape
 - Identify potential dependencies (via `relatedFeatures` metadata in YAML specs)

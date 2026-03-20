@@ -36,7 +36,7 @@ Ask the user for:
 
 ```bash
 # Determine next number
-NEXT_NUM=$(ls -d specs/[0-9][0-9][0-9]-* 2>/dev/null | wc -l | xargs printf "%03d" $(($ + 1)))
+NEXT_NUM=$(ls -d .shep/specs/[0-9][0-9][0-9]-* specs/[0-9][0-9][0-9]-* 2>/dev/null | wc -l | xargs printf "%03d" $(($ + 1)))
 # If no specs exist, use 001
 [ -z "$NEXT_NUM" ] && NEXT_NUM="001"
 
@@ -53,7 +53,7 @@ Execute the scaffolding script:
 .claude/skills/shep-kit-new-feature/scripts/init-feature.sh <NNN> <feature-name>
 ```
 
-This creates `specs/NNN-feature-name/` with all template files using a **YAML-first** approach:
+This creates `.shep/specs/NNN-feature-name/` with all template files using a **YAML-first** approach:
 
 - **YAML source files**: `spec.yaml`, `research.yaml`, `plan.yaml`, `tasks.yaml` (source of truth)
 - **Markdown files**: `spec.md`, `research.md`, `plan.md`, `tasks.md` (auto-generated from YAML)
@@ -63,7 +63,7 @@ This creates `specs/NNN-feature-name/` with all template files using a **YAML-fi
 
 Before filling the spec, analyze:
 
-- **Existing specs**: Read `specs/*/spec.yaml` (or `specs/*/spec.md`) to understand feature landscape and discover dependencies
+- **Existing specs**: Read `.shep/specs/*/spec.yaml` (or `specs/*/spec.yaml` for legacy) to understand feature landscape and discover dependencies
 - **Codebase**: Identify affected areas, patterns, existing implementations
 - **Cross-reference**: Infer dependencies, impact areas, size estimate
 
@@ -100,7 +100,7 @@ Allow the user to:
 # See: docs/development/feature-yaml-protocol.md for details
 
 # Stage and commit (both YAML source and generated Markdown)
-git add specs/NNN-feature-name/
+git add .shep/specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name specification"
 ```
 
@@ -127,7 +127,7 @@ Inform the user:
 
 - **Branch first**: All spec work happens on the feature branch
 - **Infer, don't interrogate**: Analyze codebase to propose smart defaults
-- **Dependencies from specs**: Scan existing `specs/*/spec.yaml` for relationships
+- **Dependencies from specs**: Scan existing `.shep/specs/*/spec.yaml` for relationships
 - **User confirms**: Always get approval before writing files
 - **Open questions block progress**: Never proceed with unresolved questions
 

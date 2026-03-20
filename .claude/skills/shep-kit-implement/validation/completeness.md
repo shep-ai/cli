@@ -21,7 +21,7 @@ Basic completeness checks ensure all required YAML source files exist and contai
 ```bash
 pnpm spec:validate <feature-id>
 # Or manually check:
-spec_dir="specs/${FEATURE_ID}"
+spec_dir=".shep/specs/${FEATURE_ID}"
 
 for file in spec.yaml research.yaml plan.yaml tasks.yaml feature.yaml; do
   if [[ ! -f "$spec_dir/$file" ]]; then

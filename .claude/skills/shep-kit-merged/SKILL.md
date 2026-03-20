@@ -44,7 +44,7 @@ If already on main, skip cleanup.
 **Mark feature as complete BEFORE deleting branch:**
 
 ```yaml
-# specs/NNN-feature-name/feature.yaml
+# .shep/specs/NNN-feature-name/feature.yaml
 feature:
   lifecycle: 'complete' # Update from "review"
 
@@ -66,7 +66,7 @@ checkpoints:
 
 ```bash
 # Still on main branch after merge
-git add specs/NNN-feature-name/feature.yaml
+git add .shep/specs/NNN-feature-name/feature.yaml
 git commit -m "chore(specs): mark NNN-feature-name as complete"
 git push
 ```

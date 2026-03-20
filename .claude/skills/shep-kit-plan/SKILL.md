@@ -11,8 +11,8 @@ Generate a detailed implementation plan with architecture overview and task brea
 
 ## Prerequisites
 
-- Feature spec exists at `specs/NNN-feature-name/spec.yaml`
-- Research completed at `specs/NNN-feature-name/research.yaml`
+- Feature spec exists at `.shep/specs/NNN-feature-name/spec.yaml`
+- Research completed at `.shep/specs/NNN-feature-name/research.yaml`
 - On the feature branch `feat/NNN-feature-name`
 
 ## GATE CHECK (Mandatory)
@@ -99,8 +99,8 @@ Convert phases into actionable tasks:
 
 Write structured YAML source files (the source of truth):
 
-- `specs/NNN-feature-name/plan.yaml` - Architecture and strategy
-- `specs/NNN-feature-name/tasks.yaml` - Detailed task list
+- `.shep/specs/NNN-feature-name/plan.yaml` - Architecture and strategy
+- `.shep/specs/NNN-feature-name/tasks.yaml` - Detailed task list
 
 **NO DUPLICATION between files:**
 
@@ -125,7 +125,7 @@ Update the `status` field in each YAML source file:
 **Update feature.yaml:**
 
 ```yaml
-# specs/NNN-feature-name/feature.yaml
+# .shep/specs/NNN-feature-name/feature.yaml
 feature:
   lifecycle: 'implementation' # Update from "planning"
 
@@ -147,7 +147,7 @@ checkpoints:
 
 ```bash
 # Count entries in tasks.yaml tasks[] array
-yq '.tasks | length' specs/NNN-feature-name/tasks.yaml
+yq '.tasks | length' .shep/specs/NNN-feature-name/tasks.yaml
 ```
 
 **Reference:** [docs/development/feature-yaml-protocol.md](../../../docs/development/feature-yaml-protocol.md)
@@ -163,7 +163,7 @@ If feature requires entity changes:
 ### 11. Commit
 
 ```bash
-git add specs/NNN-feature-name/
+git add .shep/specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name implementation plan"
 ```
 
