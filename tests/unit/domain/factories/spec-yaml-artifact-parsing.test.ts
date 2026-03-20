@@ -1,7 +1,7 @@
 /**
  * Spec YAML Artifact Parsing Tests
  *
- * Validates that each spec YAML file in specs/032-example-specs/ parses
+ * Validates that each spec YAML file in tests/fixtures/spec-yaml-samples/ parses
  * into its corresponding TypeSpec-generated artifact type without errors.
  *
  * Each test reads a real YAML file, parses it with js-yaml, and validates
@@ -24,7 +24,7 @@ import type {
   TasksArtifact,
 } from '@/domain/generated/output.js';
 
-const SPECS_DIR = join(process.cwd(), 'specs/032-example-specs');
+const SPECS_DIR = join(process.cwd(), 'tests/fixtures/spec-yaml-samples');
 
 function readYaml(filename: string): string {
   return readFileSync(join(SPECS_DIR, filename), 'utf-8');

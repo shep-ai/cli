@@ -1,7 +1,7 @@
 /**
  * Spec YAML Parser Tests — Real Data Validation
  *
- * Reads actual YAML files from specs/032-example-specs/ and validates
+ * Reads actual YAML files from tests/fixtures/spec-yaml-samples/ and validates
  * that the parser functions return objects matching TypeSpec-generated types.
  *
  * TDD Phase: RED
@@ -29,10 +29,10 @@ import type {
 import { SdlcLifecycle, TaskState } from '@/domain/generated/output.js';
 
 // ---------------------------------------------------------------------------
-// Setup: Read real YAML content from specs/032-example-specs/
+// Setup: Read real YAML content from tests/fixtures/spec-yaml-samples/
 // ---------------------------------------------------------------------------
 
-const SPECS_DIR = join(process.cwd(), 'specs/032-example-specs');
+const SPECS_DIR = join(process.cwd(), 'tests/fixtures/spec-yaml-samples');
 
 function readSpec(filename: string): string {
   return readFileSync(join(SPECS_DIR, filename), 'utf-8');
@@ -47,7 +47,7 @@ const featureContent = readSpec('feature.yaml');
 // ===========================================================================
 // 1. spec.yaml → FeatureArtifact
 // ===========================================================================
-describe('parseSpecYaml (specs/032-example-specs/spec.yaml)', () => {
+describe('parseSpecYaml (spec-yaml-samples/spec.yaml)', () => {
   it('should parse without throwing', () => {
     expect(() => parseSpecYaml(specContent)).not.toThrow();
   });
@@ -172,7 +172,7 @@ describe('parseSpecYaml (specs/032-example-specs/spec.yaml)', () => {
 // ===========================================================================
 // 2. research.yaml → ResearchArtifact
 // ===========================================================================
-describe('parseResearchYaml (specs/032-example-specs/research.yaml)', () => {
+describe('parseResearchYaml (spec-yaml-samples/research.yaml)', () => {
   it('should parse without throwing', () => {
     expect(() => parseResearchYaml(researchContent)).not.toThrow();
   });
@@ -244,7 +244,7 @@ describe('parseResearchYaml (specs/032-example-specs/research.yaml)', () => {
 // ===========================================================================
 // 3. plan.yaml → TechnicalPlanArtifact
 // ===========================================================================
-describe('parsePlanYaml (specs/032-example-specs/plan.yaml)', () => {
+describe('parsePlanYaml (spec-yaml-samples/plan.yaml)', () => {
   it('should parse without throwing', () => {
     expect(() => parsePlanYaml(planContent)).not.toThrow();
   });
@@ -322,7 +322,7 @@ describe('parsePlanYaml (specs/032-example-specs/plan.yaml)', () => {
 // ===========================================================================
 // 4. tasks.yaml → TasksArtifact
 // ===========================================================================
-describe('parseTasksYaml (specs/032-example-specs/tasks.yaml)', () => {
+describe('parseTasksYaml (spec-yaml-samples/tasks.yaml)', () => {
   it('should parse without throwing', () => {
     expect(() => parseTasksYaml(tasksContent)).not.toThrow();
   });
@@ -415,7 +415,7 @@ describe('parseTasksYaml (specs/032-example-specs/tasks.yaml)', () => {
 // ===========================================================================
 // 5. feature.yaml → FeatureStatus
 // ===========================================================================
-describe('parseFeatureStatusYaml (specs/032-example-specs/feature.yaml)', () => {
+describe('parseFeatureStatusYaml (spec-yaml-samples/feature.yaml)', () => {
   it('should parse without throwing', () => {
     expect(() => parseFeatureStatusYaml(featureContent)).not.toThrow();
   });
