@@ -1566,6 +1566,10 @@ export type Repository = SoftDeletableEntity & {
    * Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)
    */
   remoteUrl?: string;
+  /**
+   * Spec storage mode: 'in-repo' stores specs at <worktree>/.shep/specs/, 'shep-managed' stores at ~/.shep/repos/<hash>/specs/
+   */
+  specStorageMode?: string;
 };
 
 /**
