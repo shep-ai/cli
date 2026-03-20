@@ -23,6 +23,7 @@ function createTestRow(overrides: Partial<RepositoryRow> = {}): RepositoryRow {
     name: 'my-project',
     path: '/Users/test/my-project',
     remote_url: null,
+    spec_storage_mode: null,
     created_at: new Date('2025-06-01T10:00:00Z').getTime(),
     updated_at: new Date('2025-06-01T12:00:00Z').getTime(),
     deleted_at: null,
@@ -132,6 +133,36 @@ describe('Repository Mapper', () => {
       const repo = fromDatabase(row);
 
       expect(repo.remoteUrl).toBeUndefined();
+    });
+  });
+
+  describe('specStorageMode mapping', () => {
+    it('toDatabase should map specStorageMode to spec_storage_mode column', () => {
+      const repo = createTestRepository({ specStorageMode: 'shep-managed' });
+      const row = toDatabase(repo);
+
+      expect(row.spec_storage_mode).toBe('shep-managed');
+    });
+
+    it('toDatabase should map undefined specStorageMode to null', () => {
+      const repo = createTestRepository();
+      const row = toDatabase(repo);
+
+      expect(row.spec_storage_mode).toBeNull();
+    });
+
+    it('fromDatabase should map spec_storage_mode to specStorageMode', () => {
+      const row = createTestRow({ spec_storage_mode: 'shep-managed' });
+      const repo = fromDatabase(row);
+
+      expect(repo.specStorageMode).toBe('shep-managed');
+    });
+
+    it('fromDatabase should default null spec_storage_mode to in-repo', () => {
+      const row = createTestRow({ spec_storage_mode: null });
+      const repo = fromDatabase(row);
+
+      expect(repo.specStorageMode).toBe('in-repo');
     });
   });
 
