@@ -6,12 +6,14 @@ import type {
   ListUserRepositoriesOptions,
   CloneOptions,
   ParsedGitHubUrl,
+  ForkResult,
 } from '@/application/ports/output/services/github-repository-service.interface';
 import {
   GitHubAuthError,
   GitHubCloneError,
   GitHubUrlParseError,
   GitHubRepoListError,
+  GitHubForkError,
 } from '@/application/ports/output/services/github-repository-service.interface';
 
 describe('GitHubAuthError', () => {
@@ -190,8 +192,52 @@ describe('CloneOptions type', () => {
   });
 });
 
+describe('ForkResult type', () => {
+  it('should hold nameWithOwner and cloneUrl', () => {
+    const result: ForkResult = {
+      nameWithOwner: 'myuser/cli',
+      cloneUrl: 'https://github.com/myuser/cli.git',
+    };
+    expect(result.nameWithOwner).toBe('myuser/cli');
+    expect(result.cloneUrl).toBe('https://github.com/myuser/cli.git');
+  });
+});
+
+describe('GitHubForkError', () => {
+  it('should be an instance of Error', () => {
+    const error = new GitHubForkError('fork failed');
+    expect(error).toBeInstanceOf(Error);
+  });
+
+  it('should set name to GitHubForkError', () => {
+    const error = new GitHubForkError('fork failed');
+    expect(error.name).toBe('GitHubForkError');
+  });
+
+  it('should set the message', () => {
+    const error = new GitHubForkError('Failed to fork shep-ai/cli');
+    expect(error.message).toBe('Failed to fork shep-ai/cli');
+  });
+
+  it('should accept an optional cause', () => {
+    const cause = new Error('permission denied');
+    const error = new GitHubForkError('fork failed', cause);
+    expect(error.cause).toBe(cause);
+  });
+
+  it('should work without a cause', () => {
+    const error = new GitHubForkError('fork failed');
+    expect(error.cause).toBeUndefined();
+  });
+
+  it('should maintain instanceof via Object.setPrototypeOf', () => {
+    const error = new GitHubForkError('test');
+    expect(error instanceof GitHubForkError).toBe(true);
+  });
+});
+
 describe('IGitHubRepositoryService', () => {
-  it('should be implementable with all four methods', () => {
+  it('should be implementable with all six methods', () => {
     const mock: IGitHubRepositoryService = {
       checkAuth: async () => {
         /* noop */
@@ -205,6 +251,11 @@ describe('IGitHubRepositoryService', () => {
         repo: 'my-project',
         nameWithOwner: 'octocat/my-project',
       }),
+      checkPushAccess: async () => false,
+      forkRepository: async () => ({
+        nameWithOwner: 'user/cli',
+        cloneUrl: 'https://github.com/user/cli.git',
+      }),
     };
 
     const methodNames: (keyof IGitHubRepositoryService)[] = [
@@ -212,9 +263,11 @@ describe('IGitHubRepositoryService', () => {
       'cloneRepository',
       'listUserRepositories',
       'parseGitHubUrl',
+      'checkPushAccess',
+      'forkRepository',
     ];
 
-    expect(methodNames).toHaveLength(4);
+    expect(methodNames).toHaveLength(6);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

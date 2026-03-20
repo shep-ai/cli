@@ -94,6 +94,9 @@ function createMockGitPrService(): IGitPrService {
     getMergeableStatus: vi.fn().mockResolvedValue(undefined),
     revParse: vi.fn().mockResolvedValue('mock-sha'),
     localMergeSquash: vi.fn().mockResolvedValue(undefined),
+    createPrFromArgs: vi
+      .fn()
+      .mockResolvedValue({ url: 'https://github.com/org/repo/pull/1', number: 1 }),
   };
 }
 

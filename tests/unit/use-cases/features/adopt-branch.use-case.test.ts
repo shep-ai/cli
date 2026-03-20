@@ -92,6 +92,9 @@ describe('AdoptBranchUseCase', () => {
       localMergeSquash: vi.fn().mockResolvedValue(undefined),
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
       getFailureLogs: vi.fn().mockResolvedValue(''),
+      createPrFromArgs: vi
+        .fn()
+        .mockResolvedValue({ url: 'https://github.com/org/repo/pull/1', number: 1 }),
     };
 
     useCase = new AdoptBranchUseCase(

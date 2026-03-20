@@ -16,10 +16,12 @@ import type {
   ListUserRepositoriesOptions,
   CloneOptions,
   ParsedGitHubUrl,
+  ForkResult,
 } from '../../../application/ports/output/services/github-repository-service.interface.js';
 import {
   GitHubAuthError,
   GitHubCloneError,
+  GitHubForkError,
   GitHubRepoListError,
   GitHubUrlParseError,
 } from '../../../application/ports/output/services/github-repository-service.interface.js';
@@ -200,6 +202,45 @@ export class GitHubRepositoryService implements IGitHubRepositoryService {
         'Supported formats: https://github.com/owner/repo, ' +
         'git@github.com:owner/repo.git, or owner/repo shorthand.'
     );
+  }
+
+  async checkPushAccess(repoNameWithOwner: string): Promise<boolean> {
+    try {
+      const { stdout } = await this.execFile('gh', [
+        'api',
+        `repos/${repoNameWithOwner}`,
+        '--jq',
+        '.permissions.push',
+      ]);
+      return stdout.trim() === 'true';
+    } catch {
+      // Safe fallback: assume no push access on any error (NFR-9)
+      return false;
+    }
+  }
+
+  async forkRepository(repoNameWithOwner: string): Promise<ForkResult> {
+    try {
+      const { stdout } = await this.execFile('gh', [
+        'repo',
+        'fork',
+        repoNameWithOwner,
+        '--clone=false',
+        '--json',
+        'nameWithOwner,url',
+      ]);
+      const parsed = JSON.parse(stdout) as { nameWithOwner: string; url: string };
+      return {
+        nameWithOwner: parsed.nameWithOwner,
+        cloneUrl: parsed.url.endsWith('.git') ? parsed.url : `${parsed.url}.git`,
+      };
+    } catch (error) {
+      const cause = error instanceof Error ? error : undefined;
+      throw new GitHubForkError(
+        `Failed to fork ${repoNameWithOwner}: ${cause?.message ?? String(error)}`,
+        cause
+      );
+    }
   }
 
   private async cleanupPartialClone(destination: string): Promise<void> {

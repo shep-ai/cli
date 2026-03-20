@@ -14,6 +14,7 @@ import type {
   DiffSummary,
   FileDiff,
   MergeStrategy,
+  PrCreateArgs,
   PrCreateResult,
   PrStatusInfo,
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
@@ -197,6 +198,29 @@ export class GitPrService implements IGitPrService {
       }
 
       const { stdout } = await this.execFile('gh', args, { cwd });
+      const url = stdout.trim();
+      const number = this.parsePrNumberFromUrl(url);
+      return { url, number };
+    } catch (error) {
+      throw this.parseGhError(error);
+    }
+  }
+
+  async createPrFromArgs(cwd: string, args: PrCreateArgs): Promise<PrCreateResult> {
+    try {
+      const ghArgs = ['pr', 'create', '--title', args.title, '--body', args.body];
+
+      if (args.base) {
+        ghArgs.push('--base', args.base);
+      }
+      if (args.labels?.length) {
+        ghArgs.push('--label', args.labels.join(','));
+      }
+      if (args.repo) {
+        ghArgs.push('--repo', args.repo);
+      }
+
+      const { stdout } = await this.execFile('gh', ghArgs, { cwd });
       const url = stdout.trim();
       const number = this.parsePrNumberFromUrl(url);
       return { url, number };

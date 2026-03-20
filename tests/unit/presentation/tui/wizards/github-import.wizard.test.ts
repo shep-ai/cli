@@ -41,6 +41,13 @@ function createMockGitHubService(): IGitHubRepositoryService {
       repo: 'my-project',
       nameWithOwner: 'octocat/my-project',
     }),
+    checkPushAccess: vi.fn().mockResolvedValue(false),
+    forkRepository: vi
+      .fn()
+      .mockResolvedValue({
+        nameWithOwner: 'user/repo',
+        cloneUrl: 'https://github.com/user/repo.git',
+      }),
   };
 }
 

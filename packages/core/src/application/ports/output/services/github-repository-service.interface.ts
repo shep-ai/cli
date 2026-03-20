@@ -58,6 +58,18 @@ export class GitHubRepoListError extends Error {
   }
 }
 
+/**
+ * Thrown when a `gh repo fork` operation fails.
+ */
+export class GitHubForkError extends Error {
+  constructor(message: string, cause?: Error) {
+    super(message);
+    this.name = 'GitHubForkError';
+    Object.setPrototypeOf(this, new.target.prototype);
+    if (cause) this.cause = cause;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -94,6 +106,16 @@ export interface ListUserRepositoriesOptions {
 export interface CloneOptions {
   /** Callback invoked with stderr chunks during clone for progress display */
   onProgress?: (data: string) => void;
+}
+
+/**
+ * Result of forking a GitHub repository.
+ */
+export interface ForkResult {
+  /** Full owner/repo identifier of the fork (e.g. "username/cli") */
+  nameWithOwner: string;
+  /** Clone URL for the fork (e.g. "https://github.com/username/cli.git") */
+  cloneUrl: string;
 }
 
 /**
@@ -162,4 +184,28 @@ export interface IGitHubRepositoryService {
    * @throws {GitHubUrlParseError} if the URL does not match any supported format
    */
   parseGitHubUrl(url: string): ParsedGitHubUrl;
+
+  /**
+   * Check whether the authenticated user has push access to a repository.
+   *
+   * Uses `gh api repos/{owner}/{repo} --jq '.permissions.push'` to detect
+   * access level. Returns false as the safe fallback on any error (network,
+   * rate limit, API change) per NFR-9.
+   *
+   * @param repoNameWithOwner - Full owner/repo identifier (e.g. "shep-ai/cli")
+   * @returns True if the user has push access, false otherwise (including on errors)
+   */
+  checkPushAccess(repoNameWithOwner: string): Promise<boolean>;
+
+  /**
+   * Fork a GitHub repository into the authenticated user's account.
+   *
+   * Uses `gh repo fork` which is idempotent — if the user already has a fork,
+   * it detects the existing fork and returns it rather than failing.
+   *
+   * @param repoNameWithOwner - Full owner/repo identifier (e.g. "shep-ai/cli")
+   * @returns The fork's nameWithOwner and clone URL
+   * @throws {GitHubForkError} if the fork operation fails
+   */
+  forkRepository(repoNameWithOwner: string): Promise<ForkResult>;
 }
