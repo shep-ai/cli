@@ -45,3 +45,4 @@ import "./pull-request.tsp";
 import "./feature-status-metadata.tsp";
 import "./attachment.tsp";
 import "./evidence.tsp";
+import "./doctor-diagnostic-report.tsp";
