@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings } from 'lucide-react';
+import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, CalendarClock, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -123,6 +123,12 @@ export function AppSidebar({
               active={pathname === '/skills'}
             />
           ) : null}
+          <SidebarNavItem
+            icon={CalendarClock}
+            label="Workflows"
+            href="/workflows"
+            active={pathname === '/workflows'}
+          />
           <SidebarNavItem
             icon={Settings}
             label="Settings"
