@@ -51,6 +51,8 @@ import { DeploymentService } from '../services/deployment/deployment.service.js'
 import { AttachmentStorageService } from '../services/attachment-storage.service.js';
 import type { IGitHubRepositoryService } from '../../application/ports/output/services/github-repository-service.interface.js';
 import { GitHubRepositoryService } from '../services/external/github-repository.service.js';
+import type { IGitHubIssueService } from '../../application/ports/output/services/github-issue-service.interface.js';
+import { GitHubIssueCreatorService } from '../services/external/github-issue-creator.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -230,6 +232,10 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton<IGitHubRepositoryService>(
     'IGitHubRepositoryService',
     GitHubRepositoryService
+  );
+  container.registerSingleton<IGitHubIssueService>(
+    'IGitHubIssueService',
+    GitHubIssueCreatorService
   );
   container.registerSingleton<IIdeLauncherService>(
     'IIdeLauncherService',
