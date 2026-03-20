@@ -1,6 +1,68 @@
-=== DoctorDiagnosticReport TypeSpec Generated Types ===
+TypeSpec Generated Types Verification
+======================================
+File: packages/core/src/domain/generated/output.ts
+Date: 2026-03-21
 
---- DoctorDiagnosticReport ---
+1. WorkflowConfig.doctorMaxFixAttempts (line 440-442)
+------------------------------------------------------
+  /**
+   * Maximum number of doctor fix attempts before giving up (default: 1)
+   */
+  doctorMaxFixAttempts?: number;
+
+2. FailedRunSummary (lines 1680-1697)
+--------------------------------------
+/**
+ * Summary of a failed agent run for diagnostic reporting
+ */
+export type FailedRunSummary = {
+  /**
+   * Type of agent that failed (e.g. claude-code, gemini-cli)
+   */
+  agentType: string;
+  /**
+   * Name/identifier of the agent run
+   */
+  agentName: string;
+  /**
+   * Error message from the failed run
+   */
+  error: string;
+  /**
+   * ISO 8601 timestamp when the failure occurred
+   */
+  timestamp: string;
+};
+
+3. SystemInfo (lines 1702-1719)
+--------------------------------
+/**
+ * System environment information for diagnostic reporting
+ */
+export type SystemInfo = {
+  /**
+   * Node.js version (e.g. v20.11.0)
+   */
+  nodeVersion: string;
+  /**
+   * Operating system platform (e.g. darwin, linux, win32)
+   */
+  platform: string;
+  /**
+   * CPU architecture (e.g. x64, arm64)
+   */
+  arch: string;
+  /**
+   * gh CLI version string
+   */
+  ghVersion: string;
+};
+
+4. DoctorDiagnosticReport (lines 1724-1741)
+--------------------------------------------
+/**
+ * Structured diagnostic report collected by shep doctor for issue creation
+ */
 export type DoctorDiagnosticReport = {
   /**
    * User-provided description of the problem
@@ -19,54 +81,6 @@ export type DoctorDiagnosticReport = {
    */
   cliVersion: string;
 };
-export enum AgentStatus {
-  Idle = 'Idle',
-  Running = 'Running',
 
---- FailedRunSummary ---
-export type FailedRunSummary = {
-  /**
-   * Type of agent that failed (e.g. claude-code, gemini-cli)
-   */
-  agentType: string;
-  /**
-   * Name/identifier of the agent run
-   */
-  agentName: string;
-  /**
-   * Error message from the failed run
-   */
-  error: string;
-  /**
-   * ISO 8601 timestamp when the failure occurred
-   */
-
---- SystemInfo ---
-export type SystemInfo = {
-  /**
-   * Node.js version (e.g. v20.11.0)
-   */
-  nodeVersion: string;
-  /**
-   * Operating system platform (e.g. darwin, linux, win32)
-   */
-  platform: string;
-  /**
-   * CPU architecture (e.g. x64, arm64)
-   */
-  arch: string;
-  /**
-   * gh CLI version string
-   */
-
---- doctorMaxFixAttempts in WorkflowConfig ---
-   */
-  hideCiStatus?: boolean;
-  /**
-   * Maximum number of doctor fix attempts before giving up (default: 1)
-   */
-  doctorMaxFixAttempts?: number;
-};
-export enum AgentType {
-
-=== TypeSpec compilation: SUCCESS ===
+All 4 types present with correct fields and JSDoc annotations.
+pnpm tsp:compile completes successfully.

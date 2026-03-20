@@ -1,3 +1,28 @@
+Doctor Command Registration in Main CLI
+========================================
+Command: node dist/src/presentation/cli/index.js --help
+Date: 2026-03-21
+
+The 'doctor' command is registered as a top-level command in the shep CLI program.
+Excerpt from 'shep --help' output:
+
+Commands:
+  version                         Display version information
+  settings                        Manage Shep global settings
+  ui [options]                    Start the Shep web UI
+  run [options] <agent-name>      Run an AI agent workflow
+  agent                           Manage and view agent runs
+  feat                            Manage features through the SDLC lifecycle
+  repo                            Manage tracked repositories
+  session                         Manage and view agent provider CLI sessions
+  ide [options] <feat-id>         Open a feature worktree in your IDE
+  install [options] [tool]        Install a development tool
+  tools                           Manage development tools
   upgrade                         Upgrade Shep CLI to the latest version
   doctor [options] [description]  Diagnose shep failures, open a GitHub issue,
                                   and optionally attempt a fix
+  start [options]                 Start the Shep web UI as a background daemon
+  stop                            Stop the running Shep web UI daemon
+  restart [options]               Gracefully restart the Shep web UI daemon
+                                  (starts it if not running)
+  status [options]                Show the status of the Shep web UI daemon
