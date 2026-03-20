@@ -39,7 +39,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         push, open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
         pr_url, pr_number, pr_status, commit_hash, ci_status,
         ci_fix_attempts, ci_fix_history, pr_mergeable,
-        parent_id,
+        parent_id, previous_lifecycle,
         created_at, updated_at
       ) VALUES (
         @id, @name, @slug, @description, @user_query, @repository_path, @branch,
@@ -49,7 +49,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         @push, @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
         @pr_url, @pr_number, @pr_status, @commit_hash, @ci_status,
         @ci_fix_attempts, @ci_fix_history, @pr_mergeable,
-        @parent_id,
+        @parent_id, @previous_lifecycle,
         @created_at, @updated_at
       )
     `);
@@ -116,6 +116,11 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
       conditions.push('deleted_at IS NULL');
     }
 
+    if (!filters?.includeArchived && !filters?.lifecycle) {
+      conditions.push('lifecycle != ?');
+      params.push('Archived');
+    }
+
     if (filters?.repositoryPath) {
       conditions.push("REPLACE(repository_path, '\\', '/') = ?");
       params.push(filters.repositoryPath.replace(/\\/g, '/'));
@@ -174,6 +179,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         ci_fix_history = @ci_fix_history,
         pr_mergeable = @pr_mergeable,
         parent_id = @parent_id,
+        previous_lifecycle = @previous_lifecycle,
         deleted_at = @deleted_at,
         updated_at = @updated_at
       WHERE id = @id
