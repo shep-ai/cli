@@ -117,6 +117,8 @@ import { ListGitHubRepositoriesUseCase } from '../../application/use-cases/repos
 import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 import { CleanupFeatureWorktreeUseCase } from '../../application/use-cases/features/cleanup-feature-worktree.use-case.js';
+import { ArchiveFeatureUseCase } from '../../application/use-cases/features/archive-feature.use-case.js';
+import { UnarchiveFeatureUseCase } from '../../application/use-cases/features/unarchive-feature.use-case.js';
 import { UpgradeCliUseCase } from '../../application/use-cases/upgrade/upgrade-cli.use-case.js';
 
 // Session listing
@@ -373,6 +375,8 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(CheckAndUnblockFeaturesUseCase);
   container.registerSingleton(UpdateFeatureLifecycleUseCase);
   container.registerSingleton(CleanupFeatureWorktreeUseCase);
+  container.registerSingleton(ArchiveFeatureUseCase);
+  container.registerSingleton(UnarchiveFeatureUseCase);
   container.registerSingleton(UpgradeCliUseCase);
 
   // Session repositories (per-AgentType string tokens)
@@ -472,6 +476,12 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('CleanupFeatureWorktreeUseCase', {
     useFactory: (c) => c.resolve(CleanupFeatureWorktreeUseCase),
+  });
+  container.register('ArchiveFeatureUseCase', {
+    useFactory: (c) => c.resolve(ArchiveFeatureUseCase),
+  });
+  container.register('UnarchiveFeatureUseCase', {
+    useFactory: (c) => c.resolve(UnarchiveFeatureUseCase),
   });
   container.register('UpgradeCliUseCase', {
     useFactory: (c) => c.resolve(UpgradeCliUseCase),
