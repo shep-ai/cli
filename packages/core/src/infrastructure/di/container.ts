@@ -63,6 +63,7 @@ import type { IPhaseTimingRepository } from '../../application/ports/output/agen
 import type { IFeatureAgentProcessService } from '../../application/ports/output/agents/feature-agent-process.interface.js';
 import type { ISpecInitializerService } from '../../application/ports/output/services/spec-initializer.interface.js';
 import type { INotificationService } from '../../application/ports/output/services/notification-service.interface.js';
+import type { IClock } from '../../application/ports/output/services/clock.interface.js';
 import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
 import { AgentExecutorProvider } from '../services/agents/common/agent-executor-provider.service.js';
 import { StructuredAgentCallerService } from '../services/agents/common/structured-agent-caller.service.js';
@@ -77,6 +78,13 @@ import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
 import { NotificationService } from '../services/notifications/notification.service.js';
 import { getNotificationBus } from '../services/notifications/notification-bus.js';
 import { spawn } from 'node:child_process';
+
+// Workflow repositories and implementations
+import type { IWorkflowRepository } from '../../application/ports/output/repositories/workflow-repository.interface.js';
+import { SQLiteWorkflowRepository } from '../repositories/sqlite-workflow.repository.js';
+import type { IWorkflowExecutionRepository } from '../../application/ports/output/repositories/workflow-execution-repository.interface.js';
+import { SQLiteWorkflowExecutionRepository } from '../repositories/sqlite-workflow-execution.repository.js';
+import { RealClock } from '../services/clock.js';
 
 // Use cases
 import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
@@ -126,6 +134,17 @@ import { SyncRepositoryMainUseCase } from '../../application/use-cases/repositor
 import { RebaseFeatureOnMainUseCase } from '../../application/use-cases/features/rebase-feature-on-main.use-case.js';
 import { GetBranchSyncStatusUseCase } from '../../application/use-cases/features/get-branch-sync-status.use-case.js';
 import { ConflictResolutionService } from '../services/agents/conflict-resolution/conflict-resolution.service.js';
+
+// Workflow use cases
+import { CreateWorkflowUseCase } from '../../application/use-cases/workflows/create-workflow.use-case.js';
+import { UpdateWorkflowUseCase } from '../../application/use-cases/workflows/update-workflow.use-case.js';
+import { DeleteWorkflowUseCase } from '../../application/use-cases/workflows/delete-workflow.use-case.js';
+import { ListWorkflowsUseCase } from '../../application/use-cases/workflows/list-workflows.use-case.js';
+import { GetWorkflowUseCase } from '../../application/use-cases/workflows/get-workflow.use-case.js';
+import { RunWorkflowUseCase } from '../../application/use-cases/workflows/run-workflow.use-case.js';
+import { ScheduleWorkflowUseCase } from '../../application/use-cases/workflows/schedule-workflow.use-case.js';
+import { GetWorkflowHistoryUseCase } from '../../application/use-cases/workflows/get-workflow-history.use-case.js';
+import { ToggleWorkflowUseCase } from '../../application/use-cases/workflows/toggle-workflow.use-case.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -183,6 +202,24 @@ export async function initializeContainer(): Promise<typeof container> {
       return new SQLiteRepositoryRepository(database);
     },
   });
+
+  // Register workflow repositories
+  container.register<IWorkflowRepository>('IWorkflowRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteWorkflowRepository(database);
+    },
+  });
+
+  container.register<IWorkflowExecutionRepository>('IWorkflowExecutionRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteWorkflowExecutionRepository(database);
+    },
+  });
+
+  // Register IClock
+  container.registerInstance<IClock>('IClock', new RealClock());
 
   // Register external dependencies as tokens
   // On Windows, agent CLIs ship as .cmd/.ps1 scripts (e.g. cursor's `agent.cmd`).
@@ -393,6 +430,17 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(RebaseFeatureOnMainUseCase);
   container.registerSingleton(GetBranchSyncStatusUseCase);
 
+  // Workflow use cases
+  container.registerSingleton(CreateWorkflowUseCase);
+  container.registerSingleton(UpdateWorkflowUseCase);
+  container.registerSingleton(DeleteWorkflowUseCase);
+  container.registerSingleton(ListWorkflowsUseCase);
+  container.registerSingleton(GetWorkflowUseCase);
+  container.registerSingleton(RunWorkflowUseCase);
+  container.registerSingleton(ScheduleWorkflowUseCase);
+  container.registerSingleton(GetWorkflowHistoryUseCase);
+  container.registerSingleton(ToggleWorkflowUseCase);
+
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
     useFactory: () => new ClaudeCodeSessionRepository(),
@@ -508,6 +556,35 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('GetBranchSyncStatusUseCase', {
     useFactory: (c) => c.resolve(GetBranchSyncStatusUseCase),
+  });
+
+  // Workflow use case string-token aliases
+  container.register('CreateWorkflowUseCase', {
+    useFactory: (c) => c.resolve(CreateWorkflowUseCase),
+  });
+  container.register('UpdateWorkflowUseCase', {
+    useFactory: (c) => c.resolve(UpdateWorkflowUseCase),
+  });
+  container.register('DeleteWorkflowUseCase', {
+    useFactory: (c) => c.resolve(DeleteWorkflowUseCase),
+  });
+  container.register('ListWorkflowsUseCase', {
+    useFactory: (c) => c.resolve(ListWorkflowsUseCase),
+  });
+  container.register('GetWorkflowUseCase', {
+    useFactory: (c) => c.resolve(GetWorkflowUseCase),
+  });
+  container.register('RunWorkflowUseCase', {
+    useFactory: (c) => c.resolve(RunWorkflowUseCase),
+  });
+  container.register('ScheduleWorkflowUseCase', {
+    useFactory: (c) => c.resolve(ScheduleWorkflowUseCase),
+  });
+  container.register('GetWorkflowHistoryUseCase', {
+    useFactory: (c) => c.resolve(GetWorkflowHistoryUseCase),
+  });
+  container.register('ToggleWorkflowUseCase', {
+    useFactory: (c) => c.resolve(ToggleWorkflowUseCase),
   });
 
   _initialized = true;
