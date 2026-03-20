@@ -1,0 +1,87 @@
+=== shep workflow create ===
+$ shep workflow create test-evidence-workflow --prompt 'This is a test workflow for evidence capture' --description 'Evidence test workflow'
+✓ Workflow created
+  Name:    test-evidence-workflow
+  ID:      604cb64a
+  Enabled: yes
+  Desc:    Evidence test workflow
+
+=== shep workflow create --template ===
+$ shep workflow create issue-triage-auto --template issue-triage
+✓ Workflow created
+  Name:    issue-triage-auto
+  ID:      60ff4208
+  Enabled: yes
+  Desc:    Scan open GitHub issues, identify resolved ones by checking commits and PRs, add evidence comments, and close them automatically.
+
+=== shep workflow schedule ===
+
+✓ Schedule set for "test-evidence-workflow"
+  Cron:     0 9 * * MON
+  Next run: 3/23/2026, 9:00:00 AM
+
+
+=== shep workflow list ===
+
+  Workflows (2)
+
+  Name                    Schedule              Status            Last Run        Enabled   
+  test-evidence-workflow  0 9 * * MON           ● scheduled       never           ● on
+  issue-triage-auto       -                     ● on-demand       never           ● on
+
+
+=== shep workflow show ===
+
+  Workflow: test-evidence-workflow
+
+  ID           604cb64a-87a3-4b61-9e7b-bd1836449f60
+  Name         test-evidence-workflow
+  Description  Evidence test workflow
+  Status       ● scheduled
+  Enabled      yes
+  Repository   /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-scheduled-workflows
+
+  Schedule
+  Cron      0 9 * * MON
+  Timezone  system default
+  Next Run  3/23/2026, 9:00:00 AM
+  Last Run  never
+
+  Constraints
+  Tools  all tools allowed
+
+  Timestamps
+  Created  3/21/2026, 1:34:33 AM
+  Updated  3/21/2026, 1:35:59 AM
+
+  Prompt
+  This is a test workflow for evidence capture
+
+
+=== shep workflow disable ===
+✓ Workflow "test-evidence-workflow" disabled
+ℹ Manual triggers are still allowed via: shep workflow run <name>
+
+=== shep workflow list (after disable) ===
+
+  Workflows (2)
+
+  Name                    Schedule              Status            Last Run        Enabled   
+  test-evidence-workflow  0 9 * * MON           ○ disabled        never           ○ off
+  issue-triage-auto       -                     ● on-demand       never           ● on
+
+
+=== shep workflow enable ===
+✓ Workflow "test-evidence-workflow" enabled
+  Next run: 3/23/2026, 9:00:00 AM
+
+=== shep workflow history (empty) ===
+
+ℹ No execution history found
+
+
+=== shep workflow update ===
+
+✓ Workflow "test-evidence-workflow" updated
+
+
