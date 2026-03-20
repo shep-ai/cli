@@ -1,0 +1,156 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: shep-doctor
+number: 073
+branch: feat/073-shep-doctor
+oneLiner: "Diagnose shep operation failures, auto-create GitHub issues, attempt fixes, and open PRs"
+userQuery: >
+  I'd like to have a "shep doctor" feature that will let me tell shep that something went wrong
+  in its operation - shep should then open an issue, try to fix, and open a PR.
+summary: >
+  Add a top-level `shep doctor` CLI command that allows users to report problems with shep's own
+  operation. When invoked, doctor diagnoses the problem, opens a GitHub issue on the shep-ai/cli
+  repository describing the failure, invokes an AI agent to attempt a fix in the shep codebase
+  itself, and opens a PR with the proposed fix. This is a self-healing meta-feature where shep
+  fixes itself.
+phase: Analysis
+sizeEstimate: "L"
+
+# Relationships
+relatedFeatures:
+  - "041-ci-watch-fix-loop"
+
+technologies:
+  - "Commander.js (CLI framework)"
+  - "tsyringe (dependency injection)"
+  - "LangGraph (agent workflow orchestration)"
+  - "gh CLI (GitHub issue/PR creation)"
+  - "Vitest (testing)"
+  - "TypeSpec (domain model generation)"
+
+relatedLinks:
+  - title: "GitHub Issue #436 - Feature request: Shep doctor"
+    url: "https://github.com/shep-ai/cli/issues/436"
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Should doctor operate on the user's local shep installation source, or clone the shep-ai/cli repo into a temp directory for fixes?"
+  - "Should the issue be opened on shep-ai/cli (shep's own repo) or the user's current repo? The issue description implies shep-ai/cli."
+  - "What input does the user provide? Free-text description of what went wrong, or does doctor auto-detect from recent agent run logs?"
+  - "Should doctor reuse the existing feature-agent graph for the fix attempt, or use a simpler one-shot agent invocation?"
+  - "What scope of fixes should doctor attempt? Only config/settings issues, or also code changes to the shep codebase itself?"
+  - "Should there be a --dry-run mode that diagnoses and opens the issue but skips the fix attempt?"
+
+content: |
+  ## Problem Statement
+
+  When shep encounters operational failures (agent crashes, incorrect outputs, broken workflows),
+  users currently have no built-in way to report these issues or trigger self-healing. Users must
+  manually file GitHub issues and wait for maintainer fixes. The `shep doctor` feature provides a
+  self-service mechanism where users can report problems, and shep will automatically:
+
+  1. Diagnose the problem from user description and/or recent operation logs
+  2. Open a GitHub issue on shep-ai/cli describing the failure
+  3. Invoke an AI agent to attempt a fix in the shep codebase
+  4. Open a PR with the proposed fix
+
+  This closes the feedback loop — shep can fix itself.
+
+  Reference: [GitHub Issue #436](https://github.com/shep-ai/cli/issues/436)
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The codebase follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - **domain/** — Core business logic, TypeSpec-generated models (`output.ts`)
+  - **application/** — Use cases and output port interfaces (services, repositories)
+  - **infrastructure/** — External implementations: SQLite repos, agent services, git/GitHub services
+  - **presentation/** — CLI commands (`src/presentation/cli/`), TUI, Web UI
+
+  CLI commands live in `src/presentation/cli/commands/` organized by feature group (feat/, agent/, repo/, settings/).
+  Top-level commands (run, start, stop, ui, etc.) are standalone files. Commands are registered in
+  `src/presentation/cli/index.ts` via `program.addCommand()`.
+
+  ### Architecture Patterns
+
+  - **Use Case Pattern**: Each operation is a `@injectable()` class with a single `execute()` method,
+    dependencies injected via `@inject()` tokens. ~58 use cases exist.
+  - **Repository Pattern**: SQLite-backed repositories behind interfaces (e.g., `IFeatureRepository`,
+    `IAgentRunRepository`).
+  - **Agent Executor Abstraction**: All agent invocations go through `IAgentExecutorProvider` →
+    `IAgentExecutor`. Agent type resolved from settings, never hardcoded.
+  - **Service Interfaces (Output Ports)**: `IGitPrService`, `IGitHubRepositoryService`,
+    `IExternalIssueFetcher` — all defined as interfaces in `application/ports/output/services/`.
+  - **DI Container**: tsyringe container in `infrastructure/di/container.ts` registers all
+    repositories, services, and use cases.
+
+  ### Relevant Technologies
+
+  - **Commander.js** — CLI command framework. Commands are factory functions returning `Command` instances.
+  - **tsyringe** — DI container. `@injectable()` + `@inject()` decorators.
+  - **gh CLI** — Used for GitHub operations (issue creation via `gh issue create`, PR creation via
+    `gh pr create`, CI status via `gh run list`). The codebase does NOT use Octokit for issue/PR
+    creation — it shells out to `gh`.
+  - **LangGraph** — Agent workflow orchestration for the feature-agent graph.
+  - **SQLite (better-sqlite3)** — Persistence for features, agent runs, settings.
+  - **TypeSpec** — Domain model definitions in `tsp/` compiled to `packages/core/src/domain/generated/output.ts`.
+
+  ### Existing Infrastructure to Reuse
+
+  1. **GitHub Issue Service** (`infrastructure/services/external/github-issue.service.ts`) —
+     Currently fetches issues. Needs extension to CREATE issues via `gh issue create`.
+  2. **Git PR Service** (`infrastructure/services/git/git-pr.service.ts`) — Already has `createPr()`,
+     `pushBranch()`, `getCiStatus()`, `getDiffSummary()`.
+  3. **Agent Executor** — Can invoke an AI agent to analyze and fix code. The `RunAgentUseCase`
+     and `IStructuredAgentCaller` provide ready-made patterns.
+  4. **CI Watch/Fix Loop** (`infrastructure/services/agents/feature-agent/nodes/merge/ci-watch-fix-loop.ts`)
+     — Pattern for iterative fix attempts with bounded retries.
+  5. **CLI UI utilities** (`src/presentation/cli/ui/`) — Shared formatting, colors, spinners, messages.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/commands/` | High | New `doctor.command.ts` top-level command |
+  | `src/presentation/cli/index.ts` | Low | Register the new doctor command |
+  | `packages/core/src/application/use-cases/` | High | New `DoctorUseCase` with diagnose → issue → fix → PR flow |
+  | `packages/core/src/application/ports/output/services/` | Medium | Extend or add service interface for GitHub issue creation |
+  | `packages/core/src/infrastructure/services/external/` | Medium | Extend `github-issue.service.ts` to support issue creation (currently read-only) |
+  | `packages/core/src/infrastructure/services/git/` | Low | Reuse existing `git-pr.service.ts` for PR creation |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register new use case and any new services |
+  | `tsp/` | Low | Potentially new TypeSpec model for doctor diagnosis results |
+  | `tests/` | High | Unit tests for use case, integration tests for the doctor workflow |
+
+  ## Dependencies
+
+  - **gh CLI** — Must be installed and authenticated for issue/PR creation
+  - **IAgentExecutorProvider** — For invoking AI agent to attempt fixes
+  - **IGitPrService** — For creating PRs with fix attempts
+  - **IExternalIssueFetcher / GitHub issue service** — Needs extension to support `gh issue create`
+  - **Agent run logs** — For diagnosing what went wrong (IAgentRunRepository)
+
+  ## Success Criteria
+
+  - [ ] `shep doctor` command is available and documented
+  - [ ] User can describe a problem via CLI prompt or argument
+  - [ ] Doctor opens a well-formatted GitHub issue on the target repo
+  - [ ] Doctor invokes an AI agent to attempt a fix
+  - [ ] Doctor opens a PR with the proposed fix (if fix is attempted)
+  - [ ] Graceful handling when gh CLI is not available or not authenticated
+  - [ ] Unit tests for the doctor use case
+  - [ ] Integration tests for the end-to-end doctor workflow
+
+  ## Size Estimate
+
+  **L** — This feature requires a new CLI command, a new use case with multi-step orchestration
+  (diagnose → create issue → clone/branch → invoke agent → create PR), extension of the GitHub
+  issue service to support creation, and comprehensive testing. The workflow is more complex than
+  a simple CRUD operation but can leverage significant existing infrastructure (agent executor,
+  PR service, CLI patterns). Estimated at 1-2 weeks of development.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
