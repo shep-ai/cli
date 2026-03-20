@@ -138,6 +138,22 @@ export interface PrStatusInfo {
 }
 
 /**
+ * Arguments for creating a PR programmatically (without a pr.yaml file).
+ */
+export interface PrCreateArgs {
+  /** PR title */
+  title: string;
+  /** PR body (Markdown) */
+  body: string;
+  /** Labels to apply to the PR */
+  labels: string[];
+  /** Base branch to merge into (e.g. "main") */
+  base: string;
+  /** Target repository for cross-fork PRs (e.g. "shep-ai/cli"). Omit for same-repo PRs. */
+  repo?: string;
+}
+
+/**
  * Merge strategy for pull requests.
  */
 export type MergeStrategy = 'squash' | 'merge' | 'rebase';
@@ -222,6 +238,20 @@ export interface IGitPrService {
    * @throws GitPrError with GH_NOT_FOUND or AUTH_FAILURE code
    */
   createPr(cwd: string, prYamlPath: string): Promise<PrCreateResult>;
+
+  /**
+   * Create a pull request from explicit arguments (no pr.yaml file needed).
+   *
+   * Useful for programmatic PR creation where the title, body, and labels
+   * are constructed in code rather than read from a YAML file. Supports
+   * cross-fork PRs via the optional `repo` field in args.
+   *
+   * @param cwd - Working directory path (must be inside the git repo)
+   * @param args - PR creation arguments (title, body, labels, base, optional repo)
+   * @returns URL and number of the created PR
+   * @throws GitPrError with GH_NOT_FOUND or AUTH_FAILURE code
+   */
+  createPrFromArgs(cwd: string, args: PrCreateArgs): Promise<PrCreateResult>;
 
   /**
    * Merge a pull request immediately.

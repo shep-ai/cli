@@ -4,6 +4,7 @@ import type {
   CiStatusResult,
   DiffSummary,
   IGitPrService,
+  PrCreateArgs,
   PrCreateResult,
 } from '@/application/ports/output/services/git-pr-service.interface';
 import {
@@ -129,6 +130,33 @@ describe('PrCreateResult', () => {
   });
 });
 
+describe('PrCreateArgs type', () => {
+  it('should hold all required fields', () => {
+    const args: PrCreateArgs = {
+      title: 'fix: resolve agent crash',
+      body: 'Fixes #42\n\nThis fixes the crash...',
+      labels: ['bug', 'shep-doctor'],
+      base: 'main',
+    };
+    expect(args.title).toBe('fix: resolve agent crash');
+    expect(args.body).toContain('Fixes #42');
+    expect(args.labels).toEqual(['bug', 'shep-doctor']);
+    expect(args.base).toBe('main');
+    expect(args.repo).toBeUndefined();
+  });
+
+  it('should accept optional repo for cross-fork PRs', () => {
+    const args: PrCreateArgs = {
+      title: 'fix: resolve agent crash',
+      body: 'Fixes #42',
+      labels: ['bug'],
+      base: 'main',
+      repo: 'shep-ai/cli',
+    };
+    expect(args.repo).toBe('shep-ai/cli');
+  });
+});
+
 describe('IGitPrService', () => {
   it('should be implementable with all methods', () => {
     // Compile-time check: a mock class implementing IGitPrService must provide all methods
@@ -142,6 +170,7 @@ describe('IGitPrService', () => {
         /* noop */
       },
       createPr: async () => ({ url: '', number: 0 }),
+      createPrFromArgs: async () => ({ url: '', number: 0 }),
       mergePr: async () => {
         /* noop */
       },
@@ -198,6 +227,7 @@ describe('IGitPrService', () => {
       'commitAll',
       'push',
       'createPr',
+      'createPrFromArgs',
       'mergePr',
       'mergeBranch',
       'getCiStatus',
@@ -220,7 +250,7 @@ describe('IGitPrService', () => {
       'getBranchSyncStatus',
     ];
 
-    expect(methodNames).toHaveLength(27);
+    expect(methodNames).toHaveLength(28);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }
