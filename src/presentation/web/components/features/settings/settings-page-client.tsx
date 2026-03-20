@@ -1361,6 +1361,41 @@ export function SettingsPageClient({
                 save(buildNotificationPayload({ events: newEvents }));
               }}
             />
+
+            <SubsectionLabel>Scheduled Workflow Events</SubsectionLabel>
+            <SwitchRow
+              label="Workflow started"
+              id="notif-event-workflowStarted"
+              testId="switch-event-workflowStarted"
+              checked={events.workflowStarted}
+              onChange={(v) => {
+                const newEvents = { ...events, workflowStarted: v };
+                setEvents(newEvents);
+                save(buildNotificationPayload({ events: newEvents }));
+              }}
+            />
+            <SwitchRow
+              label="Workflow completed"
+              id="notif-event-workflowCompleted"
+              testId="switch-event-workflowCompleted"
+              checked={events.workflowCompleted}
+              onChange={(v) => {
+                const newEvents = { ...events, workflowCompleted: v };
+                setEvents(newEvents);
+                save(buildNotificationPayload({ events: newEvents }));
+              }}
+            />
+            <SwitchRow
+              label="Workflow failed"
+              id="notif-event-workflowFailed"
+              testId="switch-event-workflowFailed"
+              checked={events.workflowFailed}
+              onChange={(v) => {
+                const newEvents = { ...events, workflowFailed: v };
+                setEvents(newEvents);
+                save(buildNotificationPayload({ events: newEvents }));
+              }}
+            />
           </SettingsSection>
           <SectionHint
             links={[
