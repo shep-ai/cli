@@ -120,6 +120,7 @@ import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/feat
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 import { CleanupFeatureWorktreeUseCase } from '../../application/use-cases/features/cleanup-feature-worktree.use-case.js';
 import { UpgradeCliUseCase } from '../../application/use-cases/upgrade/upgrade-cli.use-case.js';
+import { DoctorDiagnoseUseCase } from '../../application/use-cases/doctor/doctor-diagnose.use-case.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -380,6 +381,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(UpdateFeatureLifecycleUseCase);
   container.registerSingleton(CleanupFeatureWorktreeUseCase);
   container.registerSingleton(UpgradeCliUseCase);
+  container.registerSingleton(DoctorDiagnoseUseCase);
 
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
