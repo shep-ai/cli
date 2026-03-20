@@ -1,0 +1,184 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: scheduled-workflows
+number: 073
+branch: feat/073-scheduled-workflows
+oneLiner: "User-defined workflows that run on demand or on a cron schedule via the shep daemon"
+summary: >
+  Add a workflow engine to shep that lets users define reusable automation scripts
+  (expressed as agent prompts with optional tool constraints) and execute them on
+  demand via CLI/web UI or on a recurring cron schedule managed by the daemon
+  process. The two motivating examples are auto-closing resolved GitHub issues
+  with evidence and rebasing all tracked feature branches on main.
+phase: Analysis
+sizeEstimate: L
+
+relatedFeatures: []
+
+technologies:
+  - "TypeSpec (domain model definitions)"
+  - "better-sqlite3 (workflow and schedule persistence)"
+  - "tsyringe (dependency injection)"
+  - "node-cron or croner (cron expression parsing and scheduling)"
+  - "LangGraph (agent graph orchestration)"
+  - "Commander.js (CLI commands)"
+  - "Next.js (web UI for workflow management)"
+  - "shadcn/ui (workflow UI components)"
+  - "Vitest (testing)"
+
+relatedLinks:
+  - title: "node-cron - npm"
+    url: "https://www.npmjs.com/package/node-cron"
+  - title: "croner - lightweight cron scheduler"
+    url: "https://www.npmjs.com/package/croner"
+  - title: "GitHub Actions workflow syntax reference"
+    url: "https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions"
+
+openQuestions:
+  - "Should workflows be defined as YAML files (like GitHub Actions) or stored in the SQLite database, or both?"
+  - "Should workflow steps be expressed as free-form agent prompts or as a structured DSL with typed actions?"
+  - "What is the maximum concurrency for scheduled workflows? Should we limit to one-at-a-time per workflow or allow parallel executions?"
+  - "Should workflow execution history be a new entity or extend the existing AgentRun model?"
+  - "How should workflow failures be surfaced — notifications only, or also a retry/backoff mechanism?"
+  - "Should there be built-in workflow templates (e.g., issue-cleanup, rebase-all) or only user-defined workflows?"
+
+content: |
+  ## Problem Statement
+
+  Shep currently orchestrates AI-driven feature development through a linear SDLC
+  pipeline (analyze → requirements → research → plan → implement → review). However,
+  users also need to run recurring maintenance and automation tasks that don't fit the
+  feature lifecycle — for example:
+
+  1. **GitHub issue triage**: Scan open issues, check if they're resolved by existing
+     commits or PRs, add evidence comments, and close them automatically.
+  2. **Branch maintenance**: Rebase all tracked shep feature branches on main and
+     resolve merge conflicts.
+  3. **Custom automations**: Any user-defined workflow that combines agent intelligence
+     with repository operations on a schedule.
+
+  Today, users must manually trigger these operations or build external automation.
+  There is no way to define reusable workflows within shep or schedule them to run
+  periodically via the daemon.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - **domain/** — TypeSpec-generated types (`generated/output.ts`), value objects,
+    factories, and domain errors. All domain models are defined in `tsp/` and compiled.
+  - **application/** — Use cases with single `execute()` methods, output port interfaces
+    in `ports/output/` (repositories, agents, services).
+  - **infrastructure/** — SQLite repositories, agent services (executor, provider,
+    registry, runner), daemon management, notification watchers, PR sync, git operations.
+  - **presentation/** — CLI (`src/presentation/cli/commands/`), TUI, and web UI
+    (`src/presentation/web/` — Next.js + shadcn/ui).
+
+  Key directories for this feature:
+  - `tsp/domain/entities/` — Where new Workflow and Schedule TypeSpec models go
+  - `packages/core/src/application/use-cases/` — Where workflow use cases go
+  - `packages/core/src/application/ports/output/` — Where workflow repository/service interfaces go
+  - `packages/core/src/infrastructure/repositories/` — Where SQLiteWorkflowRepository goes
+  - `packages/core/src/infrastructure/services/` — Where the scheduler service goes
+  - `src/presentation/cli/commands/` — Where `shep workflow` commands go
+  - `src/presentation/web/` — Where workflow management UI goes
+
+  ### Architecture Patterns
+
+  **Dependency Injection**: tsyringe with `@injectable()` and `@inject()` decorators.
+  All services registered in `packages/core/src/infrastructure/di/container.ts` as
+  singletons. New workflow services will follow this pattern.
+
+  **Repository Pattern**: SQLite repositories implement output port interfaces defined
+  in the application layer. Mappers handle domain entity ↔ DB row conversion. Migrations
+  managed by umzug (43+ existing migrations).
+
+  **Watcher/Polling Pattern**: The `NotificationWatcherService` and `PrSyncWatcherService`
+  demonstrate the existing pattern for background polling services — `setInterval()` with
+  start/stop lifecycle, singleton accessors, bootstrap suppression, and graceful shutdown.
+  The scheduled workflow scheduler should follow this same pattern.
+
+  **Daemon Process**: The shep daemon is a detached child process spawned by `startDaemon()`.
+  It runs the web server and initializes watchers. Scheduled workflows would be managed by
+  a new scheduler service initialized alongside the existing watchers in the daemon startup
+  sequence (`_serve.command.ts` and `dev-server.ts`).
+
+  **Agent Execution**: The feature agent worker (`feature-agent-worker.ts`) shows how agent
+  processes are spawned — forked as child processes with CLI args, using LangGraph for
+  orchestration, with heartbeat tracking and checkpoint-based resumability. Workflow steps
+  that require agent intelligence would follow this execution model.
+
+  **Event System**: `NotificationEventBus` is a typed EventEmitter singleton. Workflow
+  execution events (started, completed, failed) should emit through this bus for
+  notification delivery.
+
+  ### Relevant Technologies
+
+  - **better-sqlite3**: Synchronous embedded database for all persistence. Workflow
+    definitions and execution history will be stored here.
+  - **umzug**: Migration framework — new tables for workflows, schedules, and execution
+    history require new migration files.
+  - **TypeSpec**: All domain models must be defined in `tsp/` first, then compiled to
+    TypeScript. Workflow and ScheduledWorkflow entities need TypeSpec definitions.
+  - **LangGraph**: Graph-based agent orchestration. Workflow steps could be modeled as
+    LangGraph nodes for complex multi-step workflows.
+  - **tsyringe**: DI container — new repositories, services, and use cases must be
+    registered.
+  - **Commander.js**: CLI framework — `shep workflow` command group needs to be added.
+  - **Next.js + shadcn/ui**: Web UI framework — workflow management pages needed.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/` | High | New Workflow and ScheduledWorkflow TypeSpec models defining the domain |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated from TypeSpec — new types will appear here after compile |
+  | `tsp/common/enums/` | Medium | New enums for WorkflowTriggerType (manual, cron), WorkflowExecutionStatus |
+  | `packages/core/src/application/use-cases/` | High | New use cases: CreateWorkflow, ListWorkflows, RunWorkflow, ScheduleWorkflow, GetWorkflowHistory |
+  | `packages/core/src/application/ports/output/repositories/` | High | New IWorkflowRepository and IWorkflowExecutionRepository interfaces |
+  | `packages/core/src/application/ports/output/services/` | Medium | New ISchedulerService interface for cron-based scheduling |
+  | `packages/core/src/infrastructure/repositories/` | High | New SQLiteWorkflowRepository and SQLiteWorkflowExecutionRepository |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations/` | High | New migration(s) for workflow tables (workflows, workflow_executions, workflow_schedules) |
+  | `packages/core/src/infrastructure/persistence/sqlite/mappers/` | Medium | New mappers for workflow domain entities |
+  | `packages/core/src/infrastructure/services/` | High | New SchedulerService managing cron jobs via the daemon |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new repositories, services, and use cases |
+  | `src/presentation/cli/commands/` | High | New `workflow` command group (create, list, run, schedule, history, delete) |
+  | `src/presentation/web/` | Medium | Workflow management UI pages and components |
+  | `packages/core/src/infrastructure/services/daemon/` | Medium | Daemon startup needs to initialize and start the scheduler service |
+  | `src/presentation/cli/commands/_serve.command.ts` | Low | Initialize scheduler service alongside existing watchers |
+  | `packages/core/src/infrastructure/services/notifications/` | Low | Workflow events emitted through existing notification bus |
+  | `tsp/domain/entities/settings.tsp` | Low | Potential new WorkflowSchedulerConfig in Settings for global scheduler preferences |
+
+  ## Dependencies
+
+  **Existing Code Dependencies:**
+  - DI container (`infrastructure/di/container.ts`) — registration of new services
+  - Agent execution infrastructure (`infrastructure/services/agents/`) — running workflow steps via AI agents
+  - Notification system (`infrastructure/services/notifications/`) — emitting workflow events
+  - Daemon lifecycle (`infrastructure/services/daemon/`) — hosting the scheduler process
+  - Git service (`infrastructure/services/git/`) — branch operations for rebase workflows
+  - GitHub integration (`infrastructure/services/external/`) — issue/PR operations for triage workflows
+  - SQLite persistence layer — workflow data storage
+  - TypeSpec compilation pipeline — domain model generation
+
+  **New Library Dependencies:**
+  - A cron expression parser/scheduler (e.g., `croner` or `node-cron`) for evaluating
+    cron expressions and triggering workflow executions at the right times. The existing
+    `setInterval()` pattern works for fixed-interval polling but is insufficient for
+    cron-style scheduling (e.g., "every Monday at 9am").
+
+  ## Size Estimate
+
+  **L (week+)** — This feature spans all four architecture layers (domain, application,
+  infrastructure, presentation) and introduces multiple new entities (Workflow,
+  WorkflowExecution, WorkflowSchedule), a new scheduler service, a new CLI command
+  group, new database migrations, and web UI pages. The agent execution integration
+  adds additional complexity. The domain modeling, persistence, scheduler service, CLI,
+  and web UI each represent significant work items.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
