@@ -1,0 +1,36 @@
+feature:
+  id: "073-feature-archive"
+  name: "feature-archive"
+  number: 73
+  branch: "feat/073-feature-archive"
+  lifecycle: "planning"
+  createdAt: "2026-03-20T20:30:55Z"
+status:
+  phase: "planning"
+  progress:
+    completed: 0
+    total: 18
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2026-03-20T21:00:00Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "analyze"
+    - "requirements"
+    - "research"
+    - "planning"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-20T20:30:55Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []
