@@ -10,11 +10,12 @@ userQuery: >
   in its operation - shep should then open an issue, try to fix, and open a PR.
 summary: >
   Add a top-level `shep doctor` CLI command that allows users to report problems with shep's own
-  operation. When invoked, doctor diagnoses the problem, opens a GitHub issue on the shep-ai/cli
-  repository describing the failure, invokes an AI agent to attempt a fix in the shep codebase
-  itself, and opens a PR with the proposed fix. This is a self-healing meta-feature where shep
-  fixes itself.
-phase: Analysis
+  operation. When invoked, doctor collects the user's problem description and recent operation
+  context (agent run logs, errors), diagnoses the root cause, opens a GitHub issue on the
+  shep-ai/cli repository with a structured bug report, invokes an AI agent to attempt a fix in
+  the shep codebase, and opens a PR with the proposed fix. This is a self-healing meta-feature
+  where shep fixes itself.
+phase: Requirements
 sizeEstimate: "L"
 
 # Relationships
@@ -33,14 +34,115 @@ relatedLinks:
   - title: "GitHub Issue #436 - Feature request: Shep doctor"
     url: "https://github.com/shep-ai/cli/issues/436"
 
-# Open questions (must be resolved before implementation)
+# Open questions (resolved with AI recommendations)
 openQuestions:
-  - "Should doctor operate on the user's local shep installation source, or clone the shep-ai/cli repo into a temp directory for fixes?"
-  - "Should the issue be opened on shep-ai/cli (shep's own repo) or the user's current repo? The issue description implies shep-ai/cli."
-  - "What input does the user provide? Free-text description of what went wrong, or does doctor auto-detect from recent agent run logs?"
-  - "Should doctor reuse the existing feature-agent graph for the fix attempt, or use a simpler one-shot agent invocation?"
-  - "What scope of fixes should doctor attempt? Only config/settings issues, or also code changes to the shep codebase itself?"
-  - "Should there be a --dry-run mode that diagnoses and opens the issue but skips the fix attempt?"
+  - question: "Should doctor operate on a local clone of shep-ai/cli or fork the repo into the user's GitHub account?"
+    resolved: true
+    options:
+      - option: "Clone shep-ai/cli directly"
+        description: "Clone the shep-ai/cli repo into a temp directory, create a branch, push, and open a PR. Simpler flow but requires the user to have push access to the upstream repo (which most users won't have)."
+        selected: false
+      - option: "Fork then clone"
+        description: "Fork shep-ai/cli into the user's GitHub account via `gh repo fork`, clone the fork, create a branch, push to the fork, and open a cross-fork PR. Works for any authenticated GitHub user regardless of upstream permissions."
+        selected: true
+      - option: "Use existing local shep installation"
+        description: "If shep is installed locally from source (e.g., a dev checkout), operate directly in that directory. Only works for shep developers, not end users."
+        selected: false
+    selectionRationale: "Fork-then-clone is the only approach that works for all users. Most users are consumers of shep, not contributors with push access to shep-ai/cli. GitHub's fork+PR model is the standard open-source contribution flow. The `gh repo fork --clone` command handles this in a single step."
+    answer: "Fork then clone"
+
+  - question: "How should doctor collect the problem description from the user?"
+    resolved: true
+    options:
+      - option: "CLI argument only"
+        description: "User passes the problem as a positional argument: `shep doctor \"agent crashed during planning\"`. Simple but limited for multi-line descriptions."
+        selected: false
+      - option: "Interactive prompt only"
+        description: "Doctor always opens an interactive prompt (e.g., via inquirer or readline) for the user to describe the problem. More flexible but cannot be used in scripts or CI."
+        selected: false
+      - option: "Argument with interactive fallback"
+        description: "Accept an optional positional argument or --description flag. If not provided, fall back to an interactive prompt. Supports both scripted and interactive usage."
+        selected: true
+      - option: "Editor-based input"
+        description: "Open the user's $EDITOR for a detailed description (like git commit). Rich input but heavyweight for quick reports."
+        selected: false
+    selectionRationale: "Argument-with-fallback follows the existing CLI pattern in the codebase (e.g., `shep feat new` accepts a description argument but could prompt). It supports both quick one-liner reports (`shep doctor \"X broke\"`) and detailed interactive descriptions when no argument is given."
+    answer: "Argument with interactive fallback"
+
+  - question: "Should doctor automatically attempt a fix, or should it ask the user before invoking the AI agent?"
+    resolved: true
+    options:
+      - option: "Always auto-fix"
+        description: "After creating the issue, immediately invoke the AI agent to attempt a fix. Fastest path to resolution but consumes AI tokens without user consent."
+        selected: false
+      - option: "Ask before fixing"
+        description: "After creating the issue, prompt the user: 'Would you like shep to attempt a fix?' User can opt out and just have the issue filed. Respects user autonomy and token budget."
+        selected: true
+      - option: "Flag-controlled (--fix / --no-fix)"
+        description: "Default to attempting a fix, but allow --no-fix to skip. Or default to issue-only and require --fix to attempt. Scriptable but less discoverable."
+        selected: false
+    selectionRationale: "Asking before fixing respects the user's autonomy and token budget. The fix attempt involves cloning a repo, running an AI agent (which costs money), and opening a PR. Users should consciously opt in. A --fix flag can be added alongside for scripted/CI usage to bypass the prompt."
+    answer: "Ask before fixing"
+
+  - question: "What context should doctor automatically collect for diagnosis?"
+    resolved: true
+    options:
+      - option: "Minimal - user description only"
+        description: "Only use what the user tells us. Simple but may result in low-quality issue reports."
+        selected: false
+      - option: "Recent agent runs and errors"
+        description: "Query IAgentRunRepository for recent failed/errored agent runs, include their error messages, agent type, and prompts. Also include shep CLI version. Provides actionable context without being invasive."
+        selected: true
+      - option: "Full diagnostic dump"
+        description: "Collect agent runs, settings (redacted), system info (OS, Node version, gh version), recent CLI command history, and log files. Comprehensive but may include sensitive data and be overwhelming."
+        selected: false
+    selectionRationale: "Recent agent runs and errors provide the most actionable diagnostic context. Failed agent runs contain error messages, stack traces, and the prompts that triggered them -- exactly what a developer needs to reproduce and fix the issue. Adding CLI version gives version context. Full diagnostic dumps risk exposing sensitive settings and are rarely needed for initial triage."
+    answer: "Recent agent runs and errors"
+
+  - question: "How many fix attempts should doctor make before giving up?"
+    resolved: true
+    options:
+      - option: "Single attempt"
+        description: "One shot -- invoke the agent once, open a PR with whatever it produces. Fast, low cost, but may not succeed."
+        selected: true
+      - option: "Up to 3 attempts with CI validation"
+        description: "Like the ci-watch-fix-loop pattern: attempt a fix, run tests, retry up to 3 times if tests fail. More thorough but much slower and costlier, and the agent is fixing shep itself (not user code), so CI may not be easily runnable in the fork."
+        selected: false
+      - option: "Configurable via settings"
+        description: "Let the user configure max attempts in shep settings. Flexible but adds complexity for a meta-feature that should be simple."
+        selected: false
+    selectionRationale: "A single attempt is appropriate for this meta-feature. The doctor is filing a bug report and making a best-effort fix -- it's not a production CI pipeline. The PR will go through shep-ai/cli's own CI when opened, and maintainers will review it. Multiple retry loops would be slow, expensive, and complex to implement for a first iteration. The CI-watch-fix pattern can be added in a future enhancement if needed."
+    answer: "Single attempt"
+
+  - question: "Where should the cloned shep repository be placed for the fix attempt?"
+    resolved: true
+    options:
+      - option: "System temp directory"
+        description: "Clone into os.tmpdir()/shep-doctor-<uuid>/. Auto-cleaned by OS, no clutter in user workspace. But user may want to inspect the fix locally."
+        selected: false
+      - option: "User-configurable directory"
+        description: "Default to a temp directory but allow --workdir flag to specify where to clone. Balances convenience with flexibility for power users who want to inspect or modify the fix before PR."
+        selected: true
+      - option: "Current working directory"
+        description: "Clone into ./shep-doctor-fix/ in the current directory. Visible and accessible but pollutes the user's project directory."
+        selected: false
+    selectionRationale: "Defaulting to temp with an optional --workdir flag gives the best of both worlds. Most users won't need to inspect the fix locally (they'll see it in the PR), but power users and shep developers can specify a directory to review changes before the PR is opened."
+    answer: "User-configurable directory"
+
+  - question: "Should doctor create a new service interface or extend IExternalIssueFetcher for issue creation?"
+    resolved: true
+    options:
+      - option: "Extend IExternalIssueFetcher"
+        description: "Add a createGitHubIssue() method to the existing interface. Keeps issue-related operations together but violates the interface segregation principle (fetching vs. creating are different responsibilities)."
+        selected: false
+      - option: "New IGitHubIssueService interface"
+        description: "Create a dedicated service interface for GitHub issue creation/management, separate from the fetcher. Clean separation of concerns, follows ISP. The existing fetcher stays read-only."
+        selected: true
+      - option: "Direct gh CLI calls in the use case"
+        description: "Shell out to gh directly from the use case without a service abstraction. Quick to implement but untestable and violates clean architecture."
+        selected: false
+    selectionRationale: "A new IGitHubIssueService interface follows the codebase's clean architecture pattern and interface segregation principle. The existing IExternalIssueFetcher is a read-only fetcher by design -- adding write operations would muddy its contract. A separate service for issue creation is independently testable and can be extended later (e.g., issue updates, label management)."
+    answer: "New IGitHubIssueService interface"
 
 content: |
   ## Problem Statement
@@ -50,14 +152,146 @@ content: |
   manually file GitHub issues and wait for maintainer fixes. The `shep doctor` feature provides a
   self-service mechanism where users can report problems, and shep will automatically:
 
-  1. Diagnose the problem from user description and/or recent operation logs
-  2. Open a GitHub issue on shep-ai/cli describing the failure
-  3. Invoke an AI agent to attempt a fix in the shep codebase
-  4. Open a PR with the proposed fix
+  1. Collect the user's problem description and recent operation context (failed agent runs, errors)
+  2. Diagnose the root cause using AI analysis of the collected context
+  3. Open a structured GitHub issue on shep-ai/cli describing the failure with full diagnostic data
+  4. Optionally invoke an AI agent to attempt a fix in the shep codebase (via fork)
+  5. Open a cross-fork PR with the proposed fix
 
-  This closes the feedback loop — shep can fix itself.
+  This closes the feedback loop -- shep can fix itself.
 
   Reference: [GitHub Issue #436](https://github.com/shep-ai/cli/issues/436)
+
+  ## Success Criteria
+
+  - [ ] `shep doctor` command is registered and accessible as a top-level CLI command
+  - [ ] Running `shep doctor --help` displays usage information with all options
+  - [ ] User can provide a problem description via positional argument (`shep doctor "description"`)
+  - [ ] User is prompted interactively for a description if none is provided as argument
+  - [ ] Doctor automatically collects recent failed agent runs from IAgentRunRepository
+  - [ ] Doctor collects the current shep CLI version as diagnostic context
+  - [ ] Doctor formats a structured GitHub issue with title, description, diagnostic context, and reproduction steps
+  - [ ] Doctor creates the issue on shep-ai/cli via `gh issue create` and displays the issue URL to the user
+  - [ ] Doctor prompts the user asking whether to attempt a fix (skippable with --fix or --no-fix flags)
+  - [ ] When fix is requested, doctor forks shep-ai/cli via `gh repo fork`, clones it, and creates a fix branch
+  - [ ] Doctor invokes the AI agent (via IAgentExecutorProvider) with the issue context as a fix prompt
+  - [ ] Doctor opens a cross-fork PR referencing the created issue and displays the PR URL
+  - [ ] Doctor gracefully handles missing `gh` CLI with a clear error message and installation instructions
+  - [ ] Doctor gracefully handles unauthenticated `gh` with a clear error message and `gh auth login` instructions
+  - [ ] Doctor gracefully handles agent execution failures without crashing
+  - [ ] The --no-fix flag skips the fix attempt and only creates the issue
+  - [ ] The --fix flag skips the confirmation prompt and proceeds directly to fix attempt
+  - [ ] The --workdir flag allows specifying a custom directory for the cloned fork
+  - [ ] Unit tests cover the DoctorDiagnoseUseCase with mocked dependencies
+  - [ ] Unit tests cover the IGitHubIssueService implementation
+  - [ ] Integration tests cover the end-to-end doctor workflow with mocked external services
+
+  ## Functional Requirements
+
+  - **FR-1: CLI Command Registration** — A top-level `shep doctor` command is registered in the CLI
+    program via `program.addCommand(createDoctorCommand())`. The command accepts an optional
+    positional argument `[description]` for the problem description, and supports `--fix`,
+    `--no-fix`, and `--workdir <path>` options.
+
+  - **FR-2: Problem Description Collection** — If no description is provided as an argument, the
+    command interactively prompts the user to describe the problem. The prompt should support
+    multi-line input (press Enter twice to submit or use a readline-based prompt).
+
+  - **FR-3: Diagnostic Context Collection** — Doctor automatically queries `IAgentRunRepository`
+    for recent agent runs (last 10, filtered to failed/errored status). For each failed run, it
+    collects: agent type, agent name, error message, prompt used, and timestamps. It also collects
+    the current shep CLI version via `IVersionService`.
+
+  - **FR-4: Issue Formatting** — Doctor formats a structured GitHub issue body containing:
+    (a) User-provided problem description,
+    (b) Shep CLI version,
+    (c) Recent failed agent run summaries (agent type, error, timestamp),
+    (d) A "Reported via `shep doctor`" footer tag.
+    The issue title is derived from the first line/sentence of the user description, prefixed
+    with "[shep doctor]".
+
+  - **FR-5: GitHub Issue Creation** — Doctor creates an issue on the `shep-ai/cli` repository
+    using a new `IGitHubIssueService` service that wraps `gh issue create`. The service returns
+    the created issue's URL and number. The issue is labeled with `bug` and `shep-doctor`.
+
+  - **FR-6: Fix Confirmation Gate** — After issue creation, doctor asks the user whether to
+    attempt a fix. The `--fix` flag bypasses this prompt and proceeds automatically. The
+    `--no-fix` flag skips the fix attempt entirely. Without either flag, an interactive
+    confirmation prompt is shown.
+
+  - **FR-7: Repository Fork and Clone** — When a fix is requested, doctor forks `shep-ai/cli`
+    into the user's GitHub account (if not already forked) using `gh repo fork`, then clones
+    the fork into a working directory (temp dir by default, or `--workdir` if specified). Creates
+    a fix branch named `doctor/fix-<issue-number>`.
+
+  - **FR-8: AI Agent Fix Invocation** — Doctor invokes the configured AI agent via
+    `IAgentExecutorProvider.getExecutor()` with a structured prompt containing:
+    (a) The issue title and body,
+    (b) Instructions to analyze the shep codebase and propose a fix,
+    (c) The specific error context from failed agent runs.
+    The agent executes in the cloned fork directory with a `repositoryPath` option.
+
+  - **FR-9: PR Creation** — After the agent completes, doctor commits any changes, pushes to
+    the fork, and opens a cross-fork PR against `shep-ai/cli` using `gh pr create`. The PR
+    title references the issue, the body includes a summary of the fix attempt, and it links
+    to the created issue with "Fixes #N" or "Relates to #N".
+
+  - **FR-10: Progress Reporting** — Doctor displays clear progress messages at each step using
+    the existing `messages.*()` and `spinner()` utilities: collecting diagnostics, creating
+    issue, forking repo, running agent, creating PR. Each step shows success/failure status.
+
+  - **FR-11: Prerequisite Validation** — Before starting, doctor validates that `gh` CLI is
+    installed and authenticated. If `gh` is not found, it displays an error with installation
+    instructions. If `gh` is not authenticated, it displays an error with `gh auth login`
+    instructions. This check uses the existing `IToolInstallerService.checkAvailability('gh')`
+    pattern.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Graceful Degradation** — If any step fails (issue creation, fork, agent execution,
+    PR creation), doctor reports the failure clearly and continues with subsequent steps where
+    possible. For example, if the agent fails to produce a fix, doctor still reports the issue
+    URL and informs the user that the fix attempt failed.
+
+  - **NFR-2: No Sensitive Data Leakage** — Diagnostic context included in the GitHub issue must
+    not contain API keys, tokens, passwords, or other secrets from user settings. Agent run
+    records should be sanitized to remove any credential-like values before inclusion.
+
+  - **NFR-3: Idempotent Fork** — If the user already has a fork of shep-ai/cli, the fork step
+    should detect the existing fork and use it rather than failing or creating a duplicate.
+    `gh repo fork` handles this natively.
+
+  - **NFR-4: Clean Architecture Compliance** — The feature must follow the existing clean
+    architecture: domain models in TypeSpec, use case in application layer, service interface
+    (port) in application layer, service implementation in infrastructure layer, CLI command
+    in presentation layer. No layer may skip or shortcut the dependency direction.
+
+  - **NFR-5: Testability** — All external operations (gh CLI, file system, agent execution)
+    must be injected via interfaces, enabling full unit test coverage with mocks. No direct
+    subprocess calls from the use case.
+
+  - **NFR-6: Performance** — The diagnostic collection step (querying agent runs, version info)
+    should complete in under 2 seconds. The overall doctor flow (excluding agent execution and
+    network operations) should have no unnecessary delays.
+
+  - **NFR-7: User Feedback** — Every operation that takes more than 1 second must show a
+    spinner or progress indicator. The user should never see a frozen terminal with no feedback.
+
+  - **NFR-8: Cleanup** — If using a temp directory for the clone, it should be cleaned up after
+    the PR is created (or after failure). If `--workdir` is specified, the directory is
+    preserved for user inspection.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Clone directly vs fork? | Fork then clone | Most users lack push access to shep-ai/cli; fork+PR is the standard open-source contribution model |
+  | 2 | How to collect problem description? | Argument with interactive fallback | Follows existing CLI patterns; supports both scripted and interactive usage |
+  | 3 | Auto-fix or ask first? | Ask before fixing | Respects user autonomy and AI token budget; --fix flag available for automation |
+  | 4 | What diagnostic context to collect? | Recent agent runs and errors | Most actionable data for bug reports; avoids exposing sensitive settings |
+  | 5 | How many fix attempts? | Single attempt | Best-effort fix for a meta-feature; PR goes through upstream CI anyway |
+  | 6 | Where to clone for fix? | User-configurable directory | Temp dir default with --workdir override for power users |
+  | 7 | New interface or extend existing? | New IGitHubIssueService | Clean separation per ISP; keeps IExternalIssueFetcher read-only |
 
   ## Codebase Analysis
 
@@ -87,28 +321,24 @@ content: |
   - **DI Container**: tsyringe container in `infrastructure/di/container.ts` registers all
     repositories, services, and use cases.
 
-  ### Relevant Technologies
-
-  - **Commander.js** — CLI command framework. Commands are factory functions returning `Command` instances.
-  - **tsyringe** — DI container. `@injectable()` + `@inject()` decorators.
-  - **gh CLI** — Used for GitHub operations (issue creation via `gh issue create`, PR creation via
-    `gh pr create`, CI status via `gh run list`). The codebase does NOT use Octokit for issue/PR
-    creation — it shells out to `gh`.
-  - **LangGraph** — Agent workflow orchestration for the feature-agent graph.
-  - **SQLite (better-sqlite3)** — Persistence for features, agent runs, settings.
-  - **TypeSpec** — Domain model definitions in `tsp/` compiled to `packages/core/src/domain/generated/output.ts`.
-
   ### Existing Infrastructure to Reuse
 
-  1. **GitHub Issue Service** (`infrastructure/services/external/github-issue.service.ts`) —
-     Currently fetches issues. Needs extension to CREATE issues via `gh issue create`.
+  1. **GitHub Issue Fetcher** (`infrastructure/services/external/github-issue.service.ts`) —
+     Currently read-only (fetches issues via `gh issue view`). Informs the design of the new
+     `IGitHubIssueService` for issue creation.
   2. **Git PR Service** (`infrastructure/services/git/git-pr.service.ts`) — Already has `createPr()`,
-     `pushBranch()`, `getCiStatus()`, `getDiffSummary()`.
-  3. **Agent Executor** — Can invoke an AI agent to analyze and fix code. The `RunAgentUseCase`
-     and `IStructuredAgentCaller` provide ready-made patterns.
+     `pushBranch()`, `getCiStatus()`, `getDiffSummary()`. Reusable for PR creation.
+  3. **Agent Executor** — `IAgentExecutorProvider.getExecutor()` provides a configured
+     `IAgentExecutor` with `execute(prompt, options)`. Ready to use for fix attempts.
   4. **CI Watch/Fix Loop** (`infrastructure/services/agents/feature-agent/nodes/merge/ci-watch-fix-loop.ts`)
-     — Pattern for iterative fix attempts with bounded retries.
-  5. **CLI UI utilities** (`src/presentation/cli/ui/`) — Shared formatting, colors, spinners, messages.
+     — Pattern reference for iterative fix attempts. Not directly reused in v1 (single attempt)
+     but informs future enhancement.
+  5. **CLI UI utilities** (`src/presentation/cli/ui/`) — `messages.*()`, `spinner()`, `colors.*()`,
+     `renderDetailView()` for consistent CLI output.
+  6. **Tool Installer Service** — `IToolInstallerService.checkAvailability()` for validating
+     gh CLI installation.
+  7. **Version Service** — `IVersionService` for collecting shep CLI version in diagnostics.
+  8. **Agent Run Repository** — `IAgentRunRepository.list()` for querying recent failed runs.
 
   ## Affected Areas
 
@@ -116,41 +346,31 @@ content: |
   | ---- | ------ | --------- |
   | `src/presentation/cli/commands/` | High | New `doctor.command.ts` top-level command |
   | `src/presentation/cli/index.ts` | Low | Register the new doctor command |
-  | `packages/core/src/application/use-cases/` | High | New `DoctorUseCase` with diagnose → issue → fix → PR flow |
-  | `packages/core/src/application/ports/output/services/` | Medium | Extend or add service interface for GitHub issue creation |
-  | `packages/core/src/infrastructure/services/external/` | Medium | Extend `github-issue.service.ts` to support issue creation (currently read-only) |
+  | `packages/core/src/application/use-cases/` | High | New `DoctorDiagnoseUseCase` with diagnose → issue → fix → PR flow |
+  | `packages/core/src/application/ports/output/services/` | Medium | New `IGitHubIssueService` interface for issue creation |
+  | `packages/core/src/infrastructure/services/external/` | Medium | New `GitHubIssueService` implementation wrapping `gh issue create` |
   | `packages/core/src/infrastructure/services/git/` | Low | Reuse existing `git-pr.service.ts` for PR creation |
-  | `packages/core/src/infrastructure/di/container.ts` | Low | Register new use case and any new services |
-  | `tsp/` | Low | Potentially new TypeSpec model for doctor diagnosis results |
-  | `tests/` | High | Unit tests for use case, integration tests for the doctor workflow |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register new use case and IGitHubIssueService |
+  | `tsp/` | Low | Optional TypeSpec model for DoctorDiagnosisResult value object |
+  | `tests/` | High | Unit tests for use case, service; integration tests for workflow |
 
   ## Dependencies
 
-  - **gh CLI** — Must be installed and authenticated for issue/PR creation
+  - **gh CLI** — Must be installed and authenticated for issue/PR creation and forking
   - **IAgentExecutorProvider** — For invoking AI agent to attempt fixes
   - **IGitPrService** — For creating PRs with fix attempts
-  - **IExternalIssueFetcher / GitHub issue service** — Needs extension to support `gh issue create`
-  - **Agent run logs** — For diagnosing what went wrong (IAgentRunRepository)
-
-  ## Success Criteria
-
-  - [ ] `shep doctor` command is available and documented
-  - [ ] User can describe a problem via CLI prompt or argument
-  - [ ] Doctor opens a well-formatted GitHub issue on the target repo
-  - [ ] Doctor invokes an AI agent to attempt a fix
-  - [ ] Doctor opens a PR with the proposed fix (if fix is attempted)
-  - [ ] Graceful handling when gh CLI is not available or not authenticated
-  - [ ] Unit tests for the doctor use case
-  - [ ] Integration tests for the end-to-end doctor workflow
+  - **IAgentRunRepository** — For querying recent failed agent runs as diagnostic context
+  - **IVersionService** — For collecting shep CLI version in diagnostics
+  - **IToolInstallerService** — For validating gh CLI availability before starting
 
   ## Size Estimate
 
   **L** — This feature requires a new CLI command, a new use case with multi-step orchestration
-  (diagnose → create issue → clone/branch → invoke agent → create PR), extension of the GitHub
-  issue service to support creation, and comprehensive testing. The workflow is more complex than
-  a simple CRUD operation but can leverage significant existing infrastructure (agent executor,
-  PR service, CLI patterns). Estimated at 1-2 weeks of development.
+  (diagnose → create issue → fork/clone/branch → invoke agent → create PR), a new service interface
+  and implementation for GitHub issue creation, and comprehensive testing. The workflow is more
+  complex than a simple CRUD operation but can leverage significant existing infrastructure (agent
+  executor, PR service, CLI patterns, tool installer). Estimated at 1-2 weeks of development.
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Requirements defined — proceed with research_
