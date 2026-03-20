@@ -1,0 +1,24 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: DoctorDiagnosticReport.yaml
+type: object
+properties:
+  userDescription:
+    type: string
+    description: User-provided description of the problem
+  failedRunSummaries:
+    type: array
+    items:
+      $ref: FailedRunSummary.yaml
+    description: Summaries of recent failed agent runs
+  systemInfo:
+    $ref: SystemInfo.yaml
+    description: System environment information
+  cliVersion:
+    type: string
+    description: Current shep CLI version
+required:
+  - userDescription
+  - failedRunSummaries
+  - systemInfo
+  - cliVersion
+description: Structured diagnostic report collected by shep doctor for issue creation

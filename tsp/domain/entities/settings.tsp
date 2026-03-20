@@ -337,6 +337,9 @@ model WorkflowConfig {
    */
   @doc("Hide CI status badges from UI (default: true)")
   hideCiStatus?: boolean;
+
+  @doc("Maximum number of doctor fix attempts before giving up (default: 1)")
+  doctorMaxFixAttempts?: int32;
 }
 
 @doc("AI coding agent configuration")
