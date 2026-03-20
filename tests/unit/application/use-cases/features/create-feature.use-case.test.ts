@@ -549,7 +549,8 @@ describe('CreateFeatureUseCase', () => {
         expect.any(String),
         expect.any(Number),
         expect.any(String),
-        'fast'
+        'fast',
+        expect.any(Object)
       );
     });
 
@@ -561,7 +562,8 @@ describe('CreateFeatureUseCase', () => {
         expect.any(String),
         expect.any(Number),
         expect.any(String),
-        undefined
+        undefined,
+        expect.any(Object)
       );
     });
 
@@ -712,6 +714,73 @@ describe('CreateFeatureUseCase', () => {
         model: 'claude-sonnet-4-6',
       };
       expect(input.model).toBe('claude-sonnet-4-6');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Spec storage mode wiring
+  // -------------------------------------------------------------------------
+
+  describe('spec storage mode wiring', () => {
+    it('should pass specStorageMode from repository entity to spec-initializer', async () => {
+      const repoWithMode: Repository = {
+        ...testRepository,
+        specStorageMode: 'shep-managed',
+      };
+      mockRepositoryRepo.findByPath = vi.fn().mockResolvedValue(repoWithMode);
+
+      await useCase.execute(baseInput);
+
+      expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(Number),
+        expect.any(String),
+        undefined,
+        expect.objectContaining({
+          storageMode: 'shep-managed',
+          repositoryPath: '/repo',
+        })
+      );
+    });
+
+    it('should default to in-repo when repository.specStorageMode is undefined', async () => {
+      // testRepository has no specStorageMode set
+      mockRepositoryRepo.findByPath = vi.fn().mockResolvedValue(testRepository);
+
+      await useCase.execute(baseInput);
+
+      expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(Number),
+        expect.any(String),
+        undefined,
+        expect.objectContaining({
+          storageMode: 'in-repo',
+          repositoryPath: '/repo',
+        })
+      );
+    });
+
+    it('should pass repositoryPath from the effective repo path', async () => {
+      mockRepositoryRepo.findByPath = vi.fn().mockResolvedValue(testRepository);
+
+      await useCase.execute({
+        ...baseInput,
+        repositoryPath: '/repo',
+      });
+
+      expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(Number),
+        expect.any(String),
+        undefined,
+        expect.objectContaining({
+          repositoryPath: '/repo',
+        })
+      );
     });
   });
 

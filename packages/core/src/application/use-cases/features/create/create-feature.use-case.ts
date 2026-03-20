@@ -10,7 +10,7 @@
  * - Slug uniqueness delegated to SlugResolver service
  * - Full user input is preserved as-is in spec.yaml
  * - A git worktree is created at ~/.shep/repos/HASH/wt/SLUG/
- * - Spec YAML files are scaffolded at WORKTREE/specs/NNN-SLUG/
+ * - Spec YAML files are scaffolded at WORKTREE/.shep/specs/NNN-SLUG/ (in-repo) or ~/.shep/repos/HASH/specs/NNN-SLUG/ (shep-managed)
  * - Feature agent is spawned with the spec dir path
  * - specPath is persisted on the Feature record
  * - Initial lifecycle is Requirements
@@ -248,13 +248,23 @@ export class CreateFeatureUseCase {
     const worktreePath = this.worktreeService.getWorktreePath(effectiveRepoPath, branch);
     await this.worktreeService.create(effectiveRepoPath, branch, worktreePath, defaultBranch);
 
+    // Resolve spec storage mode from repository entity (defaults to 'in-repo')
+    const repository = await this.repositoryRepo.findByPath(
+      effectiveRepoPath.replace(/\\/g, '/').replace(/\/+$/, '') || effectiveRepoPath
+    );
+    const storageMode = (repository?.specStorageMode as 'in-repo' | 'shep-managed') ?? 'in-repo';
+
     // Initialize spec directory — full user input goes into spec.yaml as-is
     const { specDir } = await this.specInitializer.initialize(
       worktreePath,
       slug,
       featureNumber,
       input.userInput,
-      input.fast ? 'fast' : undefined
+      input.fast ? 'fast' : undefined,
+      {
+        storageMode,
+        repositoryPath: effectiveRepoPath,
+      }
     );
 
     // Commit pending attachments if sessionId was provided (web UI flow)
