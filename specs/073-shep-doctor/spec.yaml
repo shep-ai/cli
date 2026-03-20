@@ -1,27 +1,20 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
-name: shep-doctor
-number: 073
-branch: feat/073-shep-doctor
+name: "shep-doctor"
+number: 73
+branch: "feat/073-shep-doctor"
 oneLiner: "Diagnose shep operation failures, auto-create GitHub issues, attempt fixes, and open PRs"
-userQuery: >
-  I'd like to have a "shep doctor" feature that will let me tell shep that something went wrong
-  in its operation - shep should then open an issue, try to fix, and open a PR.
-summary: >
+userQuery: "I'd like to have a \"shep doctor\" feature that will let me tell shep that something went wrong in its operation - shep should then open an issue, try to fix, and open a PR.\n"
+summary: |
   Add a top-level `shep doctor` CLI command that allows users to report problems with shep's own
   operation. When invoked, doctor collects the user's problem description and recent operation
   context (agent run logs, errors), diagnoses the root cause, opens a GitHub issue on the
   shep-ai/cli repository with a structured bug report, invokes an AI agent to attempt a fix in
-  the shep codebase, and opens a PR with the proposed fix. This is a self-healing meta-feature
-  where shep fixes itself.
-phase: Requirements
+  the shep codebase, and opens a PR with the proposed fix. Supports both shep maintainers (who
+  push directly to shep-ai/cli) and external contributors (who fork first). This is a self-healing
+  meta-feature where shep fixes itself.
+phase: "Requirements"
 sizeEstimate: "L"
-
-# Relationships
 relatedFeatures:
   - "041-ci-watch-fix-loop"
-
 technologies:
   - "Commander.js (CLI framework)"
   - "tsyringe (dependency injection)"
@@ -29,28 +22,24 @@ technologies:
   - "gh CLI (GitHub issue/PR creation)"
   - "Vitest (testing)"
   - "TypeSpec (domain model generation)"
-
 relatedLinks:
   - title: "GitHub Issue #436 - Feature request: Shep doctor"
     url: "https://github.com/shep-ai/cli/issues/436"
-
-# Open questions (resolved with AI recommendations)
 openQuestions:
-  - question: "Should doctor operate on a local clone of shep-ai/cli or fork the repo into the user's GitHub account?"
+  - question: "How should doctor handle repository access for the fix attempt — fork or push directly?"
     resolved: true
     options:
-      - option: "Clone shep-ai/cli directly"
-        description: "Clone the shep-ai/cli repo into a temp directory, create a branch, push, and open a PR. Simpler flow but requires the user to have push access to the upstream repo (which most users won't have)."
+      - option: "Always fork"
+        description: "Always fork shep-ai/cli into the user's GitHub account via `gh repo fork`, regardless of whether they have push access. Simple and uniform flow but forces maintainers to work through forks unnecessarily."
         selected: false
-      - option: "Fork then clone"
-        description: "Fork shep-ai/cli into the user's GitHub account via `gh repo fork`, clone the fork, create a branch, push to the fork, and open a cross-fork PR. Works for any authenticated GitHub user regardless of upstream permissions."
+      - option: "Auto-detect push access"
+        description: "Use `gh api repos/shep-ai/cli --jq '.permissions.push'` to check if the authenticated user has push access. If yes (maintainer/owner), clone shep-ai/cli directly, create a branch, and push. If no (external contributor), fork first then clone the fork. Provides the optimal flow for both user types automatically."
         selected: true
-      - option: "Use existing local shep installation"
-        description: "If shep is installed locally from source (e.g., a dev checkout), operate directly in that directory. Only works for shep developers, not end users."
+      - option: "User-specified via flag"
+        description: "Add a `--fork` / `--no-fork` flag to let the user explicitly choose. Gives full control but adds cognitive overhead — users shouldn't need to think about whether they need to fork."
         selected: false
-    selectionRationale: "Fork-then-clone is the only approach that works for all users. Most users are consumers of shep, not contributors with push access to shep-ai/cli. GitHub's fork+PR model is the standard open-source contribution flow. The `gh repo fork --clone` command handles this in a single step."
-    answer: "Fork then clone"
-
+    selectionRationale: "Auto-detecting push access provides the best UX for both user types. Shep maintainers/owners get the streamlined direct-push flow without unnecessary forks cluttering their GitHub accounts. External contributors automatically get the fork+PR flow. The `gh api` permissions check is a single lightweight API call. This eliminates the need for users to think about their access level."
+    answer: "Auto-detect push access"
   - question: "How should doctor collect the problem description from the user?"
     resolved: true
     options:
@@ -68,7 +57,6 @@ openQuestions:
         selected: false
     selectionRationale: "Argument-with-fallback follows the existing CLI pattern in the codebase (e.g., `shep feat new` accepts a description argument but could prompt). It supports both quick one-liner reports (`shep doctor \"X broke\"`) and detailed interactive descriptions when no argument is given."
     answer: "Argument with interactive fallback"
-
   - question: "Should doctor automatically attempt a fix, or should it ask the user before invoking the AI agent?"
     resolved: true
     options:
@@ -83,7 +71,6 @@ openQuestions:
         selected: false
     selectionRationale: "Asking before fixing respects the user's autonomy and token budget. The fix attempt involves cloning a repo, running an AI agent (which costs money), and opening a PR. Users should consciously opt in. A --fix flag can be added alongside for scripted/CI usage to bypass the prompt."
     answer: "Ask before fixing"
-
   - question: "What context should doctor automatically collect for diagnosis?"
     resolved: true
     options:
@@ -98,7 +85,6 @@ openQuestions:
         selected: false
     selectionRationale: "Recent agent runs and errors provide the most actionable diagnostic context. Failed agent runs contain error messages, stack traces, and the prompts that triggered them -- exactly what a developer needs to reproduce and fix the issue. Adding CLI version gives version context. Full diagnostic dumps risk exposing sensitive settings and are rarely needed for initial triage."
     answer: "Recent agent runs and errors"
-
   - question: "How many fix attempts should doctor make before giving up?"
     resolved: true
     options:
@@ -113,7 +99,6 @@ openQuestions:
         selected: false
     selectionRationale: "A single attempt is appropriate for this meta-feature. The doctor is filing a bug report and making a best-effort fix -- it's not a production CI pipeline. The PR will go through shep-ai/cli's own CI when opened, and maintainers will review it. Multiple retry loops would be slow, expensive, and complex to implement for a first iteration. The CI-watch-fix pattern can be added in a future enhancement if needed."
     answer: "Single attempt"
-
   - question: "Where should the cloned shep repository be placed for the fix attempt?"
     resolved: true
     options:
@@ -128,7 +113,6 @@ openQuestions:
         selected: false
     selectionRationale: "Defaulting to temp with an optional --workdir flag gives the best of both worlds. Most users won't need to inspect the fix locally (they'll see it in the PR), but power users and shep developers can specify a directory to review changes before the PR is opened."
     answer: "User-configurable directory"
-
   - question: "Should doctor create a new service interface or extend IExternalIssueFetcher for issue creation?"
     resolved: true
     options:
@@ -143,7 +127,6 @@ openQuestions:
         selected: false
     selectionRationale: "A new IGitHubIssueService interface follows the codebase's clean architecture pattern and interface segregation principle. The existing IExternalIssueFetcher is a read-only fetcher by design -- adding write operations would muddy its contract. A separate service for issue creation is independently testable and can be extended later (e.g., issue updates, label management)."
     answer: "New IGitHubIssueService interface"
-
 content: |
   ## Problem Statement
 
@@ -155,10 +138,12 @@ content: |
   1. Collect the user's problem description and recent operation context (failed agent runs, errors)
   2. Diagnose the root cause using AI analysis of the collected context
   3. Open a structured GitHub issue on shep-ai/cli describing the failure with full diagnostic data
-  4. Optionally invoke an AI agent to attempt a fix in the shep codebase (via fork)
-  5. Open a cross-fork PR with the proposed fix
+  4. Optionally invoke an AI agent to attempt a fix in the shep codebase
+  5. Open a PR with the proposed fix — either directly (for maintainers) or via fork (for external contributors)
 
-  This closes the feedback loop -- shep can fix itself.
+  This closes the feedback loop — shep can fix itself. The feature supports both shep
+  maintainers/owners (who have push access to shep-ai/cli and push directly) and external
+  contributors (who fork first and open cross-fork PRs).
 
   Reference: [GitHub Issue #436](https://github.com/shep-ai/cli/issues/436)
 
@@ -173,17 +158,20 @@ content: |
   - [ ] Doctor formats a structured GitHub issue with title, description, diagnostic context, and reproduction steps
   - [ ] Doctor creates the issue on shep-ai/cli via `gh issue create` and displays the issue URL to the user
   - [ ] Doctor prompts the user asking whether to attempt a fix (skippable with --fix or --no-fix flags)
-  - [ ] When fix is requested, doctor forks shep-ai/cli via `gh repo fork`, clones it, and creates a fix branch
+  - [ ] Doctor auto-detects whether the user has push access to shep-ai/cli via `gh api` permissions check
+  - [ ] When user has push access (maintainer/owner): doctor clones shep-ai/cli directly and pushes the fix branch
+  - [ ] When user lacks push access (external contributor): doctor forks shep-ai/cli, clones the fork, and opens a cross-fork PR
   - [ ] Doctor invokes the AI agent (via IAgentExecutorProvider) with the issue context as a fix prompt
-  - [ ] Doctor opens a cross-fork PR referencing the created issue and displays the PR URL
+  - [ ] Doctor opens a PR referencing the created issue and displays the PR URL
   - [ ] Doctor gracefully handles missing `gh` CLI with a clear error message and installation instructions
   - [ ] Doctor gracefully handles unauthenticated `gh` with a clear error message and `gh auth login` instructions
   - [ ] Doctor gracefully handles agent execution failures without crashing
   - [ ] The --no-fix flag skips the fix attempt and only creates the issue
   - [ ] The --fix flag skips the confirmation prompt and proceeds directly to fix attempt
-  - [ ] The --workdir flag allows specifying a custom directory for the cloned fork
+  - [ ] The --workdir flag allows specifying a custom directory for the cloned repo
   - [ ] Unit tests cover the DoctorDiagnoseUseCase with mocked dependencies
   - [ ] Unit tests cover the IGitHubIssueService implementation
+  - [ ] Unit tests cover both the direct-push path (maintainer) and the fork path (external contributor)
   - [ ] Integration tests cover the end-to-end doctor workflow with mocked external services
 
   ## Functional Requirements
@@ -219,28 +207,46 @@ content: |
     `--no-fix` flag skips the fix attempt entirely. Without either flag, an interactive
     confirmation prompt is shown.
 
-  - **FR-7: Repository Fork and Clone** — When a fix is requested, doctor forks `shep-ai/cli`
-    into the user's GitHub account (if not already forked) using `gh repo fork`, then clones
-    the fork into a working directory (temp dir by default, or `--workdir` if specified). Creates
-    a fix branch named `doctor/fix-<issue-number>`.
+  - **FR-7: Push Access Detection** — Before cloning, doctor checks whether the authenticated
+    GitHub user has push access to `shep-ai/cli` by calling
+    `gh api repos/shep-ai/cli --jq '.permissions.push'`. This determines whether to use the
+    direct-push path (maintainer flow) or the fork path (external contributor flow). The
+    permission check result is cached for the duration of the doctor session.
 
-  - **FR-8: AI Agent Fix Invocation** — Doctor invokes the configured AI agent via
+  - **FR-8: Repository Setup — Maintainer Flow** — When the user has push access to shep-ai/cli,
+    doctor clones shep-ai/cli directly into the working directory (temp dir by default, or
+    `--workdir` if specified) and creates a fix branch named `doctor/fix-<issue-number>`. After
+    the agent completes, doctor pushes the branch directly to shep-ai/cli and opens a same-repo
+    PR.
+
+  - **FR-9: Repository Setup — External Contributor Flow** — When the user lacks push access,
+    doctor forks shep-ai/cli into the user's GitHub account (if not already forked) using
+    `gh repo fork`, then clones the fork into the working directory. Creates a fix branch named
+    `doctor/fix-<issue-number>`. After the agent completes, doctor pushes to the fork and opens
+    a cross-fork PR against shep-ai/cli.
+
+  - **FR-10: AI Agent Fix Invocation** — Doctor invokes the configured AI agent via
     `IAgentExecutorProvider.getExecutor()` with a structured prompt containing:
     (a) The issue title and body,
     (b) Instructions to analyze the shep codebase and propose a fix,
     (c) The specific error context from failed agent runs.
-    The agent executes in the cloned fork directory with a `repositoryPath` option.
+    The agent executes in the cloned directory with a `repositoryPath` option. This step is
+    identical regardless of whether the maintainer or external contributor flow was used.
 
-  - **FR-9: PR Creation** — After the agent completes, doctor commits any changes, pushes to
-    the fork, and opens a cross-fork PR against `shep-ai/cli` using `gh pr create`. The PR
-    title references the issue, the body includes a summary of the fix attempt, and it links
-    to the created issue with "Fixes #N" or "Relates to #N".
+  - **FR-11: PR Creation** — After the agent completes, doctor commits any changes, pushes to
+    the appropriate remote (upstream for maintainers, fork for external contributors), and opens
+    a PR using `gh pr create`. The PR title references the issue, the body includes a summary of
+    the fix attempt, and it links to the created issue with "Fixes #N" or "Relates to #N".
+    For cross-fork PRs, the `--repo shep-ai/cli` flag is used to target the upstream repository.
 
-  - **FR-10: Progress Reporting** — Doctor displays clear progress messages at each step using
+  - **FR-12: Progress Reporting** — Doctor displays clear progress messages at each step using
     the existing `messages.*()` and `spinner()` utilities: collecting diagnostics, creating
-    issue, forking repo, running agent, creating PR. Each step shows success/failure status.
+    issue, checking permissions, cloning/forking repo, running agent, creating PR. Each step
+    shows success/failure status. The permission check step should indicate which flow was
+    selected (e.g., "You have push access — cloning directly" or "Forking shep-ai/cli to
+    your account").
 
-  - **FR-11: Prerequisite Validation** — Before starting, doctor validates that `gh` CLI is
+  - **FR-13: Prerequisite Validation** — Before starting, doctor validates that `gh` CLI is
     installed and authenticated. If `gh` is not found, it displays an error with installation
     instructions. If `gh` is not authenticated, it displays an error with `gh auth login`
     instructions. This check uses the existing `IToolInstallerService.checkAvailability('gh')`
@@ -248,10 +254,11 @@ content: |
 
   ## Non-Functional Requirements
 
-  - **NFR-1: Graceful Degradation** — If any step fails (issue creation, fork, agent execution,
-    PR creation), doctor reports the failure clearly and continues with subsequent steps where
-    possible. For example, if the agent fails to produce a fix, doctor still reports the issue
-    URL and informs the user that the fix attempt failed.
+  - **NFR-1: Graceful Degradation** — If any step fails (issue creation, permission check, fork,
+    agent execution, PR creation), doctor reports the failure clearly and continues with
+    subsequent steps where possible. For example, if the agent fails to produce a fix, doctor
+    still reports the issue URL and informs the user that the fix attempt failed. If the
+    permission check fails, doctor falls back to the fork path as the safe default.
 
   - **NFR-2: No Sensitive Data Leakage** — Diagnostic context included in the GitHub issue must
     not contain API keys, tokens, passwords, or other secrets from user settings. Agent run
@@ -266,13 +273,15 @@ content: |
     (port) in application layer, service implementation in infrastructure layer, CLI command
     in presentation layer. No layer may skip or shortcut the dependency direction.
 
-  - **NFR-5: Testability** — All external operations (gh CLI, file system, agent execution)
-    must be injected via interfaces, enabling full unit test coverage with mocks. No direct
-    subprocess calls from the use case.
+  - **NFR-5: Testability** — All external operations (gh CLI, file system, agent execution,
+    permission checks) must be injected via interfaces, enabling full unit test coverage with
+    mocks. No direct subprocess calls from the use case. Both the maintainer and external
+    contributor flows must be independently testable.
 
   - **NFR-6: Performance** — The diagnostic collection step (querying agent runs, version info)
-    should complete in under 2 seconds. The overall doctor flow (excluding agent execution and
-    network operations) should have no unnecessary delays.
+    should complete in under 2 seconds. The permission check (single `gh api` call) should
+    complete in under 3 seconds. The overall doctor flow (excluding agent execution and network
+    operations) should have no unnecessary delays.
 
   - **NFR-7: User Feedback** — Every operation that takes more than 1 second must show a
     spinner or progress indicator. The user should never see a frozen terminal with no feedback.
@@ -281,11 +290,15 @@ content: |
     the PR is created (or after failure). If `--workdir` is specified, the directory is
     preserved for user inspection.
 
+  - **NFR-9: Permission Check Resilience** — If the `gh api` permission check fails (network
+    error, rate limiting, API change), doctor must not crash. It should fall back to the fork
+    path as the safe default and inform the user that permission detection failed.
+
   ## Product Questions & AI Recommendations
 
   | # | Question | AI Recommendation | Rationale |
   | - | -------- | ----------------- | --------- |
-  | 1 | Clone directly vs fork? | Fork then clone | Most users lack push access to shep-ai/cli; fork+PR is the standard open-source contribution model |
+  | 1 | How to handle repo access for fix? | Auto-detect push access | Maintainers push directly (no unnecessary fork); external contributors auto-fork. Single `gh api` call detects permissions. |
   | 2 | How to collect problem description? | Argument with interactive fallback | Follows existing CLI patterns; supports both scripted and interactive usage |
   | 3 | Auto-fix or ask first? | Ask before fixing | Respects user autonomy and AI token budget; --fix flag available for automation |
   | 4 | What diagnostic context to collect? | Recent agent runs and errors | Most actionable data for bug reports; avoids exposing sensitive settings |
@@ -328,17 +341,20 @@ content: |
      `IGitHubIssueService` for issue creation.
   2. **Git PR Service** (`infrastructure/services/git/git-pr.service.ts`) — Already has `createPr()`,
      `pushBranch()`, `getCiStatus()`, `getDiffSummary()`. Reusable for PR creation.
-  3. **Agent Executor** — `IAgentExecutorProvider.getExecutor()` provides a configured
+  3. **GitHub Repository Service** (`infrastructure/services/external/github-repository.service.ts`)
+     — Has `checkAuth()` for verifying `gh` authentication. Can be extended or a new method added
+     to check repository-level push permissions via `gh api`.
+  4. **Agent Executor** — `IAgentExecutorProvider.getExecutor()` provides a configured
      `IAgentExecutor` with `execute(prompt, options)`. Ready to use for fix attempts.
-  4. **CI Watch/Fix Loop** (`infrastructure/services/agents/feature-agent/nodes/merge/ci-watch-fix-loop.ts`)
+  5. **CI Watch/Fix Loop** (`infrastructure/services/agents/feature-agent/nodes/merge/ci-watch-fix-loop.ts`)
      — Pattern reference for iterative fix attempts. Not directly reused in v1 (single attempt)
      but informs future enhancement.
-  5. **CLI UI utilities** (`src/presentation/cli/ui/`) — `messages.*()`, `spinner()`, `colors.*()`,
+  6. **CLI UI utilities** (`src/presentation/cli/ui/`) — `messages.*()`, `spinner()`, `colors.*()`,
      `renderDetailView()` for consistent CLI output.
-  6. **Tool Installer Service** — `IToolInstallerService.checkAvailability()` for validating
+  7. **Tool Installer Service** — `IToolInstallerService.checkAvailability()` for validating
      gh CLI installation.
-  7. **Version Service** — `IVersionService` for collecting shep CLI version in diagnostics.
-  8. **Agent Run Repository** — `IAgentRunRepository.list()` for querying recent failed runs.
+  8. **Version Service** — `IVersionService` for collecting shep CLI version in diagnostics.
+  9. **Agent Run Repository** — `IAgentRunRepository.list()` for querying recent failed runs.
 
   ## Affected Areas
 
@@ -346,31 +362,39 @@ content: |
   | ---- | ------ | --------- |
   | `src/presentation/cli/commands/` | High | New `doctor.command.ts` top-level command |
   | `src/presentation/cli/index.ts` | Low | Register the new doctor command |
-  | `packages/core/src/application/use-cases/` | High | New `DoctorDiagnoseUseCase` with diagnose → issue → fix → PR flow |
-  | `packages/core/src/application/ports/output/services/` | Medium | New `IGitHubIssueService` interface for issue creation |
-  | `packages/core/src/infrastructure/services/external/` | Medium | New `GitHubIssueService` implementation wrapping `gh issue create` |
+  | `packages/core/src/application/use-cases/` | High | New `DoctorDiagnoseUseCase` with diagnose -> issue -> fix -> PR flow |
+  | `packages/core/src/application/ports/output/services/` | Medium | New `IGitHubIssueService` interface; possible `IGitHubRepositoryService` extension for permission check |
+  | `packages/core/src/infrastructure/services/external/` | Medium | New `GitHubIssueService` implementation wrapping `gh issue create`; permission check implementation |
   | `packages/core/src/infrastructure/services/git/` | Low | Reuse existing `git-pr.service.ts` for PR creation |
   | `packages/core/src/infrastructure/di/container.ts` | Low | Register new use case and IGitHubIssueService |
   | `tsp/` | Low | Optional TypeSpec model for DoctorDiagnosisResult value object |
-  | `tests/` | High | Unit tests for use case, service; integration tests for workflow |
+  | `tests/` | High | Unit tests for use case, service; integration tests for both maintainer and contributor flows |
 
   ## Dependencies
 
-  - **gh CLI** — Must be installed and authenticated for issue/PR creation and forking
+  - **gh CLI** — Must be installed and authenticated for issue/PR creation, forking, and permission checks
   - **IAgentExecutorProvider** — For invoking AI agent to attempt fixes
   - **IGitPrService** — For creating PRs with fix attempts
   - **IAgentRunRepository** — For querying recent failed agent runs as diagnostic context
   - **IVersionService** — For collecting shep CLI version in diagnostics
   - **IToolInstallerService** — For validating gh CLI availability before starting
+  - **IGitHubRepositoryService** — For checking push permissions on shep-ai/cli
 
   ## Size Estimate
 
   **L** — This feature requires a new CLI command, a new use case with multi-step orchestration
-  (diagnose → create issue → fork/clone/branch → invoke agent → create PR), a new service interface
-  and implementation for GitHub issue creation, and comprehensive testing. The workflow is more
-  complex than a simple CRUD operation but can leverage significant existing infrastructure (agent
-  executor, PR service, CLI patterns, tool installer). Estimated at 1-2 weeks of development.
+  (diagnose -> create issue -> check permissions -> clone or fork/clone -> invoke agent -> create PR),
+  a new service interface and implementation for GitHub issue creation, push access detection logic
+  with two distinct flows (maintainer vs external contributor), and comprehensive testing of both
+  paths. The workflow is more complex than a simple CRUD operation but can leverage significant
+  existing infrastructure (agent executor, PR service, CLI patterns, tool installer, GitHub
+  repository service).
 
   ---
 
   _Requirements defined — proceed with research_
+rejectionFeedback:
+  - iteration: 1
+    message: "shep doctor should support for both shep developers and non shep developers if im shep maintainer/owner I dont need to fork"
+    phase: "requirements"
+    timestamp: "2026-03-20T20:47:30.818Z"
