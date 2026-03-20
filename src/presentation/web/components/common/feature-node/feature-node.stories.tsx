@@ -253,6 +253,16 @@ const allStatesData: FeatureNodeData[] = [
     agentType: 'claude-code' as AgentTypeValue,
     hasAgentRun: true,
   },
+  {
+    name: 'Old Dashboard',
+    description: 'Previous iteration of the admin dashboard',
+    featureId: '#f8',
+    lifecycle: 'maintain' as FeatureLifecyclePhase,
+    state: 'archived',
+    progress: 100,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/old-dashboard',
+  },
 ];
 
 export const AllStates: Story = {
@@ -695,6 +705,46 @@ export const PendingWithStart: Story = {
     state: 'pending',
     progress: 0,
     onStart: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const Archived: Story = {
+  args: {
+    name: 'Old Dashboard',
+    description: 'Previous iteration of the admin dashboard',
+    featureId: '#a1',
+    lifecycle: 'maintain',
+    state: 'archived',
+    progress: 100,
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const ArchivedWithUnarchive: Story = {
+  args: {
+    name: 'Old Dashboard',
+    description: 'Previous iteration of the admin dashboard',
+    featureId: '#a2',
+    lifecycle: 'maintain',
+    state: 'archived',
+    progress: 100,
+    onUnarchive: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const DoneWithArchive: Story = {
+  args: {
+    name: 'Completed Feature',
+    description: 'A feature ready to be archived',
+    featureId: '#ar1',
+    lifecycle: 'maintain',
+    state: 'done',
+    progress: 100,
+    runtime: '2h 30m',
+    onArchive: fn(),
+    onDelete: fn(),
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };

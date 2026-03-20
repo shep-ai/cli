@@ -185,6 +185,8 @@ export function useGraphState(
       onRepositoryDelete: (repositoryId) => callbacksRef.current.onRepositoryDelete?.(repositoryId),
       onRetryFeature: (featureId) => callbacksRef.current.onRetryFeature?.(featureId),
       onStartFeature: (featureId) => callbacksRef.current.onStartFeature?.(featureId),
+      onArchiveFeature: (featureId) => callbacksRef.current.onArchiveFeature?.(featureId),
+      onUnarchiveFeature: (featureId) => callbacksRef.current.onUnarchiveFeature?.(featureId),
     }),
     []
   );

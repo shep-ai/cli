@@ -21,6 +21,7 @@ const mockFitView = vi.fn();
 
 vi.mock('@xyflow/react', () => ({
   useReactFlow: () => ({ fitView: mockFitView }),
+  Panel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock('@/app/actions/add-repository', () => ({

@@ -49,6 +49,10 @@ export interface GraphCallbacks {
   onStartFeature?: (featureId: string) => void;
   /** Called when the user stops a running feature. */
   onStopFeature?: (featureId: string) => void;
+  /** Called when the user archives a feature. */
+  onArchiveFeature?: (featureId: string) => void;
+  /** Called when the user unarchives a feature. */
+  onUnarchiveFeature?: (featureId: string) => void;
 }
 
 /**
@@ -175,6 +179,18 @@ export function deriveGraph(
         (entry.data.state === 'running' || entry.data.state === 'action-required') &&
         callbacks?.onStopFeature && {
           onStop: callbacks.onStopFeature,
+        }),
+      ...(!isCreating &&
+        (entry.data.state === 'done' ||
+          entry.data.state === 'blocked' ||
+          entry.data.state === 'pending') &&
+        callbacks?.onArchiveFeature && {
+          onArchive: callbacks.onArchiveFeature,
+        }),
+      ...(!isCreating &&
+        entry.data.state === 'archived' &&
+        callbacks?.onUnarchiveFeature && {
+          onUnarchive: callbacks.onUnarchiveFeature,
         }),
     };
 
