@@ -26,6 +26,7 @@ export type {
   IExternalIssueFetcher,
   ExternalIssue,
   ISpecInitializerService,
+  SpecInitializerOptions,
   SpecInitializerResult,
   IVersionService,
   IWebServerService,

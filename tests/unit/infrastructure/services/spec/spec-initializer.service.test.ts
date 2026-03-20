@@ -5,33 +5,40 @@
  * variable substitution for the spec initialization service.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync, readFileSync, readdirSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SpecInitializerService } from '@/infrastructure/services/spec/spec-initializer.service.js';
+import { computeRepoHash } from '@/infrastructure/services/filesystem/repo-hash.js';
 
 describe('SpecInitializerService', () => {
   let service: SpecInitializerService;
   let tempDir: string;
+  let shepHomeDir: string;
 
   beforeEach(() => {
     service = new SpecInitializerService();
     tempDir = mkdtempSync(join(tmpdir(), 'shep-spec-init-test-'));
+    shepHomeDir = mkdtempSync(join(tmpdir(), 'shep-home-test-'));
+    vi.stubEnv('SHEP_HOME', shepHomeDir);
   });
 
   afterEach(() => {
-    if (existsSync(tempDir)) {
-      rmSync(tempDir, { recursive: true, force: true });
+    vi.unstubAllEnvs();
+    for (const dir of [tempDir, shepHomeDir]) {
+      if (existsSync(dir)) {
+        rmSync(dir, { recursive: true, force: true });
+      }
     }
   });
 
   describe('directory creation', () => {
-    it('should create specs/NNN-SLUG/ directory', async () => {
+    it('should create .shep/specs/NNN-SLUG/ directory', async () => {
       const result = await service.initialize(tempDir, 'user-auth', 1, 'User authentication');
 
       expect(existsSync(result.specDir)).toBe(true);
-      expect(result.specDir).toBe(join(tempDir, 'specs', '001-user-auth'));
+      expect(result.specDir).toBe(join(tempDir, '.shep', 'specs', '001-user-auth'));
     });
 
     it('should zero-pad feature numbers to 3 digits', async () => {
@@ -53,12 +60,76 @@ describe('SpecInitializerService', () => {
       expect(result.featureNumber).toBe('123');
     });
 
-    it('should create parent specs/ directory if missing', async () => {
-      expect(existsSync(join(tempDir, 'specs'))).toBe(false);
+    it('should create parent .shep/specs/ directory if missing', async () => {
+      expect(existsSync(join(tempDir, '.shep', 'specs'))).toBe(false);
 
       await service.initialize(tempDir, 'new-feat', 1, 'New feat');
 
-      expect(existsSync(join(tempDir, 'specs'))).toBe(true);
+      expect(existsSync(join(tempDir, '.shep', 'specs'))).toBe(true);
+    });
+
+    it('should default to in-repo mode when no options provided', async () => {
+      const result = await service.initialize(tempDir, 'feat', 1, 'Feat');
+
+      expect(result.specDir).toBe(join(tempDir, '.shep', 'specs', '001-feat'));
+    });
+
+    it('should use .shep/specs/ path when storageMode is in-repo', async () => {
+      const result = await service.initialize(tempDir, 'feat', 1, 'Feat', undefined, {
+        storageMode: 'in-repo',
+      });
+
+      expect(result.specDir).toBe(join(tempDir, '.shep', 'specs', '001-feat'));
+    });
+  });
+
+  describe('shep-managed mode', () => {
+    const repoPath = '/home/user/my-project';
+
+    it('should create specs at ~/.shep/repos/<hash>/specs/', async () => {
+      const result = await service.initialize(tempDir, 'feat', 1, 'Feat', undefined, {
+        storageMode: 'shep-managed',
+        repositoryPath: repoPath,
+      });
+
+      const repoHash = computeRepoHash(repoPath);
+      expect(result.specDir).toBe(join(shepHomeDir, 'repos', repoHash, 'specs', '001-feat'));
+      expect(existsSync(result.specDir)).toBe(true);
+    });
+
+    it('should create all template files in shep-managed location', async () => {
+      const result = await service.initialize(tempDir, 'test-feat', 1, 'Test feat', undefined, {
+        storageMode: 'shep-managed',
+        repositoryPath: repoPath,
+      });
+
+      const files = readdirSync(result.specDir);
+      expect(files).toContain('spec.yaml');
+      expect(files).toContain('research.yaml');
+      expect(files).toContain('plan.yaml');
+      expect(files).toContain('tasks.yaml');
+      expect(files).toContain('feature.yaml');
+      expect(files.length).toBe(5);
+    });
+
+    it('should throw when storageMode is shep-managed but repositoryPath is missing', async () => {
+      await expect(
+        service.initialize(tempDir, 'feat', 1, 'Feat', undefined, {
+          storageMode: 'shep-managed',
+        })
+      ).rejects.toThrow('repositoryPath is required when storageMode is shep-managed');
+    });
+
+    it('should support fast mode with shep-managed storage', async () => {
+      const result = await service.initialize(tempDir, 'quick-fix', 1, 'Quick fix', 'fast', {
+        storageMode: 'shep-managed',
+        repositoryPath: repoPath,
+      });
+
+      const files = readdirSync(result.specDir);
+      expect(files).toContain('feature.yaml');
+      expect(files).toContain('spec.yaml');
+      expect(files.length).toBe(2);
     });
   });
 
@@ -166,13 +237,13 @@ describe('SpecInitializerService', () => {
   });
 
   describe('number resolution from existing specs', () => {
-    it('should use hint when no specs/ directory exists', async () => {
+    it('should use hint when no spec directories exist', async () => {
       const result = await service.initialize(tempDir, 'feat', 1, 'Feat');
 
       expect(result.featureNumber).toBe('001');
     });
 
-    it('should skip over existing spec numbers', async () => {
+    it('should skip over existing spec numbers in legacy specs/', async () => {
       // Pre-create specs/001-old-feature/ and specs/002-another/
       mkdirSync(join(tempDir, 'specs', '001-old-feature'), { recursive: true });
       mkdirSync(join(tempDir, 'specs', '002-another'), { recursive: true });
@@ -181,6 +252,38 @@ describe('SpecInitializerService', () => {
 
       expect(result.featureNumber).toBe('003');
       expect(result.specDir).toContain('003-new-feat');
+    });
+
+    it('should skip over existing spec numbers in .shep/specs/', async () => {
+      mkdirSync(join(tempDir, '.shep', 'specs', '005-existing'), { recursive: true });
+
+      const result = await service.initialize(tempDir, 'new-feat', 1, 'New feat');
+
+      expect(result.featureNumber).toBe('006');
+    });
+
+    it('should take max across legacy specs/ and .shep/specs/', async () => {
+      mkdirSync(join(tempDir, 'specs', '005-old'), { recursive: true });
+      mkdirSync(join(tempDir, '.shep', 'specs', '010-new'), { recursive: true });
+
+      const result = await service.initialize(tempDir, 'feat', 1, 'Feat');
+
+      expect(result.featureNumber).toBe('011');
+    });
+
+    it('should scan shep-managed directory when repositoryPath provided', async () => {
+      const repoPath = '/home/user/my-project';
+      const repoHash = computeRepoHash(repoPath);
+      mkdirSync(join(shepHomeDir, 'repos', repoHash, 'specs', '008-managed'), {
+        recursive: true,
+      });
+
+      const result = await service.initialize(tempDir, 'feat', 1, 'Feat', undefined, {
+        storageMode: 'in-repo',
+        repositoryPath: repoPath,
+      });
+
+      expect(result.featureNumber).toBe('009');
     });
 
     it('should use hint when it exceeds existing numbers', async () => {
@@ -215,6 +318,23 @@ describe('SpecInitializerService', () => {
       const result = await service.initialize(tempDir, 'feat', 1, 'Feat');
 
       expect(result.featureNumber).toBe('001');
+    });
+
+    it('should handle only .shep/specs/ existing (no legacy specs/)', async () => {
+      mkdirSync(join(tempDir, '.shep', 'specs', '003-existing'), { recursive: true });
+
+      const result = await service.initialize(tempDir, 'feat', 1, 'Feat');
+
+      expect(result.featureNumber).toBe('004');
+    });
+
+    it('should handle both directories empty', async () => {
+      mkdirSync(join(tempDir, 'specs'), { recursive: true });
+      mkdirSync(join(tempDir, '.shep', 'specs'), { recursive: true });
+
+      const result = await service.initialize(tempDir, 'feat', 3, 'Feat');
+
+      expect(result.featureNumber).toBe('003');
     });
   });
 
@@ -290,7 +410,7 @@ describe('SpecInitializerService', () => {
       const result = await service.initialize(tempDir, 'quick-fix', 1, 'Quick fix', 'fast');
 
       expect(existsSync(result.specDir)).toBe(true);
-      expect(result.specDir).toBe(join(tempDir, 'specs', '001-quick-fix'));
+      expect(result.specDir).toBe(join(tempDir, '.shep', 'specs', '001-quick-fix'));
     });
 
     it('should still substitute template variables in feature.yaml', async () => {
