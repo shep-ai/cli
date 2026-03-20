@@ -1,16 +1,10 @@
 
- RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-dotshep-directory
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-dotshep-directory[39m
 
- ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should return a 16 character hex string 1ms
- ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should return the first 16 chars of the SHA-256 hash 0ms
- ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should normalize backslashes before hashing (C:\foo and C:/foo produce same hash) 0ms
- ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should produce deterministic output for the same input 0ms
- ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should produce different output for different paths 0ms
- ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should handle paths with trailing slashes 0ms
- ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should handle empty string 0ms
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/filesystem/repo-hash.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
 
- Test Files  1 passed (1)
-      Tests  7 passed (7)
-   Start at  00:57:08
-   Duration  73ms (transform 13ms, setup 0ms, import 19ms, tests 2ms, environment 0ms)
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 01:03:28
+[2m   Duration [22m 208ms[2m (transform 43ms, setup 0ms, import 65ms, tests 5ms, environment 0ms)[22m
 

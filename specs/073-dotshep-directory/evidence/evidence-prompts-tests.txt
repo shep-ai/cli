@@ -1,48 +1,10 @@
 
- RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-dotshep-directory
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-dotshep-directory[39m
 
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include spec context when spec.yaml exists 1ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include tasks context when tasks.yaml exists 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include worktree path 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should fall back to repositoryPath when worktreePath is absent 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include JSON output format instructions 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include all valid EvidenceType values in instructions 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include file size constraints (standard resolution) 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include file size constraints (500-line truncation) 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include sensitive data redaction instructions 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should include evidence capture instructions per task type 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should handle missing spec.yaml gracefully 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should handle missing tasks.yaml gracefully 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > should be deterministic (same input = same output) 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=false (default) > should store evidence in shep home folder by default 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=false (default) > should NOT include commit/push block 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=false (default) > should instruct NOT to commit files 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should require screenshots for UI changes 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should include Playwright installation instructions 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should include screenshot capture script example 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should state minimum evidence requirements 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > mandatory screenshot rule > should not contain "be selective" language 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > shep-managed mode (specDir outside worktree) > should force commitEvidence=false when specDir is outside worktree 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > shep-managed mode (specDir outside worktree) > should keep commitEvidence=true when specDir is inside worktree (.shep/specs/ path) 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > shep-managed mode (specDir outside worktree) > should keep commitEvidence behavior unchanged when specDir is inside worktree (legacy specs/ path) 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should include spec evidence folder storage instructions 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should include commit block via buildCommitPushBlock 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should pass spec evidence path in commit block files 1ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should pass push flag through to buildCommitPushBlock 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should mention PR body in the prompt 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidencePrompt > commitEvidence=true > should save to BOTH locations 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should include base evidence prompt content 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should include VALIDATION FEEDBACK section header 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should format UI validation errors with task details 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should format completeness errors with task list 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should format file existence errors with paths 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should include all error types when mixed errors are provided 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should instruct the agent to focus on fixing gaps, not recollecting everything 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should accept EvidencePromptOptions and forward them to buildEvidencePrompt 0ms
- ✓  node  tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts > buildEvidenceRetryPrompt > should return base prompt when errors array is empty 0ms
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.test.ts [2m([22m[2m39 tests[22m[2m)[22m[32m 14[2mms[22m[39m
 
- Test Files  1 passed (1)
-      Tests  39 passed (39)
-   Start at  00:57:29
-   Duration  251ms (transform 56ms, setup 0ms, import 190ms, tests 5ms, environment 0ms)
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m39 passed[39m[22m[90m (39)[39m
+[2m   Start at [22m 01:03:36
+[2m   Duration [22m 1.00s[2m (transform 183ms, setup 0ms, import 832ms, tests 14ms, environment 0ms)[22m
 

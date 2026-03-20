@@ -1,20 +1,20 @@
- ✓  web  tests/unit/presentation/web/actions/stop-deployment.test.ts (5 tests) 6ms
- ✓  web  tests/unit/presentation/web/actions/get-deployment-status.test.ts (5 tests) 6ms
- ✓  web  tests/unit/presentation/web/actions/get-workflow-defaults.test.ts (4 tests) 5ms
- ✓  web  tests/unit/presentation/web/lib/feature-flags.test.ts (14 tests) 9ms
- ✓  web  tests/unit/presentation/web/actions/features/delete-feature.test.ts (8 tests) 8ms
- ✓  web  tests/unit/presentation/web/app/actions/get-feature-plan.test.ts (8 tests) 6ms
- ✓  web  tests/unit/presentation/web/app/actions/get-feature-phase-timings.test.ts (8 tests) 7ms
- ✓  web  tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts (11 tests) 6ms
- ✓  web  tests/unit/presentation/web/lib/format-duration.test.ts (9 tests) 4ms
- ✓  web  tests/unit/presentation/web/features/control-center/derive-state.test.ts (6 tests) 3ms
- ✓  web  tests/unit/presentation/web/components/common/control-center-drawer/drawer-view.test.ts (10 tests) 6ms
- ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts (4 tests) 2ms
- ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts (7 tests) 2ms
- ✓  web  tests/unit/presentation/web/actions/compose-user-input.test.ts (4 tests) 1ms
+       [33m[2m✓[22m[39m submit button is enabled when repo is selected via combobox [33m 3048[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repositoryPath is provided (canvas flow) [33m 2256[2mms[22m[39m
+       [33m[2m✓[22m[39m handleSubmit includes selectedRepoPath in payload [33m 4036[2mms[22m[39m
+       [33m[2m✓[22m[39m renders REPOSITORY label in combobox section [33m 385[2mms[22m[39m
+       [33m[2m✓[22m[39m filters repositories by name when typing in search input [33m 1077[2mms[22m[39m
+       [33m[2m✓[22m[39m filters repositories by path when typing in search input [33m 895[2mms[22m[39m
+       [33m[2m✓[22m[39m shows empty state message when no repos match search [33m 1257[2mms[22m[39m
+       [33m[2m✓[22m[39m shows check icon for selected repository [33m 1453[2mms[22m[39m
+       [33m[2m✓[22m[39m renders "Add new repository..." item in the combobox dropdown [33m 790[2mms[22m[39m
+       [33m[2m✓[22m[39m renders "Add new repository..." item even with zero repos [33m 585[2mms[22m[39m
+       [33m[2m✓[22m[39m clicking "Add new repository..." opens folder picker and adds repo [33m 859[2mms[22m[39m
+       [33m[2m✓[22m[39m does nothing when folder picker is cancelled [33m 702[2mms[22m[39m
+       [33m[2m✓[22m[39m shows inline error when addRepository server action fails [33m 555[2mms[22m[39m
+       [33m[2m✓[22m[39m can submit feature after adding new repo via combobox [33m 1479[2mms[22m[39m
 
- Test Files  333 passed (333)
-      Tests  4548 passed (4548)
-   Start at  00:57:43
-   Duration  26.53s (transform 9.94s, setup 22.38s, import 44.73s, tests 72.75s, environment 60.05s)
+[2m Test Files [22m [1m[32m333 passed[39m[22m[90m (333)[39m
+[2m      Tests [22m [1m[32m4548 passed[39m[22m[90m (4548)[39m
+[2m   Start at [22m 01:04:08
+[2m   Duration [22m 112.03s[2m (transform 19.45s, setup 132.40s, import 141.96s, tests 233.78s, environment 361.69s)[22m
 
