@@ -1,86 +1,40 @@
 TypeSpec Generated Types Verification
-======================================
-File: packages/core/src/domain/generated/output.ts
-Date: 2026-03-21
+=====================================
 
-1. WorkflowConfig.doctorMaxFixAttempts (line 440-442)
-------------------------------------------------------
-  /**
-   * Maximum number of doctor fix attempts before giving up (default: 1)
-   */
-  doctorMaxFixAttempts?: number;
+DoctorDiagnosticReport, FailedRunSummary, SystemInfo value objects and
+doctorMaxFixAttempts WorkflowConfig extension all present in
+packages/core/src/domain/generated/output.ts.
 
-2. FailedRunSummary (lines 1680-1697)
---------------------------------------
-/**
- * Summary of a failed agent run for diagnostic reporting
- */
-export type FailedRunSummary = {
-  /**
-   * Type of agent that failed (e.g. claude-code, gemini-cli)
-   */
-  agentType: string;
-  /**
-   * Name/identifier of the agent run
-   */
-  agentName: string;
-  /**
-   * Error message from the failed run
-   */
-  error: string;
-  /**
-   * ISO 8601 timestamp when the failure occurred
-   */
-  timestamp: string;
-};
+--- WorkflowConfig extension ---
+Line 440:  /** Maximum number of doctor fix attempts before giving up (default: 1) */
+Line 442:  doctorMaxFixAttempts?: number;
 
-3. SystemInfo (lines 1702-1719)
---------------------------------
-/**
- * System environment information for diagnostic reporting
- */
-export type SystemInfo = {
-  /**
-   * Node.js version (e.g. v20.11.0)
-   */
-  nodeVersion: string;
-  /**
-   * Operating system platform (e.g. darwin, linux, win32)
-   */
-  platform: string;
-  /**
-   * CPU architecture (e.g. x64, arm64)
-   */
-  arch: string;
-  /**
-   * gh CLI version string
-   */
-  ghVersion: string;
-};
+--- FailedRunSummary ---
+Line 1678: /** Summary of a failed agent run for diagnostic reporting */
+Line 1680: export type FailedRunSummary = {
+             agentType: string;
+             agentName: string;
+             error: string;
+             timestamp: string;
+           };
 
-4. DoctorDiagnosticReport (lines 1724-1741)
---------------------------------------------
-/**
- * Structured diagnostic report collected by shep doctor for issue creation
- */
-export type DoctorDiagnosticReport = {
-  /**
-   * User-provided description of the problem
-   */
-  userDescription: string;
-  /**
-   * Summaries of recent failed agent runs
-   */
-  failedRunSummaries: FailedRunSummary[];
-  /**
-   * System environment information
-   */
-  systemInfo: SystemInfo;
-  /**
-   * Current shep CLI version
-   */
-  cliVersion: string;
-};
+--- SystemInfo ---
+Line 1700: /** System environment information for diagnostic reporting */
+Line 1702: export type SystemInfo = {
+             nodeVersion: string;
+             platform: string;
+             arch: string;
+             ghVersion: string;
+           };
 
-All 4 types present with correct fields and JSDoc annotations.
-pnpm tsp:compile completes successfully.
+--- DoctorDiagnosticReport ---
+Line 1722: /** Structured diagnostic report collected by shep doctor for issue creation */
+Line 1724: export type DoctorDiagnosticReport = {
+             userDescription: string;
+             failedRunSummaries: FailedRunSummary[];
+             systemInfo: SystemInfo;
+             cliVersion: string;
+           };
+
+All types correctly generated with JSDoc annotations.
+pnpm tsp:compile succeeds without errors.

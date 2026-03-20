@@ -1,50 +1,48 @@
-Doctor CLI Command Unit Tests
-==============================
-File: tests/unit/presentation/cli/commands/doctor.command.test.ts
-Run: npx vitest run <file> --reporter=verbose
-Date: 2026-03-21
+Doctor Command Unit Tests — 28/28 passing
+==========================================
+Test runner: Vitest v4.0.18
 
 Doctor Command > command structure
-  [PASS] should create a valid Commander command (3ms)
-  [PASS] should have the name "doctor" (1ms)
-  [PASS] should have a description (1ms)
-  [PASS] should accept description as an optional positional argument (2ms)
-  [PASS] should have --fix option (1ms)
-  [PASS] should have --no-fix option (1ms)
-  [PASS] should have --workdir option (0ms)
+  ✓ should create a valid Commander command
+  ✓ should have the name "doctor"
+  ✓ should have a description
+  ✓ should accept description as an optional positional argument
+  ✓ should have --fix option
+  ✓ should have --no-fix option
+  ✓ should have --workdir option
 
 Doctor Command > prerequisite validation
-  [PASS] should check gh CLI availability before proceeding (4ms)
-  [PASS] should check gh authentication before proceeding (1ms)
-  [PASS] should show error when gh CLI is not installed (2ms)
-  [PASS] should show error when gh is not authenticated (0ms)
+  ✓ should check gh CLI availability before proceeding
+  ✓ should check gh authentication before proceeding
+  ✓ should show error when gh CLI is not installed
+  ✓ should show error when gh is not authenticated
 
 Doctor Command > description collection
-  [PASS] should use positional argument when provided (1ms)
-  [PASS] should prompt for description when not provided (1ms)
-  [PASS] should cancel when interactive description is empty (0ms)
+  ✓ should use positional argument when provided
+  ✓ should prompt for description when not provided
+  ✓ should cancel when interactive description is empty
 
 Doctor Command > fix gate
-  [PASS] should pass fix=true when --fix flag is set (0ms)
-  [PASS] should pass fix=false when --no-fix flag is set (1ms)
-  [PASS] should prompt for fix when neither flag is set (3ms)
-  [PASS] should pass fix=false when user declines fix prompt (2ms)
+  ✓ should pass fix=true when --fix flag is set
+  ✓ should pass fix=false when --no-fix flag is set
+  ✓ should prompt for fix when neither flag is set
+  ✓ should pass fix=false when user declines fix prompt
 
 Doctor Command > workdir option
-  [PASS] should pass workdir to use case when specified (1ms)
-  [PASS] should pass undefined workdir when not specified (1ms)
+  ✓ should pass workdir to use case when specified
+  ✓ should pass undefined workdir when not specified
 
 Doctor Command > result display
-  [PASS] should show issue URL on success (0ms)
-  [PASS] should show PR URL when fix succeeds (0ms)
-  [PASS] should show flow type when PR is created (0ms)
-  [PASS] should show warning when fix attempt fails (0ms)
-  [PASS] should show cleanup message when temp dir is cleaned (0ms)
-  [PASS] should use spinner during use case execution (1ms)
+  ✓ should show issue URL on success
+  ✓ should show PR URL when fix succeeds
+  ✓ should show flow type when PR is created
+  ✓ should show warning when fix attempt fails
+  ✓ should show cleanup message when temp dir is cleaned
+  ✓ should use spinner during use case execution
 
 Doctor Command > error handling
-  [PASS] should handle use case errors gracefully (0ms)
-  [PASS] should handle Ctrl+C gracefully during prompts (0ms)
+  ✓ should handle use case errors gracefully
+  ✓ should handle Ctrl+C gracefully during prompts
 
 Test Files  1 passed (1)
      Tests  28 passed (28)

@@ -1,10 +1,12 @@
-Doctor Command Registration in Main CLI
-========================================
-Command: node dist/src/presentation/cli/index.js --help
-Date: 2026-03-21
+$ shep --help
 
-The 'doctor' command is registered as a top-level command in the shep CLI program.
-Excerpt from 'shep --help' output:
+Usage: shep [options] [command]
+
+Autonomous AI Native SDLC Platform - Automate the development cycle from idea to deploy
+
+Options:
+  -v, --version                   Display version number
+  -h, --help                      display help for command
 
 Commands:
   version                         Display version information
@@ -26,3 +28,5 @@ Commands:
   restart [options]               Gracefully restart the Shep web UI daemon
                                   (starts it if not running)
   status [options]                Show the status of the Shep web UI daemon
+
+The 'doctor' command is registered as a top-level command in the shep CLI program.

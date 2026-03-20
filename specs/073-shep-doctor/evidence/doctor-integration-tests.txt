@@ -1,47 +1,46 @@
-Doctor Workflow Integration Tests
-==================================
-File: tests/integration/application/use-cases/doctor/doctor-workflow.test.ts
-Run: npx vitest run <file> --reporter=verbose
-Date: 2026-03-21
+Doctor Workflow Integration Tests — 19/19 passing
+==================================================
+Test runner: Vitest v4.0.18
 
 DoctorDiagnoseUseCase Integration > maintainer flow end-to-end
-  [PASS] should execute the full diagnostic -> issue -> clone -> agent -> PR pipeline (13ms)
-  [PASS] should only include failed runs in diagnostics, not completed/running ones (1ms)
-  [PASS] should sanitize agent run summaries -- no prompt or result fields (2ms)
+  ✓ should execute the full diagnostic -> issue -> clone -> agent -> PR pipeline
+  ✓ should only include failed runs in diagnostics, not completed/running ones
+  ✓ should sanitize agent run summaries — no prompt or result fields
 
 DoctorDiagnoseUseCase Integration > contributor flow end-to-end
-  [PASS] should fork, clone fork, and create cross-fork PR with --repo flag (8ms)
+  ✓ should fork, clone fork, and create cross-fork PR with --repo flag
 
 DoctorDiagnoseUseCase Integration > issue-only flow (fix=false)
-  [PASS] should create issue but skip entire fix workflow (1ms)
-  [PASS] should include issue body with diagnostic sections when no failed runs exist (1ms)
+  ✓ should create issue but skip entire fix workflow
+  ✓ should include issue body with diagnostic sections when no failed runs exist
 
 DoctorDiagnoseUseCase Integration > agent failure graceful degradation
-  [PASS] should return issue URL with error message when agent execution fails (1ms)
-  [PASS] should return error when agent produces no changes (1ms)
+  ✓ should return issue URL with error message when agent execution fails
+  ✓ should return error when agent produces no changes
 
 DoctorDiagnoseUseCase Integration > push access detection failure
-  [PASS] should fall back to contributor flow when push access check fails (2ms)
+  ✓ should fall back to contributor flow when push access check fails
 
 DoctorDiagnoseUseCase Integration > issue creation failure
-  [PASS] should propagate issue creation errors (2ms)
-  [PASS] should propagate auth failure errors from issue creation (1ms)
+  ✓ should propagate issue creation errors
+  ✓ should propagate auth failure errors from issue creation
 
 DoctorDiagnoseUseCase Integration > temp directory cleanup
-  [PASS] should clean up temp directory on successful fix (no --workdir) (2ms)
-  [PASS] should NOT clean up when --workdir is specified (1ms)
-  [PASS] should clean up temp directory even when agent fails (1ms)
+  ✓ should clean up temp directory on successful fix (no --workdir)
+  ✓ should NOT clean up when --workdir is specified
+  ✓ should clean up temp directory even when agent fails
 
 DoctorDiagnoseUseCase Integration > service call ordering and data flow
-  [PASS] should pass issue number from issue creation to branch name and PR (1ms)
-  [PASS] should pass failed run errors into both issue body and agent prompt (3ms)
+  ✓ should pass issue number from issue creation to branch name and PR
+  ✓ should pass failed run errors into both issue body and agent prompt
 
 DoctorDiagnoseUseCase Integration > gh version collection resilience
-  [PASS] should handle gh --version failure gracefully and use "unknown" (1ms)
+  ✓ should handle gh --version failure gracefully and use "unknown"
 
 DoctorDiagnoseUseCase Integration > diagnostic report limits
-  [PASS] should include at most 10 failed runs even with more available (1ms)
-  [PASS] should truncate long issue titles to prevent GitHub API rejection (1ms)
+  ✓ should include at most 10 failed runs even with more available
+  ✓ should truncate long issue titles to prevent GitHub API rejection
 
 Test Files  1 passed (1)
      Tests  19 passed (19)
+  Duration  7.63s
