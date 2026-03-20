@@ -1,0 +1,69 @@
+=== shep feat archive — CLI command demo ===
+
+# 1. Show feat command help — archive and unarchive registered as subcommands
+
+$ shep feat --help
+Usage: shep feat [options] [command]
+
+Manage features through the SDLC lifecycle
+
+Options:
+  -h, --help                   display help for command
+
+Commands:
+  new [options] <description>  Create a new feature
+  ls [options]                 List features
+  show <id>                    Show feature details
+  del [options] <id>           Delete a feature
+  resume <id>                  Resume a stopped or failed feature agent
+  start <id>                   Start a pending feature (spawn the agent)
+  review [id]                  Interactive review of a feature waiting for approval
+  approve [id]                 Approve a feature waiting for review
+  reject [options] [id]        Reject a feature waiting for review
+  logs [options] <id>          View feature agent logs
+  adopt [options] <branch>     Adopt an existing branch as a tracked feature
+  archive [options] <id>       Archive a feature to hide it from the canvas
+  unarchive <id>               Restore an archived feature to its previous state
+  help [command]               display help for command
+
+
+# 2. Show archive command help — supports --force/-f flag
+
+$ shep feat archive --help
+Usage: shep feat archive [options] <id>
+
+Archive a feature to hide it from the canvas
+
+Arguments:
+  id           Feature ID or prefix
+
+Options:
+  -f, --force  Skip confirmation prompt
+  -h, --help   display help for command
+
+
+# 3. Archive a completed (Maintain) feature — success
+
+$ shep feat archive fc09efe0 --force
+✓ Feature archived
+  Name: Agent-Based Local Dev Environment
+
+(exit code 0)
+
+
+# 4. Try to archive a non-archivable feature (Implementation state) — error with clear message
+
+$ shep feat archive 527f4c50 --force
+✗ Failed to archive feature
+Error: Cannot archive feature "Scheduled & On-Demand Workflow Automation": lifecycle is Implementation. Only features in Maintain, Pending, or Blocked states can be archived.
+
+(exit code 1)
+
+
+# 5. Try to archive a non-existent feature — error
+
+$ shep feat archive nonexistent --force
+✗ Failed to archive feature
+Error: Feature not found: "nonexistent"
+
+(exit code 1)

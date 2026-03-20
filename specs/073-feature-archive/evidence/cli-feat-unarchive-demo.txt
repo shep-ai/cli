@@ -1,0 +1,33 @@
+=== shep feat unarchive — CLI command demo ===
+
+# 1. Show unarchive command help — no --force flag needed (always safe)
+
+$ shep feat unarchive --help
+Usage: shep feat unarchive [options] <id>
+
+Restore an archived feature to its previous state
+
+Arguments:
+  id          Feature ID or prefix
+
+Options:
+  -h, --help  display help for command
+
+
+# 2. Unarchive a previously archived feature — restores to Maintain lifecycle
+
+$ shep feat unarchive fc09efe0
+✓ Feature unarchived
+  Name:     Agent-Based Local Dev Environment
+  Restored: Maintain
+
+(exit code 0)
+
+
+# 3. Try to unarchive a non-existent feature — error
+
+$ shep feat unarchive nonexistent
+✗ Failed to unarchive feature
+Error: Feature not found: "nonexistent"
+
+(exit code 1)

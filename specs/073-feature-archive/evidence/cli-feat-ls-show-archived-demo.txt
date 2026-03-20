@@ -1,0 +1,62 @@
+=== shep feat ls --show-archived — CLI command demo ===
+
+# 1. Show ls command help — --show-archived flag available
+
+$ shep feat ls --help
+Usage: shep feat ls [options]
+
+List features
+
+Options:
+  -r, --repo <path>  Filter by repository path
+  --include-deleted  Include soft-deleted features
+  --show-archived    Include archived features
+  -h, --help         display help for command
+
+
+# 2. First archive a completed feature
+
+$ shep feat archive fc09efe0 --force
+✓ Feature archived
+  Name: Agent-Based Local Dev Environment
+
+
+# 3. Default feat ls — archived feature is HIDDEN (15 features instead of 16)
+
+$ shep feat ls
+  Features (15)
+
+  ID          Name                              Status                 Repo                  R P M ↑     Elapsed     Done
+  4a5fad7d    Migrate Shep Files to .shep D…    ⠋ evidence             cli                   □ ■ □ ■     4h 17m
+  527f4c50    Scheduled & On-Demand Workflo…    ⠋ Implementing         cli                   □ □ □ ■     3h 44m
+  91038372    Feature Archive and Visibilit…    ⠋ evidence             cli                   □ ■ □ ■     4h 24m
+  4ed50136    Shep Doctor Self-Healing Comm…    ⠋ evidence             cli                   □ □ □ ■     3h 57m
+  c2c55300    Git Rebase and Fork Sync          ❯ Review Merge         cli                   □ □ □ ■     4d
+  ...
+  (fc09efe0 "Agent-Based Local Dev Environment" is NOT shown — it's archived)
+
+
+# 4. feat ls --show-archived — archived feature is VISIBLE with "○ Archived" status (16 features)
+
+$ shep feat ls --show-archived
+  Features (16)
+
+  ID          Name                              Status                 Repo                  R P M ↑     Elapsed     Done
+  4a5fad7d    Migrate Shep Files to .shep D…    ⠋ evidence             cli                   □ ■ □ ■     4h 17m
+  527f4c50    Scheduled & On-Demand Workflo…    ⠋ Implementing         cli                   □ □ □ ■     3h 44m
+  91038372    Feature Archive and Visibilit…    ⠋ evidence             cli                   □ ■ □ ■     4h 24m
+  4ed50136    Shep Doctor Self-Healing Comm…    ⠋ evidence             cli                   □ □ □ ■     3h 57m
+  c2c55300    Git Rebase and Fork Sync          ❯ Review Merge         cli                   □ □ □ ■     4d
+  ...
+  fc09efe0    Agent-Based Local Dev Environ…    ○ Archived             cli                   □ □ □ ■     3h 14m      4d ago
+  a6652dde    Hide CI Status Display            ✓ Completed            cli                   □ ■ □ ■     2h 45m      1d ago
+  ...
+  (fc09efe0 now visible with muted "○ Archived" status indicator)
+
+
+# 5. Unarchive to restore
+
+$ shep feat unarchive fc09efe0
+✓ Feature unarchived
+  Name:     Agent-Based Local Dev Environment
+  Restored: Maintain

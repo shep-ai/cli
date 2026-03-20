@@ -1,10 +1,20 @@
- ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts (4 tests) 3ms
- ✓  web  tests/unit/presentation/web/features/control-center/derive-state.test.ts (6 tests) 3ms
- ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts (7 tests) 4ms
- ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts (7 tests) 2ms
+       ✓ submit button is disabled when no repo selected and repositoryPath is empty  2047ms
+       ✓ submit button is enabled when repo is selected via combobox  3141ms
+       ✓ submit button is enabled when repositoryPath is provided (canvas flow)  2382ms
+       ✓ handleSubmit includes selectedRepoPath in payload  3757ms
+       ✓ filters repositories by name when typing in search input  878ms
+       ✓ filters repositories by path when typing in search input  1370ms
+       ✓ shows empty state message when no repos match search  1803ms
+       ✓ shows check icon for selected repository  1769ms
+       ✓ renders "Add new repository..." item in the combobox dropdown  697ms
+       ✓ renders "Add new repository..." item even with zero repos  589ms
+       ✓ clicking "Add new repository..." opens folder picker and adds repo  580ms
+       ✓ does nothing when folder picker is cancelled  380ms
+       ✓ shows inline error when addRepository server action fails  487ms
+       ✓ can submit feature after adding new repo via combobox  849ms
 
  Test Files  336 passed (336)
       Tests  4571 passed (4571)
-   Start at  00:40:19
-   Duration  32.55s (transform 11.04s, setup 28.55s, import 55.09s, tests 83.92s, environment 78.04s)
+   Start at  01:02:18
+   Duration  52.26s (transform 12.08s, setup 68.22s, import 63.71s, tests 110.61s, environment 162.15s)
 
