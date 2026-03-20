@@ -71,7 +71,7 @@ describe('StartFeatureUseCase (integration)', () => {
     push: false,
     openPr: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-    specPath: '/wt/feat-test/specs/001-test',
+    specPath: '/wt/feat-test/.shep/specs/001-test',
     createdAt: new Date('2026-02-01T00:00:00Z'),
     updatedAt: new Date('2026-02-01T00:00:00Z'),
     ...overrides,

@@ -65,7 +65,7 @@ describe('DevAgentExecutorService', () => {
 
   describe('execute — analyze phase', () => {
     it('should write spec.yaml to specDir when prompt contains "Write your analysis to:"', async () => {
-      const specDir = path.join(tmpDir, 'specs', '042-dark-mode');
+      const specDir = path.join(tmpDir, '.shep', 'specs', '042-dark-mode');
       const prompt = `You are a senior software architect.\n\nWrite your analysis to: ${specDir}/spec.yaml\n\nDo NOT create other files.`;
 
       await executor.execute(prompt, { cwd: tmpDir });
@@ -81,7 +81,7 @@ describe('DevAgentExecutorService', () => {
     });
 
     it('should return a non-empty result string', async () => {
-      const specDir = path.join(tmpDir, 'specs', '042');
+      const specDir = path.join(tmpDir, '.shep', 'specs', '042');
       const prompt = `Write your analysis to: ${specDir}/spec.yaml`;
       const result = await executor.execute(prompt);
       expect(result.result.length).toBeGreaterThan(0);
@@ -90,7 +90,7 @@ describe('DevAgentExecutorService', () => {
 
   describe('execute — requirements phase', () => {
     it('should write spec.yaml with openQuestions when prompt contains "Update the file at:"', async () => {
-      const specDir = path.join(tmpDir, 'specs', '042-dark-mode');
+      const specDir = path.join(tmpDir, '.shep', 'specs', '042-dark-mode');
       const prompt = `You are a product analyst.\n\nUpdate the file at: ${specDir}/spec.yaml\n\nWrite ONLY to ${specDir}/spec.yaml`;
 
       await executor.execute(prompt, { cwd: tmpDir });
@@ -106,7 +106,7 @@ describe('DevAgentExecutorService', () => {
 
   describe('execute — research phase', () => {
     it('should write research.yaml when prompt contains "Write your research to:"', async () => {
-      const specDir = path.join(tmpDir, 'specs', '042-dark-mode');
+      const specDir = path.join(tmpDir, '.shep', 'specs', '042-dark-mode');
       const prompt = `You are a technical architect.\n\nWrite your research to: ${specDir}/research.yaml\n\nWrite ONLY to ${specDir}/research.yaml`;
 
       await executor.execute(prompt, { cwd: tmpDir });
@@ -121,7 +121,7 @@ describe('DevAgentExecutorService', () => {
     });
 
     it('should include decisions with required fields (title, chosen, rejected, rationale)', async () => {
-      const specDir = path.join(tmpDir, 'specs', '042');
+      const specDir = path.join(tmpDir, '.shep', 'specs', '042');
       const prompt = `Write your research to: ${specDir}/research.yaml`;
 
       await executor.execute(prompt);
@@ -142,7 +142,7 @@ describe('DevAgentExecutorService', () => {
 
   describe('execute — plan phase', () => {
     it('should write both plan.yaml and tasks.yaml when prompt contains "Write to BOTH"', async () => {
-      const specDir = path.join(tmpDir, 'specs', '042-dark-mode');
+      const specDir = path.join(tmpDir, '.shep', 'specs', '042-dark-mode');
       const prompt = `You are a software architect.\n\n- Write to BOTH ${specDir}/plan.yaml AND ${specDir}/tasks.yaml\n\nDo NOT create other files.`;
 
       await executor.execute(prompt, { cwd: tmpDir });
@@ -152,7 +152,7 @@ describe('DevAgentExecutorService', () => {
     });
 
     it('should write plan.yaml with phases array', async () => {
-      const specDir = path.join(tmpDir, 'specs', '042');
+      const specDir = path.join(tmpDir, '.shep', 'specs', '042');
       const prompt = `- Write to BOTH ${specDir}/plan.yaml AND ${specDir}/tasks.yaml`;
 
       await executor.execute(prompt);
@@ -167,7 +167,7 @@ describe('DevAgentExecutorService', () => {
     });
 
     it('should write tasks.yaml with tasks array', async () => {
-      const specDir = path.join(tmpDir, 'specs', '042');
+      const specDir = path.join(tmpDir, '.shep', 'specs', '042');
       const prompt = `- Write to BOTH ${specDir}/plan.yaml AND ${specDir}/tasks.yaml`;
 
       await executor.execute(prompt);
