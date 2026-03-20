@@ -9,6 +9,8 @@ import {
 } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IWorktreeService } from '@/application/ports/output/services/worktree-service.interface.js';
 import type { ConflictResolutionService } from '@/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import type { Feature } from '@/domain/generated/output.js';
 import { SdlcLifecycle } from '@/domain/generated/output.js';
 
@@ -76,6 +78,28 @@ function createMockConflictResolution(): ConflictResolutionService {
   } as unknown as ConflictResolutionService;
 }
 
+function createMockAgentRunRepo(): IAgentRunRepository {
+  return {
+    create: vi.fn().mockResolvedValue(undefined),
+    findById: vi.fn(),
+    findByThreadId: vi.fn(),
+    updateStatus: vi.fn().mockResolvedValue(undefined),
+    findRunningByPid: vi.fn(),
+    list: vi.fn(),
+    delete: vi.fn(),
+  } as unknown as IAgentRunRepository;
+}
+
+function createMockPhaseTimingRepo(): IPhaseTimingRepository {
+  return {
+    save: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
+    updateApprovalWait: vi.fn(),
+    findByRunId: vi.fn(),
+    findByFeatureId: vi.fn(),
+  } as unknown as IPhaseTimingRepository;
+}
+
 const sampleFeature: Feature = {
   id: 'feat-abc-123',
   name: 'My Feature',
@@ -101,6 +125,8 @@ describe('RebaseFeatureOnMainUseCase', () => {
   let mockGitPrService: IGitPrService;
   let mockWorktreeService: IWorktreeService;
   let mockConflictResolution: ConflictResolutionService;
+  let mockAgentRunRepo: IAgentRunRepository;
+  let mockPhaseTimingRepo: IPhaseTimingRepository;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -108,11 +134,15 @@ describe('RebaseFeatureOnMainUseCase', () => {
     mockGitPrService = createMockGitPrService();
     mockWorktreeService = createMockWorktreeService();
     mockConflictResolution = createMockConflictResolution();
+    mockAgentRunRepo = createMockAgentRunRepo();
+    mockPhaseTimingRepo = createMockPhaseTimingRepo();
     useCase = new RebaseFeatureOnMainUseCase(
       mockFeatureRepo,
       mockGitPrService,
       mockWorktreeService,
-      mockConflictResolution
+      mockConflictResolution,
+      mockAgentRunRepo,
+      mockPhaseTimingRepo
     );
   });
 

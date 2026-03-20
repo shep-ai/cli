@@ -103,6 +103,7 @@ const NODE_TO_PHASE: Record<string, string> = {
   research: 'Researching',
   plan: 'Planning',
   implement: 'Implementing',
+  rebase: 'Rebasing',
   'fast-implement': 'Fast Implement',
   evidence: 'Evidence',
   validate: 'Validating',

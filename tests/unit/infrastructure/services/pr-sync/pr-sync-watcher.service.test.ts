@@ -100,6 +100,7 @@ function createMockGitPrService(): IGitPrService {
     stageFiles: vi.fn().mockResolvedValue(undefined),
     rebaseContinue: vi.fn().mockResolvedValue(undefined),
     rebaseAbort: vi.fn().mockResolvedValue(undefined),
+    getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
   };
 }
 

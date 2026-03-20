@@ -197,6 +197,7 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
       stageFiles: vi.fn().mockResolvedValue(undefined),
       rebaseContinue: vi.fn().mockResolvedValue(undefined),
       rebaseAbort: vi.fn().mockResolvedValue(undefined),
+      getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
     },
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
   };

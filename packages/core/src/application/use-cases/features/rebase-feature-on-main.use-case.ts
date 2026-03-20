@@ -4,11 +4,13 @@
  * Rebases a feature branch onto the latest main branch with auto-sync
  * and agent-powered conflict resolution.
  *
- * Flow: resolve feature → determine cwd (worktree or repo root) →
- * sync main → rebase → on conflict, delegate to ConflictResolutionService.
+ * Flow: resolve feature → create standalone agent run → record phase timing →
+ * determine cwd (worktree or repo root) → sync main → rebase →
+ * on conflict, delegate to ConflictResolutionService → complete timing.
  */
 
 import { injectable, inject } from 'tsyringe';
+import { randomUUID } from 'node:crypto';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IGitPrService } from '../../ports/output/services/git-pr-service.interface.js';
 import {
@@ -16,6 +18,9 @@ import {
   GitPrErrorCode,
 } from '../../ports/output/services/git-pr-service.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
+import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '../../ports/output/agents/phase-timing-repository.interface.js';
+import { AgentRunStatus, AgentType } from '../../../domain/generated/output.js';
 import type { ConflictResolutionService } from '../../../infrastructure/services/agents/conflict-resolution/conflict-resolution.service.js';
 
 @injectable()
@@ -28,7 +33,11 @@ export class RebaseFeatureOnMainUseCase {
     @inject('IWorktreeService')
     private readonly worktreeService: IWorktreeService,
     @inject('ConflictResolutionService')
-    private readonly conflictResolutionService: ConflictResolutionService
+    private readonly conflictResolutionService: ConflictResolutionService,
+    @inject('IAgentRunRepository')
+    private readonly agentRunRepo: IAgentRunRepository,
+    @inject('IPhaseTimingRepository')
+    private readonly phaseTimingRepo: IPhaseTimingRepository
   ) {}
 
   async execute(featureId: string): Promise<void> {
@@ -40,24 +49,90 @@ export class RebaseFeatureOnMainUseCase {
       throw new Error(`Feature not found: "${featureId}"`);
     }
 
-    // Determine working directory — worktree path if it exists, else repo root
-    const cwd = await this.resolveCwd(feature.repositoryPath, feature.branch);
-    const defaultBranch = await this.gitPrService.getDefaultBranch(feature.repositoryPath);
+    // Create standalone agent run + phase timing for activity timeline
+    const now = new Date().toISOString();
+    const agentRunId = randomUUID();
+    const phaseTimingId = randomUUID();
 
-    // Auto-sync main before rebasing (per spec decision)
-    await this.gitPrService.syncMain(cwd, defaultBranch);
+    await this.agentRunRepo.create({
+      id: agentRunId,
+      agentType: AgentType.ClaudeCode,
+      agentName: 'rebase',
+      status: AgentRunStatus.running,
+      prompt: `Rebase ${feature.branch} on main`,
+      threadId: agentRunId,
+      startedAt: now,
+      featureId: feature.id,
+      repositoryPath: feature.repositoryPath,
+      createdAt: now,
+      updatedAt: now,
+    });
 
-    // Attempt rebase
+    await this.phaseTimingRepo.save({
+      id: phaseTimingId,
+      agentRunId,
+      phase: 'rebase',
+      startedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const startMs = Date.now();
+
     try {
-      await this.gitPrService.rebaseOnMain(cwd, feature.branch, defaultBranch);
-    } catch (error) {
-      if (error instanceof GitPrError && error.code === GitPrErrorCode.REBASE_CONFLICT) {
-        // Delegate to agent-powered conflict resolution
-        await this.conflictResolutionService.resolve(cwd, feature.branch, defaultBranch);
-        return;
+      // Determine working directory — worktree path if it exists, else repo root
+      const cwd = await this.resolveCwd(feature.repositoryPath, feature.branch);
+      const defaultBranch = await this.gitPrService.getDefaultBranch(feature.repositoryPath);
+
+      // Auto-sync main before rebasing (per spec decision)
+      await this.gitPrService.syncMain(cwd, defaultBranch);
+
+      // Attempt rebase
+      try {
+        await this.gitPrService.rebaseOnMain(cwd, feature.branch, defaultBranch);
+      } catch (error) {
+        if (error instanceof GitPrError && error.code === GitPrErrorCode.REBASE_CONFLICT) {
+          // Delegate to agent-powered conflict resolution
+          await this.conflictResolutionService.resolve(cwd, feature.branch, defaultBranch);
+          // Conflict resolution succeeded — complete timing as success
+          await this.completeTiming(agentRunId, phaseTimingId, startMs, 'success');
+          return;
+        }
+        throw error;
       }
+
+      // Rebase succeeded without conflicts
+      await this.completeTiming(agentRunId, phaseTimingId, startMs, 'success');
+    } catch (error) {
+      // Record failure in timing
+      const message = error instanceof Error ? error.message : String(error);
+      await this.completeTiming(agentRunId, phaseTimingId, startMs, 'error', message);
       throw error;
     }
+  }
+
+  private async completeTiming(
+    agentRunId: string,
+    phaseTimingId: string,
+    startMs: number,
+    exitCode: 'success' | 'error',
+    errorMessage?: string
+  ): Promise<void> {
+    const completedAt = new Date().toISOString();
+    const durationMs = Date.now() - startMs;
+
+    await this.phaseTimingRepo.update(phaseTimingId, {
+      completedAt,
+      durationMs: BigInt(durationMs),
+      exitCode,
+      ...(errorMessage && { errorMessage }),
+    });
+
+    await this.agentRunRepo.updateStatus(
+      agentRunId,
+      exitCode === 'success' ? AgentRunStatus.completed : AgentRunStatus.failed,
+      { completedAt, ...(errorMessage && { error: errorMessage }) }
+    );
   }
 
   /**

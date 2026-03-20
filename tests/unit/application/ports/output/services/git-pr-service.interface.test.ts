@@ -184,6 +184,9 @@ describe('IGitPrService', () => {
       rebaseAbort: async () => {
         /* noop */
       },
+      getBranchSyncStatus: async () => {
+        return { ahead: 0, behind: 0 };
+      },
     };
 
     // Verify all methods exist
@@ -214,9 +217,10 @@ describe('IGitPrService', () => {
       'stageFiles',
       'rebaseContinue',
       'rebaseAbort',
+      'getBranchSyncStatus',
     ];
 
-    expect(methodNames).toHaveLength(26);
+    expect(methodNames).toHaveLength(27);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

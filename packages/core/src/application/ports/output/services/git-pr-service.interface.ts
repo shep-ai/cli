@@ -450,4 +450,24 @@ export interface IGitPrService {
    * @throws GitPrError with GIT_ERROR code on failure
    */
   rebaseAbort(cwd: string): Promise<void>;
+
+  /**
+   * Get the sync status (ahead/behind counts) between a feature branch
+   * and a base branch's remote-tracking ref.
+   *
+   * Uses:
+   * - `git rev-list --count origin/<baseBranch>..<featureBranch>` → ahead
+   * - `git rev-list --count <featureBranch>..origin/<baseBranch>` → behind
+   *
+   * @param cwd - Working directory path
+   * @param featureBranch - The feature branch to check
+   * @param baseBranch - The base branch name (uses origin/<baseBranch>)
+   * @returns Object with ahead and behind commit counts
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  getBranchSyncStatus(
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string
+  ): Promise<{ ahead: number; behind: number }>;
 }

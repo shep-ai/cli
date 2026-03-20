@@ -31,6 +31,7 @@ import { useFeatureLogs } from '@/hooks/use-feature-logs';
 import { useTabDataFetch } from './use-tab-data-fetch';
 import type { TabFetchers } from './use-tab-data-fetch';
 import type { FeatureTabKey } from '@/components/common/control-center-drawer/drawer-view';
+import type { BranchSyncData } from '@/hooks/use-branch-sync-status';
 
 /** Lazy-loaded tab keys (tabs that fetch data on activation). */
 type LazyTabKey = 'activity' | 'plan';
@@ -112,6 +113,12 @@ export interface FeatureDrawerTabsProps {
   onMergeReject?: (feedback: string, attachments: RejectAttachment[]) => void;
   isMergeLoading?: boolean;
 
+  // Branch sync
+  syncStatus?: BranchSyncData | null;
+  syncLoading?: boolean;
+  syncError?: string | null;
+  onRefreshSync?: () => void;
+
   // Rebase
   onRebaseOnMain?: () => void;
   rebaseLoading?: boolean;
@@ -165,6 +172,10 @@ export function FeatureDrawerTabs({
   onMergeApprove,
   onMergeReject,
   isMergeLoading,
+  syncStatus,
+  syncLoading,
+  syncError,
+  onRefreshSync,
   onRebaseOnMain,
   rebaseLoading,
   rebaseError,
@@ -391,6 +402,10 @@ export function FeatureDrawerTabs({
         <TabsContent value="overview" className="mt-0 flex-1 overflow-y-auto">
           <OverviewTab
             data={featureNode}
+            syncStatus={syncStatus}
+            syncLoading={syncLoading}
+            syncError={syncError}
+            onRefreshSync={onRefreshSync}
             onRebaseOnMain={onRebaseOnMain}
             rebaseLoading={rebaseLoading}
             rebaseError={rebaseError}

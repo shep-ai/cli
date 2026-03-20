@@ -40,6 +40,7 @@ import { deriveInitialTab } from './drawer-view';
 import type { DrawerView, FeatureTabKey } from './drawer-view';
 import { useArtifactFetch } from './use-artifact-fetch';
 import { useDrawerSync } from './use-drawer-sync';
+import { useBranchSyncStatus } from '@/hooks/use-branch-sync-status';
 
 export interface FeatureDrawerClientProps {
   view: DrawerView;
@@ -449,6 +450,29 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       : null;
   const featureActions = useFeatureActions(featureActionsInput);
 
+  // Branch sync status — only when the feature flag is on and the feature has a branch
+  const syncFeatureId =
+    featureFlags.gitRebaseSync && featureNode?.branch ? featureNode.featureId : null;
+  const {
+    data: syncData,
+    loading: syncLoading,
+    error: syncError,
+    refresh: refreshSync,
+  } = useBranchSyncStatus(syncFeatureId);
+
+  // Auto-refresh sync status after a successful rebase
+  const prevRebaseLoadingRef = useRef(featureActions.rebaseLoading);
+  useEffect(() => {
+    if (
+      prevRebaseLoadingRef.current &&
+      !featureActions.rebaseLoading &&
+      !featureActions.rebaseError
+    ) {
+      refreshSync();
+    }
+    prevRebaseLoadingRef.current = featureActions.rebaseLoading;
+  }, [featureActions.rebaseLoading, featureActions.rebaseError, refreshSync]);
+
   const featureDeployTarget =
     featureNode?.repositoryPath && featureNode.branch
       ? {
@@ -635,6 +659,10 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
         onMergeApprove={handleMergeApprove}
         onMergeReject={handleMergeReject}
         isMergeLoading={isLoadingMerge}
+        syncStatus={featureFlags.gitRebaseSync ? syncData : undefined}
+        syncLoading={syncLoading}
+        syncError={syncError}
+        onRefreshSync={featureFlags.gitRebaseSync ? refreshSync : undefined}
         onRebaseOnMain={featureFlags.gitRebaseSync ? featureActions.rebaseOnMain : undefined}
         rebaseLoading={featureActions.rebaseLoading}
         rebaseError={featureActions.rebaseError}

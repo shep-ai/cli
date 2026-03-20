@@ -942,4 +942,24 @@ export class GitPrService implements IGitPrService {
       throw this.parseGitError(error);
     }
   }
+
+  async getBranchSyncStatus(
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string
+  ): Promise<{ ahead: number; behind: number }> {
+    try {
+      const remoteRef = `origin/${baseBranch}`;
+      const [aheadResult, behindResult] = await Promise.all([
+        this.execFile('git', ['rev-list', '--count', `${remoteRef}..${featureBranch}`], { cwd }),
+        this.execFile('git', ['rev-list', '--count', `${featureBranch}..${remoteRef}`], { cwd }),
+      ]);
+      return {
+        ahead: parseInt(aheadResult.stdout.trim(), 10) || 0,
+        behind: parseInt(behindResult.stdout.trim(), 10) || 0,
+      };
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
 }
