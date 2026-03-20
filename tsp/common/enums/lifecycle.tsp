@@ -104,4 +104,14 @@ enum SdlcLifecycle {
    */
   @doc("Feature is being deleted — cleanup in progress before soft-delete")
   Deleting,
+
+  /**
+   * Archived state. The feature is hidden from the canvas and default listings
+   * but retains all data (messages, plan, artifacts, git branches). Only features
+   * in terminal or idle states (Maintain, Pending, Blocked) can be archived.
+   * The previous lifecycle state is stored in previousLifecycle for restoration
+   * on unarchive.
+   */
+  @doc("Feature is archived — hidden from canvas and listings but fully preserved")
+  Archived,
 }

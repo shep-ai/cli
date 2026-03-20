@@ -770,6 +770,7 @@ export enum SdlcLifecycle {
   Blocked = 'Blocked',
   Pending = 'Pending',
   Deleting = 'Deleting',
+  Archived = 'Archived',
 }
 
 /**
@@ -974,6 +975,10 @@ export type Feature = SoftDeletableEntity & {
    * Parent feature ID for dependency tracking (optional)
    */
   parentId?: UUID;
+  /**
+   * Lifecycle state prior to archiving, used to restore on unarchive (only set when lifecycle is Archived)
+   */
+  previousLifecycle?: SdlcLifecycle;
   /**
    * Files attached by the user when creating or messaging this feature
    */

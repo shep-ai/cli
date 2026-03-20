@@ -69,6 +69,9 @@ properties:
   parentId:
     $ref: UUID.yaml
     description: Parent feature ID for dependency tracking (optional)
+  previousLifecycle:
+    $ref: SdlcLifecycle.yaml
+    description: Lifecycle state prior to archiving, used to restore on unarchive (only set when lifecycle is Archived)
   attachments:
     type: array
     items:
