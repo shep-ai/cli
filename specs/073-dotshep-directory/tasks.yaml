@@ -1,0 +1,592 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "dotshep-directory"
+summary: >
+  21 tasks across 6 phases. Phase 1 builds the foundation (shared utility, TypeSpec model,
+  migration, mapper, repository interface). Phase 2 implements dual-mode spec-initializer.
+  Phase 3 wires the use case and evidence. Phase 4 relocates fixtures and updates all tests.
+  Phase 5 updates documentation, scripts, and config. Phase 6 validates everything.
+
+relatedFeatures: []
+technologies: []
+
+relatedLinks:
+  - title: "GitHub Issue #370 - Write shep files into a .shep directory"
+    url: "https://github.com/shep-ai/cli/issues/370"
+
+tasks:
+  # ── Phase 1: Foundation ──────────────────────────────────────────────
+
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Extract shared computeRepoHash() utility"
+    description: >
+      Extract the duplicated SHA-256 repo hash computation from WorktreeService.getWorktreePath()
+      and compute-worktree-path.ts into a shared utility at
+      packages/core/src/infrastructure/services/filesystem/repo-hash.ts. Update both existing
+      consumers to import the shared function. The function normalizes backslashes, computes
+      SHA-256, and returns the first 16 hex chars.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "computeRepoHash(repoPath) exported from repo-hash.ts"
+      - "Function normalizes backslashes before hashing"
+      - "Function returns first 16 hex chars of SHA-256"
+      - "WorktreeService.getWorktreePath() uses computeRepoHash() instead of inline hash"
+      - "compute-worktree-path.ts uses computeRepoHash() instead of inline hash"
+      - "Unit tests cover normalization, deterministic output, and edge cases"
+      - "Existing tests still pass (no behavior change)"
+    tdd:
+      red:
+        - "Create repo-hash.test.ts with tests: returns 16 hex chars, normalizes backslashes (C:\\foo and C:/foo produce same hash), deterministic output for same input, different output for different paths"
+      green:
+        - "Create repo-hash.ts with computeRepoHash() function using crypto.createHash('sha256')"
+        - "Import and use in WorktreeService.getWorktreePath() replacing inline hash"
+        - "Import and use in compute-worktree-path.ts replacing inline hash"
+      refactor:
+        - "Remove now-unused crypto import from worktree.service.ts if no other usage"
+        - "Remove now-unused crypto import from compute-worktree-path.ts if no other usage"
+    estimatedEffort: "45min"
+
+  - id: "task-2"
+    phaseId: "phase-1"
+    title: "Update TypeSpec Repository model with specStorageMode field"
+    description: >
+      Add an optional specStorageMode field to the Repository model in
+      tsp/domain/entities/repository.tsp. Run pnpm tsp:compile to regenerate
+      packages/core/src/domain/generated/output.ts. The field is a string type
+      with documentation indicating valid values are 'in-repo' and 'shep-managed'.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "Repository model in repository.tsp has optional specStorageMode field with @doc annotation"
+      - "pnpm tsp:compile succeeds without errors"
+      - "Generated output.ts includes specStorageMode?: string on Repository interface"
+    tdd:
+      red:
+        - "Verify current generated output.ts does NOT have specStorageMode field"
+      green:
+        - "Add specStorageMode?: string field with @doc to repository.tsp"
+        - "Run pnpm tsp:compile to regenerate output.ts"
+      refactor:
+        - "Verify generated type matches expected shape"
+    estimatedEffort: "15min"
+
+  - id: "task-3"
+    phaseId: "phase-1"
+    title: "Create migration 044-add-spec-storage-mode"
+    description: >
+      Create SQLite migration to add spec_storage_mode TEXT DEFAULT 'in-repo' column to the
+      repositories table. Follow the pattern of migration 040-add-repository-remote-url:
+      check column existence via pragma, add column idempotently. No index needed since
+      this field is not queried by value.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "Migration file 044-add-spec-storage-mode.ts exists"
+      - "up() adds spec_storage_mode TEXT DEFAULT 'in-repo' column"
+      - "up() is idempotent (checks pragma table_info before ALTER)"
+      - "down() is a no-op or best-effort (SQLite DROP COLUMN limitation)"
+      - "Existing rows get default value 'in-repo'"
+    tdd:
+      red:
+        - "Verify repositories table does NOT have spec_storage_mode column before migration"
+      green:
+        - "Create 044-add-spec-storage-mode.ts with up() and down() following migration 040 pattern"
+        - "Register migration in the migrations index/runner if needed"
+      refactor:
+        - "Verify migration is registered in correct order"
+    estimatedEffort: "20min"
+
+  - id: "task-4"
+    phaseId: "phase-1"
+    title: "Update repository mapper for specStorageMode"
+    description: >
+      Add spec_storage_mode to RepositoryRow interface, update toDatabase() and fromDatabase()
+      in repository.mapper.ts to map between TypeScript specStorageMode and SQL spec_storage_mode.
+      Default to 'in-repo' when the column is null.
+    state: "Todo"
+    dependencies:
+      - "task-2"
+      - "task-3"
+    acceptanceCriteria:
+      - "RepositoryRow includes spec_storage_mode: string | null"
+      - "fromDatabase() maps spec_storage_mode to specStorageMode (defaults to 'in-repo' if null)"
+      - "toDatabase() maps specStorageMode to spec_storage_mode"
+    tdd:
+      red:
+        - "Write mapper test: fromDatabase with spec_storage_mode='shep-managed' returns specStorageMode='shep-managed'"
+        - "Write mapper test: fromDatabase with spec_storage_mode=null returns specStorageMode='in-repo'"
+        - "Write mapper test: toDatabase with specStorageMode='shep-managed' returns spec_storage_mode='shep-managed'"
+      green:
+        - "Add spec_storage_mode to RepositoryRow interface"
+        - "Update fromDatabase() to map the field with default"
+        - "Update toDatabase() to map the field"
+      refactor:
+        - "Ensure consistent ordering with other fields in the mapper"
+    estimatedEffort: "30min"
+
+  - id: "task-5"
+    phaseId: "phase-1"
+    title: "Update repository interface and implementation for specStorageMode"
+    description: >
+      Add specStorageMode to the Partial<Pick<Repository, ...>> type in
+      IRepositoryRepository.update(). Update SQLiteRepositoryRepository to include
+      spec_storage_mode in INSERT and SELECT queries. Ensure create() and findByPath()
+      include the new column.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "IRepositoryRepository.update() accepts specStorageMode in its fields parameter"
+      - "SQLiteRepositoryRepository.create() includes spec_storage_mode in INSERT"
+      - "SQLiteRepositoryRepository.update() handles spec_storage_mode field"
+      - "SELECT * queries automatically include the new column (no explicit change needed)"
+    tdd:
+      red:
+        - "Write test: update repository with specStorageMode='shep-managed' persists and can be retrieved"
+        - "Write test: create repository defaults specStorageMode to 'in-repo'"
+      green:
+        - "Add 'specStorageMode' to Partial<Pick<...>> in IRepositoryRepository.update()"
+        - "Update SQLiteRepositoryRepository.create() INSERT to include spec_storage_mode"
+        - "Update SQLiteRepositoryRepository.update() to handle spec_storage_mode"
+      refactor:
+        - "Verify all repository queries correctly round-trip the new field"
+    estimatedEffort: "30min"
+
+  # ── Phase 2: Core Spec-Initializer ───────────────────────────────────
+
+  - id: "task-6"
+    phaseId: "phase-2"
+    title: "Update ISpecInitializerService interface with options parameter"
+    description: >
+      Define SpecInitializerOptions type with storageMode and repositoryPath fields.
+      Add optional options parameter to ISpecInitializerService.initialize(). Export
+      the options type from the interface file.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "SpecInitializerOptions type exported with storageMode?: 'in-repo' | 'shep-managed' and repositoryPath?: string"
+      - "initialize() method signature includes optional options parameter"
+      - "Backward compatible: existing callers without options get in-repo behavior"
+    tdd:
+      red:
+        - "Write type-level test or verify that the interface compiles with the new parameter"
+      green:
+        - "Add SpecInitializerOptions type definition"
+        - "Add options?: SpecInitializerOptions as last parameter to initialize()"
+      refactor:
+        - "Add JSDoc documenting the options parameter and when repositoryPath is required"
+    estimatedEffort: "15min"
+
+  - id: "task-7"
+    phaseId: "phase-2"
+    title: "Implement dual-mode path construction in SpecInitializerService"
+    description: >
+      Update SpecInitializerService.initialize() to construct spec directories at
+      .shep/specs/NNN-feature/ (in-repo mode) or ~/.shep/repos/<hash>/specs/NNN-feature/
+      (shep-managed mode) based on the options parameter. Import computeRepoHash() for
+      shep-managed path computation. Default to in-repo when no options provided.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+      - "task-6"
+    acceptanceCriteria:
+      - "In-repo mode: specDir = join(basePath, '.shep', 'specs', specDirName)"
+      - "Shep-managed mode: specDir = join(getShepHomeDir(), 'repos', computeRepoHash(repositoryPath), 'specs', specDirName)"
+      - "Default (no options): in-repo mode"
+      - "mkdir({ recursive: true }) creates .shep/specs/ parent directories"
+      - "All template files written to the correct directory in both modes"
+    tdd:
+      red:
+        - "Update existing test: verify initialize() creates spec at .shep/specs/NNN-slug/ (not specs/NNN-slug/)"
+        - "Write new test: initialize with storageMode='shep-managed' creates spec at ~/.shep/repos/<hash>/specs/NNN-slug/"
+        - "Write new test: initialize with no options defaults to .shep/specs/ path"
+      green:
+        - "Add options parameter to initialize() implementation"
+        - "Branch on storageMode to compute specDir"
+        - "Import computeRepoHash from repo-hash.ts"
+        - "Import getShepHomeDir from shep-directory.service.ts"
+      refactor:
+        - "Extract path computation into a private method for clarity"
+        - "Ensure forward-slash normalization on returned specDir"
+    estimatedEffort: "45min"
+
+  - id: "task-8"
+    phaseId: "phase-2"
+    title: "Implement multi-directory NNN scanning in resolveNextNumber()"
+    description: >
+      Update resolveNextNumber() to scan up to 3 directories: specs/ (legacy),
+      .shep/specs/ (in-repo), and ~/.shep/repos/<hash>/specs/ (shep-managed).
+      Take the max NNN across all directories. Each scan gracefully handles
+      non-existent directories via try/catch returning empty arrays.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "Scans join(basePath, 'specs') for legacy directories"
+      - "Scans join(basePath, '.shep', 'specs') for in-repo directories"
+      - "Scans join(getShepHomeDir(), 'repos', repoHash, 'specs') when repositoryPath provided"
+      - "Returns max NNN + 1 across all locations"
+      - "Non-existent directories produce no errors (try/catch with empty result)"
+      - "Feature number hint from DB is still respected as minimum"
+    tdd:
+      red:
+        - "Write test: specs/ has 005, .shep/specs/ has 010 -> resolves to 011"
+        - "Write test: specs/ does not exist, .shep/specs/ has 003 -> resolves to 004"
+        - "Write test: both directories empty -> resolves to feature number hint"
+        - "Write test: shep-managed scan finds specs in ~/.shep/repos/<hash>/specs/"
+      green:
+        - "Refactor resolveNextNumber() to accept options parameter"
+        - "Add readdir calls for each directory with try/catch for ENOENT"
+        - "Compute max across all found NNN prefixes"
+      refactor:
+        - "Extract directory scanning into a helper that returns NNN numbers from a path"
+    estimatedEffort: "45min"
+
+  # ── Phase 3: Wiring ──────────────────────────────────────────────────
+
+  - id: "task-9"
+    phaseId: "phase-3"
+    title: "Wire CreateFeatureUseCase to pass storage mode options"
+    description: >
+      Update CreateFeatureUseCase.initializeAndSpawn() to read specStorageMode from
+      the repository entity and pass it to specInitializer.initialize() via the
+      options object. The repository entity is already available via this.repositoryRepo.
+    state: "Todo"
+    dependencies:
+      - "task-5"
+      - "task-7"
+    acceptanceCriteria:
+      - "Use case reads repository.specStorageMode (defaults to 'in-repo')"
+      - "Options object passed to specInitializer.initialize() includes storageMode and repositoryPath"
+      - "When specStorageMode is undefined/null, defaults to 'in-repo'"
+      - "Existing feature creation flow unchanged for in-repo mode"
+    tdd:
+      red:
+        - "Write test: CreateFeatureUseCase passes storageMode from repository entity to spec-initializer"
+        - "Write test: when repository.specStorageMode is undefined, passes 'in-repo' as default"
+      green:
+        - "Read repository.specStorageMode in initializeAndSpawn()"
+        - "Construct SpecInitializerOptions object"
+        - "Pass options to this.specInitializer.initialize()"
+      refactor:
+        - "Ensure the options construction is clean and well-documented"
+    estimatedEffort: "30min"
+
+  - id: "task-10"
+    phaseId: "phase-3"
+    title: "Update evidence-prompts for shep-managed mode"
+    description: >
+      Update evidence-prompts.ts to detect when specDir is outside the worktree
+      (shep-managed mode) and force commitEvidence=false. When specDir is within
+      the worktree, behavior is unchanged. The detection can use path.relative()
+      — if the result starts with '..' the specDir is outside.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "When specDir is inside worktree: commitEvidence behavior unchanged"
+      - "When specDir is outside worktree (starts with ..): commitEvidence forced to false"
+      - "Evidence is still captured to ~/.shep/repos/<hash>/evidence/ regardless of mode"
+      - "No breaking changes to existing evidence flow"
+    tdd:
+      red:
+        - "Write test: specDir inside worktree, commitEvidence=true -> evidence commit instructions included"
+        - "Write test: specDir outside worktree (shep-managed), commitEvidence=true -> evidence commit instructions NOT included (forced false)"
+        - "Write test: specDir inside worktree (.shep/specs/ path), commitEvidence=true -> evidence commit instructions included"
+      green:
+        - "Add detection logic: const relPath = relative(cwd, specDir); const isOutside = relPath.startsWith('..')"
+        - "When isOutside, override commitEvidence to false"
+      refactor:
+        - "Extract isSpecDirOutsideWorktree() helper for readability"
+    estimatedEffort: "30min"
+
+  # ── Phase 4: Test Fixture Relocation & Test Updates ──────────────────
+
+  - id: "task-11"
+    phaseId: "phase-4"
+    title: "Relocate test fixtures from specs/032-example-specs/ to tests/fixtures/"
+    description: >
+      Move the 5 YAML files from specs/032-example-specs/ to tests/fixtures/spec-yaml-samples/.
+      Delete the old specs/032-example-specs/ directory. This separates committed test
+      fixtures from production spec output.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "tests/fixtures/spec-yaml-samples/ contains spec.yaml, research.yaml, plan.yaml, tasks.yaml, feature.yaml"
+      - "specs/032-example-specs/ directory is deleted"
+      - "All 5 files have identical content to originals"
+    tdd: null
+    estimatedEffort: "10min"
+
+  - id: "task-12"
+    phaseId: "phase-4"
+    title: "Update 3 spec-yaml test files for relocated fixtures"
+    description: >
+      Update the fixture path constant in spec-yaml-parser.test.ts,
+      spec-yaml-artifact-parsing.test.ts, and spec-yaml-backward-compatibility.test.ts
+      to point to tests/fixtures/spec-yaml-samples/ instead of specs/032-example-specs/.
+    state: "Todo"
+    dependencies:
+      - "task-11"
+    acceptanceCriteria:
+      - "spec-yaml-parser.test.ts references tests/fixtures/spec-yaml-samples/"
+      - "spec-yaml-artifact-parsing.test.ts references tests/fixtures/spec-yaml-samples/"
+      - "spec-yaml-backward-compatibility.test.ts references tests/fixtures/spec-yaml-samples/"
+      - "All 3 test files pass"
+    tdd:
+      red:
+        - "Run the 3 test files — they should fail because old fixture path no longer exists"
+      green:
+        - "Update path constants in all 3 files to point to tests/fixtures/spec-yaml-samples/"
+      refactor:
+        - "Verify consistent path construction (use path.join with __dirname or similar)"
+    estimatedEffort: "15min"
+
+  - id: "task-13"
+    phaseId: "phase-4"
+    title: "Update spec-initializer unit tests for .shep/specs/ paths"
+    description: >
+      Update all spec-initializer.service.test.ts assertions that check for
+      join(tempDir, 'specs', ...) to check for join(tempDir, '.shep', 'specs', ...).
+      Add new test cases for shep-managed mode path construction.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+      - "task-8"
+    acceptanceCriteria:
+      - "All existing tests updated to expect .shep/specs/ paths instead of specs/"
+      - "New test: in-repo mode creates directories at .shep/specs/"
+      - "New test: shep-managed mode creates directories at ~/.shep/repos/<hash>/specs/"
+      - "New test: multi-directory NNN scanning works across all 3 locations"
+      - "New test: default options produce in-repo behavior"
+      - "All spec-initializer tests pass"
+    tdd:
+      red:
+        - "Update existing path assertions to .shep/specs/ — tests fail against old code"
+        - "Add shep-managed test cases — tests fail because mode not yet recognized"
+      green:
+        - "Tests pass against updated spec-initializer implementation"
+      refactor:
+        - "Extract common test helpers for creating temp directories with specs"
+    estimatedEffort: "1h"
+
+  - id: "task-14"
+    phaseId: "phase-4"
+    title: "Update dev-executor and integration test spec paths"
+    description: >
+      Update dev-executor.service.test.ts to use .shep/specs/042-dark-mode instead of
+      specs/042-dark-mode. Update start-feature.use-case.test.ts specPath to use
+      .shep/specs/ pattern.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "dev-executor.service.test.ts uses .shep/specs/ paths"
+      - "start-feature.use-case.test.ts uses .shep/specs/ paths"
+      - "Both test files pass"
+    tdd:
+      red:
+        - "Update path strings to .shep/specs/ — tests should fail against old paths"
+      green:
+        - "Confirm tests pass with updated production code"
+      refactor:
+        - "Ensure path construction uses path.join consistently"
+    estimatedEffort: "20min"
+
+  - id: "task-15"
+    phaseId: "phase-4"
+    title: "Update e2e test for .shep/specs/ verification"
+    description: >
+      Update tests/e2e/cli/feat.test.ts to verify that the spec directory is created at
+      .shep/specs/ instead of specs/. Add an e2e or integration test case that verifies
+      shep-managed mode stores specs at ~/.shep/repos/<hash>/specs/.
+    state: "Todo"
+    dependencies:
+      - "task-9"
+    acceptanceCriteria:
+      - "E2E test verifies spec directory at join(worktreePath, '.shep', 'specs', '001-spec-init-check')"
+      - "E2E or integration test verifies shep-managed mode writes to ~/.shep/repos/<hash>/specs/"
+      - "All e2e tests pass"
+    tdd:
+      red:
+        - "Update specDir assertion to .shep/specs/ path — test fails against old behavior"
+        - "Add shep-managed mode test case — test fails"
+      green:
+        - "Tests pass against updated production code"
+      refactor:
+        - "Ensure test cleanup removes both .shep/ and specs/ directories"
+    estimatedEffort: "30min"
+
+  # ── Phase 5: Documentation, Scripts & Config ─────────────────────────
+
+  - id: "task-16"
+    phaseId: "phase-5"
+    title: "Update init-feature.sh shell script"
+    description: >
+      Change SPEC_DIR from 'specs/${NNN}-${FEATURE_NAME}' to '.shep/specs/${NNN}-${FEATURE_NAME}'
+      in init-feature.sh. The mkdir -p command already handles recursive creation. The shell
+      script only supports in-repo mode.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "SPEC_DIR variable uses .shep/specs/ prefix"
+      - "mkdir -p creates .shep/specs/ parent directories"
+      - "All template files written to .shep/specs/NNN-feature/"
+      - "Comment at top of script updated to reference .shep/specs/"
+    tdd: null
+    estimatedEffort: "10min"
+
+  - id: "task-17"
+    phaseId: "phase-5"
+    title: "Update all SKILL.md files and validation docs"
+    description: >
+      Update specs/ references to .shep/specs/ in all 9 SKILL.md files under .claude/skills/
+      and the 2 validation docs under shep-kit-implement/validation/. Also mention
+      shep-managed mode as an alternative where appropriate.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "shep-kit-new-feature/SKILL.md updated"
+      - "shep-kit-new-feature-fast/SKILL.md updated"
+      - "shep-kit-research/SKILL.md updated"
+      - "shep-kit-plan/SKILL.md updated"
+      - "shep-kit-status/SKILL.md updated"
+      - "shep-kit-parallel-task/SKILL.md updated"
+      - "shep-kit-merged/SKILL.md updated"
+      - "shep-kit-implement/validation/completeness.md updated"
+      - "shep-kit-implement/validation/consistency.md updated"
+      - "No remaining references to specs/NNN- pattern in SKILL.md files"
+    tdd: null
+    estimatedEffort: "30min"
+
+  - id: "task-18"
+    phaseId: "phase-5"
+    title: "Update CLAUDE.md and spec-driven-workflow.md"
+    description: >
+      Update CLAUDE.md spec workflow section to reference .shep/specs/ paths. Update
+      docs/development/spec-driven-workflow.md directory structure examples and all
+      references to specs/NNN-feature-name/. Add brief mention of shep-managed mode.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "CLAUDE.md references .shep/specs/ for spec location"
+      - "spec-driven-workflow.md directory examples updated to .shep/specs/"
+      - "spec-driven-workflow.md mentions shep-managed mode as alternative"
+      - "No remaining incorrect specs/ path references in either file"
+    tdd: null
+    estimatedEffort: "20min"
+
+  - id: "task-19"
+    phaseId: "phase-5"
+    title: "Update .prettierignore"
+    description: >
+      Replace the specs/ entry in .prettierignore with .shep/specs/ (or .shep/ if
+      broader ignoring is appropriate for future .shep/ contents). Keep the comment
+      explaining what the entry is for.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - ".prettierignore ignores .shep/specs/ (or .shep/) instead of specs/"
+      - "Comment updated to explain the new path"
+    tdd: null
+    estimatedEffort: "5min"
+
+  # ── Phase 6: Validation ──────────────────────────────────────────────
+
+  - id: "task-20"
+    phaseId: "phase-6"
+    title: "Run full test suite and fix any failures"
+    description: >
+      Run pnpm test (unit + integration + e2e), identify any remaining test failures
+      from the path migration, and fix them. This is the comprehensive verification pass.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+      - "task-2"
+      - "task-3"
+      - "task-4"
+      - "task-5"
+      - "task-6"
+      - "task-7"
+      - "task-8"
+      - "task-9"
+      - "task-10"
+      - "task-11"
+      - "task-12"
+      - "task-13"
+      - "task-14"
+      - "task-15"
+      - "task-16"
+      - "task-17"
+      - "task-18"
+      - "task-19"
+    acceptanceCriteria:
+      - "pnpm test:unit passes with 0 failures"
+      - "pnpm test:int passes with 0 failures"
+      - "pnpm test:e2e passes with 0 failures"
+      - "No specs/ path references remain in test output"
+    tdd: null
+    estimatedEffort: "30min"
+
+  - id: "task-21"
+    phaseId: "phase-6"
+    title: "Run validate and build"
+    description: >
+      Run pnpm validate (lint + format + typecheck + tsp) and pnpm build to confirm
+      the entire project compiles and passes all checks. Fix any issues found.
+    state: "Todo"
+    dependencies:
+      - "task-20"
+    acceptanceCriteria:
+      - "pnpm validate passes (lint, format, typecheck, tsp)"
+      - "pnpm build succeeds"
+      - "No TypeScript errors"
+      - "No lint warnings related to the changes"
+    tdd: null
+    estimatedEffort: "15min"
+
+totalEstimate: "8h 30min"
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 21 tasks across 6 phases, totaling approximately 8.5 hours.
+
+  **Phase 1 (Foundation)** establishes the data model: a shared `computeRepoHash()` utility
+  eliminates hash algorithm duplication, the TypeSpec Repository model gains `specStorageMode`,
+  migration 044 adds the column to SQLite, the mapper and repository implementation are updated.
+  These 5 tasks are the foundation everything else builds on.
+
+  **Phase 2 (Core)** is the heart of the feature with 3 tasks: update the spec-initializer
+  interface with the options parameter, implement dual-mode path construction (in-repo
+  `.shep/specs/` vs shep-managed `~/.shep/repos/<hash>/specs/`), and add multi-directory
+  NNN scanning to prevent number collisions during the transition period.
+
+  **Phase 3 (Wiring)** connects everything with 2 tasks: wire the CreateFeatureUseCase to
+  read `specStorageMode` from the repository entity and pass it to the initializer, and
+  update evidence-prompts to force `commitEvidence=false` when the spec directory is outside
+  the worktree (shep-managed mode).
+
+  **Phase 4 (Tests)** handles all test updates with 5 tasks: relocate the test fixtures from
+  `specs/032-example-specs/` to `tests/fixtures/spec-yaml-samples/`, update the 3 YAML
+  parser tests, update spec-initializer tests for both modes, update dev-executor and
+  integration tests, and update the e2e test.
+
+  **Phase 5 (Docs)** updates documentation and config with 4 tasks: the init-feature.sh
+  shell script, all 9 SKILL.md files plus 2 validation docs, CLAUDE.md and
+  spec-driven-workflow.md, and .prettierignore.
+
+  **Phase 6 (Validation)** is the final gate with 2 tasks: run the full test suite and fix
+  any remaining failures, then run validate and build to confirm everything compiles.
+
+  The dependency graph ensures no task runs before its prerequisites are complete. Phase 1
+  tasks 1-3 can run in parallel (no interdependencies). Task 4 depends on tasks 2-3.
+  Task 5 depends on task 4. Phase 2 depends on task 1. Phase 3 depends on phases 1-2.
+  Phase 4 test relocations can start immediately but test updates depend on production code.
+  Phase 5 has no code dependencies. Phase 6 depends on everything.
