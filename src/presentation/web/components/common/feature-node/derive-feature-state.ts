@@ -35,6 +35,11 @@ export function deriveNodeState(
     return 'deleting';
   }
 
+  // Archived lifecycle — feature is hidden/dormant, takes priority over agent run
+  if (feature.lifecycle === SdlcLifecycle.Archived) {
+    return 'archived';
+  }
+
   // Pending lifecycle — user-deferred, agent not yet spawned
   if (feature.lifecycle === SdlcLifecycle.Pending) {
     return 'pending';
@@ -145,6 +150,7 @@ export const sdlcLifecycleMap: Record<string, FeatureLifecyclePhase> = {
   'Deploy & QA': 'deploy',
   Maintain: 'maintain',
   Pending: 'pending',
+  Archived: 'maintain',
 };
 
 /** Map agent graph node names (from agent_run.result or SSE phaseName) to UI lifecycle phases. */
@@ -158,6 +164,7 @@ const phaseNameToLifecycle: Record<string, FeatureLifecyclePhase> = {
   maintain: 'maintain',
   blocked: 'requirements',
   pending: 'pending',
+  archived: 'maintain',
 };
 
 /**

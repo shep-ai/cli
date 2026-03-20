@@ -29,6 +29,7 @@ const stateMapping: Record<FeatureNodeState, FeatureStatus | null> = {
   error: 'error',
   creating: null,
   deleting: null,
+  archived: null,
 };
 
 /**
