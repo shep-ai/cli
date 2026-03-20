@@ -297,6 +297,9 @@ importers:
       ajv:
         specifier: ^8.18.0
         version: 8.18.0
+      croner:
+        specifier: ^10.0.0
+        version: 10.0.1
       tree-kill:
         specifier: ^1.2.2
         version: 1.2.2
@@ -3629,6 +3632,10 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  croner@10.0.1:
+    resolution: {integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g==}
+    engines: {node: '>=18.0'}
 
   cross-env@10.1.0:
     resolution: {integrity: sha512-GsYosgnACZTADcmEyJctkJIoqAhHjttw7RsFrVoJNXbsWWqaq6Ym+7kZjq6mS45O0jij6vtiReppKQEtqWy6Dw==}
@@ -10358,6 +10365,8 @@ snapshots:
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 5.9.3
+
+  croner@10.0.1: {}
 
   cross-env@10.1.0:
     dependencies:
