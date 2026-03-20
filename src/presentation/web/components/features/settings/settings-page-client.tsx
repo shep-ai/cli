@@ -352,6 +352,7 @@ export function SettingsPageClient({
     githubImport: false,
     adoptBranch: false,
     reactFileManager: false,
+    coastsDevServer: false,
   };
 
   // Agent state

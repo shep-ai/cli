@@ -510,6 +510,7 @@ describe('SQLiteSettingsRepository', () => {
         githubImport: false,
         adoptBranch: false,
         reactFileManager: false,
+        coastsDevServer: false,
       };
 
       await repository.initialize(settings);
@@ -522,6 +523,7 @@ describe('SQLiteSettingsRepository', () => {
         githubImport: false,
         adoptBranch: false,
         reactFileManager: false,
+        coastsDevServer: false,
       });
     });
 
@@ -538,6 +540,7 @@ describe('SQLiteSettingsRepository', () => {
         githubImport: false,
         adoptBranch: false,
         reactFileManager: false,
+        coastsDevServer: false,
       });
     });
 
@@ -552,6 +555,7 @@ describe('SQLiteSettingsRepository', () => {
         githubImport: false,
         adoptBranch: true,
         reactFileManager: false,
+        coastsDevServer: false,
       };
       settings.updatedAt = new Date('2025-01-02T00:00:00Z');
       await repository.update(settings);
@@ -564,6 +568,7 @@ describe('SQLiteSettingsRepository', () => {
         githubImport: false,
         adoptBranch: true,
         reactFileManager: false,
+        coastsDevServer: false,
       });
     });
 
@@ -576,6 +581,7 @@ describe('SQLiteSettingsRepository', () => {
         githubImport: false,
         adoptBranch: false,
         reactFileManager: false,
+        coastsDevServer: false,
       };
 
       await repository.initialize(settings);
