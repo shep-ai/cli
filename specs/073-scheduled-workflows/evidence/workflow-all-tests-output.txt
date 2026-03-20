@@ -1,0 +1,239 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-scheduled-workflows
+
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > toDatabase() > maps a full ScheduledWorkflow to a database row 3ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > toDatabase() > converts toolConstraints to JSON string 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > toDatabase() > converts enabled true to 1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > toDatabase() > converts enabled false to 0 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > toDatabase() > converts Date fields to unix milliseconds 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > toDatabase() > maps undefined optional fields to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > toDatabase() > maps deletedAt Date to unix milliseconds 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > toDatabase() > maps undefined deletedAt to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > fromDatabase() > maps a full database row to a ScheduledWorkflow 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > fromDatabase() > parses tool_constraints JSON string to string array 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > fromDatabase() > converts enabled 1 to true 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > fromDatabase() > converts enabled 0 to false 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > fromDatabase() > converts unix milliseconds to Date objects 7ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > fromDatabase() > omits optional fields when null in database 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > fromDatabase() > maps non-null deleted_at to Date 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > round-trip > preserves data through toDatabase(fromDatabase(row)) 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow.mapper.test.ts > Workflow Mapper > round-trip > preserves data through fromDatabase(toDatabase(workflow)) 2ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > toDatabase() > maps a completed execution to a database row 20ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > toDatabase() > converts Date fields to unix milliseconds 8ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > toDatabase() > maps undefined optional fields to null 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > toDatabase() > preserves enum values as strings 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > toDatabase() > maps a failed execution with error message 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > fromDatabase() > maps a database row to a WorkflowExecution 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > fromDatabase() > converts unix milliseconds to Date objects 3ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > fromDatabase() > omits optional fields when null in database 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > fromDatabase() > maps enum string values to enum types 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > round-trip > preserves data through toDatabase(fromDatabase(row)) 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/workflow-execution.mapper.test.ts > Workflow Execution Mapper > round-trip > preserves data through fromDatabase(toDatabase(execution)) 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/create-workflow.use-case.test.ts > CreateWorkflowUseCase > creates and returns a workflow with valid input 11ms
+ ✓  node  tests/unit/application/use-cases/workflows/create-workflow.use-case.test.ts > CreateWorkflowUseCase > throws when a workflow with the same name already exists 1ms
+ ✓  node  tests/unit/application/use-cases/workflows/create-workflow.use-case.test.ts > CreateWorkflowUseCase > throws with a descriptive error for an invalid cron expression 1ms
+ ✓  node  tests/unit/application/use-cases/workflows/create-workflow.use-case.test.ts > CreateWorkflowUseCase > calculates nextRunAt when a cron expression is provided 59ms
+ ✓  node  tests/unit/application/use-cases/workflows/create-workflow.use-case.test.ts > CreateWorkflowUseCase > leaves nextRunAt undefined when no cron expression is provided 4ms
+ ✓  node  tests/unit/application/use-cases/workflows/create-workflow.use-case.test.ts > CreateWorkflowUseCase > sets optional fields when provided 104ms
+ ✓  node  tests/unit/application/use-cases/workflows/create-workflow.use-case.test.ts > CreateWorkflowUseCase > does not calculate nextRunAt when workflow is disabled 1ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > lifecycle > start() begins polling and stop() stops it 6ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > lifecycle > start() is idempotent 1ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > polling > queries due workflows and enqueues them 16ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > polling > executes one queued workflow per tick 1ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > execution > creates WorkflowExecution with Running status and updates to Completed 8ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > execution > updates workflow lastRunAt and recalculates nextRunAt 5ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > notifications > emits WorkflowStarted event at execution start 8ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > notifications > emits WorkflowCompleted event on success 1ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > crash recovery > marks stale Running executions as Failed on startup 1ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > retention cleanup > deletes records older than 30 days every 100 ticks 11ms
+ ✓  node  tests/unit/infrastructure/services/workflow-scheduler/workflow-scheduler.service.test.ts > WorkflowSchedulerService > queue management > processes manually queued executions 1ms
+ ✓  node  tests/unit/application/use-cases/workflows/schedule-workflow.use-case.test.ts > ScheduleWorkflowUseCase > sets cron expression and calculates nextRunAt 9ms
+ ✓  node  tests/unit/application/use-cases/workflows/schedule-workflow.use-case.test.ts > ScheduleWorkflowUseCase > calculates nextRunAt with timezone 57ms
+ ✓  node  tests/unit/application/use-cases/workflows/schedule-workflow.use-case.test.ts > ScheduleWorkflowUseCase > clears schedule when cron is null 9ms
+ ✓  node  tests/unit/application/use-cases/workflows/schedule-workflow.use-case.test.ts > ScheduleWorkflowUseCase > throws with descriptive error for invalid cron 115ms
+ ✓  node  tests/unit/application/use-cases/workflows/schedule-workflow.use-case.test.ts > ScheduleWorkflowUseCase > throws when workflow is not found 2ms
+ ✓  node  tests/unit/application/use-cases/workflows/update-workflow.use-case.test.ts > UpdateWorkflowUseCase > updates description successfully 5ms
+ ✓  node  tests/unit/application/use-cases/workflows/update-workflow.use-case.test.ts > UpdateWorkflowUseCase > validates name uniqueness when name changes 4ms
+ ✓  node  tests/unit/application/use-cases/workflows/update-workflow.use-case.test.ts > UpdateWorkflowUseCase > throws when workflow is not found 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/update-workflow.use-case.test.ts > UpdateWorkflowUseCase > recalculates nextRunAt when cron expression changes 4ms
+ ✓  node  tests/unit/application/use-cases/workflows/update-workflow.use-case.test.ts > UpdateWorkflowUseCase > skips name uniqueness check when name is not changing 1ms
+ ✓  node  tests/unit/application/use-cases/workflows/list-workflows.use-case.test.ts > ListWorkflowsUseCase > returns all workflows for a repo path 8ms
+ ✓  node  tests/unit/application/use-cases/workflows/list-workflows.use-case.test.ts > ListWorkflowsUseCase > filters by enabled state 2ms
+ ✓  node  tests/unit/application/use-cases/workflows/list-workflows.use-case.test.ts > ListWorkflowsUseCase > returns empty array when no workflows exist 1ms
+ ✓  node  tests/unit/application/use-cases/workflows/list-workflows.use-case.test.ts > GetWorkflowUseCase > finds a workflow by ID 6ms
+ ✓  node  tests/unit/application/use-cases/workflows/list-workflows.use-case.test.ts > GetWorkflowUseCase > finds a workflow by name and repositoryPath 3ms
+ ✓  node  tests/unit/application/use-cases/workflows/list-workflows.use-case.test.ts > GetWorkflowUseCase > throws for non-existent workflow 4ms
+ ✓  node  tests/unit/application/use-cases/workflows/list-workflows.use-case.test.ts > GetWorkflowUseCase > prefers ID lookup over name lookup 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/delete-workflow.use-case.test.ts > DeleteWorkflowUseCase > soft-deletes a workflow found by ID 3ms
+ ✓  node  tests/unit/application/use-cases/workflows/delete-workflow.use-case.test.ts > DeleteWorkflowUseCase > cancels queued executions for the workflow 2ms
+ ✓  node  tests/unit/application/use-cases/workflows/delete-workflow.use-case.test.ts > DeleteWorkflowUseCase > throws when workflow is not found 2ms
+ ✓  node  tests/unit/application/use-cases/workflows/delete-workflow.use-case.test.ts > DeleteWorkflowUseCase > finds workflow by name when repositoryPath is provided 1ms
+ ✓  node  tests/unit/application/use-cases/workflows/toggle-workflow.use-case.test.ts > ToggleWorkflowUseCase > enables workflow and recalculates nextRunAt 32ms
+ ✓  node  tests/unit/application/use-cases/workflows/toggle-workflow.use-case.test.ts > ToggleWorkflowUseCase > disables workflow 1ms
+ ✓  node  tests/unit/application/use-cases/workflows/toggle-workflow.use-case.test.ts > ToggleWorkflowUseCase > throws for non-existent workflow 62ms
+ ✓  node  tests/unit/application/use-cases/workflows/toggle-workflow.use-case.test.ts > ToggleWorkflowUseCase > enabling workflow without cron expression leaves nextRunAt undefined 2ms
+stdout | tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > calls CreateWorkflowUseCase with correct args
+  [muted:Name:]    [accent:test-workflow]
+  [muted:ID:]      wf-001-u
+  [muted:Enabled:] [success:yes]
+  [muted:Desc:]    A test workflow
+
+stdout | tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > creates workflow from template
+  [muted:Name:]    [accent:issue-triage]
+  [muted:ID:]      wf-001-u
+  [muted:Enabled:] [success:yes]
+  [muted:Desc:]    A test workflow
+
+stdout | tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > passes tool constraints correctly
+  [muted:Name:]    [accent:test-workflow]
+  [muted:ID:]      wf-001-u
+  [muted:Enabled:] [success:yes]
+  [muted:Desc:]    A test workflow
+
+stdout | tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > passes disabled flag correctly
+  [muted:Name:]    [accent:test-workflow]
+  [muted:ID:]      wf-001-u
+  [muted:Enabled:] [muted:no]
+  [muted:Desc:]    A test workflow
+
+ ✓  node  tests/unit/presentation/cli/commands/workflow/serve-scheduler.test.ts > _serve command - scheduler integration > initializes the workflow scheduler on startup 5ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/serve-scheduler.test.ts > _serve command - scheduler integration > starts the workflow scheduler after initialization 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/serve-scheduler.test.ts > _serve command - scheduler integration > stops the workflow scheduler on shutdown 1ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > create() > should create a workflow record 688ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > create() > should store toolConstraints as JSON string 47ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > create() > should create an execution record 655ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > create() > should store timestamps as unix milliseconds 45ms
+stdout | tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > run subcommand > calls RunWorkflowUseCase and shows status
+  [muted:Execution ID:] exec-001
+  [muted:Status:]       [info:queued]
+  [muted:Trigger:]      [info:manual]
+
+stdout | tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > schedule subcommand > calls ScheduleWorkflowUseCase with cron expression
+  [muted:Cron:]     [accent:0 9 * * MON]
+  [muted:Next run:] 3/24/2026, 11:00:00 AM
+
+stdout | tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > schedule subcommand > passes timezone when specified
+  [muted:Cron:]     [accent:0 9 * * MON]
+  [muted:Timezone:] America/New_York
+
+stdout | tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > update subcommand > calls UpdateWorkflowUseCase with partial fields
+  [muted:Name:] [accent:new-name]
+
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > createWorkflowCommand() > returns a Commander Command instance named "workflow" 6ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > createWorkflowCommand() > has all expected subcommands 2ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > calls CreateWorkflowUseCase with correct args 7ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > creates workflow from template 3ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > rejects unknown template 2ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > requires prompt or template 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > passes tool constraints correctly 2ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > passes disabled flag correctly 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > create subcommand > sets exitCode on error 4ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > list subcommand > calls ListWorkflowsUseCase and renders table 2ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > list subcommand > shows empty message when no workflows 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > list subcommand > has "ls" alias 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > show subcommand > calls GetWorkflowUseCase and renders detail view 119ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > non-interactive flag application > should enable individual approval gates with flags 272ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > show subcommand > shows error when workflow not found 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > run subcommand > calls RunWorkflowUseCase and shows status 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > run subcommand > sets exitCode on error 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > schedule subcommand > calls ScheduleWorkflowUseCase with cron expression 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > schedule subcommand > passes timezone when specified 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > schedule subcommand > removes schedule with --remove 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > schedule subcommand > requires --cron or --remove 14ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > enable subcommand > calls ToggleWorkflowUseCase with enabled=true 11ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > disable subcommand > calls ToggleWorkflowUseCase with enabled=false 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > history subcommand > calls GetWorkflowHistoryUseCase and renders table 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > history subcommand > passes limit option 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > update subcommand > calls UpdateWorkflowUseCase with partial fields 2ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > update subcommand > requires at least one update flag 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > delete subcommand > calls DeleteWorkflowUseCase with --force 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/workflow-commands.test.ts > Workflow CLI Commands > delete subcommand > sets exitCode on error 1ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > non-interactive flag application > should enable all gates with --allow-all 165ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > create() > should store optional fields as NULL when not provided 238ms
+ ✓  node  tests/unit/application/use-cases/workflows/templates.test.ts > Workflow Templates > issueTriage template > returns object with expected name and toolConstraints 3ms
+ ✓  node  tests/unit/application/use-cases/workflows/templates.test.ts > Workflow Templates > issueTriage template > has a non-empty prompt 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/templates.test.ts > Workflow Templates > issueTriage template > has a description 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/templates.test.ts > Workflow Templates > branchRebase template > returns object with expected name and toolConstraints 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/templates.test.ts > Workflow Templates > branchRebase template > has a non-empty prompt 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/templates.test.ts > Workflow Templates > branchRebase template > has a description 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/templates.test.ts > Workflow Templates > both templates have distinct names 0ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > create() > should store enabled as 1 251ms
+ ✓  node  tests/unit/application/use-cases/workflows/run-workflow.use-case.test.ts > RunWorkflowUseCase > creates a queued execution with Manual trigger 5ms
+ ✓  node  tests/unit/application/use-cases/workflows/run-workflow.use-case.test.ts > RunWorkflowUseCase > works on disabled workflows 1ms
+ ✓  node  tests/unit/application/use-cases/workflows/run-workflow.use-case.test.ts > RunWorkflowUseCase > throws for non-existent workflow 2ms
+ ✓  node  tests/unit/application/use-cases/workflows/run-workflow.use-case.test.ts > RunWorkflowUseCase > generates a UUID for the execution 1ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findById() > should find execution by ID 137ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatWorkflowStatus > returns disabled for disabled workflow 16ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatWorkflowStatus > returns scheduled for enabled workflow with cron 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatWorkflowStatus > returns on-demand for enabled workflow without cron 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatExecutionStatus > formats queued status 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatExecutionStatus > formats running status 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatExecutionStatus > formats completed status 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatExecutionStatus > formats failed status 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatExecutionStatus > formats cancelled status 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatExecutionStatus > handles unknown status 1ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatDuration > formats seconds 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatDuration > formats minutes and seconds 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatDuration > formats hours and minutes 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatTriggerType > formats manual trigger 0ms
+ ✓  node  tests/unit/presentation/cli/commands/workflow/format-helpers.test.ts > formatTriggerType > formats scheduled trigger 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/get-workflow-history.use-case.test.ts > GetWorkflowHistoryUseCase > returns executions ordered by most recent first 5ms
+ ✓  node  tests/unit/application/use-cases/workflows/get-workflow-history.use-case.test.ts > GetWorkflowHistoryUseCase > respects limit parameter 1ms
+ ✓  node  tests/unit/application/use-cases/workflows/get-workflow-history.use-case.test.ts > GetWorkflowHistoryUseCase > returns empty array for workflow with no history 0ms
+ ✓  node  tests/unit/application/use-cases/workflows/get-workflow-history.use-case.test.ts > GetWorkflowHistoryUseCase > throws for non-existent workflow 2ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > non-interactive flag application > should enable push with --push flag 204ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > create() > should store timestamps as unix milliseconds 120ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findById() > should return null for non-existent ID 167ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findById() > should correctly map timestamps back to Date objects 28ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > non-interactive flag application > should enable PR with --pr flag 173ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > non-interactive flag application > should compose multiple flags together 78ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > create() > should store optional fields as NULL when not provided 161ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findById() > should find workflow by ID 78ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findById() > should not include optional fields when they are NULL 47ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findByWorkflowId() > should return executions for a workflow ordered by started_at DESC 77ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > flags preserve unset values from current settings > should preserve existing push=true when only setting approval gates 43ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findById() > should return null for non-existent ID 34ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > flags preserve unset values from current settings > should preserve existing PR=true when setting --allow-all 108ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > --no-push and --no-pr negation > should disable push with --no-push (push=false) 79ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findByWorkflowId() > should respect limit parameter 47ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findById() > should correctly map timestamps back to Date objects 103ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findByWorkflowId() > should return empty array when no executions exist for workflow 109ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > --no-push and --no-pr negation > should disable PR with --no-pr (pr=false) 104ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findById() > should correctly parse toolConstraints from JSON 113ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > database round-trip after workflow command > should persist workflow changes across settings reload 92ms
+ ✓  node  tests/integration/application/use-cases/settings/workflow-command-flow.test.ts > Workflow command → feature defaults flow (integration) > workflow command does not affect non-workflow settings > should preserve agent and IDE settings after workflow update 65ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findByWorkflowId() > should not return executions from other workflows 144ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findByStatus() > should return only executions matching the given status 49ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > findByStatus() > should return empty array when no executions match the status 38ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findById() > should map enabled integer back to boolean 161ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findById() > should not include optional fields when they are NULL 44ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findById() > should return null for soft-deleted workflow 32ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findByName() > should find workflow by name and repository path 35ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findByName() > should return null for wrong repository path 37ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findByName() > should return null for non-existent name 33ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > update() > should update execution status and completedAt 46ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > update() > should update error message on failure 44ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > deleteOlderThan() > should delete records older than the given date and return count 33ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > deleteOlderThan() > should return 0 when no records are older than the date 56ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow-execution.repository.test.ts > SQLiteWorkflowExecutionRepository > deleteOlderThan() > should return 0 when no records exist 52ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findByName() > should return null for soft-deleted workflow 71ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findEnabled() > should return only enabled non-deleted workflows 69ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findEnabled() > should exclude soft-deleted enabled workflows 42ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > findEnabled() > should return empty array when no enabled workflows exist 40ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > list() > should list all non-deleted workflows 39ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > list() > should return empty array when no workflows exist 82ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > list() > should filter by repositoryPath 51ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > list() > should filter by enabled state 34ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > list() > should exclude soft-deleted workflows by default 38ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > list() > should include soft-deleted workflows when includeDeleted is true 30ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > update() > should update workflow fields 33ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > update() > should update cronExpression and nextRunAt 32ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > softDelete() > should set deleted_at timestamp 27ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > softDelete() > should make workflow invisible to findById 26ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-workflow.repository.test.ts > SQLiteWorkflowRepository > softDelete() > should not throw when soft-deleting non-existent ID 34ms
+
+ Test Files  18 passed (18)
+      Tests  190 passed (190)
+   Start at  01:07:48
+   Duration  6.00s (transform 13.40s, setup 0ms, import 21.47s, tests 6.91s, environment 3ms)
+
