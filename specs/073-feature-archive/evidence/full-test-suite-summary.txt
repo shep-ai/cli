@@ -1,0 +1,10 @@
+ ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts (4 tests) 3ms
+ ✓  web  tests/unit/presentation/web/features/control-center/derive-state.test.ts (6 tests) 3ms
+ ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts (7 tests) 4ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts (7 tests) 2ms
+
+ Test Files  336 passed (336)
+      Tests  4571 passed (4571)
+   Start at  00:40:19
+   Duration  32.55s (transform 11.04s, setup 28.55s, import 55.09s, tests 83.92s, environment 78.04s)
+

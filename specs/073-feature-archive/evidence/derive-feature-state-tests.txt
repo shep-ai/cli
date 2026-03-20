@@ -1,0 +1,56 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive
+
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > returns deleting for Deleting lifecycle (takes top priority) 1ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > returns deleting for Deleting lifecycle without agent run 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > returns archived for Archived lifecycle without agent run 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > returns archived for Archived lifecycle even with a running agent run 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > returns pending for Pending lifecycle (after Deleting, before Blocked) 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > returns pending for Pending lifecycle even with an agent run 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns action-required when agent is waiting_approval 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns error when agent failed 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns error when agent interrupted 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns error when agent cancelled 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns done when agent completed 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns running when agent is running 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns running when agent is pending 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns error when agent is running but PID is dead (crashed) 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns error when agent is pending but PID is dead (crashed) 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns running when agent is running and PID is alive 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > with agent run (primary signal) > returns running when no pidAlive info provided (backwards compat) 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > without agent run (fallback to plan tasks) > returns done for Maintain lifecycle 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > without agent run (fallback to plan tasks) > returns action-required for Review lifecycle without agent run (adopted branch with open PR) 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > without agent run (fallback to plan tasks) > returns running when no plan exists 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > without agent run (fallback to plan tasks) > returns action-required when tasks have Review state 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > without agent run (fallback to plan tasks) > returns running when tasks have WIP state 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveNodeState > without agent run (fallback to plan tasks) > returns done when all tasks are Done 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveProgress > returns 0 when no plan 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveProgress > returns 0 when plan has no tasks 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveProgress > returns correct percentage from plan tasks 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > deriveProgress > returns 100 for Maintain lifecycle 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapEventTypeToState > maps agent_started to running 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapEventTypeToState > maps phase_completed to running 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapEventTypeToState > maps waiting_approval to action-required 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapEventTypeToState > maps agent_completed to done 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapEventTypeToState > maps agent_failed to error 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapEventTypeToState > maps pr_blocked to blocked 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapEventTypeToState > maps pr_checks_failed to error 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapEventTypeToState > maps pr_merged to done 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapEventTypeToState > maps pr_closed to action-required 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapPhaseNameToLifecycle > maps "analyze" to requirements 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapPhaseNameToLifecycle > maps "requirements" to requirements 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapPhaseNameToLifecycle > maps "research" to research 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapPhaseNameToLifecycle > maps "plan" to implementation 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapPhaseNameToLifecycle > maps "implement" to implementation 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapPhaseNameToLifecycle > maps "pending" to pending 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapPhaseNameToLifecycle > returns undefined for undefined input 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapPhaseNameToLifecycle > returns undefined for unrecognized phaseName 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > sdlcLifecycleMap > maps Pending to pending 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > sdlcLifecycleMap > maps Archived to maintain (closest phase) 0ms
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts > mapPhaseNameToLifecycle (archived) > maps "archived" to maintain 0ms
+
+ Test Files  1 passed (1)
+      Tests  47 passed (47)
+   Start at  00:40:08
+   Duration  848ms (transform 71ms, setup 164ms, import 53ms, tests 5ms, environment 515ms)
+
