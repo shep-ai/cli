@@ -1,0 +1,3 @@
+  upgrade                         Upgrade Shep CLI to the latest version
+  doctor [options] [description]  Diagnose shep failures, open a GitHub issue,
+                                  and optionally attempt a fix
