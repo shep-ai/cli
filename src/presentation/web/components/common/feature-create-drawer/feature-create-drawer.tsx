@@ -59,6 +59,8 @@ export interface RepositoryOption {
   id: string;
   name: string;
   path: string;
+  isFork?: boolean;
+  upstreamUrl?: string;
 }
 
 export interface FeatureCreatePayload {
@@ -1266,6 +1268,8 @@ export function RepositoryCombobox({
         id: repository.id,
         name: repository.name,
         path: repository.path,
+        isFork: repository.isFork,
+        upstreamUrl: repository.upstreamUrl,
       };
       onAddRepository?.(newRepo);
       onChange(newRepo.path);
@@ -1317,8 +1321,22 @@ export function RepositoryCombobox({
               !selectedRepo && 'text-muted-foreground'
             )}
           >
-            <span className="truncate">
-              {selectedRepo ? selectedRepo.name : 'Select repository...'}
+            <span className="flex items-center gap-1.5 truncate">
+              <span className="truncate">
+                {selectedRepo ? selectedRepo.name : 'Select repository...'}
+              </span>
+              {selectedRepo?.isFork ? (
+                <span
+                  className="bg-muted text-muted-foreground shrink-0 rounded px-1 py-0.5 text-[10px] font-medium"
+                  title={
+                    selectedRepo.upstreamUrl
+                      ? `Fork of ${selectedRepo.upstreamUrl.replace('https://github.com/', '')}`
+                      : 'Forked repository'
+                  }
+                >
+                  Fork
+                </span>
+              ) : null}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </button>
@@ -1368,7 +1386,14 @@ export function RepositoryCombobox({
                       className={cn('h-4 w-4 shrink-0', value !== r.path && 'invisible')}
                     />
                     <span className="flex flex-col items-start truncate">
-                      <span className="truncate">{r.name}</span>
+                      <span className="flex items-center gap-1.5 truncate">
+                        <span className="truncate">{r.name}</span>
+                        {r.isFork ? (
+                          <span className="bg-muted text-muted-foreground shrink-0 rounded px-1 py-0.5 text-[10px] font-medium">
+                            Fork
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="text-muted-foreground truncate text-xs">{r.path}</span>
                     </span>
                   </button>

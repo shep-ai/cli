@@ -11,6 +11,12 @@ properties:
   remoteUrl:
     type: string
     description: "Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)"
+  isFork:
+    type: boolean
+    description: Whether this repository is a fork created by shep for contributing to a repo the user lacks push access to
+  upstreamUrl:
+    type: string
+    description: "Original upstream repository URL when isFork is true (normalized: lowercase, no .git suffix)"
 required:
   - name
   - path

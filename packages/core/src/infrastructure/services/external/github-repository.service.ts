@@ -16,12 +16,16 @@ import type {
   ListUserRepositoriesOptions,
   CloneOptions,
   ParsedGitHubUrl,
+  PushAccessResult,
+  ForkResult,
+  ForkOptions,
 } from '../../../application/ports/output/services/github-repository-service.interface.js';
 import {
   GitHubAuthError,
   GitHubCloneError,
   GitHubRepoListError,
   GitHubUrlParseError,
+  GitHubForkError,
 } from '../../../application/ports/output/services/github-repository-service.interface.js';
 
 // ---------------------------------------------------------------------------
@@ -200,6 +204,93 @@ export class GitHubRepositoryService implements IGitHubRepositoryService {
         'Supported formats: https://github.com/owner/repo, ' +
         'git@github.com:owner/repo.git, or owner/repo shorthand.'
     );
+  }
+
+  async getAuthenticatedUser(): Promise<string> {
+    try {
+      const { stdout } = await this.execFile('gh', ['api', 'user', '--jq', '.login']);
+      return stdout.trim();
+    } catch (error) {
+      const cause = error instanceof Error ? error : undefined;
+      const errnoCode = (error as NodeJS.ErrnoException)?.code;
+
+      if (errnoCode === 'ENOENT') {
+        throw new GitHubAuthError(
+          'GitHub CLI (gh) is not installed. Install it from https://cli.github.com/',
+          cause
+        );
+      }
+
+      throw new GitHubAuthError(
+        'GitHub CLI is not authenticated. Run `gh auth login` to sign in.',
+        cause
+      );
+    }
+  }
+
+  async checkPushAccess(nameWithOwner: string): Promise<PushAccessResult> {
+    const viewerLogin = await this.getAuthenticatedUser();
+
+    try {
+      const { stdout } = await this.execFile('gh', [
+        'api',
+        `repos/${nameWithOwner}`,
+        '--jq',
+        '.permissions.push',
+      ]);
+      const hasPushAccess = stdout.trim() === 'true';
+      return { hasPushAccess, viewerLogin };
+    } catch {
+      // If API call fails (e.g. private repo without access), treat as no push access
+      return { hasPushAccess: false, viewerLogin };
+    }
+  }
+
+  async forkRepository(nameWithOwner: string, options?: ForkOptions): Promise<ForkResult> {
+    return new Promise<ForkResult>((resolvePromise, reject) => {
+      const child: ChildProcess = spawn('gh', ['repo', 'fork', nameWithOwner, '--clone=false'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      let stdoutOutput = '';
+      let stderrOutput = '';
+
+      child.stdout?.on('data', (chunk: Buffer) => {
+        const data = chunk.toString();
+        stdoutOutput += data;
+        options?.onProgress?.(data);
+      });
+
+      child.stderr?.on('data', (chunk: Buffer) => {
+        const data = chunk.toString();
+        stderrOutput += data;
+        options?.onProgress?.(data);
+      });
+
+      child.on('error', (error: Error) => {
+        reject(new GitHubForkError(`Failed to fork ${nameWithOwner}: ${error.message}`, error));
+      });
+
+      child.on('close', (code: number | null) => {
+        const combined = stdoutOutput + stderrOutput;
+        if (code === 0) {
+          // gh repo fork outputs to stderr: "Created fork user/repo" or "user/repo already exists"
+          const alreadyExisted = combined.toLowerCase().includes('already exists');
+
+          // Extract fork nameWithOwner from output
+          const forkMatch = combined.match(/([a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)/);
+          const forkNwo = forkMatch ? forkMatch[1] : nameWithOwner;
+
+          resolvePromise({ nameWithOwner: forkNwo, alreadyExisted });
+        } else {
+          reject(
+            new GitHubForkError(
+              `Fork of ${nameWithOwner} failed with exit code ${code}: ${combined.trim()}`
+            )
+          );
+        }
+      });
+    });
   }
 
   private async cleanupPartialClone(destination: string): Promise<void> {

@@ -48,6 +48,7 @@ describe('AdoptBranchUseCase', () => {
       softDelete: vi.fn().mockResolvedValue(undefined),
       restore: vi.fn().mockResolvedValue(undefined),
       update: vi.fn().mockResolvedValue(undefined),
+      findByUpstreamUrl: vi.fn().mockResolvedValue(null),
     };
 
     mockWorktreeService = {

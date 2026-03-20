@@ -19,6 +19,7 @@ function createMockRepo(): IRepositoryRepository {
     findByRemoteUrl: vi.fn().mockResolvedValue(null),
     restore: vi.fn(),
     update: vi.fn(),
+    findByUpstreamUrl: vi.fn().mockResolvedValue(null),
   };
 }
 

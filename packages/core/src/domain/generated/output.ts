@@ -1562,6 +1562,14 @@ export type Repository = SoftDeletableEntity & {
    * Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)
    */
   remoteUrl?: string;
+  /**
+   * Whether this repository is a fork created by shep for contributing to a repo the user lacks push access to
+   */
+  isFork?: boolean;
+  /**
+   * Original upstream repository URL when isFork is true (normalized: lowercase, no .git suffix)
+   */
+  upstreamUrl?: string;
 };
 
 /**
