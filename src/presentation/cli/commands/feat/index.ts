@@ -22,6 +22,8 @@ import { createApproveCommand } from './approve.command.js';
 import { createRejectCommand } from './reject.command.js';
 import { createLogsCommand } from './logs.command.js';
 import { createAdoptCommand } from './adopt.command.js';
+import { createArchiveCommand } from './archive.command.js';
+import { createUnarchiveCommand } from './unarchive.command.js';
 
 /**
  * Create the feat command group
@@ -39,5 +41,7 @@ export function createFeatCommand(): Command {
     .addCommand(createApproveCommand())
     .addCommand(createRejectCommand())
     .addCommand(createLogsCommand())
-    .addCommand(createAdoptCommand());
+    .addCommand(createAdoptCommand())
+    .addCommand(createArchiveCommand())
+    .addCommand(createUnarchiveCommand());
 }

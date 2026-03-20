@@ -23,6 +23,7 @@ import { colors, symbols, messages, renderListView } from '../../ui/index.js';
 interface LsOptions {
   repo?: string;
   includeDeleted?: boolean;
+  showArchived?: boolean;
 }
 
 /** Map graph node names to human-readable phase labels (active). */
@@ -61,6 +62,10 @@ const STATUS_PRIORITY: Record<string, number> = {
  */
 function formatStatus(feature: Feature, run: AgentRun | null): string {
   // Blocked features show "Waiting" — the parent relationship is conveyed by tree indentation
+  if (feature.lifecycle === 'Archived') {
+    return `${colors.muted(symbols.dotEmpty)} ${colors.muted('Archived')}`;
+  }
+
   if (feature.lifecycle === 'Deleting') {
     return `${colors.muted(symbols.spinner[0])} ${colors.muted('Deleting')}`;
   }
@@ -190,6 +195,7 @@ export function createLsCommand(): Command {
     .description('List features')
     .option('-r, --repo <path>', 'Filter by repository path')
     .option('--include-deleted', 'Include soft-deleted features')
+    .option('--show-archived', 'Include archived features')
     .action(async (options: LsOptions) => {
       try {
         const useCase = container.resolve(ListFeaturesUseCase);
@@ -199,6 +205,7 @@ export function createLsCommand(): Command {
         const filters = {
           ...(options.repo && { repositoryPath: options.repo }),
           ...(options.includeDeleted && { includeDeleted: true }),
+          ...(options.showArchived && { includeArchived: true }),
         };
         const features = await useCase.execute(
           Object.keys(filters).length > 0 ? filters : undefined
