@@ -41,25 +41,13 @@ test.describe('Feature node clickability — drawer opens after feature creation
     const firstNodeName = await firstNodeHeading.textContent();
 
     // Step 1: Open the create-feature drawer by navigating to /create
-    await page.goto('/create');
+    // Pass repo query param to bypass the repository combobox (CI has no repos in the DB)
+    await page.goto('/create?repo=/tmp/test-repo');
 
     // Wait for the create drawer heading
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,
     });
-
-    // Select a repository from the combobox (repos come from the DB, not API mock)
-    const repoCombobox = page.getByRole('combobox', { name: 'Repository' });
-    const hasRepoSelector = await repoCombobox.isVisible({ timeout: 3000 }).catch(() => false);
-    if (hasRepoSelector) {
-      await repoCombobox.click();
-      const firstRepo = page
-        .getByRole('option')
-        .filter({ hasNot: page.getByText(/add new repository/i) })
-        .first();
-      await expect(firstRepo).toBeVisible({ timeout: 3000 });
-      await firstRepo.click();
-    }
 
     // Step 2: Fill the feature description and submit
     const descriptionInput = page.getByPlaceholder(
