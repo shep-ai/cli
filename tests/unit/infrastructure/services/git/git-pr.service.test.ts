@@ -1031,4 +1031,157 @@ describe('GitPrService', () => {
       expect(mockExec).toHaveBeenCalledTimes(3);
     });
   });
+
+  describe('createPrFromArgs', () => {
+    it('should create same-repo PR with title, body, base, and labels', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'https://github.com/shep-ai/cli/pull/99\n',
+        stderr: '',
+      });
+
+      const result = await service.createPrFromArgs('/repo', {
+        title: '[shep doctor] Fix agent crash',
+        body: '## Summary\n\nFixes #42',
+        labels: ['bug', 'shep-doctor'],
+        base: 'main',
+      });
+
+      expect(result.url).toBe('https://github.com/shep-ai/cli/pull/99');
+      expect(result.number).toBe(99);
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        [
+          'pr',
+          'create',
+          '--title',
+          '[shep doctor] Fix agent crash',
+          '--body',
+          '## Summary\n\nFixes #42',
+          '--base',
+          'main',
+          '--label',
+          'bug,shep-doctor',
+        ],
+        { cwd: '/repo' }
+      );
+    });
+
+    it('should create cross-fork PR with --repo flag', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'https://github.com/shep-ai/cli/pull/100\n',
+        stderr: '',
+      });
+
+      const result = await service.createPrFromArgs('/repo', {
+        title: 'Fix agent crash',
+        body: 'Fix body',
+        labels: ['bug'],
+        base: 'main',
+        repo: 'shep-ai/cli',
+      });
+
+      expect(result.url).toBe('https://github.com/shep-ai/cli/pull/100');
+      expect(result.number).toBe(100);
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        [
+          'pr',
+          'create',
+          '--title',
+          'Fix agent crash',
+          '--body',
+          'Fix body',
+          '--base',
+          'main',
+          '--label',
+          'bug',
+          '--repo',
+          'shep-ai/cli',
+        ],
+        { cwd: '/repo' }
+      );
+    });
+
+    it('should omit --repo flag when repo is not provided', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'https://github.com/shep-ai/cli/pull/1\n',
+        stderr: '',
+      });
+
+      await service.createPrFromArgs('/repo', {
+        title: 'Title',
+        body: 'Body',
+        labels: [],
+        base: 'main',
+      });
+
+      const args = vi.mocked(mockExec).mock.calls[0][1];
+      expect(args).not.toContain('--repo');
+    });
+
+    it('should omit --label flag when labels array is empty', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'https://github.com/shep-ai/cli/pull/1\n',
+        stderr: '',
+      });
+
+      await service.createPrFromArgs('/repo', {
+        title: 'Title',
+        body: 'Body',
+        labels: [],
+        base: 'main',
+      });
+
+      const args = vi.mocked(mockExec).mock.calls[0][1];
+      expect(args).not.toContain('--label');
+    });
+
+    it('should throw GitPrError with GH_NOT_FOUND when gh is not found', async () => {
+      const error = new Error('ENOENT gh not found');
+      (error as NodeJS.ErrnoException).code = 'ENOENT';
+      vi.mocked(mockExec).mockRejectedValue(error);
+
+      await expect(
+        service.createPrFromArgs('/repo', {
+          title: 'Title',
+          body: 'Body',
+          labels: [],
+          base: 'main',
+        })
+      ).rejects.toMatchObject({
+        code: GitPrErrorCode.GH_NOT_FOUND,
+      });
+    });
+
+    it('should throw GitPrError with AUTH_FAILURE on auth errors', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('Authentication failed for repo'));
+
+      await expect(
+        service.createPrFromArgs('/repo', {
+          title: 'Title',
+          body: 'Body',
+          labels: [],
+          base: 'main',
+        })
+      ).rejects.toMatchObject({
+        code: GitPrErrorCode.AUTH_FAILURE,
+      });
+    });
+
+    it('should return number 0 when URL cannot be parsed', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'unexpected output\n',
+        stderr: '',
+      });
+
+      const result = await service.createPrFromArgs('/repo', {
+        title: 'Title',
+        body: 'Body',
+        labels: [],
+        base: 'main',
+      });
+
+      expect(result.number).toBe(0);
+    });
+  });
 });
