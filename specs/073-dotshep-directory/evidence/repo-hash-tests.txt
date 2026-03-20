@@ -1,0 +1,16 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-dotshep-directory
+
+ ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should return a 16 character hex string 1ms
+ ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should return the first 16 chars of the SHA-256 hash 0ms
+ ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should normalize backslashes before hashing (C:\foo and C:/foo produce same hash) 0ms
+ ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should produce deterministic output for the same input 0ms
+ ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should produce different output for different paths 0ms
+ ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should handle paths with trailing slashes 0ms
+ ✓  node  tests/unit/infrastructure/services/filesystem/repo-hash.test.ts > computeRepoHash > should handle empty string 0ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  00:43:46
+   Duration  93ms (transform 18ms, setup 0ms, import 25ms, tests 2ms, environment 0ms)
+

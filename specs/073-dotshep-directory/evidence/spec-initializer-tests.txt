@@ -1,0 +1,51 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-dotshep-directory
+
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > directory creation > should create .shep/specs/NNN-SLUG/ directory 3ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > directory creation > should zero-pad feature numbers to 3 digits 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > directory creation > should handle double-digit feature numbers 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > directory creation > should handle triple-digit feature numbers 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > directory creation > should create parent .shep/specs/ directory if missing 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > directory creation > should default to in-repo mode when no options provided 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > directory creation > should use .shep/specs/ path when storageMode is in-repo 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > shep-managed mode > should create specs at ~/.shep/repos/<hash>/specs/ 3ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > shep-managed mode > should create all template files in shep-managed location 2ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > shep-managed mode > should throw when storageMode is shep-managed but repositoryPath is missing 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > shep-managed mode > should support fast mode with shep-managed storage 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > YAML file generation > should create all 5 YAML template files 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > YAML file generation > should write non-empty content to all files 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > template variable substitution > should substitute {{FEATURE_NAME}} with slug 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > template variable substitution > should substitute {{NNN}} with zero-padded number 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > template variable substitution > should substitute {{FEATURE_ID}} with NNN-slug 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > template variable substitution > should substitute {{BRANCH_NAME}} with feat/NNN-slug 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > template variable substitution > should substitute {{FEATURE_NUMBER}} with raw number 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > template variable substitution > should substitute {{DATE}} with ISO date 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > template variable substitution > should substitute {{TIMESTAMP}} with ISO timestamp 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > template variable substitution > should not contain any unsubstituted template variables 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should use hint when no spec directories exist 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should skip over existing spec numbers in legacy specs/ 2ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should skip over existing spec numbers in .shep/specs/ 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should take max across legacy specs/ and .shep/specs/ 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should scan shep-managed directory when repositoryPath provided 2ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should use hint when it exceeds existing numbers 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should handle gaps in existing spec numbers 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should ignore non-spec directories in specs/ 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should handle empty specs/ directory 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should handle only .shep/specs/ existing (no legacy specs/) 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > number resolution from existing specs > should handle both directories empty 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > spec.yaml content > should contain required YAML structure 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > feature.yaml content > should contain status tracking structure 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > fast mode > should create only feature.yaml and spec.yaml when mode is fast 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > fast mode > should include user query in spec.yaml when mode is fast 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > fast mode > should NOT create research.yaml when mode is fast 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > fast mode > should NOT create plan.yaml when mode is fast 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > fast mode > should NOT create tasks.yaml when mode is fast 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > fast mode > should still create the spec directory 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > fast mode > should still substitute template variables in feature.yaml 1ms
+ ✓  node  tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts > SpecInitializerService > fast mode > should create all 5 files when mode is undefined (backward compatibility) 1ms
+
+ Test Files  1 passed (1)
+      Tests  42 passed (42)
+   Start at  00:43:30
+   Duration  156ms (transform 32ms, setup 0ms, import 42ms, tests 54ms, environment 0ms)
+

@@ -1,0 +1,30 @@
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v23: compensating back-fill of orphaned repository rows > sets schema version to latest after migration 7ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v24: feature flags and CI workflow columns > should add feature_flag_skills column as INTEGER NOT NULL DEFAULT 0 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v24: feature flags and CI workflow columns > should add feature_flag_env_deploy column as INTEGER NOT NULL DEFAULT 1 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v24: feature flags and CI workflow columns > should add feature_flag_debug column as INTEGER NOT NULL DEFAULT 0 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v24: feature flags and CI workflow columns > should add ci_max_fix_attempts column as nullable INTEGER 7ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v24: feature flags and CI workflow columns > should add ci_watch_timeout_ms column as nullable INTEGER 7ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v24: feature flags and CI workflow columns > should add ci_log_max_chars column as nullable INTEGER 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v24: feature flags and CI workflow columns > should default feature flag columns for existing rows (envDeploy=1, others=0) 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v24: feature flags and CI workflow columns > should default CI columns to NULL for existing rows 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v24: feature flags and CI workflow columns > should be idempotent (running twice does not error) 8ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v33: pr_sync_lock table > should create pr_sync_lock table 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v33: pr_sync_lock table > should have correct pr_sync_lock schema 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v33: pr_sync_lock table > should enforce single-row constraint via CHECK (id = 1) 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v33: pr_sync_lock table > should allow INSERT OR REPLACE to update the single lock row 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v8: approval_gates and phase_timings > should add approval_gates column to agent_runs table 7ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v8: approval_gates and phase_timings > should create phase_timings table 7ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v8: approval_gates and phase_timings > should have correct phase_timings schema 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > migration v8: approval_gates and phase_timings > should create index on phase_timings agent_run_id 6ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > umzug migration tracking > should create umzug_migrations table after migration run 7ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > umzug migration tracking > should record all migration entries in umzug_migrations 8ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > umzug migration tracking > should record migrations with zero-padded names starting at 001 7ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > umzug migration tracking > should bootstrap seeder for database at user_version 20 9ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > umzug migration tracking > should apply only pending migrations when some are already tracked 9ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts > SQLite Migrations > umzug migration tracking > should repair missing pr_sync_lock table after bootstrap gap 9ms
+
+ Test Files  1 passed (1)
+      Tests  63 passed (63)
+   Start at  00:44:48
+   Duration  697ms (transform 105ms, setup 0ms, import 154ms, tests 481ms, environment 0ms)
+

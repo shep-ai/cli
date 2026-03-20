@@ -1,0 +1,30 @@
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > feature identity > should extract feature.branch 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > feature identity > should extract feature.lifecycle 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > feature identity > should extract feature.createdAt 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > status info > should extract status.phase 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > status info > should extract status.lastUpdatedBy 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > status info > should extract status.lastUpdated as string 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > status info > should extract completedPhases as string[] 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > status info > should extract progress counters 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > null → undefined conversion > should convert status.currentTask null to undefined 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > null → undefined conversion > should convert validation.lastRun null to undefined 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > null → undefined conversion > should convert tasks.current null to undefined 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > null → undefined conversion > should convert errors.current null to undefined 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > validation section > should extract gatesPassed as string[] 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > validation section > should extract autoFixesApplied as string[] 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > task tracking section > should extract blocked as string[] 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > task tracking section > should extract failed as string[] 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > checkpoints > should extract checkpoints as array 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > checkpoints > should have correctly structured checkpoint 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > errors section > should extract errors.history as string[] 0ms
+ ✓  node  tests/unit/domain/factories/spec-yaml-parser.test.ts > parseFeatureStatusYaml (spec-yaml-samples/feature.yaml) > should have BaseEntity fields (id, createdAt, updatedAt) 0ms
+ ✓  node  tests/unit/infrastructure/spec-yaml-backward-compatibility.test.ts > Spec YAML Backward Compatibility > should find spec.yaml files in specs/ directory 1ms
+ ✓  node  tests/unit/infrastructure/spec-yaml-backward-compatibility.test.ts > Spec YAML Backward Compatibility > should parse all existing spec.yaml files without errors 52ms
+ ✓  node  tests/unit/infrastructure/spec-yaml-backward-compatibility.test.ts > Spec YAML Backward Compatibility > should validate current feature spec.yaml against schema 27ms
+ ✓  node  tests/unit/infrastructure/spec-yaml-backward-compatibility.test.ts > Spec YAML Backward Compatibility > should handle spec.yaml files with various quoting styles 0ms
+
+ Test Files  3 passed (3)
+      Tests  88 passed (88)
+   Start at  00:44:17
+   Duration  392ms (transform 136ms, setup 0ms, import 416ms, tests 206ms, environment 0ms)
+

@@ -1,0 +1,51 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-dotshep-directory
+
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > toDatabase > should map all fields to snake_case columns 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > toDatabase > should convert Date objects to unix milliseconds 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > fromDatabase > should map all columns to camelCase fields 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > fromDatabase > should convert unix milliseconds back to Date objects 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > soft delete (deletedAt) > toDatabase should map deletedAt Date to unix milliseconds 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > soft delete (deletedAt) > toDatabase should map undefined deletedAt to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > soft delete (deletedAt) > fromDatabase should map deleted_at integer to Date 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > soft delete (deletedAt) > fromDatabase should map null deleted_at to undefined 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > remoteUrl mapping > toDatabase should map remoteUrl to remote_url column 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > remoteUrl mapping > toDatabase should map undefined remoteUrl to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > remoteUrl mapping > fromDatabase should map remote_url to remoteUrl 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > remoteUrl mapping > fromDatabase should map null remote_url to undefined 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > specStorageMode mapping > toDatabase should map specStorageMode to spec_storage_mode column 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > specStorageMode mapping > toDatabase should map undefined specStorageMode to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > specStorageMode mapping > fromDatabase should map spec_storage_mode to specStorageMode 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > specStorageMode mapping > fromDatabase should default null spec_storage_mode to in-repo 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > round-trip > should preserve all data through toDatabase -> fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > round-trip > should preserve deletedAt through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > round-trip > should preserve remoteUrl through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/repository.mapper.test.ts > Repository Mapper > round-trip > should preserve undefined remoteUrl through round-trip 0ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > create() > should create a repository record 30ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > create() > should be idempotent for duplicate path (INSERT OR IGNORE) 8ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > create() > should return the existing entity on UNIQUE path conflict 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > create() > should return the newly created entity when path is new 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > create() > should default specStorageMode to in-repo when not specified 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > findById() > should return repository by id 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > findById() > should return null for non-existent id 6ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > findByPath() > should return repository by path 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > findByPath() > should return null for non-existent path 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > list() > should return all repositories ordered by created_at (insertion order) 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > list() > should return empty array when no repositories exist 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > remove() > should delete repository by id 6ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > findByRemoteUrl() > should return repository when remoteUrl matches exactly 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > findByRemoteUrl() > should return repository when URL differs only in .git suffix 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > findByRemoteUrl() > should return repository when URL differs only in casing 6ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > findByRemoteUrl() > should return null when no match found 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > findByRemoteUrl() > should not return soft-deleted repositories 6ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > update() > should update remoteUrl and updatedAt 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > update() > should update name without affecting other fields 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > update() > should update specStorageMode and persist it 6ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > update() > should throw for nonexistent id 7ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts > SQLiteRepositoryRepository > date handling > should round-trip dates through create and findById 7ms
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  00:44:01
+   Duration  400ms (transform 99ms, setup 0ms, import 201ms, tests 175ms, environment 0ms)
+

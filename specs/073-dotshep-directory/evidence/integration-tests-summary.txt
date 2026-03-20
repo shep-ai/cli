@@ -1,0 +1,30 @@
+     ✓ should return false when main has extra commits after squash but feature has diverged  1738ms
+     ✓ should return true after squash merge with modified tree when premergeBaseSha provided  1595ms
+     ✓ should return true after squash merge even when local branch is deleted (remote fallback)  1621ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/approve-flow.test.ts (3 tests) 681ms
+ ✓  node  tests/integration/services/git/git-pr.service.getFailureLogs.test.ts (11 tests) 68ms
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/feedback-and-timing.test.ts (2 tests) 360ms
+ ✓  node  tests/integration/application/use-cases/features/list-features.use-case.test.ts (2 tests) 22ms
+ ✓  node  tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts (5 tests) 79ms
+ ✓  node  tests/integration/prd-approval-iterations.test.ts (7 tests) 94ms
+[2026-03-20T22:45:22.570Z] [repair:spec.yaml] Repairing spec.yaml (attempt 1)
+[2026-03-20T22:45:22.572Z] [repair:spec.yaml] Repair complete (5 chars)
+[2026-03-20T22:45:22.573Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-20T22:45:22.575Z] [validate:spec.yaml] ERROR: YAML parse error in spec.yaml: unexpected end of the stream within a flow collection (15:1)
+
+ 12 |   - React
+ 13 |   - broken item with : colon ca ...
+ 14 | openQuestions: [
+ 15 | 
+------^
+[2026-03-20T22:45:22.575Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-20T22:45:22.576Z] [validate:spec.yaml] Validation passed
+ ✓  node  tests/integration/infrastructure/services/agents/graph-state-transitions/yaml-repair-cycle.test.ts (3 tests) 9ms
+ ✓  node  tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts (22 tests) 1113ms
+ ✓  node  tests/integration/infrastructure/persistence/sqlite/migrations.test.ts (63 tests) 3048ms
+
+ Test Files  46 passed (46)
+      Tests  523 passed (523)
+   Start at  00:45:08
+   Duration  15.45s (transform 6.52s, setup 0ms, import 39.16s, tests 74.01s, environment 5ms)
+
