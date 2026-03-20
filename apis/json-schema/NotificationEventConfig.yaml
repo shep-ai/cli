@@ -46,6 +46,18 @@ properties:
     type: boolean
     default: true
     description: Notify when feature is ready for merge review
+  workflowStarted:
+    type: boolean
+    default: true
+    description: Notify when a scheduled workflow execution starts
+  workflowCompleted:
+    type: boolean
+    default: true
+    description: Notify when a scheduled workflow execution completes successfully
+  workflowFailed:
+    type: boolean
+    default: true
+    description: Notify when a scheduled workflow execution fails
 required:
   - agentStarted
   - phaseCompleted
@@ -58,4 +70,7 @@ required:
   - prChecksFailed
   - prBlocked
   - mergeReviewReady
+  - workflowStarted
+  - workflowCompleted
+  - workflowFailed
 description: Notification event type filters
