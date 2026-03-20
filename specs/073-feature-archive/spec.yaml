@@ -1,0 +1,150 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-archive
+number: 073
+branch: feat/073-feature-archive
+oneLiner: "Allow users to archive features to hide them from the canvas without deleting them"
+userQuery: >
+  Right now, all features are visible on the canvas, which really clutters the view.
+  I'd love to be able to 'archive' a feature to hide it without having to delete it entirely.
+summary: >
+  Add an archive capability for features so users can hide completed or inactive features
+  from the canvas without permanently deleting them. This involves adding an Archived lifecycle
+  state, updating the repository filter layer, and providing archive/unarchive controls in
+  both the web UI (context menu, toolbar toggle) and CLI (feat archive/unarchive commands,
+  feat ls --show-archived flag).
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - "TypeSpec (domain model, SdlcLifecycle enum)"
+  - "SQLite (feature persistence, filtering)"
+  - "React Flow / @xyflow/react (canvas rendering)"
+  - "Next.js server actions (archive/unarchive mutations)"
+  - "SSE / agent-events (real-time canvas updates)"
+  - "Commander.js (CLI commands)"
+
+relatedLinks:
+  - title: "GitHub Issue #435 - Add archive option for features"
+    url: "https://github.com/shep-ai/cli/issues/435"
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  All features are always visible on the web UI canvas, regardless of their lifecycle state.
+  As users create more features over time, the canvas becomes cluttered with completed
+  (Maintain) or inactive features that no longer need active attention. There is currently
+  no way to hide a feature from the canvas without deleting it entirely — which permanently
+  removes the feature's conversation history, plan, artifacts, and git cleanup.
+
+  Users need a lightweight way to "archive" features to declutter the canvas while preserving
+  all data for future reference.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The codebase follows Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`, `tsp/`) — Feature entity (aggregate root),
+    SdlcLifecycle enum, soft-delete pattern via SoftDeletableEntity
+  - **Application** (`packages/core/src/application/`) — Use cases (ListFeaturesUseCase,
+    DeleteFeatureUseCase), repository port interfaces (IFeatureRepository, FeatureListFilters)
+  - **Infrastructure** (`packages/core/src/infrastructure/`) — SQLite repository implementation,
+    database mappers, migrations
+  - **Presentation** — CLI (`src/presentation/cli/commands/feat/`), Web UI
+    (`src/presentation/web/`), TUI
+
+  ### Architecture Patterns
+
+  **Filtering pattern**: Features are filtered at the repository layer via `FeatureListFilters`
+  (repositoryPath, lifecycle, includeDeleted). All higher layers receive pre-filtered results.
+  The web canvas calls `ListFeaturesUseCase` which delegates to `IFeatureRepository.list()`.
+
+  **Soft-delete pattern**: Features already support soft deletion via `deletedAt` timestamp
+  (inherited from SoftDeletableEntity). The `Deleting` lifecycle state marks cleanup in progress.
+  All default queries exclude `deleted_at IS NOT NULL` rows.
+
+  **Canvas data flow**: `getGraphData()` → `ListFeaturesUseCase` → `buildGraphNodes()` →
+  `layoutWithDagre()` → React Flow nodes/edges. Client-side state managed via `useGraphState`
+  hook with domain Maps (featureMap, repoMap, pendingMap) as single source of truth. Real-time
+  updates via SSE through `useControlCenterState`.
+
+  **CLI command pattern**: Commands in `src/presentation/cli/commands/feat/` follow a consistent
+  pattern — resolve use case from DI container, execute, format output. The `feat ls` command
+  already supports `--include-deleted` flag.
+
+  ### Relevant Technologies
+
+  - **TypeSpec** defines domain models in `tsp/`. The `SdlcLifecycle` enum in
+    `tsp/common/enums/lifecycle.tsp` has 11 states. Adding `Archived` follows the existing
+    pattern of terminal/special states (Blocked, Pending, Deleting).
+  - **SQLite** stores features with an existing `lifecycle TEXT` column and `deleted_at INTEGER`
+    column. The `idx_features_lifecycle` index supports lifecycle-based filtering.
+  - **React Flow v12** renders the DAG canvas. The `FeaturesCanvas` component accepts a
+    `toolbar` prop for adding filter controls. `FeatureNode` renders lifecycle badges with
+    color-coded states.
+  - **Next.js server actions** handle mutations (deleteFeature, approveFeature, etc.).
+    Archive/unarchive would follow the same pattern.
+
+  ## Success Criteria
+
+  - [ ] New `Archived` lifecycle state added to SdlcLifecycle enum (TypeSpec + generated)
+  - [ ] Features can be archived via web UI context menu on feature nodes
+  - [ ] Features can be archived via CLI (`shep feat archive <id>`)
+  - [ ] Archived features are hidden from canvas by default
+  - [ ] Archived features are hidden from `shep feat ls` by default
+  - [ ] Toggle in web UI to show/hide archived features on canvas
+  - [ ] CLI flag `--show-archived` on `shep feat ls` to include archived features
+  - [ ] Features can be unarchived (restored to previous lifecycle) via web UI and CLI
+  - [ ] Archived features retain all data (messages, plan, artifacts, git branches)
+  - [ ] Child features of an archived parent are handled appropriately
+  - [ ] Storybook stories for any new/modified UI components
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/common/enums/lifecycle.tsp` | High | Add `Archived` to SdlcLifecycle enum |
+  | `packages/core/src/domain/generated/output.ts` | High | Regenerated from TypeSpec changes |
+  | `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts` | Medium | Add `includeArchived` to FeatureListFilters |
+  | `packages/core/src/infrastructure/repositories/sqlite-feature.repository.ts` | Medium | Update list() queries to exclude Archived by default |
+  | `packages/core/src/application/use-cases/features/` | Medium | New ArchiveFeatureUseCase and UnarchiveFeatureUseCase |
+  | `src/presentation/cli/commands/feat/` | Medium | New `archive` and `unarchive` subcommands, `--show-archived` flag on ls |
+  | `src/presentation/web/app/actions/` | Medium | New archive-feature and unarchive-feature server actions |
+  | `src/presentation/web/components/common/feature-node/` | Low | Visual indicator for archived state, archive/unarchive context menu items |
+  | `src/presentation/web/components/features/features-canvas/` | Medium | Toolbar toggle for showing/hiding archived features |
+  | `src/presentation/web/hooks/use-graph-state.ts` | Low | Handle archived state in domain maps |
+  | `src/presentation/web/lib/derive-graph.ts` | Medium | Filter archived features from derived graph |
+  | `src/presentation/web/app/(dashboard)/get-graph-data.ts` | Low | Pass archive filter through to use case |
+  | `src/presentation/cli/commands/feat/ls.command.ts` | Low | Add --show-archived flag, display archived status |
+  | `tests/` | High | Unit tests for use cases, repository, CLI; component stories |
+
+  ## Dependencies
+
+  - **Existing soft-delete infrastructure** — The archive pattern can follow the same
+    filtering approach (exclude by default, include with flag) but uses lifecycle state
+    rather than deletedAt timestamp, since archived features are NOT deleted.
+  - **TypeSpec compiler** — Must regenerate domain types after adding Archived enum value.
+  - **Feature lifecycle context** — The lifecycle-context.ts and lifecycle-gates.ts files
+    may need awareness of Archived state to prevent invalid transitions.
+  - **SSE event system** — Archive/unarchive state changes must propagate via SSE for
+    real-time canvas updates.
+
+  ## Size Estimate
+
+  **M** — This feature touches multiple layers (domain, application, infrastructure,
+  presentation) but follows well-established patterns in the codebase. The soft-delete
+  infrastructure provides a clear blueprint for archive filtering. Most changes are
+  additive (new enum value, new use cases, new CLI commands, new UI controls) rather
+  than refactoring existing code. Estimated 2-3 days of implementation including tests
+  and stories.
+
+  ---
+
+  _Analysis complete — proceed with research_
