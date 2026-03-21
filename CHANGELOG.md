@@ -1,3 +1,10 @@
+## [1.135.3](https://github.com/shep-ai/cli/compare/v1.135.2...v1.135.3) (2026-03-21)
+
+
+### Bug Fixes
+
+* **agents:** persist evidence manifest in dedicated evidence node ([#442](https://github.com/shep-ai/cli/issues/442)) ([47d8843](https://github.com/shep-ai/cli/commit/47d884319e6320224bfa06c90fc16598dac8a392))
+
 ## [1.135.2](https://github.com/shep-ai/cli/compare/v1.135.1...v1.135.2) (2026-03-19)
 
 
