@@ -167,3 +167,4 @@ Options:
   --force            Skip confirmation
   -r, --repo <path>  Repository path (defaults to current directory)
   -h, --help         display help for command
+
