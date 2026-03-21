@@ -72,6 +72,7 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', 
   }),
   getCompletedPhases: mockGetCompletedPhases,
   markPhaseComplete: mockMarkPhaseComplete,
+  saveEvidenceManifest: vi.fn(),
   readSpecFile: mockReadSpecFile,
   retryExecute: vi
     .fn()

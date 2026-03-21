@@ -11,8 +11,6 @@
  */
 
 import { execSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
 import { isGraphBubbleUp } from '@langchain/langgraph';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { Evidence } from '@/domain/generated/output.js';
@@ -23,6 +21,7 @@ import {
   retryExecute,
   getCompletedPhases,
   markPhaseComplete,
+  saveEvidenceManifest,
 } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
@@ -204,28 +203,5 @@ function hasNewCommits(cwd: string): boolean {
     return output.trim().length > 0;
   } catch {
     return false;
-  }
-}
-
-/**
- * Save evidence manifest to the shep home evidence folder so the
- * merge review UI can read it without accessing graph state.
- */
-function saveEvidenceManifest(
-  state: FeatureAgentState,
-  evidence: Evidence[],
-  log: ReturnType<typeof createNodeLogger>
-): void {
-  if (evidence.length === 0) return;
-  try {
-    const cwd = state.worktreePath || state.repositoryPath;
-    const repoHashDir = dirname(dirname(cwd));
-    const evidenceDir = join(repoHashDir, 'evidence', state.featureId);
-    mkdirSync(evidenceDir, { recursive: true });
-    writeFileSync(join(evidenceDir, 'manifest.json'), JSON.stringify(evidence, null, 2), 'utf-8');
-    log.info(`Saved evidence manifest to ${evidenceDir}/manifest.json`);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log.error(`Failed to save evidence manifest: ${msg}`);
   }
 }

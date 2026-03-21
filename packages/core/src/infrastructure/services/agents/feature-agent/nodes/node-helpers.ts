@@ -6,15 +6,15 @@
  */
 
 import yaml from 'js-yaml';
-import { readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type {
   IAgentExecutor,
   AgentExecutionOptions,
   AgentExecutionResult,
 } from '@/application/ports/output/agents/agent-executor.interface.js';
-import type { ApprovalGates } from '@/domain/generated/output.js';
+import type { ApprovalGates, Evidence } from '@/domain/generated/output.js';
 import { hasSettings, getSettings } from '@/infrastructure/services/settings.service.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
@@ -600,4 +600,27 @@ export function executeNode(
       throw new Error(`[${nodeName}] ${message}`);
     }
   };
+}
+
+/**
+ * Save evidence manifest to the shep home evidence folder so the
+ * merge review UI can read it without accessing graph state.
+ */
+export function saveEvidenceManifest(
+  state: FeatureAgentState,
+  evidence: Evidence[],
+  log: ReturnType<typeof createNodeLogger>
+): void {
+  if (evidence.length === 0) return;
+  try {
+    const cwd = state.worktreePath || state.repositoryPath;
+    const repoHashDir = dirname(dirname(cwd));
+    const evidenceDir = join(repoHashDir, 'evidence', state.featureId);
+    mkdirSync(evidenceDir, { recursive: true });
+    writeFileSync(join(evidenceDir, 'manifest.json'), JSON.stringify(evidence, null, 2), 'utf-8');
+    log.info(`Saved evidence manifest to ${evidenceDir}/manifest.json`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`Failed to save evidence manifest: ${msg}`);
+  }
 }
