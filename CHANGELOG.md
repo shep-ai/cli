@@ -1,3 +1,10 @@
+# [1.136.0](https://github.com/shep-ai/cli/compare/v1.135.3...v1.136.0) (2026-03-21)
+
+
+### Features
+
+* **web:** redesign feature node cards with phase badges ([#425](https://github.com/shep-ai/cli/issues/425)) ([ba0d570](https://github.com/shep-ai/cli/commit/ba0d5701d36072de58b045fc6ccafc99781988a5))
+
 ## [1.135.3](https://github.com/shep-ai/cli/compare/v1.135.2...v1.135.3) (2026-03-21)
 
 
