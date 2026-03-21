@@ -7,9 +7,10 @@ import { randomUUID } from 'node:crypto';
 
 const TEST_FEATURE_ID = `e2e-cwp-${randomUUID().slice(0, 8)}`;
 
-/** Compute the expected worktree path the same way buildGraphNodes does. */
+/** Compute the expected worktree path the same way the canonical computeWorktreePath does. */
 function computeWorktreePath(repoPath: string, branch: string): string {
-  const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
+  const normalizedRepoPath = repoPath.replace(/\\/g, '/');
+  const repoHash = createHash('sha256').update(normalizedRepoPath).digest('hex').slice(0, 16);
   const slug = branch.replace(/\//g, '-');
   const shepHome = process.env.SHEP_HOME ?? join(homedir(), '.shep');
   return join(shepHome, 'repos', repoHash, 'wt', slug).replace(/\\/g, '/');
