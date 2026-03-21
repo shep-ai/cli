@@ -1,22 +1,45 @@
 import { test, expect } from '@playwright/test';
+import Database from 'better-sqlite3';
+import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+const TEST_REPO_ID = `e2e-repo-${randomUUID().slice(0, 8)}`;
+
+function getDb(): Database.Database {
+  const dbPath = process.env.SHEP_HOME
+    ? join(process.env.SHEP_HOME, 'data')
+    : join(homedir(), '.shep', 'data');
+  return new Database(dbPath);
+}
+
+function seedRepo(db: Database.Database): void {
+  const now = Date.now();
+  db.prepare(
+    `INSERT OR REPLACE INTO repositories (id, name, path, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+  ).run(TEST_REPO_ID, 'E2E Test Repo', '/fake/e2e-test-repo', now, now);
+}
+
+function cleanupRepo(db: Database.Database): void {
+  db.prepare('DELETE FROM repositories WHERE id = ?').run(TEST_REPO_ID);
+}
 
 test.describe('Feature Create Drawer — native file attachments', () => {
-  test('create feature with attachment shows file name and size', async ({ page }) => {
-    // Mock the repositories API to include the fake repo
-    await page.route('**/api/repositories', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([
-          {
-            id: 'repo-1',
-            path: '/fake/repo',
-            name: 'Fake Repo',
-          },
-        ]),
-      })
-    );
+  let db: Database.Database;
 
+  test.beforeAll(() => {
+    db = getDb();
+    seedRepo(db);
+  });
+
+  test.afterAll(() => {
+    if (db) {
+      cleanupRepo(db);
+      db.close();
+    }
+  });
+
+  test('create feature with attachment shows file name and size', async ({ page }) => {
     // Mock the native file picker API route before navigating
     await page.route('**/api/dialog/pick-files', (route) =>
       route.fulfill({
@@ -51,13 +74,23 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       })
     );
 
-    // Navigate directly to create drawer route (repo param required to enable submit)
-    await page.goto('/create?repo=/fake/repo');
+    // Navigate to create drawer route
+    await page.goto('/create');
 
     // Wait for the drawer to appear — use heading role to avoid matching sidebar text
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,
     });
+
+    // Select a repository — if the combobox is shown, pick the first option;
+    // if a repo was pre-selected via URL, the combobox won't appear.
+    const combobox = page.getByTestId('repository-combobox');
+    if (await combobox.isVisible()) {
+      await combobox.click();
+      const firstOption = page.getByRole('option').first();
+      await expect(firstOption).toBeVisible({ timeout: 5000 });
+      await firstOption.click();
+    }
 
     // Fill in the description (name input was removed — description is now the primary field)
     const descriptionInput = page.getByPlaceholder(
@@ -95,7 +128,7 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       })
     );
 
-    await page.goto('/create?repo=/fake/repo');
+    await page.goto('/create');
 
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,
@@ -160,7 +193,7 @@ test.describe('Feature Create Drawer — native file attachments', () => {
       });
     });
 
-    await page.goto('/create?repo=/fake/repo');
+    await page.goto('/create');
 
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
       timeout: 15000,

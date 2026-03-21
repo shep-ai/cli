@@ -167,6 +167,7 @@ export function FeaturesCanvas({
         nodesConnectable={false}
         elementsSelectable={false}
         proOptions={{ hideAttribution: true }}
+        className="[&_.react-flow__pane]:!cursor-default"
       >
         <Background
           variant={BackgroundVariant.Dots}

@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Terminal,
   ChevronDown,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
@@ -18,6 +19,8 @@ import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import { isAgentSetupComplete } from '@/app/actions/agent-setup-flag';
 import { checkAgentAuth } from '@/app/actions/check-agent-auth';
 import type { AgentAuthStatus } from '@/app/actions/check-agent-auth';
+import { checkToolStatus } from '@/app/actions/check-tool-status';
+import type { ToolStatusResult, ToolStatusEntry } from '@/app/actions/check-tool-status';
 import { WelcomeAgentSetup } from './welcome-agent-setup';
 
 export interface ControlCenterEmptyStateProps {
@@ -37,6 +40,7 @@ export function ControlCenterEmptyState({
   const [agentReady, setAgentReady] = useState<boolean | null>(null);
   const [authStatus, setAuthStatus] = useState<AgentAuthStatus | null>(null);
   const [cliExpanded, setCliExpanded] = useState(false);
+  const [toolStatus, setToolStatus] = useState<ToolStatusResult | null>(null);
   const { reactFileManager: useReactFileManager } = useFeatureFlags();
 
   useEffect(() => {
@@ -48,6 +52,7 @@ export function ControlCenterEmptyState({
   useEffect(() => {
     if (!agentReady) return;
     checkAgentAuth().then(setAuthStatus);
+    checkToolStatus().then(setToolStatus);
   }, [agentReady]);
 
   async function handlePickerClick() {
@@ -120,9 +125,19 @@ export function ControlCenterEmptyState({
             Describe what you need — Shep handles the rest.
           </p>
 
-          {/* Auth status */}
-          <div className="mt-8">
+          {/* Status checklist */}
+          <div className="mt-8 flex w-full flex-col gap-3">
             <AgentAuthBanner status={authStatus} onRetry={handleRetryAuth} />
+            <ToolStatusRow
+              label="Git"
+              status={toolStatus?.git ?? null}
+              missingHint="Required for all phases"
+            />
+            <ToolStatusRow
+              label="GitHub CLI"
+              status={toolStatus?.gh ?? null}
+              missingHint="Required for pull requests"
+            />
           </div>
           {/* Primary CTA */}
           <button
@@ -215,7 +230,7 @@ export function ControlCenterEmptyState({
   );
 }
 
-/** Inline status pill — minimal, no background box */
+/** Status row for the AI agent (Claude Code, etc.) */
 function AgentAuthBanner({
   status,
   onRetry,
@@ -225,36 +240,27 @@ function AgentAuthBanner({
 }) {
   if (!status) {
     return (
-      <div className="flex items-center gap-2">
-        <Loader2 className="text-muted-foreground/50 h-3.5 w-3.5 animate-spin" />
+      <ChecklistRow icon={<Loader2 className="text-muted-foreground/50 h-4 w-4 animate-spin" />}>
         <span className="text-muted-foreground/50 text-sm">Checking setup…</span>
-      </div>
+      </ChecklistRow>
     );
   }
 
   if (status.installed && status.authenticated) {
     return (
-      <div className="animate-in fade-in flex items-center gap-2">
-        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+      <ChecklistRow icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}>
         <span className="text-sm text-emerald-600 dark:text-emerald-400">{status.label} ready</span>
-      </div>
+      </ChecklistRow>
     );
   }
 
   if (!status.installed) {
     return (
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-amber-500" />
-          <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-            {status.label} not installed
-          </span>
-        </div>
-        {status.binaryName ? (
-          <code className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-            npm install -g {status.binaryName}
-          </code>
-        ) : null}
+      <ChecklistRow icon={<AlertCircle className="h-4 w-4 text-amber-500" />}>
+        <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+          {status.label} not installed
+        </span>
+        {status.installCommand ? <CopyableCommand command={status.installCommand} /> : null}
         <button
           type="button"
           onClick={onRetry}
@@ -262,23 +268,16 @@ function AgentAuthBanner({
         >
           Re-check
         </button>
-      </div>
+      </ChecklistRow>
     );
   }
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="flex items-center gap-2">
-        <AlertCircle className="h-4 w-4 text-amber-500" />
-        <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-          {status.label} needs authentication
-        </span>
-      </div>
-      {status.authCommand ? (
-        <code className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-          {status.authCommand}
-        </code>
-      ) : null}
+    <ChecklistRow icon={<AlertCircle className="h-4 w-4 text-amber-500" />}>
+      <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+        {status.label} needs authentication
+      </span>
+      {status.authCommand ? <CopyableCommand command={status.authCommand} /> : null}
       <div className="flex items-center gap-3">
         {status.binaryName ? (
           <button
@@ -290,10 +289,10 @@ function AgentAuthBanner({
                   status.agentType === 'claude-code' ? 'claude-code' : status.agentType;
                 await fetch(`/api/tools/${toolId}/launch`, { method: 'POST' });
               } catch {
-                // best effort
+                /* best effort */
               }
             }}
-            className="flex items-center gap-1.5 text-xs font-medium text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
+            className="flex items-center gap-1 text-xs font-medium text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
           >
             <Terminal className="h-3 w-3" />
             Open {status.label}
@@ -307,6 +306,94 @@ function AgentAuthBanner({
           Re-check
         </button>
       </div>
+    </ChecklistRow>
+  );
+}
+
+/** Status row for system tools (git, gh) */
+function ToolStatusRow({
+  label,
+  status,
+  missingHint,
+}: {
+  label: string;
+  status: ToolStatusEntry | null;
+  missingHint: string;
+}) {
+  if (!status) {
+    return (
+      <ChecklistRow icon={<Loader2 className="text-muted-foreground/50 h-4 w-4 animate-spin" />}>
+        <span className="text-muted-foreground/50 text-sm">Checking {label}…</span>
+      </ChecklistRow>
+    );
+  }
+
+  if (status.installed) {
+    return (
+      <ChecklistRow icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}>
+        <span className="flex items-baseline gap-2">
+          <span className="text-sm text-emerald-600 dark:text-emerald-400">{label} ready</span>
+          {status.version ? (
+            <span className="text-muted-foreground/40 text-xs">v{status.version}</span>
+          ) : null}
+        </span>
+      </ChecklistRow>
+    );
+  }
+
+  return (
+    <ChecklistRow icon={<AlertCircle className="h-4 w-4 text-amber-500" />}>
+      <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+        {label} not found
+      </span>
+      <span className="text-muted-foreground/50 text-xs">{missingHint}</span>
+      {status.installCommand ? <CopyableCommand command={status.installCommand} /> : null}
+      {status.installUrl ? (
+        <a
+          href={status.installUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
+        >
+          Docs <ExternalLink className="h-3 w-3" />
+        </a>
+      ) : null}
+    </ChecklistRow>
+  );
+}
+
+/** Checklist row: icon pinned left, children stacked vertically and fill width */
+function ChecklistRow({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="animate-in fade-in flex items-start gap-2.5">
+      <div className="mt-0.5 shrink-0">{icon}</div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">{children}</div>
     </div>
+  );
+}
+
+/** Compact copyable command block — fills available row width */
+function CopyableCommand({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        await navigator.clipboard.writeText(command);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className="group/cmd flex cursor-pointer items-center justify-between gap-2 rounded-md bg-zinc-100 py-1 pr-2 pl-2.5 text-left transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+    >
+      <code className="min-w-0 truncate text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300">
+        {command}
+      </code>
+      {copied ? (
+        <Check className="h-3 w-3 shrink-0 text-emerald-500" />
+      ) : (
+        <Copy className="h-3 w-3 shrink-0 text-zinc-400 opacity-0 transition-opacity group-hover/cmd:opacity-100" />
+      )}
+    </button>
   );
 }

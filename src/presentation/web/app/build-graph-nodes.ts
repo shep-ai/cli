@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-import path from 'node:path';
 import type { Feature, Repository, AgentRun } from '@shepai/core/domain/generated/output';
 import { AgentRunStatus } from '@shepai/core/domain/generated/output';
 import {
@@ -8,17 +6,10 @@ import {
   deriveLifecycle,
 } from '@/components/common/feature-node/derive-feature-state';
 import { isProcessAlive } from '@shepai/core/infrastructure/services/process/is-process-alive';
-import { getShepHomeDir } from '@shepai/core/infrastructure/services/filesystem/shep-directory.service';
+import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
-
-/** Compute the worktree path for a feature, matching WorktreeService.getWorktreePath() */
-function computeWorktreePath(repoPath: string, branch: string): string {
-  const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
-  const slug = branch.replace(/\//g, '-');
-  return path.join(getShepHomeDir(), 'repos', repoHash, 'wt', slug).replace(/\\/g, '/');
-}
 
 export interface FeatureWithRun {
   feature: Feature;
