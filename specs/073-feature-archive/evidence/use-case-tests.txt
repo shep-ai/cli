@@ -1,36 +1,11 @@
 
  RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive
 
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should throw when feature not found 1ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should include the feature id in the not found error 0ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should throw when lifecycle is not Archived 0ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should throw when lifecycle is Pending (not Archived) 0ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should throw when previousLifecycle is null 0ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should restore Maintain lifecycle and clear previousLifecycle 1ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should restore Pending lifecycle 0ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should restore Blocked lifecycle 0ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should find feature by prefix match 0ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should update the updatedAt timestamp 0ms
- ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts > UnarchiveFeatureUseCase > should return the updated feature 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should throw when feature not found 1ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should include the feature id in the not found error 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should throw when lifecycle is Started (not archivable) 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should throw when lifecycle is Implementation (not archivable) 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should throw when lifecycle is Review (not archivable) 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should throw when lifecycle is Archived (already archived) 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should throw when feature has active children 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should include child names in the active children error 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should succeed for Maintain lifecycle, storing previousLifecycle 1ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should succeed for Pending lifecycle 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should succeed for Blocked lifecycle 1ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should allow archiving when all children are also archived 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should allow archiving when all children are soft-deleted 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should find feature by prefix match 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should update the updatedAt timestamp 0ms
- ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts > ArchiveFeatureUseCase > should return the updated feature 0ms
+ ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts (11 tests) 5ms
+ ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts (16 tests) 8ms
 
  Test Files  2 passed (2)
       Tests  27 passed (27)
-   Start at  01:02:05
-   Duration  128ms (transform 69ms, setup 0ms, import 117ms, tests 10ms, environment 0ms)
+   Start at  01:14:44
+   Duration  141ms (transform 80ms, setup 0ms, import 134ms, tests 13ms, environment 0ms)
 

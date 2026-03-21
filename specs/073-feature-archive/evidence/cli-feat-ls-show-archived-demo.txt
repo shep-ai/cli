@@ -1,8 +1,7 @@
-=== shep feat ls --show-archived — CLI command demo ===
+=== feat ls --help (showing --show-archived flag) ===
 
-# 1. Show ls command help — --show-archived flag available
 
-$ shep feat ls --help
+
 Usage: shep feat ls [options]
 
 List features
@@ -13,50 +12,54 @@ Options:
   --show-archived    Include archived features
   -h, --help         display help for command
 
-
-# 2. First archive a completed feature
-
-$ shep feat archive fc09efe0 --force
-✓ Feature archived
-  Name: Agent-Based Local Dev Environment
+=== feat ls default (archived features hidden) ===
 
 
-# 3. Default feat ls — archived feature is HIDDEN (15 features instead of 16)
-
-$ shep feat ls
-  Features (15)
-
-  ID          Name                              Status                 Repo                  R P M ↑     Elapsed     Done
-  4a5fad7d    Migrate Shep Files to .shep D…    ⠋ evidence             cli                   □ ■ □ ■     4h 17m
-  527f4c50    Scheduled & On-Demand Workflo…    ⠋ Implementing         cli                   □ □ □ ■     3h 44m
-  91038372    Feature Archive and Visibilit…    ⠋ evidence             cli                   □ ■ □ ■     4h 24m
-  4ed50136    Shep Doctor Self-Healing Comm…    ⠋ evidence             cli                   □ □ □ ■     3h 57m
-  c2c55300    Git Rebase and Fork Sync          ❯ Review Merge         cli                   □ □ □ ■     4d
-  ...
-  (fc09efe0 "Agent-Based Local Dev Environment" is NOT shown — it's archived)
 
 
-# 4. feat ls --show-archived — archived feature is VISIBLE with "○ Archived" status (16 features)
-
-$ shep feat ls --show-archived
   Features (16)
 
-  ID          Name                              Status                 Repo                  R P M ↑     Elapsed     Done
-  4a5fad7d    Migrate Shep Files to .shep D…    ⠋ evidence             cli                   □ ■ □ ■     4h 17m
-  527f4c50    Scheduled & On-Demand Workflo…    ⠋ Implementing         cli                   □ □ □ ■     3h 44m
-  91038372    Feature Archive and Visibilit…    ⠋ evidence             cli                   □ ■ □ ■     4h 24m
-  4ed50136    Shep Doctor Self-Healing Comm…    ⠋ evidence             cli                   □ □ □ ■     3h 57m
-  c2c55300    Git Rebase and Fork Sync          ❯ Review Merge         cli                   □ □ □ ■     4d
-  ...
-  fc09efe0    Agent-Based Local Dev Environ…    ○ Archived             cli                   □ □ □ ■     3h 14m      4d ago
+  ID          Name                              Status                 Repo                  R P M ↑     Elapsed     Done        
+  527f4c50    Scheduled & On-Demand Workflo…    ⠋ evidence             cli                   □ □ □ ■     5h 30m      
+  91038372    Feature Archive and Visibilit…    ⠋ evidence             cli                   □ ■ □ ■     6h 10m      
+  c2c55300    Git Rebase and Fork Sync          ❯ Review Merge         cli                   □ □ □ ■     4d          
+  b91d9dce    Psytrance Show Intelligence B…    ❯ Review Merge         bitch-repo            □ □ □ ■     2d          
+  11cdbd72    Adopted Branch Agent Run Supp…    ❯ Review Merge         cli                   □ ■ □ ■     2h 18m      
+  43dd16b4    Coasts Containerized Dev Serv…    ❯ Review Merge         cli                   □ □ □ ■     3h 45m      
+  01dcbb44    Remote Repository Contributio…    ❯ Review Merge         cli                   □ □ □ ■     4h 48m      
+  91e3bd34    Add Project to Registry           ❯ Review Merge         awesome-coding-ai     □ □ □ ■     8m          
+  4a5fad7d    Migrate Shep Files to .shep D…    ❯ Review Merge         cli                   □ ■ □ ■     5h 8m       
+  4ed50136    Shep Doctor Self-Healing Comm…    ❯ Review Merge         cli                   □ □ □ ■     4h 48m      
+  fc09efe0    Agent-Based Local Dev Environ…    ✓ Completed            cli                   □ □ □ ■     3h 14m      4d ago
   a6652dde    Hide CI Status Display            ✓ Completed            cli                   □ ■ □ ■     2h 45m      1d ago
-  ...
-  (fc09efe0 now visible with muted "○ Archived" status indicator)
+  d154136a    Feature Detail Drawer Panel       ✓ Completed            instagram             □ □ □ □     21m         1d ago
+  b44746c3    GitHub CLI Prerequisite Check…    ✓ Completed            cli                   □ □ □ ■     10m         1d ago
+  5344a259    Merge Diff Viewer with File T…    ○ Pending              cli                   □ ■ □ ■                 
+  f4aa5e4a    Github Remote Init                ○ Review               cli                   □ □ □ □                 
 
 
-# 5. Unarchive to restore
+=== feat ls --show-archived (includes archived features) ===
 
-$ shep feat unarchive fc09efe0
-✓ Feature unarchived
-  Name:     Agent-Based Local Dev Environment
-  Restored: Maintain
+
+
+
+  Features (16)
+
+  ID          Name                              Status                 Repo                  R P M ↑     Elapsed     Done        
+  527f4c50    Scheduled & On-Demand Workflo…    ⠋ evidence             cli                   □ □ □ ■     5h 30m      
+  91038372    Feature Archive and Visibilit…    ⠋ evidence             cli                   □ ■ □ ■     6h 11m      
+  c2c55300    Git Rebase and Fork Sync          ❯ Review Merge         cli                   □ □ □ ■     4d          
+  b91d9dce    Psytrance Show Intelligence B…    ❯ Review Merge         bitch-repo            □ □ □ ■     2d          
+  11cdbd72    Adopted Branch Agent Run Supp…    ❯ Review Merge         cli                   □ ■ □ ■     2h 18m      
+  43dd16b4    Coasts Containerized Dev Serv…    ❯ Review Merge         cli                   □ □ □ ■     3h 45m      
+  01dcbb44    Remote Repository Contributio…    ❯ Review Merge         cli                   □ □ □ ■     4h 48m      
+  91e3bd34    Add Project to Registry           ❯ Review Merge         awesome-coding-ai     □ □ □ ■     8m          
+  4a5fad7d    Migrate Shep Files to .shep D…    ❯ Review Merge         cli                   □ ■ □ ■     5h 8m       
+  4ed50136    Shep Doctor Self-Healing Comm…    ❯ Review Merge         cli                   □ □ □ ■     4h 48m      
+  fc09efe0    Agent-Based Local Dev Environ…    ✓ Completed            cli                   □ □ □ ■     3h 14m      4d ago
+  a6652dde    Hide CI Status Display            ✓ Completed            cli                   □ ■ □ ■     2h 45m      1d ago
+  d154136a    Feature Detail Drawer Panel       ✓ Completed            instagram             □ □ □ □     21m         1d ago
+  b44746c3    GitHub CLI Prerequisite Check…    ✓ Completed            cli                   □ □ □ ■     10m         1d ago
+  5344a259    Merge Diff Viewer with File T…    ○ Pending              cli                   □ ■ □ ■                 
+  f4aa5e4a    Github Remote Init                ○ Review               cli                   □ □ □ □                 
+

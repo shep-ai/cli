@@ -29,11 +29,7 @@ Error: Feature not found: "feat-999"
     at trace (file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/node_modules/.pnpm/vitest@4.0.18_@types+node@25.2.0_jiti@2.6.1_jsdom@28.0.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/vitest/dist/chunks/test.B8ej_ZHS.js:239:21)
     at runTest (file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1653:12)
 
- ✓  node  tests/unit/presentation/cli/commands/feat/unarchive.command.test.ts > createUnarchiveCommand > should create a command named "unarchive" 1ms
- ✓  node  tests/unit/presentation/cli/commands/feat/unarchive.command.test.ts > createUnarchiveCommand > should unarchive a feature without confirmation 1ms
- ✓  node  tests/unit/presentation/cli/commands/feat/unarchive.command.test.ts > createUnarchiveCommand > should display success message with feature name and restored lifecycle 0ms
- ✓  node  tests/unit/presentation/cli/commands/feat/unarchive.command.test.ts > createUnarchiveCommand > should set exit code 1 on failure for non-archived feature 2ms
- ✓  node  tests/unit/presentation/cli/commands/feat/unarchive.command.test.ts > createUnarchiveCommand > should set exit code 1 when feature not found 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/unarchive.command.test.ts (5 tests) 5ms
 stderr | tests/unit/presentation/cli/commands/feat/archive.command.test.ts > createArchiveCommand > should set exit code 1 on failure
 ✗ Failed to archive feature
 Error: Cannot archive feature: lifecycle is Implementation
@@ -62,17 +58,10 @@ Error: Feature not found: "feat-999"
     at trace (file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/node_modules/.pnpm/vitest@4.0.18_@types+node@25.2.0_jiti@2.6.1_jsdom@28.0.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/vitest/dist/chunks/test.B8ej_ZHS.js:239:21)
     at runTest (file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/node_modules/.pnpm/@vitest+runner@4.0.18/node_modules/@vitest/runner/dist/index.js:1653:12)
 
- ✓  node  tests/unit/presentation/cli/commands/feat/archive.command.test.ts > createArchiveCommand > should create a command named "archive" 1ms
- ✓  node  tests/unit/presentation/cli/commands/feat/archive.command.test.ts > createArchiveCommand > should archive a feature after confirmation 2ms
- ✓  node  tests/unit/presentation/cli/commands/feat/archive.command.test.ts > createArchiveCommand > should not archive when user declines confirmation 0ms
- ✓  node  tests/unit/presentation/cli/commands/feat/archive.command.test.ts > createArchiveCommand > should skip confirmation with --force flag 0ms
- ✓  node  tests/unit/presentation/cli/commands/feat/archive.command.test.ts > createArchiveCommand > should skip confirmation with -f flag 0ms
- ✓  node  tests/unit/presentation/cli/commands/feat/archive.command.test.ts > createArchiveCommand > should display success message with feature name 0ms
- ✓  node  tests/unit/presentation/cli/commands/feat/archive.command.test.ts > createArchiveCommand > should set exit code 1 on failure 1ms
- ✓  node  tests/unit/presentation/cli/commands/feat/archive.command.test.ts > createArchiveCommand > should set exit code 1 when feature not found 0ms
+ ✓  node  tests/unit/presentation/cli/commands/feat/archive.command.test.ts (8 tests) 6ms
 
  Test Files  2 passed (2)
       Tests  13 passed (13)
-   Start at  01:02:07
-   Duration  346ms (transform 173ms, setup 0ms, import 569ms, tests 11ms, environment 0ms)
+   Start at  01:14:48
+   Duration  343ms (transform 168ms, setup 0ms, import 565ms, tests 10ms, environment 0ms)
 

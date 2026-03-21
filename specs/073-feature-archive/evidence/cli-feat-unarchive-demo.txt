@@ -1,8 +1,7 @@
-=== shep feat unarchive — CLI command demo ===
+=== feat unarchive --help ===
 
-# 1. Show unarchive command help — no --force flag needed (always safe)
 
-$ shep feat unarchive --help
+
 Usage: shep feat unarchive [options] <id>
 
 Restore an archived feature to its previous state
@@ -13,21 +12,14 @@ Arguments:
 Options:
   -h, --help  display help for command
 
-
-# 2. Unarchive a previously archived feature — restores to Maintain lifecycle
-
-$ shep feat unarchive fc09efe0
-✓ Feature unarchived
-  Name:     Agent-Based Local Dev Environment
-  Restored: Maintain
-
-(exit code 0)
+=== Attempting to unarchive a non-existent feature ===
 
 
-# 3. Try to unarchive a non-existent feature — error
 
-$ shep feat unarchive nonexistent
 ✗ Failed to unarchive feature
 Error: Feature not found: "nonexistent"
-
-(exit code 1)
+    at ShowFeatureUseCase.execute (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/packages/core/src/application/use-cases/features/show-feature.use-case.ts:28:13)
+    at async Command.<anonymous> (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/src/presentation/cli/commands/feat/unarchive.command.ts:29:25)
+    at async Command.parseAsync (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/node_modules/.pnpm/commander@14.0.3/node_modules/commander/lib/command.js:1122:5)
+    at async bootstrap (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/src/presentation/cli/index.ts:131:5)
+ ELIFECYCLE  Command failed with exit code 1.
