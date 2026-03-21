@@ -1,22 +1,45 @@
 import { test, expect } from '@playwright/test';
+import Database from 'better-sqlite3';
+import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+const TEST_REPO_ID = `e2e-repo-${randomUUID().slice(0, 8)}`;
+
+function getDb(): Database.Database {
+  const dbPath = process.env.SHEP_HOME
+    ? join(process.env.SHEP_HOME, 'data')
+    : join(homedir(), '.shep', 'data');
+  return new Database(dbPath);
+}
+
+function seedRepo(db: Database.Database): void {
+  const now = Date.now();
+  db.prepare(
+    `INSERT OR REPLACE INTO repositories (id, name, path, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+  ).run(TEST_REPO_ID, 'E2E Test Repo', '/fake/e2e-test-repo', now, now);
+}
+
+function cleanupRepo(db: Database.Database): void {
+  db.prepare('DELETE FROM repositories WHERE id = ?').run(TEST_REPO_ID);
+}
 
 test.describe('Feature Create Drawer — native file attachments', () => {
-  test('create feature with attachment shows file name and size', async ({ page }) => {
-    // Mock the repositories API to include the fake repo
-    await page.route('**/api/repositories', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([
-          {
-            id: 'repo-1',
-            path: '/fake/repo',
-            name: 'Fake Repo',
-          },
-        ]),
-      })
-    );
+  let db: Database.Database;
 
+  test.beforeAll(() => {
+    db = getDb();
+    seedRepo(db);
+  });
+
+  test.afterAll(() => {
+    if (db) {
+      cleanupRepo(db);
+      db.close();
+    }
+  });
+
+  test('create feature with attachment shows file name and size', async ({ page }) => {
     // Mock the native file picker API route before navigating
     await page.route('**/api/dialog/pick-files', (route) =>
       route.fulfill({
