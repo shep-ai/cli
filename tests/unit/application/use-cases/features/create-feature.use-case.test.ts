@@ -60,6 +60,8 @@ function makeParentFeature(overrides?: Partial<Feature>): Feature {
     fast: false,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date(),
     updatedAt: new Date(),

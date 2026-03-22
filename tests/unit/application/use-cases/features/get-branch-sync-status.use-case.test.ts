@@ -27,6 +27,8 @@ describe('GetBranchSyncStatusUseCase', () => {
     fast: false,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
     approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
     createdAt: new Date(),
     updatedAt: new Date(),

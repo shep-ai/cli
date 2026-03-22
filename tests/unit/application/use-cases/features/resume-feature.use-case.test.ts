@@ -69,6 +69,8 @@ function createTestFeature(overrides?: Partial<Feature>): Feature {
     fast: false,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     agentRunId: 'run-001',
     specPath: '/wt/path/specs/001-test-feature',
