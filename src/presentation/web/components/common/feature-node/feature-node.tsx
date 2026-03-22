@@ -432,8 +432,10 @@ export function FeatureNode({
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
-              {data.repositoryPath ? (
-                <FeatureSessionsDropdown repositoryPath={data.repositoryPath} />
+              {(data.worktreePath ?? data.repositoryPath) ? (
+                <FeatureSessionsDropdown
+                  repositoryPath={data.worktreePath ?? data.repositoryPath}
+                />
               ) : null}
             </div>
 

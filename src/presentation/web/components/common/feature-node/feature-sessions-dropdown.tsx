@@ -44,6 +44,8 @@ export interface SessionSummary {
 interface FeatureSessionsDropdownProps {
   repositoryPath: string;
   className?: string;
+  /** When true, also scan worktree session directories (used by repo nodes). */
+  includeWorktrees?: boolean;
   /** Callback to create a feature from a session. Only shown on repo nodes. */
   onCreateFromSession?: (session: SessionSummary, sessionFilePath: string) => void;
 }
@@ -100,6 +102,7 @@ function stopNodeEvent(e: React.SyntheticEvent) {
 export function FeatureSessionsDropdown({
   repositoryPath,
   className,
+  includeWorktrees,
   onCreateFromSession,
 }: FeatureSessionsDropdownProps) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -124,7 +127,11 @@ export function FeatureSessionsDropdown({
   // Populates count badge + active indicator, and pre-loads the dropdown.
   useEffect(() => {
     let cancelled = false;
-    const params = new URLSearchParams({ repositoryPath, limit: '10' });
+    const params = new URLSearchParams({
+      repositoryPath,
+      limit: '10',
+      ...(includeWorktrees && { includeWorktrees: 'true' }),
+    });
     fetch(`/api/sessions?${params.toString()}`)
       .then((res) => (res.ok ? (res.json() as Promise<{ sessions: SessionSummary[] }>) : null))
       .then((data) => {
@@ -138,14 +145,18 @@ export function FeatureSessionsDropdown({
     return () => {
       cancelled = true;
     };
-  }, [repositoryPath]);
+  }, [repositoryPath, includeWorktrees]);
 
   // Re-fetch on dropdown open if not already loaded (e.g. path changed)
   const doFetch = useCallback(async () => {
     if (fetched) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ repositoryPath, limit: '10' });
+      const params = new URLSearchParams({
+        repositoryPath,
+        limit: '10',
+        ...(includeWorktrees && { includeWorktrees: 'true' }),
+      });
       const res = await fetch(`/api/sessions?${params.toString()}`);
       if (res.ok) {
         const data = (await res.json()) as { sessions: SessionSummary[] };
@@ -158,7 +169,7 @@ export function FeatureSessionsDropdown({
       setLoading(false);
       setFetched(true);
     }
-  }, [repositoryPath, fetched]);
+  }, [repositoryPath, fetched, includeWorktrees]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {

@@ -259,6 +259,7 @@ export function RepositoryNode({
                 </TooltipProvider>
                 <FeatureSessionsDropdown
                   repositoryPath={data.repositoryPath}
+                  includeWorktrees
                   onCreateFromSession={handleCreateFromSession}
                 />
               </>
