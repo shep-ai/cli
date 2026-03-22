@@ -199,6 +199,20 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
     revParse: vi.fn().mockResolvedValue('premerge-sha-mock'),
     localMergeSquash: vi.fn().mockResolvedValue(undefined),
     gitPrService: createMockGitPrService(),
+    gitForkService: {
+      forkRepository: vi.fn().mockResolvedValue(undefined),
+      pushToFork: vi.fn().mockResolvedValue(undefined),
+      createUpstreamPr: vi
+        .fn()
+        .mockResolvedValue({ url: 'https://github.com/upstream/repo/pull/1', number: 1 }),
+      getUpstreamPrStatus: vi
+        .fn()
+        .mockResolvedValue({
+          state: 'open',
+          url: 'https://github.com/upstream/repo/pull/1',
+          number: 1,
+        }),
+    },
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
     ...overrides,
   };

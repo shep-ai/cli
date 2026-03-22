@@ -24,6 +24,7 @@ import type { IAgentExecutorProvider } from '@/application/ports/output/agents/a
 import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import { GitForkService } from '@/infrastructure/services/git/git-fork.service.js';
 import { AgentRunStatus, SdlcLifecycle, type AgentType } from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
@@ -258,6 +259,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       ) => gitPrService.localMergeSquash(cwd, featureBranch, baseBranch, commitMessage, hasRemote),
       featureRepository,
       gitPrService,
+      gitForkService: container.resolve(GitForkService),
       cleanupFeatureWorktreeUseCase,
     },
   };

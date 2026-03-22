@@ -251,6 +251,20 @@ export function buildDeps(opts: BuildDepsOptions = {}): BuiltDeps {
     localMergeSquash: (cwd, featureBranch, baseBranch, commitMessage, hasRemote) =>
       gitPrService.localMergeSquash(cwd, featureBranch, baseBranch, commitMessage, hasRemote),
     gitPrService,
+    gitForkService: {
+      forkRepository: vi.fn().mockResolvedValue(undefined),
+      pushToFork: vi.fn().mockResolvedValue(undefined),
+      createUpstreamPr: vi
+        .fn()
+        .mockResolvedValue({ url: 'https://github.com/upstream/repo/pull/1', number: 1 }),
+      getUpstreamPrStatus: vi
+        .fn()
+        .mockResolvedValue({
+          state: 'open',
+          url: 'https://github.com/upstream/repo/pull/1',
+          number: 1,
+        }),
+    } as any,
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
   };
 

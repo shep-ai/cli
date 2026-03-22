@@ -166,6 +166,20 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
     revParse: vi.fn().mockResolvedValue('premerge-sha-mock'),
     localMergeSquash: vi.fn().mockResolvedValue(undefined),
     featureRepository: createStatefulFeatureRepo(featureId),
+    gitForkService: {
+      forkRepository: vi.fn().mockResolvedValue(undefined),
+      pushToFork: vi.fn().mockResolvedValue(undefined),
+      createUpstreamPr: vi
+        .fn()
+        .mockResolvedValue({ url: 'https://github.com/upstream/repo/pull/1', number: 1 }),
+      getUpstreamPrStatus: vi
+        .fn()
+        .mockResolvedValue({
+          state: 'open',
+          url: 'https://github.com/upstream/repo/pull/1',
+          number: 1,
+        }),
+    },
     gitPrService: {
       hasRemote: vi.fn().mockResolvedValue(true),
       getRemoteUrl: vi.fn().mockResolvedValue('https://github.com/test/repo'),

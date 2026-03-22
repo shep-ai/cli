@@ -21,6 +21,7 @@ import type {
   DiffSummary,
   IGitPrService,
 } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type { IGitForkService } from '@/application/ports/output/services/git-fork-service.interface.js';
 import { SdlcLifecycle, PrStatus, type CiStatus } from '@/domain/generated/output.js';
 import {
   createNodeLogger,
@@ -73,6 +74,7 @@ export interface MergeNodeDeps {
    */
   revParse: (cwd: string, ref: string) => Promise<string>;
   gitPrService: IGitPrService;
+  gitForkService: IGitForkService;
   cleanupFeatureWorktreeUseCase: Pick<CleanupFeatureWorktreeUseCase, 'execute'>;
 }
 
@@ -302,66 +304,115 @@ export function createMergeNode(deps: MergeNodeDeps) {
         }
       }
 
-      // --- Merge ---
-      // Merge when: allowMerge is true (auto-merge), OR user explicitly
-      // approved at the merge gate (isResumeAfterInterrupt means they
-      // clicked Approve). The approval IS permission to merge.
-      let merged = false;
-      const userApprovedMerge = isResumeAfterInterrupt && state._approvalAction !== 'rejected';
-      if (state.approvalGates?.allowMerge || userApprovedMerge) {
-        if (prUrl && prNumber) {
-          // PR exists: merge via GitHub API directly — no agent or local merge needed.
-          // This will fail if the PR is not in a mergeable state (checks pending, reviews needed).
-          log.info(`Merging PR #${prNumber} via GitHub API (squash)`);
-          await deps.gitPrService.mergePr(cwd, prNumber, 'squash');
-          messages.push(`[merge] PR #${prNumber} merged via squash`);
-          merged = true;
-        } else {
-          // No PR: programmatic local squash merge in the ORIGINAL repo (not the worktree,
-          // which IS the feature branch and must not be modified during merge).
-          // Uses direct git commands instead of an agent for reliability.
-          log.info('Programmatic local squash merge (no agent needed)');
+      // --- Fork-and-PR branch ---
+      // When forkAndPr is true, fork the repo and create an upstream PR
+      // instead of merging directly.
+      if (state.forkAndPr) {
+        log.info('Fork-and-PR mode: forking repo and creating upstream PR');
 
-          const commitMsg = `feat: squash merge ${branch} into ${baseBranch}`;
-          await deps.localMergeSquash(
-            state.repositoryPath,
-            branch,
-            baseBranch,
-            commitMsg,
-            remoteAvailable
-          );
+        // 1. Fork the repository
+        await deps.gitForkService.forkRepository(cwd);
+        messages.push(`[merge] Forked repository`);
 
-          log.info('Local squash merge completed successfully');
-          messages.push(`[merge] Local squash merge completed`);
-          merged = true;
+        // 2. Push to fork
+        await deps.gitForkService.pushToFork(cwd, branch);
+        messages.push(`[merge] Pushed branch ${branch} to fork`);
+
+        // 3. Create upstream PR
+        const prTitle = `feat: ${state.featureId}`;
+        const prBody = `Automated PR for feature ${state.featureId}`;
+        const upstreamPrResult = await deps.gitForkService.createUpstreamPr(
+          cwd,
+          prTitle,
+          prBody,
+          branch,
+          baseBranch
+        );
+        messages.push(`[merge] Upstream PR created: ${upstreamPrResult.url}`);
+
+        // 4. Update feature with AwaitingUpstream lifecycle and upstream PR data
+        if (feature) {
+          await deps.featureRepository.update({
+            ...feature,
+            lifecycle: SdlcLifecycle.AwaitingUpstream,
+            pr: {
+              url: prUrl ?? '',
+              number: prNumber ?? 0,
+              status: PrStatus.Open,
+              ...(commitHash ? { commitHash } : {}),
+              ...(ciStatus ? { ciStatus: ciStatus as CiStatus } : {}),
+              ...(ciFixAttempts > 0 ? { ciFixAttempts } : {}),
+              ...(ciFixHistory.length > 0 ? { ciFixHistory } : {}),
+              upstreamPrUrl: upstreamPrResult.url,
+              upstreamPrNumber: upstreamPrResult.number,
+              upstreamPrStatus: PrStatus.Open,
+            },
+            updatedAt: new Date(),
+          });
+          messages.push(`[merge] Feature lifecycle → ${SdlcLifecycle.AwaitingUpstream}`);
         }
-      }
+      } else {
+        // --- Merge ---
+        // Merge when: allowMerge is true (auto-merge), OR user explicitly
+        // approved at the merge gate (isResumeAfterInterrupt means they
+        // clicked Approve). The approval IS permission to merge.
+        let merged = false;
+        const userApprovedMerge = isResumeAfterInterrupt && state._approvalAction !== 'rejected';
+        if (state.approvalGates?.allowMerge || userApprovedMerge) {
+          if (prUrl && prNumber) {
+            // PR exists: merge via GitHub API directly — no agent or local merge needed.
+            // This will fail if the PR is not in a mergeable state (checks pending, reviews needed).
+            log.info(`Merging PR #${prNumber} via GitHub API (squash)`);
+            await deps.gitPrService.mergePr(cwd, prNumber, 'squash');
+            messages.push(`[merge] PR #${prNumber} merged via squash`);
+            merged = true;
+          } else {
+            // No PR: programmatic local squash merge in the ORIGINAL repo (not the worktree,
+            // which IS the feature branch and must not be modified during merge).
+            // Uses direct git commands instead of an agent for reliability.
+            log.info('Programmatic local squash merge (no agent needed)');
 
-      // --- Update feature lifecycle ---
-      const newLifecycle = merged ? SdlcLifecycle.Maintain : SdlcLifecycle.Review;
-      if (feature) {
-        await deps.featureRepository.update({
-          ...feature,
-          lifecycle: newLifecycle,
-          ...(prUrl && prNumber
-            ? {
-                pr: {
-                  url: prUrl,
-                  number: prNumber,
-                  status: merged ? PrStatus.Merged : PrStatus.Open,
-                  ...(commitHash ? { commitHash } : {}),
-                  ...(ciStatus ? { ciStatus: ciStatus as CiStatus } : {}),
-                  ...(ciFixAttempts > 0 ? { ciFixAttempts } : {}),
-                  ...(ciFixHistory.length > 0 ? { ciFixHistory } : {}),
-                },
-              }
-            : {}),
-          updatedAt: new Date(),
-        });
-        messages.push(`[merge] Feature lifecycle → ${newLifecycle}`);
+            const commitMsg = `feat: squash merge ${branch} into ${baseBranch}`;
+            await deps.localMergeSquash(
+              state.repositoryPath,
+              branch,
+              baseBranch,
+              commitMsg,
+              remoteAvailable
+            );
 
-        if (merged) {
-          await deps.cleanupFeatureWorktreeUseCase.execute(feature.id);
+            log.info('Local squash merge completed successfully');
+            messages.push(`[merge] Local squash merge completed`);
+            merged = true;
+          }
+        }
+
+        // --- Update feature lifecycle ---
+        const newLifecycle = merged ? SdlcLifecycle.Maintain : SdlcLifecycle.Review;
+        if (feature) {
+          await deps.featureRepository.update({
+            ...feature,
+            lifecycle: newLifecycle,
+            ...(prUrl && prNumber
+              ? {
+                  pr: {
+                    url: prUrl,
+                    number: prNumber,
+                    status: merged ? PrStatus.Merged : PrStatus.Open,
+                    ...(commitHash ? { commitHash } : {}),
+                    ...(ciStatus ? { ciStatus: ciStatus as CiStatus } : {}),
+                    ...(ciFixAttempts > 0 ? { ciFixAttempts } : {}),
+                    ...(ciFixHistory.length > 0 ? { ciFixHistory } : {}),
+                  },
+                }
+              : {}),
+            updatedAt: new Date(),
+          });
+          messages.push(`[merge] Feature lifecycle → ${newLifecycle}`);
+
+          if (merged) {
+            await deps.cleanupFeatureWorktreeUseCase.execute(feature.id);
+          }
         }
       }
 
