@@ -417,18 +417,16 @@ describe('FeatureNode', () => {
   });
 
   describe('selected highlight', () => {
-    it('applies ring classes when selected is true', () => {
+    it('applies selection border classes when selected is true', () => {
       renderFeatureNode(undefined, { selected: true });
       const card = screen.getByTestId('feature-node-card');
-      expect(card.className).toContain('ring-1');
-      expect(card.className).toContain('ring-primary');
+      expect(card.className).toContain('border-blue-400');
     });
 
-    it('does not apply ring classes when selected is false', () => {
+    it('does not apply selection border classes when selected is false', () => {
       renderFeatureNode(undefined, { selected: false });
       const card = screen.getByTestId('feature-node-card');
-      expect(card.className).not.toContain('ring-2');
-      expect(card.className).not.toContain('ring-primary');
+      expect(card.className).not.toContain('border-blue-400');
     });
   });
 

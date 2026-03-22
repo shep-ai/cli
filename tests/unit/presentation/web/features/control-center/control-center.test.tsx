@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
   usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/hooks/agent-events-provider', () => ({

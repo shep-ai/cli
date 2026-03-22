@@ -7,6 +7,7 @@ const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
   usePathname: () => currentPathname,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/hooks/agent-events-provider', () => ({
