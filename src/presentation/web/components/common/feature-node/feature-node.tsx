@@ -233,7 +233,10 @@ export function FeatureNode({
           'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm dark:bg-neutral-800/80',
           data.state === 'action-required' &&
             'border-l-[3px] border-l-rose-400 dark:border-l-amber-500',
-          selected && 'ring-primary ring-2',
+          data.state === 'action-required' &&
+            selected &&
+            'border-t-rose-400 border-r-rose-400 border-b-rose-400 dark:border-t-amber-500 dark:border-r-amber-500 dark:border-b-amber-500',
+          selected && data.state !== 'action-required' && 'ring-primary ring-1',
           data.state === 'deleting' && 'opacity-60',
           data.state === 'archived' && 'opacity-50'
         )}
