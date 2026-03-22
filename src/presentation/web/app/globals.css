@@ -37,6 +37,9 @@
   --color-card: #ffffff;
   --color-card-foreground: #0a0a0a;
 
+  --attention-wave-tint: #fffceb;
+  --attention-wave-base: #ffffff;
+
   --color-popover: #ffffff;
   --color-popover-foreground: #0a0a0a;
 
@@ -74,6 +77,7 @@
   --animate-option-highlight: option-highlight 1.5s ease-out;
   --animate-pulse-cta: pulse-cta 2s ease-in-out infinite;
   --animate-shimmer: shimmer 3s ease-in-out infinite;
+  --animate-attention-wave: attention-wave 2.5s ease-in-out infinite;
 }
 
 /* Dark Mode Theme Overrides */
@@ -102,6 +106,9 @@
 
   --color-card: #0a0a0a;
   --color-card-foreground: #fafafa;
+
+  --attention-wave-tint: #2a2a20;
+  --attention-wave-base: #262626cc;
 
   --color-popover: #0a0a0a;
   --color-popover-foreground: #fafafa;
@@ -188,6 +195,16 @@
 
 ::view-transition-new(*) {
   animation: theme-reveal 400ms ease-in-out;
+}
+
+@keyframes attention-wave {
+  0%,
+  100% {
+    background-color: var(--attention-wave-tint);
+  }
+  50% {
+    background-color: var(--attention-wave-base);
+  }
 }
 
 @keyframes theme-reveal {
