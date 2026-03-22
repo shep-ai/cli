@@ -1,3 +1,10 @@
+# [1.137.0](https://github.com/shep-ai/cli/compare/v1.136.1...v1.137.0) (2026-03-22)
+
+
+### Features
+
+* **domain:** add git rebase-on-main with agent-powered conflict resolution and sync-main ([#396](https://github.com/shep-ai/cli/issues/396)) ([d4cfb72](https://github.com/shep-ai/cli/commit/d4cfb7254d715e198487b1844f1bdb19dfa84a50))
+
 ## [1.136.1](https://github.com/shep-ai/cli/compare/v1.136.0...v1.136.1) (2026-03-22)
 
 
