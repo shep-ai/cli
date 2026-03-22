@@ -104,7 +104,11 @@ export function BaseDrawer({
         ref={contentRef}
         direction="right"
         showCloseButton={false}
-        className={cn(drawerVariants({ size }), 'bg-white/85 backdrop-blur-xl dark:bg-neutral-800/85', className)}
+        className={cn(
+          drawerVariants({ size }),
+          'bg-white/85 backdrop-blur-xl dark:bg-neutral-800/85',
+          className
+        )}
         data-testid={testId}
         onInteractOutside={modal ? undefined : (e) => e.preventDefault()}
       >
