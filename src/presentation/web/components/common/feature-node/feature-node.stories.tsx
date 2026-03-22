@@ -722,6 +722,36 @@ export const Archived: Story = {
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
+/**
+ * Awaiting upstream — the feature's fork PR has been submitted and the agent
+ * is now waiting for the upstream repository maintainer to merge it. The node
+ * shows the `review` lifecycle phase (AwaitingUpstream maps to `'review'` in
+ * `sdlcLifecycleMap`) with `state: 'running'` and a linked PR.
+ */
+export const AwaitingUpstream: Story = {
+  args: {
+    name: 'Upstream Contribution',
+    description: 'Feature submitted as fork PR — awaiting upstream merge',
+    featureId: '#au1',
+    lifecycle: 'review',
+    state: 'running',
+    progress: 95,
+    agentType: 'claude-code',
+    modelId: 'claude-sonnet-4-6',
+    repositoryPath: '/home/user/upstream-fork',
+    repositoryName: 'upstream-fork',
+    branch: 'feat/upstream-contribution',
+    pr: {
+      url: 'https://github.com/upstream-org/project/pull/42',
+      number: 42,
+      status: PrStatus.Open,
+      ciStatus: CiStatus.Success,
+      mergeable: true,
+    },
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
 export const ArchivedWithUnarchive: Story = {
   args: {
     name: 'Old Dashboard',
