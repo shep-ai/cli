@@ -12,8 +12,8 @@ import {
 } from '@/application/ports/output/services/git-pr-service.interface';
 
 describe('GitPrErrorCode', () => {
-  it('should define all 9 error codes', () => {
-    expect(Object.keys(GitPrErrorCode)).toHaveLength(9);
+  it('should define all 11 error codes', () => {
+    expect(Object.keys(GitPrErrorCode)).toHaveLength(11);
   });
 
   it.each([
@@ -26,6 +26,8 @@ describe('GitPrErrorCode', () => {
     'GIT_ERROR',
     'MERGE_FAILED',
     'PR_NOT_FOUND',
+    'REMOTE_ALREADY_EXISTS',
+    'REPO_CREATE_FAILED',
   ] as const)('should have %s error code', (code) => {
     expect(GitPrErrorCode[code]).toBe(code);
   });
@@ -166,6 +168,10 @@ describe('IGitPrService', () => {
       localMergeSquash: async () => {
         /* noop */
       },
+      createGitHubRepo: async () => 'https://github.com/org/repo',
+      addRemote: async () => {
+        /* noop */
+      },
     };
 
     // Verify all methods exist
@@ -190,9 +196,11 @@ describe('IGitPrService', () => {
       'getFailureLogs',
       'getMergeableStatus',
       'localMergeSquash',
+      'createGitHubRepo',
+      'addRemote',
     ];
 
-    expect(methodNames).toHaveLength(20);
+    expect(methodNames).toHaveLength(22);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }
