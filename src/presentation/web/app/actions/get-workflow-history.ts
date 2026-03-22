@@ -1,6 +1,7 @@
 'use server';
 
 import { resolve } from '@/lib/server-container';
+import { getFeatureFlags } from '@/lib/feature-flags';
 import type { GetWorkflowHistoryUseCase } from '@shepai/core/application/use-cases/workflows/get-workflow-history.use-case';
 import type { WorkflowExecution } from '@shepai/core/domain/generated/output';
 
@@ -13,6 +14,10 @@ export async function getWorkflowHistory(
   workflowId: string,
   limit?: number
 ): Promise<GetWorkflowHistoryResult> {
+  if (!getFeatureFlags().scheduledWorkflows) {
+    return { executions: [] };
+  }
+
   try {
     const useCase = resolve<GetWorkflowHistoryUseCase>('GetWorkflowHistoryUseCase');
     const executions = await useCase.execute(workflowId, undefined, limit);

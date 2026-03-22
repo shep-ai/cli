@@ -80,6 +80,13 @@ vi.mock('@/infrastructure/services/workflow-scheduler/workflow-scheduler.service
   hasWorkflowScheduler: vi.fn().mockReturnValue(true),
 }));
 
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  hasSettings: vi.fn().mockReturnValue(true),
+  getSettings: vi.fn().mockReturnValue({
+    featureFlags: { scheduledWorkflows: true },
+  }),
+}));
+
 import {
   initializeWorkflowScheduler,
   getWorkflowScheduler,

@@ -123,12 +123,14 @@ export function AppSidebar({
               active={pathname === '/skills'}
             />
           ) : null}
-          <SidebarNavItem
-            icon={CalendarClock}
-            label="Workflows"
-            href="/workflows"
-            active={pathname === '/workflows'}
-          />
+          {featureFlags.scheduledWorkflows ? (
+            <SidebarNavItem
+              icon={CalendarClock}
+              label="Workflows"
+              href="/workflows"
+              active={pathname === '/workflows'}
+            />
+          ) : null}
           <SidebarNavItem
             icon={Settings}
             label="Settings"

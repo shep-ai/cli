@@ -160,6 +160,7 @@ export function createDefaultSettings(): Settings {
     adoptBranch: false,
     gitRebaseSync: false,
     reactFileManager: false,
+    scheduledWorkflows: false,
   };
 
   return {

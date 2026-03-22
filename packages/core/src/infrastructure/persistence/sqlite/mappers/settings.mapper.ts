@@ -117,6 +117,7 @@ export interface SettingsRow {
   feature_flag_adopt_branch: number;
   feature_flag_git_rebase_sync: number;
   feature_flag_react_file_manager: number;
+  feature_flag_scheduled_workflows: number;
 }
 
 /**
@@ -225,6 +226,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     feature_flag_adopt_branch: settings.featureFlags?.adoptBranch ? 1 : 0,
     feature_flag_git_rebase_sync: settings.featureFlags?.gitRebaseSync ? 1 : 0,
     feature_flag_react_file_manager: settings.featureFlags?.reactFileManager ? 1 : 0,
+    feature_flag_scheduled_workflows: settings.featureFlags?.scheduledWorkflows ? 1 : 0,
   };
 }
 
@@ -362,6 +364,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       adoptBranch: row.feature_flag_adopt_branch === 1,
       gitRebaseSync: row.feature_flag_git_rebase_sync === 1,
       reactFileManager: row.feature_flag_react_file_manager === 1,
+      scheduledWorkflows: row.feature_flag_scheduled_workflows === 1,
     },
 
     // Onboarding (INTEGER → boolean)

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { resolve } from '@/lib/server-container';
+import { getFeatureFlags } from '@/lib/feature-flags';
 import type { RunWorkflowUseCase } from '@shepai/core/application/use-cases/workflows/run-workflow.use-case';
 import type { WorkflowExecution } from '@shepai/core/domain/generated/output';
 
@@ -12,6 +13,10 @@ export interface TriggerWorkflowResult {
 }
 
 export async function triggerWorkflow(workflowId: string): Promise<TriggerWorkflowResult> {
+  if (!getFeatureFlags().scheduledWorkflows) {
+    return { success: false, error: 'Scheduled workflows feature is not enabled' };
+  }
+
   try {
     const useCase = resolve<RunWorkflowUseCase>('RunWorkflowUseCase');
     const execution = await useCase.execute(workflowId);
