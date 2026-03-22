@@ -480,7 +480,7 @@ model FeatureFlags {
   debug: boolean = false;
 
   @doc("Enable GitHub repository import in the web UI")
-  githubImport: boolean = false;
+  githubImport: boolean = true;
 
   @doc("Enable adopt branch feature to import existing branches as tracked features")
   adoptBranch: boolean = false;

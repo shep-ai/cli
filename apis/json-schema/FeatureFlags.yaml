@@ -16,7 +16,7 @@ properties:
     description: Enable debug UI elements and verbose client-side logging
   githubImport:
     type: boolean
-    default: false
+    default: true
     description: Enable GitHub repository import in the web UI
   adoptBranch:
     type: boolean
