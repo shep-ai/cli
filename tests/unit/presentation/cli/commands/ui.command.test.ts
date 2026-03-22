@@ -6,6 +6,7 @@
  * TDD Phase: GREEN
  */
 
+import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 
@@ -46,6 +47,14 @@ vi.mock('@/infrastructure/di/container.js', () => ({
         token === 'IGitPrService'
       ) {
         return {};
+      }
+      // Return stub for PollUpstreamPrUseCase (resolved by class constructor, not a string token)
+      const tokenAsAny = token as unknown;
+      if (
+        typeof tokenAsAny === 'function' &&
+        (tokenAsAny as { name?: string }).name === 'PollUpstreamPrUseCase'
+      ) {
+        return { execute: vi.fn().mockResolvedValue({ status: 'open', transitioned: false }) };
       }
       throw new Error(`Unknown token: ${token}`);
     }),

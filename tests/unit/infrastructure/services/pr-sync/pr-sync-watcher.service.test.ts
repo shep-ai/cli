@@ -184,8 +184,9 @@ describe('PrSyncWatcherService', () => {
       watcher.start(); // second start should be no-op
 
       await vi.advanceTimersByTimeAsync(30_000);
-      // Only 2 polls: one immediate + one after 30s (not 4 from double-start)
-      expect(featureRepo.list).toHaveBeenCalledTimes(2);
+      // Only 2 polls: one immediate + one after 30s (not 4 from double-start).
+      // Each poll calls list() twice: once for Review and once for AwaitingUpstream.
+      expect(featureRepo.list).toHaveBeenCalledTimes(4);
     });
 
     it('should poll at configured interval', async () => {
@@ -193,15 +194,16 @@ describe('PrSyncWatcherService', () => {
 
       watcher.start();
 
-      // First poll happens immediately
+      // First poll happens immediately.
+      // Each poll calls list() twice: once for Review and once for AwaitingUpstream.
       await vi.advanceTimersByTimeAsync(0);
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
-
-      await vi.advanceTimersByTimeAsync(30_000);
       expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       await vi.advanceTimersByTimeAsync(30_000);
-      expect(featureRepo.list).toHaveBeenCalledTimes(3);
+      expect(featureRepo.list).toHaveBeenCalledTimes(4);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(featureRepo.list).toHaveBeenCalledTimes(6);
     });
 
     it('should stop polling when stop() is called', async () => {
@@ -209,12 +211,13 @@ describe('PrSyncWatcherService', () => {
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      // Each poll calls list() twice: once for Review and once for AwaitingUpstream.
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       watcher.stop();
 
       await vi.advanceTimersByTimeAsync(10000);
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
     });
 
     it('should support custom poll interval', async () => {
@@ -229,10 +232,11 @@ describe('PrSyncWatcherService', () => {
 
       customWatcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      // Each poll calls list() twice: once for Review and once for AwaitingUpstream.
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       await vi.advanceTimersByTimeAsync(1000);
-      expect(featureRepo.list).toHaveBeenCalledTimes(2);
+      expect(featureRepo.list).toHaveBeenCalledTimes(4);
 
       customWatcher.stop();
     });
@@ -930,10 +934,13 @@ describe('PrSyncWatcherService', () => {
       expect(consoleSpy).toHaveBeenCalled();
       expect(notificationService.receivedEvents).toHaveLength(0);
 
-      // Should continue polling on next cycle
+      // Should continue polling on next cycle.
+      // Each poll calls list() twice (Review + AwaitingUpstream).
+      // Cycle 1 rejected on both calls (Promise.all with both rejecting = 2 calls).
+      // Cycle 2 resolves on both calls = 2 more calls. Total = 4.
       vi.mocked(featureRepo.list).mockResolvedValue([]);
       await vi.advanceTimersByTimeAsync(30_000);
-      expect(featureRepo.list).toHaveBeenCalledTimes(2);
+      expect(featureRepo.list).toHaveBeenCalledTimes(4);
 
       consoleSpy.mockRestore();
     });
@@ -1133,8 +1140,8 @@ describe('PrSyncWatcherService', () => {
       dbWatcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      // Lock acquired → poll proceeded (featureRepo.list called)
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      // Lock acquired → poll proceeded (featureRepo.list called twice: Review + AwaitingUpstream)
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
       expect(mockDb.prepare).toHaveBeenCalled();
 
       dbWatcher.stop();
@@ -1181,20 +1188,20 @@ describe('PrSyncWatcherService', () => {
       dbWatcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      // Expired lock → can acquire → poll proceeds
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      // Expired lock → can acquire → poll proceeds (list called twice: Review + AwaitingUpstream)
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       dbWatcher.stop();
     });
 
     it('should proceed without lock when no DB is provided', async () => {
-      // Default watcher has no DB — should always poll
+      // Default watcher has no DB — should always poll (list called twice: Review + AwaitingUpstream)
       vi.mocked(featureRepo.list).mockResolvedValue([]);
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
     });
   });
 
