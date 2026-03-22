@@ -1,3 +1,10 @@
+# [1.141.0](https://github.com/shep-ai/cli/compare/v1.140.0...v1.141.0) (2026-03-22)
+
+
+### Features
+
+* **config:** add release-aware commit type selection rules ([#450](https://github.com/shep-ai/cli/issues/450)) ([401643b](https://github.com/shep-ai/cli/commit/401643b1444341ccfbe14bca0c272c76e7e403fb))
+
 # [1.140.0](https://github.com/shep-ai/cli/compare/v1.139.1...v1.140.0) (2026-03-22)
 
 
