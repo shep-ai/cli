@@ -125,16 +125,12 @@ describe('AppSidebar', () => {
     expect(handleFeatureClick).toHaveBeenCalledWith('feat-auth-001');
   });
 
-  it('renders Settings nav item with gear icon', () => {
-    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
+  it('renders Settings icon button in footer linking to /settings', () => {
+    const { container } = renderWithSidebar(
+      <AppSidebar features={mockFeatures} featureFlags={defaultFlags} />
+    );
 
-    expect(screen.getByText('Settings')).toBeInTheDocument();
-  });
-
-  it('renders Settings nav item linking to /settings', () => {
-    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
-
-    const settingsLink = screen.getByText('Settings').closest('a');
-    expect(settingsLink).toHaveAttribute('href', '/settings');
+    const settingsLink = container.querySelector('a[href="/settings"]');
+    expect(settingsLink).toBeInTheDocument();
   });
 });

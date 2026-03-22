@@ -71,29 +71,45 @@ describe('ArchiveFeatureUseCase', () => {
     await expect(useCase.execute('abc-123')).rejects.toThrow('abc-123');
   });
 
-  it('should throw when lifecycle is Started (not archivable)', async () => {
+  it('should succeed for Started lifecycle', async () => {
     const feature = createMockFeature({ lifecycle: SdlcLifecycle.Started });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
 
-    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow(/cannot archive/i);
+    const result = await useCase.execute('feat-123-full-uuid');
+
+    expect(result.lifecycle).toBe(SdlcLifecycle.Archived);
+    expect(result.previousLifecycle).toBe(SdlcLifecycle.Started);
   });
 
-  it('should throw when lifecycle is Implementation (not archivable)', async () => {
+  it('should succeed for Implementation lifecycle', async () => {
     const feature = createMockFeature({ lifecycle: SdlcLifecycle.Implementation });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
 
-    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow(/cannot archive/i);
+    const result = await useCase.execute('feat-123-full-uuid');
+
+    expect(result.lifecycle).toBe(SdlcLifecycle.Archived);
+    expect(result.previousLifecycle).toBe(SdlcLifecycle.Implementation);
   });
 
-  it('should throw when lifecycle is Review (not archivable)', async () => {
+  it('should succeed for Review lifecycle', async () => {
     const feature = createMockFeature({ lifecycle: SdlcLifecycle.Review });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
 
-    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow(/cannot archive/i);
+    const result = await useCase.execute('feat-123-full-uuid');
+
+    expect(result.lifecycle).toBe(SdlcLifecycle.Archived);
+    expect(result.previousLifecycle).toBe(SdlcLifecycle.Review);
   });
 
   it('should throw when lifecycle is Archived (already archived)', async () => {
     const feature = createMockFeature({ lifecycle: SdlcLifecycle.Archived });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow(/cannot archive/i);
+  });
+
+  it('should throw when lifecycle is Deleting', async () => {
+    const feature = createMockFeature({ lifecycle: SdlcLifecycle.Deleting });
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
 
     await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow(/cannot archive/i);

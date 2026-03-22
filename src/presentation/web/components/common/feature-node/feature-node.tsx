@@ -102,113 +102,60 @@ export function FeatureNode({
         />
       ) : null}
 
-      {/* Delete button — visible on hover, positioned to the left (hidden when deleting) */}
-      {data.onDelete && data.featureId && data.state !== 'deleting' ? (
-        <>
-          <div
-            className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    aria-label="Delete feature"
-                    data-testid="feature-node-delete-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setConfirmOpen(true);
-                    }}
-                    className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Delete feature</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          <DeleteFeatureDialog
-            open={confirmOpen}
-            onOpenChange={setConfirmOpen}
-            onConfirm={(cleanup, cascadeDelete, closePr) => {
-              setConfirmOpen(false);
-              data.onDelete?.(data.featureId, cleanup, cascadeDelete, closePr);
-            }}
-            isDeleting={false}
-            featureName={data.name ?? 'this feature'}
-            featureId={data.featureId}
-            hasChildren={data.hasChildren}
-            hasOpenPr={!!data.pr && data.pr.status === 'Open'}
-          />
-        </>
-      ) : null}
-
-      {/* Archive button — visible on hover for archivable states (done, blocked, pending) */}
-      {data.onArchive &&
-      data.featureId &&
-      data.state !== 'deleting' &&
-      data.state !== 'archived' ? (
-        <>
-          <div
-            className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
-            style={{ marginTop: data.onDelete ? 20 : 0 }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    aria-label="Archive feature"
-                    data-testid="feature-node-archive-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setArchiveConfirmOpen(true);
-                    }}
-                    className="bg-card text-muted-foreground flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors hover:border-gray-500 hover:text-gray-600"
-                  >
-                    <Archive className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Archive feature</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
-            <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Archive feature?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  <strong>{data.name}</strong> will be hidden from the canvas. You can unarchive it
-                  later to restore it.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setArchiveConfirmOpen(false)}>
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => {
-                    setArchiveConfirmOpen(false);
-                    data.onArchive?.(data.featureId);
+      {/* Action buttons — centered as a group to the left of the node */}
+      <div
+        className="absolute top-1/2 -left-10 flex -translate-y-1/2 flex-col items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {/* Archive button */}
+        {data.onArchive &&
+        data.featureId &&
+        data.state !== 'deleting' &&
+        data.state !== 'archived' ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label="Archive feature"
+                  data-testid="feature-node-archive-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setArchiveConfirmOpen(true);
                   }}
+                  className="bg-card text-muted-foreground flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors hover:border-gray-500 hover:text-gray-600"
                 >
-                  Archive
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-      ) : null}
+                  <Archive className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Archive feature</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
 
-      {/* Unarchive button — visible on hover for archived features */}
-      {data.onUnarchive && data.featureId && data.state === 'archived' ? (
-        <div
-          className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
+        {/* Delete button */}
+        {data.onDelete && data.featureId && data.state !== 'deleting' ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label="Delete feature"
+                  data-testid="feature-node-delete-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmOpen(true);
+                  }}
+                  className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Delete feature</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+
+        {/* Unarchive button */}
+        {data.onUnarchive && data.featureId && data.state === 'archived' ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -227,7 +174,55 @@ export function FeatureNode({
               <TooltipContent>Unarchive feature</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        </div>
+        ) : null}
+      </div>
+
+      {/* Delete confirmation dialog */}
+      {data.onDelete && data.featureId && data.state !== 'deleting' ? (
+        <DeleteFeatureDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          onConfirm={(cleanup, cascadeDelete, closePr) => {
+            setConfirmOpen(false);
+            data.onDelete?.(data.featureId, cleanup, cascadeDelete, closePr);
+          }}
+          isDeleting={false}
+          featureName={data.name ?? 'this feature'}
+          featureId={data.featureId}
+          hasChildren={data.hasChildren}
+          hasOpenPr={!!data.pr && data.pr.status === 'Open'}
+        />
+      ) : null}
+
+      {/* Archive confirmation dialog */}
+      {data.onArchive &&
+      data.featureId &&
+      data.state !== 'deleting' &&
+      data.state !== 'archived' ? (
+        <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+          <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Archive feature?</AlertDialogTitle>
+              <AlertDialogDescription>
+                <strong>{data.name}</strong> will be hidden from the canvas. You can unarchive it
+                later to restore it.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setArchiveConfirmOpen(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setArchiveConfirmOpen(false);
+                  data.onArchive?.(data.featureId);
+                }}
+              >
+                Archive
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       ) : null}
 
       <div

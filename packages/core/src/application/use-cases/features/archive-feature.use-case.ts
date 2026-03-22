@@ -5,7 +5,7 @@
  * in previousLifecycle for restoration on unarchive.
  *
  * Business Rules:
- * - Only features in Maintain, Pending, or Blocked states can be archived
+ * - Any feature can be archived except those already Archived or Deleting
  * - Features with active (non-archived, non-deleted) children cannot be archived
  * - The current lifecycle is preserved in previousLifecycle for unarchive restoration
  * - No git operations or agent cancellations are triggered (archive is non-destructive)
@@ -16,11 +16,10 @@ import type { Feature } from '../../../domain/generated/output.js';
 import { SdlcLifecycle } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 
-/** Lifecycle states eligible for archiving. */
-const ARCHIVABLE_STATES = new Set<SdlcLifecycle>([
-  SdlcLifecycle.Maintain,
-  SdlcLifecycle.Pending,
-  SdlcLifecycle.Blocked,
+/** Lifecycle states that cannot be archived. */
+const NON_ARCHIVABLE_STATES = new Set<SdlcLifecycle>([
+  SdlcLifecycle.Archived,
+  SdlcLifecycle.Deleting,
 ]);
 
 @injectable()
@@ -37,10 +36,10 @@ export class ArchiveFeatureUseCase {
     }
 
     // 2. Validate lifecycle is archivable
-    if (!ARCHIVABLE_STATES.has(feature.lifecycle)) {
+    if (NON_ARCHIVABLE_STATES.has(feature.lifecycle)) {
       throw new Error(
         `Cannot archive feature "${feature.name}": lifecycle is ${feature.lifecycle}. ` +
-          `Only features in Maintain, Pending, or Blocked states can be archived.`
+          `Features that are already archived or being deleted cannot be archived.`
       );
     }
 

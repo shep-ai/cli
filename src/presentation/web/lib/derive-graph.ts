@@ -181,9 +181,8 @@ export function deriveGraph(
           onStop: callbacks.onStopFeature,
         }),
       ...(!isCreating &&
-        (entry.data.state === 'done' ||
-          entry.data.state === 'blocked' ||
-          entry.data.state === 'pending') &&
+        entry.data.state !== 'archived' &&
+        entry.data.state !== 'deleting' &&
         callbacks?.onArchiveFeature && {
           onArchive: callbacks.onArchiveFeature,
         }),

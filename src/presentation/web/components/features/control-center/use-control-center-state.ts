@@ -408,43 +408,50 @@ export function useControlCenterState(
 
   const handleArchiveFeature = useCallback(
     (featureId: string) => {
+      const nodeId = `feat-${featureId}`;
       beginMutation();
+      updateFeature(nodeId, { state: 'archived' });
 
       archiveFeature(featureId)
         .then((result) => {
           if (result.error) {
+            updateFeature(nodeId, { state: 'done' });
             toast.error(result.error);
           } else {
             toast.success('Feature archived');
           }
         })
         .catch(() => {
+          updateFeature(nodeId, { state: 'done' });
           toast.error('Failed to archive feature');
         })
         .finally(() => endMutation());
     },
-    [beginMutation, endMutation]
+    [updateFeature, beginMutation, endMutation]
   );
 
   const handleUnarchiveFeature = useCallback(
     (featureId: string) => {
+      const nodeId = `feat-${featureId}`;
       beginMutation();
+      updateFeature(nodeId, { state: 'done' });
 
       unarchiveFeature(featureId)
         .then((result) => {
           if (result.error) {
+            updateFeature(nodeId, { state: 'archived' });
             toast.error(result.error);
           } else {
-            // The next poll/reconcile will restore the correct state and lifecycle
             toast.success('Feature unarchived');
           }
         })
         .catch(() => {
+          updateFeature(nodeId, { state: 'archived' });
           toast.error('Failed to unarchive feature');
         })
         .finally(() => endMutation());
     },
-    [beginMutation, endMutation]
+    [updateFeature, beginMutation, endMutation]
   );
 
   const handleDeleteFeature = useCallback(
