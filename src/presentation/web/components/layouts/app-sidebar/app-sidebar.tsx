@@ -130,13 +130,13 @@ export function AppSidebar({
         {showExpanded ? (
           <div
             className={[
-              'min-w-0 overflow-hidden transition-opacity duration-200 ease-out',
+              'flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity duration-200 ease-out',
               '[&_[data-sidebar=group-label]]:!mt-0 [&_[data-sidebar=group-label]]:!opacity-100 [&_[data-sidebar=group-label]]:!transition-none',
               expandedVisible ? 'opacity-100' : 'opacity-0',
             ].join(' ')}
           >
             <SidebarSectionHeader label="Features" />
-            <ScrollArea>
+            <ScrollArea className="min-h-0 flex-1">
               {grouped.map(({ key, label, items }) =>
                 items.length > 0 ? (
                   <FeatureStatusGroup key={key} label={label} count={items.length}>
