@@ -439,13 +439,17 @@ export function FeatureNode({
               </div>
             ) : data.state === 'creating' ? (
               <div className="flex items-center gap-1.5 text-xs">
-                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                <span className="text-muted-foreground">{getBadgeText(data)}</span>
+                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin text-teal-600 dark:text-teal-400" />
+                <span className="font-medium text-teal-600 dark:text-teal-400">
+                  {getBadgeText(data)}
+                </span>
               </div>
             ) : data.state === 'running' ? (
               <div className="flex items-center gap-1.5 text-xs">
-                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                <span className="text-muted-foreground">{getBadgeText(data)}</span>
+                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin text-teal-600 dark:text-teal-400" />
+                <span className="font-medium text-teal-600 dark:text-teal-400">
+                  {getBadgeText(data)}
+                </span>
               </div>
             ) : data.state === 'action-required' ? (
               <Button
