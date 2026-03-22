@@ -294,6 +294,8 @@ export function makeState(overrides: Partial<FeatureAgentState>): FeatureAgentSt
     evidenceRetries: 0,
     model: undefined,
     resumeReason: undefined,
+    forkAndPr: false,
+    commitSpecs: true,
     ...overrides,
   };
 }

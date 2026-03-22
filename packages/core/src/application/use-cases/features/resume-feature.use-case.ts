@@ -135,6 +135,8 @@ export class ResumeFeatureUseCase {
         resumeFromInterrupt: lastRun.status === AgentRunStatus.waitingApproval,
         push: feature.push,
         openPr: feature.openPr,
+        forkAndPr: feature.forkAndPr,
+        commitSpecs: feature.commitSpecs,
         agentType: lastRun.agentType,
         ...(feature.fast ? { fast: true } : {}),
         ...(lastRun.modelId ? { model: lastRun.modelId } : {}),
