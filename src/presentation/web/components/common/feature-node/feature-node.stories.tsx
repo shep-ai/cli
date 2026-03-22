@@ -282,6 +282,7 @@ const allLifecycles: FeatureLifecyclePhase[] = [
   'research',
   'implementation',
   'review',
+  'awaitingUpstream',
   'deploy',
   'maintain',
 ];

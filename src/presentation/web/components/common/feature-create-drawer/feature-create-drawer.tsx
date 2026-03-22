@@ -9,6 +9,8 @@ import {
   Clock,
   FolderPlus,
   Loader2,
+  GitFork,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
@@ -77,6 +79,10 @@ export interface FeatureCreatePayload {
   fast: boolean;
   /** When true, create the feature in pending state (no agent spawned). */
   pending?: boolean;
+  /** Fork repo and create PR to upstream at merge time. */
+  forkAndPr: boolean;
+  /** Commit specs/evidences into the repo (defaults false when forkAndPr is enabled). */
+  commitSpecs: boolean;
   /** Optional agent type override for this feature run */
   agentType?: string;
   /** Optional model override for this feature run */
@@ -234,6 +240,8 @@ export function FeatureCreateDrawer({
   const [parentId, setParentId] = useState<string | undefined>(undefined);
   const [fast, setFast] = useState(false);
   const [pending, setPending] = useState(false);
+  const [forkAndPr, setForkAndPr] = useState(false);
+  const [commitSpecs, setCommitSpecs] = useState(true);
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
   const [selectedRepoPath, setSelectedRepoPath] = useState<string | undefined>(
@@ -287,6 +295,8 @@ export function FeatureCreateDrawer({
     setLocalRepos(repositories ?? []);
     setFast(false);
     setPending(false);
+    setForkAndPr(false);
+    setCommitSpecs(true);
     setOverrideAgent(undefined);
     setOverrideModel(undefined);
     setUploadError(null);
@@ -452,12 +462,14 @@ export function FeatureCreateDrawer({
           allowPlan: approvalGates.allowPlan ?? false,
           allowMerge: approvalGates.allowMerge ?? false,
         },
-        push: push || openPr,
-        openPr,
+        push: forkAndPr ? true : push || openPr,
+        openPr: forkAndPr ? true : openPr,
         ciWatchEnabled,
         enableEvidence,
         commitEvidence,
         fast,
+        forkAndPr,
+        commitSpecs,
         ...(pending ? { pending } : {}),
         ...(overrideAgent ? { agentType: overrideAgent } : {}),
         ...(overrideModel ? { model: overrideModel } : {}),
@@ -479,6 +491,8 @@ export function FeatureCreateDrawer({
       ciWatchEnabled,
       commitEvidence,
       fast,
+      forkAndPr,
+      commitSpecs,
       pending,
       overrideAgent,
       overrideModel,
@@ -956,20 +970,28 @@ export function FeatureCreateDrawer({
                         <Switch
                           id="push"
                           size="sm"
-                          checked={push || openPr}
+                          checked={forkAndPr ? true : push || openPr}
                           onCheckedChange={(v) => {
                             setPush(v);
                             if (!v && openPr) setOpenPr(false);
                           }}
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || forkAndPr}
                         />
-                        <Label htmlFor="push" className="cursor-pointer text-xs font-medium">
+                        <Label
+                          htmlFor="push"
+                          className={cn(
+                            'cursor-pointer text-xs font-medium',
+                            forkAndPr && 'opacity-50'
+                          )}
+                        >
                           Push
                         </Label>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Push branch to remote after implementation.
+                      {forkAndPr
+                        ? 'Implicitly enabled by fork-and-PR mode'
+                        : 'Push branch to remote after implementation.'}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -978,20 +1000,28 @@ export function FeatureCreateDrawer({
                         <Switch
                           id="open-pr"
                           size="sm"
-                          checked={openPr}
+                          checked={forkAndPr ? true : openPr}
                           onCheckedChange={(v) => {
                             setOpenPr(v);
                             if (!v) setCommitEvidence(false);
                           }}
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || forkAndPr}
                         />
-                        <Label htmlFor="open-pr" className="cursor-pointer text-xs font-medium">
+                        <Label
+                          htmlFor="open-pr"
+                          className={cn(
+                            'cursor-pointer text-xs font-medium',
+                            forkAndPr && 'opacity-50'
+                          )}
+                        >
                           PR
                         </Label>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Open a pull request after pushing.
+                      {forkAndPr
+                        ? 'Implicitly enabled by fork-and-PR mode'
+                        : 'Open a pull request after pushing.'}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -1010,6 +1040,70 @@ export function FeatureCreateDrawer({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">Watch CI and auto-fix after push.</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
+              {/* Fork row */}
+              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground w-16 shrink-0 cursor-default text-xs font-semibold tracking-wider">
+                      FORK
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Fork the repository and create a PR to the upstream repo.
+                  </TooltipContent>
+                </Tooltip>
+                <div className="flex flex-1 items-center gap-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="fork-and-pr"
+                          size="sm"
+                          checked={forkAndPr}
+                          onCheckedChange={(v) => {
+                            setForkAndPr(v);
+                            // Auto-flip commitSpecs to false when enabling fork mode
+                            if (v) setCommitSpecs(false);
+                          }}
+                          disabled={isSubmitting}
+                        />
+                        <Label
+                          htmlFor="fork-and-pr"
+                          className="flex cursor-pointer items-center gap-1 text-xs font-medium"
+                        >
+                          <GitFork className="h-3 w-3" />
+                          Fork & PR
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Contribute via fork (PR to upstream).
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="commit-specs"
+                          size="sm"
+                          checked={commitSpecs}
+                          onCheckedChange={setCommitSpecs}
+                          disabled={isSubmitting}
+                        />
+                        <Label
+                          htmlFor="commit-specs"
+                          className="flex cursor-pointer items-center gap-1 text-xs font-medium"
+                        >
+                          <FileText className="h-3 w-3" />
+                          Commit Specs
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Commit specs to repository.</TooltipContent>
                   </Tooltip>
                 </div>
               </div>
