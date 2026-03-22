@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { expect, fn, userEvent, waitFor, within } from '@storybook/test';
 import { ReactFlowProvider, ReactFlow, useNodesState } from '@xyflow/react';
+import { Eye } from 'lucide-react';
 import { DeploymentState, PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { FeatureNode } from './feature-node';
 import type { AgentTypeValue } from './agent-type-icons';
@@ -775,4 +776,99 @@ export const ArchiveConfirmationDialog: Story = {
       expect(document.querySelector('[role="alertdialog"]')).toBeTruthy();
     });
   },
+};
+// ---------------------------------------------------------------------------
+// Highlight color exploration — 10 candidate colors for action-required cards
+// ---------------------------------------------------------------------------
+
+const highlightColors: { label: string; card: string; btn: string }[] = [
+  {
+    label: '1. Yellow (current)',
+    card: 'bg-[#fffef8]',
+    btn: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
+  },
+  {
+    label: '2. Warm Peach',
+    card: 'bg-[#fff8f5]',
+    btn: 'bg-orange-50 text-orange-700 hover:bg-orange-100',
+  },
+  {
+    label: '3. Soft Rose',
+    card: 'bg-[#fff5f7]',
+    btn: 'bg-rose-50 text-rose-700 hover:bg-rose-100',
+  },
+  {
+    label: '4. Lavender',
+    card: 'bg-[#f8f5ff]',
+    btn: 'bg-violet-50 text-violet-700 hover:bg-violet-100',
+  },
+  {
+    label: '5. Ice Blue',
+    card: 'bg-[#f5f8ff]',
+    btn: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+  },
+  {
+    label: '6. Sky',
+    card: 'bg-[#f2f9ff]',
+    btn: 'bg-sky-50 text-sky-700 hover:bg-sky-100',
+  },
+  {
+    label: '7. Mint',
+    card: 'bg-[#f2fdf6]',
+    btn: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
+  },
+  {
+    label: '8. Teal',
+    card: 'bg-[#f0fdfa]',
+    btn: 'bg-teal-50 text-teal-700 hover:bg-teal-100',
+  },
+  {
+    label: '9. Neutral Warm',
+    card: 'bg-[#fdfcfa]',
+    btn: 'bg-stone-100 text-stone-700 hover:bg-stone-200',
+  },
+  {
+    label: '10. Pink',
+    card: 'bg-[#fef5ff]',
+    btn: 'bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100',
+  },
+];
+
+/** Side-by-side comparison of 10 highlight color options for action-required cards. */
+export const HighlightColorExploration: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-6 p-4">
+      {highlightColors.map(({ label, card, btn }) => (
+        <div key={label} className="flex flex-col items-center gap-2">
+          <span className="text-muted-foreground text-xs font-medium">{label}</span>
+          <div
+            className={`${card} flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm`}
+          >
+            <div className="flex items-center gap-1.5">
+              <h3 className="min-w-0 truncate text-sm font-bold">Rate Limiter</h3>
+            </div>
+            <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
+              Sliding window — awaiting merge approval
+            </p>
+            <div className="mt-auto pt-2">
+              <div className="mt-1.5 flex min-h-[26px] items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5" style={{ transform: 'translateY(1px)' }}>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-muted-foreground/50 text-[10px]">ID</span>
+                    <span className="text-muted-foreground/60 font-mono text-[10px]">3b5d7f</span>
+                  </div>
+                </div>
+                <button
+                  className={`${btn} inline-flex shrink-0 items-center gap-1 rounded-md border-0 px-2 py-1 text-[11px] font-normal shadow-none`}
+                >
+                  <Eye className="h-3 w-3" />
+                  Review Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  ),
 };

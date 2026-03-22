@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
@@ -230,7 +231,8 @@ export function FeatureNode({
         aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
           'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm dark:bg-neutral-800/80',
-          data.state === 'action-required' && 'border-amber-300/60 dark:border-amber-700/40',
+          data.state === 'action-required' &&
+            'border-l-[3px] border-l-rose-400 dark:border-l-amber-500',
           selected && 'ring-primary ring-2',
           data.state === 'deleting' && 'opacity-60',
           data.state === 'archived' && 'opacity-50'
@@ -259,7 +261,7 @@ export function FeatureNode({
                 </TooltipTrigger>
                 <TooltipContent
                   side="bottom"
-                  className="max-w-56 bg-white text-neutral-900 shadow-lg dark:bg-neutral-100 dark:text-neutral-900"
+                  className="max-w-56 bg-white text-neutral-900 shadow-lg dark:bg-neutral-100 dark:text-neutral-900 [&_svg]:!bg-white [&_svg]:!fill-white dark:[&_svg]:!bg-neutral-100 dark:[&_svg]:!fill-neutral-100"
                 >
                   <p className="font-semibold">{lifecyclePhaseBadge[data.lifecycle].tooltip}</p>
                   <p className="mt-1 text-xs leading-relaxed text-neutral-500">
@@ -272,7 +274,7 @@ export function FeatureNode({
         ) : null}
 
         {/* Agent icon + Name */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 pr-24">
           {data.agentType ? (
             <AgentIcon agentType={data.agentType} className="h-4 w-4 shrink-0" />
           ) : null}
@@ -432,34 +434,33 @@ export function FeatureNode({
                 <span className="text-muted-foreground">{getBadgeText(data)}</span>
               </div>
             ) : data.state === 'action-required' ? (
-              <button
-                type="button"
+              <Button
+                variant="default"
+                size="xs"
                 aria-label={getActionRequiredLabel(data)}
                 data-testid="feature-node-approve-button"
                 // eslint-disable-next-line @typescript-eslint/no-empty-function -- click bubbles to card's onNodeClick
                 onClick={() => {}}
-                className="nodrag relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 overflow-hidden rounded-md bg-gradient-to-b from-neutral-800 via-neutral-900 to-neutral-950 px-3 py-1.5 text-[11px] font-semibold transition-all hover:from-neutral-700 hover:via-neutral-800 hover:to-neutral-900 active:from-neutral-900 active:to-black"
+                className="nodrag dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90 cursor-pointer bg-neutral-900 text-[11px] text-white hover:bg-neutral-800"
               >
-                <span className="animate-shimmer pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent bg-[length:200%_100%]" />
-                <Eye className="relative h-3 w-3 text-amber-400" />
-                <span className="animate-shimmer relative bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-400 bg-[length:200%_100%] bg-clip-text text-transparent">
-                  {getActionRequiredLabel(data)}
-                </span>
-              </button>
+                <Eye className="h-3 w-3" />
+                {getActionRequiredLabel(data)}
+              </Button>
             ) : data.state === 'error' && data.onRetry ? (
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="xs"
                 aria-label="Retry"
                 data-testid="feature-node-retry-button"
                 onClick={(e) => {
                   e.stopPropagation();
                   data.onRetry!(data.featureId);
                 }}
-                className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                className="nodrag cursor-pointer text-[11px] font-medium"
               >
                 <RotateCcw className="h-3 w-3" />
                 Retry
-              </button>
+              </Button>
             ) : data.state === 'blocked' ? (
               <div className="flex items-center gap-1.5 text-xs" data-testid="feature-node-badge">
                 {(() => {
@@ -481,19 +482,20 @@ export function FeatureNode({
                 </span>
               </div>
             ) : data.state === 'pending' && data.onStart ? (
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="xs"
                 aria-label="Start"
                 data-testid="feature-node-start-button"
                 onClick={(e) => {
                   e.stopPropagation();
                   data.onStart!(data.featureId);
                 }}
-                className="nodrag inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-neutral-700 active:bg-neutral-900 dark:bg-neutral-200 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                className="nodrag cursor-pointer text-[11px] font-medium"
               >
                 <Play className="h-3 w-3" />
                 Start
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
