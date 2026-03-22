@@ -22,6 +22,52 @@ properties:
   featureName:
     type: string
     description: Feature name when diagnosing a specific feature (optional)
+  featureLifecycle:
+    type: string
+    description: Feature lifecycle phase (e.g. Implementation, Review)
+  featureBranch:
+    type: string
+    description: Feature git branch name
+  featureDescription:
+    type: string
+    description: Feature description
+  featureWorkflowConfig:
+    type: string
+    description: JSON-serialized feature workflow configuration (fast, push, openPr, approvalGates)
+  specYaml:
+    type: string
+    description: Raw spec.yaml content
+  researchYaml:
+    type: string
+    description: Raw research.yaml content
+  planYaml:
+    type: string
+    description: Raw plan.yaml content
+  tasksYaml:
+    type: string
+    description: Raw tasks.yaml content
+  featureStatusYaml:
+    type: string
+    description: Raw feature.yaml (status tracking) content
+  agentRunDetails:
+    type: array
+    items:
+      $ref: AgentRunDetail.yaml
+    description: Detailed agent run information including prompts and results
+  conversationMessages:
+    type: string
+    description: JSON-serialized conversation messages (Feature.messages[])
+  featurePlan:
+    type: string
+    description: JSON-serialized feature plan (Feature.plan)
+  workerLogs:
+    type: array
+    items:
+      $ref: WorkerLogEntry.yaml
+    description: Worker execution logs for agent runs associated with this feature
+  phaseTimings:
+    type: string
+    description: JSON-serialized phase timing records
 required:
   - userDescription
   - failedRunSummaries

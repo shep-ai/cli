@@ -1765,6 +1765,62 @@ export type SystemInfo = {
 };
 
 /**
+ * Detailed agent run information including prompt and result for diagnostic reporting
+ */
+export type AgentRunDetail = {
+  /**
+   * Type of agent (e.g. claude-code, gemini-cli)
+   */
+  agentType: string;
+  /**
+   * Name/identifier of the agent run
+   */
+  agentName: string;
+  /**
+   * Input prompt sent to the agent executor
+   */
+  prompt: string;
+  /**
+   * Final result output from the agent (if available)
+   */
+  result?: string;
+  /**
+   * Error message if the run failed
+   */
+  error?: string;
+  /**
+   * ISO 8601 timestamp of the run
+   */
+  timestamp: string;
+};
+
+/**
+ * Worker log entry for a specific agent run
+ */
+export type WorkerLogEntry = {
+  /**
+   * Agent run ID this log belongs to
+   */
+  agentRunId: string;
+  /**
+   * Name of the agent that produced this log
+   */
+  agentName: string;
+  /**
+   * Full log file content (may be truncated)
+   */
+  content: string;
+  /**
+   * Whether the content was truncated due to size limits
+   */
+  truncated: boolean;
+  /**
+   * Original character count before truncation (only set when truncated)
+   */
+  originalLength?: number;
+};
+
+/**
  * Structured diagnostic report collected by shep doctor for issue creation
  */
 export type DoctorDiagnosticReport = {
@@ -1792,6 +1848,62 @@ export type DoctorDiagnosticReport = {
    * Feature name when diagnosing a specific feature (optional)
    */
   featureName?: string;
+  /**
+   * Feature lifecycle phase (e.g. Implementation, Review)
+   */
+  featureLifecycle?: string;
+  /**
+   * Feature git branch name
+   */
+  featureBranch?: string;
+  /**
+   * Feature description
+   */
+  featureDescription?: string;
+  /**
+   * JSON-serialized feature workflow configuration (fast, push, openPr, approvalGates)
+   */
+  featureWorkflowConfig?: string;
+  /**
+   * Raw spec.yaml content
+   */
+  specYaml?: string;
+  /**
+   * Raw research.yaml content
+   */
+  researchYaml?: string;
+  /**
+   * Raw plan.yaml content
+   */
+  planYaml?: string;
+  /**
+   * Raw tasks.yaml content
+   */
+  tasksYaml?: string;
+  /**
+   * Raw feature.yaml (status tracking) content
+   */
+  featureStatusYaml?: string;
+  /**
+   * Detailed agent run information including prompts and results
+   */
+  agentRunDetails?: AgentRunDetail[];
+  /**
+   * JSON-serialized conversation messages (Feature.messages[])
+   */
+  conversationMessages?: string;
+  /**
+   * JSON-serialized feature plan (Feature.plan)
+   */
+  featurePlan?: string;
+  /**
+   * Worker execution logs for agent runs associated with this feature
+   */
+  workerLogs?: WorkerLogEntry[];
+  /**
+   * JSON-serialized phase timing records
+   */
+  phaseTimings?: string;
 };
 export enum AgentStatus {
   Idle = 'Idle',
