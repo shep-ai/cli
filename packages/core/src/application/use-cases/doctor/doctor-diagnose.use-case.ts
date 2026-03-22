@@ -12,11 +12,12 @@
 
 import { injectable, inject } from 'tsyringe';
 import { randomUUID } from 'node:crypto';
-import { tmpdir } from 'node:os';
-import { mkdir, rm } from 'node:fs/promises';
+import { tmpdir, homedir } from 'node:os';
+import { mkdir, rm, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '../../ports/output/agents/phase-timing-repository.interface.js';
 import type { IVersionService } from '../../ports/output/services/version-service.interface.js';
 import type { IGitHubIssueService } from '../../ports/output/services/github-issue-service.interface.js';
 import type { IGitHubRepositoryService } from '../../ports/output/services/github-repository-service.interface.js';
@@ -29,6 +30,8 @@ import type {
   FailedRunSummary,
   SystemInfo,
   AgentRun,
+  AgentRunDetail,
+  WorkerLogEntry,
 } from '../../../domain/generated/output.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
 
@@ -60,6 +63,12 @@ export interface DoctorDiagnoseResult {
 const SHEP_REPO = 'shep-ai/cli';
 const MAX_FAILED_RUNS = 10;
 const ISSUE_LABELS = ['bug', 'shep-doctor'];
+const MAX_AGENT_RUN_DETAILS = 10;
+const MAX_WORKER_LOG_CHARS = 50_000;
+const MAX_PROMPT_CHARS = 10_000;
+const MAX_RESULT_CHARS = 10_000;
+const MAX_CONVERSATION_CHARS = 20_000;
+const MAX_PLAN_CHARS = 20_000;
 
 // ---------------------------------------------------------------------------
 // Use Case
@@ -83,7 +92,9 @@ export class DoctorDiagnoseUseCase {
     @inject('ExecFunction')
     private readonly execFile: ExecFunction,
     @inject('IFeatureRepository')
-    private readonly featureRepo: IFeatureRepository
+    private readonly featureRepo: IFeatureRepository,
+    @inject('IPhaseTimingRepository')
+    private readonly phaseTimingRepo: IPhaseTimingRepository
   ) {}
 
   async execute(input: DoctorDiagnoseInput): Promise<DoctorDiagnoseResult> {
@@ -122,11 +133,12 @@ export class DoctorDiagnoseUseCase {
     userDescription: string,
     featureId?: string
   ): Promise<DoctorDiagnosticReport> {
-    // Resolve feature context if featureId is provided
     let resolvedFeatureId: string | undefined;
     let featureName: string | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let feature: any | undefined;
     if (featureId) {
-      const feature =
+      feature =
         (await this.featureRepo.findById(featureId)) ??
         (await this.featureRepo.findByIdPrefix(featureId));
       if (feature) {
@@ -135,13 +147,16 @@ export class DoctorDiagnoseUseCase {
       }
     }
 
+    // Fetch all runs once — used for both failed summaries and enrichment
+    const allRuns = await this.agentRunRepo.list();
+
     const [failedRunSummaries, systemInfo, cliVersion] = await Promise.all([
-      this.collectFailedRuns(resolvedFeatureId),
+      Promise.resolve(this.filterFailedRuns(allRuns, resolvedFeatureId)),
       this.collectSystemInfo(),
       Promise.resolve(this.versionService.getVersion().version),
     ]);
 
-    return {
+    const report: DoctorDiagnosticReport = {
       userDescription,
       failedRunSummaries,
       systemInfo,
@@ -149,18 +164,50 @@ export class DoctorDiagnoseUseCase {
       featureId: resolvedFeatureId,
       featureName,
     };
+
+    // Enrich with feature-scoped data when a feature is resolved
+    if (feature) {
+      report.featureLifecycle = feature.lifecycle;
+      report.featureBranch = feature.branch;
+      report.featureDescription = feature.description;
+      report.featureWorkflowConfig = JSON.stringify({
+        fast: feature.fast,
+        push: feature.push,
+        openPr: feature.openPr,
+        approvalGates: feature.approvalGates,
+      });
+      if (feature.messages?.length) {
+        const serialized = JSON.stringify(feature.messages);
+        report.conversationMessages = this.truncate(serialized, MAX_CONVERSATION_CHARS).text;
+      }
+      if (feature.plan) {
+        const serialized = JSON.stringify(feature.plan);
+        report.featurePlan = this.truncate(serialized, MAX_PLAN_CHARS).text;
+      }
+
+      // Parallel async enrichments
+      const featureRuns = allRuns.filter((r) => r.featureId === resolvedFeatureId);
+
+      const [specYamls, workerLogs, phaseTimings] = await Promise.all([
+        this.collectSpecYamls(feature.specPath),
+        this.collectWorkerLogs(featureRuns),
+        this.collectPhaseTimings(resolvedFeatureId!),
+      ]);
+
+      Object.assign(report, specYamls);
+      report.workerLogs = workerLogs.length > 0 ? workerLogs : undefined;
+      report.phaseTimings = phaseTimings;
+      report.agentRunDetails = this.buildAgentRunDetails(featureRuns);
+    }
+
+    return report;
   }
 
-  private async collectFailedRuns(featureId?: string): Promise<FailedRunSummary[]> {
-    const allRuns = await this.agentRunRepo.list();
-
+  private filterFailedRuns(allRuns: AgentRun[], featureId?: string): FailedRunSummary[] {
     let filtered = allRuns.filter((run) => run.status === AgentRunStatus.failed);
-
-    // When a feature ID is provided, scope to runs associated with that feature
     if (featureId) {
       filtered = filtered.filter((run) => run.featureId === featureId);
     }
-
     return filtered.slice(0, MAX_FAILED_RUNS).map((run) => this.sanitizeRunSummary(run));
   }
 
@@ -192,6 +239,107 @@ export class DoctorDiagnoseUseCase {
   }
 
   // -------------------------------------------------------------------------
+  // Enrichment helpers
+  // -------------------------------------------------------------------------
+
+  private truncate(
+    content: string,
+    maxChars: number
+  ): { text: string; truncated: boolean; originalLength?: number } {
+    if (content.length <= maxChars) {
+      return { text: content, truncated: false };
+    }
+    return {
+      text: `${content.slice(0, maxChars)}\n... [truncated, ${content.length} chars total]`,
+      truncated: true,
+      originalLength: content.length,
+    };
+  }
+
+  private async collectSpecYamls(
+    specPath?: string
+  ): Promise<Partial<DoctorDiagnosticReport>> {
+    if (!specPath) return {};
+    const files = [
+      'spec.yaml',
+      'research.yaml',
+      'plan.yaml',
+      'tasks.yaml',
+      'feature.yaml',
+    ] as const;
+    const keys = [
+      'specYaml',
+      'researchYaml',
+      'planYaml',
+      'tasksYaml',
+      'featureStatusYaml',
+    ] as const;
+
+    const results: Partial<DoctorDiagnosticReport> = {};
+    const reads = await Promise.all(
+      files.map((f) => this.readFileSafe(path.join(specPath, f)))
+    );
+    for (let i = 0; i < files.length; i++) {
+      if (reads[i]) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (results as any)[keys[i]] = reads[i];
+      }
+    }
+    return results;
+  }
+
+  private async collectWorkerLogs(featureRuns: AgentRun[]): Promise<WorkerLogEntry[]> {
+    const logDir = path.join(homedir(), '.shep', 'logs');
+    const entries: WorkerLogEntry[] = [];
+
+    for (const run of featureRuns) {
+      const logPath = path.join(logDir, `worker-${run.id}.log`);
+      const content = await this.readFileSafe(logPath);
+      if (content) {
+        const { text, truncated, originalLength } = this.truncate(content, MAX_WORKER_LOG_CHARS);
+        entries.push({
+          agentRunId: run.id,
+          agentName: run.agentName,
+          content: text,
+          truncated,
+          originalLength,
+        });
+      }
+    }
+    return entries;
+  }
+
+  private async collectPhaseTimings(featureId: string): Promise<string | undefined> {
+    try {
+      const timings = await this.phaseTimingRepo.findByFeatureId(featureId);
+      return timings.length > 0 ? JSON.stringify(timings) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private buildAgentRunDetails(featureRuns: AgentRun[]): AgentRunDetail[] | undefined {
+    if (featureRuns.length === 0) return undefined;
+    return featureRuns.slice(0, MAX_AGENT_RUN_DETAILS).map((run) => ({
+      agentType: run.agentType,
+      agentName: run.agentName,
+      prompt: this.truncate(run.prompt, MAX_PROMPT_CHARS).text,
+      result: run.result ? this.truncate(run.result, MAX_RESULT_CHARS).text : undefined,
+      error: run.error ?? undefined,
+      timestamp:
+        run.createdAt instanceof Date ? run.createdAt.toISOString() : String(run.createdAt),
+    }));
+  }
+
+  private async readFileSafe(filePath: string): Promise<string | undefined> {
+    try {
+      return await readFile(filePath, 'utf-8');
+    } catch {
+      return undefined;
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Issue Formatting (Task 11)
   // -------------------------------------------------------------------------
 
@@ -210,9 +358,13 @@ export class DoctorDiagnoseUseCase {
     if (report.featureId) {
       sections.push('\n## Feature Context\n');
       sections.push(`- **Feature ID:** ${report.featureId}`);
-      if (report.featureName) {
-        sections.push(`- **Feature Name:** ${report.featureName}`);
-      }
+      if (report.featureName) sections.push(`- **Feature Name:** ${report.featureName}`);
+      if (report.featureLifecycle) sections.push(`- **Lifecycle:** ${report.featureLifecycle}`);
+      if (report.featureBranch) sections.push(`- **Branch:** ${report.featureBranch}`);
+      if (report.featureDescription)
+        sections.push(`- **Description:** ${report.featureDescription}`);
+      if (report.featureWorkflowConfig)
+        sections.push(`- **Workflow Config:** ${report.featureWorkflowConfig}`);
     }
 
     sections.push('\n## Environment\n');
@@ -232,6 +384,79 @@ export class DoctorDiagnoseUseCase {
         sections.push(`- **Timestamp:** ${run.timestamp}`);
         sections.push('');
       }
+    }
+
+    if (report.agentRunDetails?.length) {
+      sections.push('\n## Agent Run Details\n');
+      for (const detail of report.agentRunDetails) {
+        sections.push(
+          `<details><summary>Agent: ${detail.agentName} (${detail.agentType})</summary>\n`
+        );
+        sections.push('### Prompt\n```\n' + detail.prompt + '\n```\n');
+        if (detail.result) {
+          sections.push('### Result\n```\n' + detail.result + '\n```\n');
+        }
+        if (detail.error) {
+          sections.push('### Error\n```\n' + detail.error + '\n```\n');
+        }
+        sections.push('</details>\n');
+      }
+    }
+
+    if (report.conversationMessages) {
+      const msgCount = (report.conversationMessages.match(/"id"/g) || []).length;
+      sections.push('\n## Conversation History\n');
+      sections.push(`<details><summary>Messages (${msgCount} messages)</summary>\n`);
+      sections.push('```json\n' + report.conversationMessages + '\n```\n');
+      sections.push('</details>\n');
+    }
+
+    if (report.featurePlan) {
+      sections.push('\n## Feature Plan\n');
+      sections.push('<details><summary>Plan & Tasks</summary>\n');
+      sections.push('```json\n' + report.featurePlan + '\n```\n');
+      sections.push('</details>\n');
+    }
+
+    // Spec files
+    const specEntries: [string, string | undefined][] = [
+      ['spec.yaml', report.specYaml],
+      ['research.yaml', report.researchYaml],
+      ['plan.yaml', report.planYaml],
+      ['tasks.yaml', report.tasksYaml],
+      ['feature.yaml', report.featureStatusYaml],
+    ];
+    const hasSpecs = specEntries.some(([, v]) => v);
+    if (hasSpecs) {
+      sections.push('\n## Spec Files\n');
+      for (const [name, content] of specEntries) {
+        if (content) {
+          sections.push(`<details><summary>${name}</summary>\n`);
+          sections.push('```yaml\n' + content + '\n```\n');
+          sections.push('</details>\n');
+        }
+      }
+    }
+
+    if (report.workerLogs?.length) {
+      sections.push('\n## Worker Logs\n');
+      for (const log of report.workerLogs) {
+        const suffix = log.truncated
+          ? ` (truncated, ${log.originalLength} chars total)`
+          : '';
+        sections.push(
+          `<details><summary>Worker log: ${log.agentName} (${log.agentRunId})${suffix}</summary>\n`
+        );
+        sections.push('```\n' + log.content + '\n```\n');
+        sections.push('</details>\n');
+      }
+    }
+
+    if (report.phaseTimings) {
+      sections.push('\n## Phase Timings\n');
+      sections.push('<details><summary>Phase timing data</summary>\n');
+      sections.push('```json\n' + report.phaseTimings + '\n```\n');
+      sections.push('</details>\n');
     }
 
     sections.push('\n---\n');
