@@ -1,3 +1,10 @@
+# [1.140.0](https://github.com/shep-ai/cli/compare/v1.139.1...v1.140.0) (2026-03-22)
+
+
+### Features
+
+* **web:** polish dark mode theme and ui refinements ([#448](https://github.com/shep-ai/cli/issues/448)) ([e8a67d2](https://github.com/shep-ai/cli/commit/e8a67d22ae6afb50e471ec8276c1a2f4735608c0))
+
 ## [1.139.1](https://github.com/shep-ai/cli/compare/v1.139.0...v1.139.1) (2026-03-22)
 
 
