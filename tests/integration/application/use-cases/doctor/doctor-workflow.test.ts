@@ -1016,7 +1016,11 @@ describe('DoctorDiagnoseUseCase Integration', () => {
       vi.mocked(featureRepo.findById).mockResolvedValue(feature);
 
       const runs = [
-        createFailedAgentRun('r1', { featureId: 'feat-rich', prompt: 'Do analysis', result: 'Done' }),
+        createFailedAgentRun('r1', {
+          featureId: 'feat-rich',
+          prompt: 'Do analysis',
+          result: 'Done',
+        }),
       ];
 
       const mocks: MockSet = {
