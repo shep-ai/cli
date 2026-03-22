@@ -32,6 +32,17 @@ properties:
   mergeable:
     type: boolean
     description: Whether the PR can be merged (false = merge conflicts)
+  upstreamPrUrl:
+    type: string
+    description: URL of the PR created on the upstream repo (fork-and-PR flow only)
+  upstreamPrNumber:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: PR number on the upstream repo
+  upstreamPrStatus:
+    $ref: PrStatus.yaml
+    description: Status of the upstream PR (Open, Merged, Closed)
 required:
   - url
   - number
