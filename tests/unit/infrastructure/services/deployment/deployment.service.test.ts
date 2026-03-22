@@ -298,8 +298,8 @@ describe('DeploymentService', () => {
       service.start('feature-1', '/project/path');
       expect(service.getStatus('feature-1')).not.toBeNull();
 
-      // Process exits on its own (e.g., crash)
-      mockChild.emit('exit', 1, null);
+      // Process closes on its own (e.g., crash) — 'close' fires after stdio drained
+      mockChild.emit('close', 1, null);
 
       expect(service.getStatus('feature-1')).toBeNull();
     });
@@ -326,8 +326,8 @@ describe('DeploymentService', () => {
       service.start('feature-1', '/project/path');
 
       service.stopAll();
-      // Simulate exit events after SIGKILL
-      mockChild.emit('exit', null, 'SIGKILL');
+      // Simulate close events after SIGKILL
+      mockChild.emit('close', null, 'SIGKILL');
 
       expect(service.getStatus('feature-1')).toBeNull();
     });
@@ -416,7 +416,7 @@ describe('DeploymentService', () => {
       expect(deps.spawn).not.toHaveBeenCalled();
     });
 
-    it('should kill and re-spawn alive process stuck in Booting', () => {
+    it('should leave alive process stuck in Booting and clean DB entry', () => {
       const row = makeRow({ state: DeploymentState.Booting, url: null });
       const db = createMockDb([row]);
       service.setDatabase(db);
@@ -425,12 +425,12 @@ describe('DeploymentService', () => {
 
       service.recoverAll();
 
-      // Should have killed the orphan
-      expect(deps.kill).toHaveBeenCalledWith(9999, 'SIGKILL');
-      // Should have re-spawned
-      expect(deps.spawn).toHaveBeenCalled();
-      // New deployment should exist
-      expect(service.getStatus('repo-1')).not.toBeNull();
+      // Should NOT have killed the orphan (it may belong to another shep instance)
+      expect(deps.kill).not.toHaveBeenCalled();
+      // Should NOT have re-spawned
+      expect(deps.spawn).not.toHaveBeenCalled();
+      // Should have cleaned up the DB entry
+      expect(db.prepare).toHaveBeenCalledWith('DELETE FROM dev_servers WHERE target_id = ?');
     });
 
     it('should re-spawn dead process when target directory exists', () => {
