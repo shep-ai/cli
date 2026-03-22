@@ -19,6 +19,8 @@ import { DoctorDiagnoseUseCase } from '@/application/use-cases/doctor/doctor-dia
 import type { AgentRun } from '@/domain/generated/output.js';
 import { AgentRunStatus, AgentType } from '@/domain/generated/output.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { PhaseTiming } from '@/domain/generated/output.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import type { IGitHubIssueService } from '@/application/ports/output/services/github-issue-service.interface.js';
 import type { IGitHubRepositoryService } from '@/application/ports/output/services/github-repository-service.interface.js';
@@ -27,6 +29,16 @@ import type { IAgentExecutorProvider } from '@/application/ports/output/agents/a
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service.js';
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return {
+    ...actual,
+    readFile: vi.fn().mockRejectedValue(new Error('ENOENT')),
+  };
+});
+
+import { readFile } from 'node:fs/promises';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -151,6 +163,10 @@ function createMocks() {
     softDelete: vi.fn(),
   };
 
+  const phaseTimingRepo: Pick<IPhaseTimingRepository, 'findByFeatureId'> = {
+    findByFeatureId: vi.fn<(featureId: string) => Promise<PhaseTiming[]>>().mockResolvedValue([]),
+  };
+
   return {
     agentRunRepo,
     versionService,
@@ -161,6 +177,7 @@ function createMocks() {
     execFunction,
     mockExecutor,
     featureRepo,
+    phaseTimingRepo,
   };
 }
 
@@ -173,7 +190,8 @@ function createUseCase(mocks: ReturnType<typeof createMocks>) {
     mocks.prService,
     mocks.agentExecutorProvider,
     mocks.execFunction,
-    mocks.featureRepo
+    mocks.featureRepo,
+    mocks.phaseTimingRepo as any
   );
 }
 
@@ -685,6 +703,223 @@ describe('DoctorDiagnoseUseCase', () => {
       expect(bodyArg).toContain('Feature ID');
       expect(bodyArg).toContain('feat-123');
       expect(bodyArg).toContain('Auth Feature');
+    });
+
+    it('should collect spec YAML files when feature has specPath', async () => {
+      vi.mocked(readFile).mockImplementation(async (filePath: any) => {
+        const p = String(filePath);
+        if (p.endsWith('spec.yaml')) return 'name: My Feature Spec';
+        if (p.endsWith('research.yaml')) return 'decisions: []';
+        if (p.endsWith('plan.yaml')) return 'phases: []';
+        if (p.endsWith('tasks.yaml')) return 'tasks: []';
+        if (p.endsWith('feature.yaml')) return 'status: active';
+        throw new Error('ENOENT');
+      });
+
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
+        id: 'feat-abc',
+        name: 'My Feature',
+        specPath: '/repo/specs/042-my-feature',
+        lifecycle: 'Implementation',
+        branch: 'feat/my-feature',
+        description: 'A test feature',
+        messages: [],
+        fast: false,
+        push: false,
+        openPr: false,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      } as any);
+
+      const result = await useCase.execute({
+        description: 'test',
+        fix: false,
+        featureId: 'feat-abc',
+      });
+
+      expect(result.diagnosticReport.specYaml).toBe('name: My Feature Spec');
+      expect(result.diagnosticReport.researchYaml).toBe('decisions: []');
+      expect(result.diagnosticReport.planYaml).toBe('phases: []');
+      expect(result.diagnosticReport.tasksYaml).toBe('tasks: []');
+      expect(result.diagnosticReport.featureStatusYaml).toBe('status: active');
+      expect(result.diagnosticReport.featureLifecycle).toBe('Implementation');
+      expect(result.diagnosticReport.featureBranch).toBe('feat/my-feature');
+      expect(result.diagnosticReport.featureDescription).toBe('A test feature');
+    });
+
+    it('should collect worker logs for all feature-scoped agent runs', async () => {
+      vi.mocked(readFile).mockImplementation(async (filePath: any) => {
+        const p = String(filePath);
+        if (p.includes('worker-r1.log')) return 'Log content for r1';
+        if (p.includes('worker-r2.log')) return 'Log content for r2';
+        throw new Error('ENOENT');
+      });
+
+      const runs: AgentRun[] = [
+        createFailedRun('r1', { featureId: 'feat-abc' }),
+        createFailedRun('r2', { featureId: 'feat-abc' }),
+      ];
+      vi.mocked(mocks.agentRunRepo.list).mockResolvedValue(runs);
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
+        id: 'feat-abc',
+        name: 'My Feature',
+        messages: [],
+      } as any);
+
+      const result = await useCase.execute({
+        description: 'test',
+        fix: false,
+        featureId: 'feat-abc',
+      });
+
+      expect(result.diagnosticReport.workerLogs).toBeDefined();
+      expect(result.diagnosticReport.workerLogs).toHaveLength(2);
+      expect(result.diagnosticReport.workerLogs![0].content).toBe('Log content for r1');
+      expect(result.diagnosticReport.workerLogs![1].agentRunId).toBe('r2');
+    });
+
+    it('should collect agent run details with prompts and results for feature-scoped runs', async () => {
+      const runs: AgentRun[] = [
+        createFailedRun('r1', {
+          featureId: 'feat-abc',
+          prompt: 'Analyze this',
+          result: 'Analysis done',
+        }),
+        { ...createFailedRun('r2', { featureId: 'feat-abc', prompt: 'Plan this' }),
+          status: AgentRunStatus.completed },
+      ];
+      vi.mocked(mocks.agentRunRepo.list).mockResolvedValue(runs);
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
+        id: 'feat-abc',
+        name: 'My Feature',
+        messages: [],
+      } as any);
+
+      const result = await useCase.execute({
+        description: 'test',
+        fix: false,
+        featureId: 'feat-abc',
+      });
+
+      expect(result.diagnosticReport.agentRunDetails).toBeDefined();
+      expect(result.diagnosticReport.agentRunDetails!.length).toBe(2);
+      expect(result.diagnosticReport.agentRunDetails![0].prompt).toBe('Analyze this');
+    });
+
+    it('should collect phase timings when feature is resolved', async () => {
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
+        id: 'feat-abc',
+        name: 'My Feature',
+        messages: [],
+      } as any);
+      vi.mocked(mocks.phaseTimingRepo.findByFeatureId).mockResolvedValue([
+        { id: 'pt-1', phaseName: 'analyze', durationMs: 5000 } as any,
+      ]);
+
+      const result = await useCase.execute({
+        description: 'test',
+        fix: false,
+        featureId: 'feat-abc',
+      });
+
+      expect(result.diagnosticReport.phaseTimings).toBeDefined();
+      expect(result.diagnosticReport.phaseTimings).toContain('analyze');
+    });
+
+    it('should include conversation messages and feature plan in report', async () => {
+      const messages = [{ id: 'm1', role: 'user', content: 'Hello' }];
+      const plan = { overview: 'Build X', tasks: [] };
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
+        id: 'feat-abc',
+        name: 'My Feature',
+        messages,
+        plan,
+      } as any);
+
+      const result = await useCase.execute({
+        description: 'test',
+        fix: false,
+        featureId: 'feat-abc',
+      });
+
+      expect(result.diagnosticReport.conversationMessages).toContain('Hello');
+      expect(result.diagnosticReport.featurePlan).toContain('Build X');
+    });
+
+    it('should leave all enriched fields undefined when no featureId is provided', async () => {
+      const result = await useCase.execute({
+        description: 'general issue',
+        fix: false,
+      });
+
+      expect(result.diagnosticReport.featureLifecycle).toBeUndefined();
+      expect(result.diagnosticReport.featureBranch).toBeUndefined();
+      expect(result.diagnosticReport.featureDescription).toBeUndefined();
+      expect(result.diagnosticReport.featureWorkflowConfig).toBeUndefined();
+      expect(result.diagnosticReport.specYaml).toBeUndefined();
+      expect(result.diagnosticReport.researchYaml).toBeUndefined();
+      expect(result.diagnosticReport.planYaml).toBeUndefined();
+      expect(result.diagnosticReport.tasksYaml).toBeUndefined();
+      expect(result.diagnosticReport.featureStatusYaml).toBeUndefined();
+      expect(result.diagnosticReport.agentRunDetails).toBeUndefined();
+      expect(result.diagnosticReport.conversationMessages).toBeUndefined();
+      expect(result.diagnosticReport.featurePlan).toBeUndefined();
+      expect(result.diagnosticReport.workerLogs).toBeUndefined();
+      expect(result.diagnosticReport.phaseTimings).toBeUndefined();
+    });
+
+    it('should include enriched sections with details tags in issue body', async () => {
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
+        id: 'feat-abc',
+        name: 'My Feature',
+        specPath: '/repo/specs/042-my-feature',
+        lifecycle: 'Implementation',
+        branch: 'feat/my-feature',
+        description: 'A test feature',
+        messages: [{ id: 'm1', role: 'user', content: 'Hello' }],
+        plan: { overview: 'Plan overview' },
+        fast: false,
+        push: true,
+        openPr: false,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      } as any);
+
+      await useCase.execute({
+        description: 'enriched test',
+        fix: false,
+        featureId: 'feat-abc',
+      });
+
+      const bodyArg = vi.mocked(mocks.issueService.createIssue).mock.calls[0][2];
+      // Feature context
+      expect(bodyArg).toContain('Lifecycle');
+      expect(bodyArg).toContain('Implementation');
+      // Details tags for large sections
+      expect(bodyArg).toContain('<details>');
+      expect(bodyArg).toContain('Conversation');
+      expect(bodyArg).toContain('Plan');
+    });
+
+    it('should truncate agent run prompts exceeding MAX_PROMPT_CHARS', async () => {
+      const longPrompt = 'x'.repeat(15_000);
+      const runs: AgentRun[] = [
+        createFailedRun('r1', { featureId: 'feat-abc', prompt: longPrompt }),
+      ];
+      vi.mocked(mocks.agentRunRepo.list).mockResolvedValue(runs);
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
+        id: 'feat-abc',
+        name: 'My Feature',
+        messages: [],
+      } as any);
+
+      const result = await useCase.execute({
+        description: 'test',
+        fix: false,
+        featureId: 'feat-abc',
+      });
+
+      const detail = result.diagnosticReport.agentRunDetails![0];
+      expect(detail.prompt.length).toBeLessThanOrEqual(10_100); // 10000 + truncation message
+      expect(detail.prompt).toContain('[truncated');
     });
   });
 });
