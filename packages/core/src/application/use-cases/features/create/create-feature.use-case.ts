@@ -228,7 +228,8 @@ export class CreateFeatureUseCase {
 
     const metadata = await this.metadataGenerator.generateMetadata(
       input.userInput,
-      input.agentType as AgentType | undefined
+      input.agentType as AgentType | undefined,
+      effectiveRepoPath
     );
     const originalSlug = metadata.slug;
 
