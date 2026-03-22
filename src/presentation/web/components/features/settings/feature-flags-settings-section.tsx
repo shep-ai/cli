@@ -17,6 +17,8 @@ const FLAG_DESCRIPTIONS: Record<keyof FeatureFlags, string> = {
   adoptBranch: 'Enable the ability to adopt existing branches as tracked features',
   reactFileManager:
     'Use the built-in React file manager instead of the native OS folder picker. Also serves as automatic fallback when the native picker is unavailable.',
+  scheduledWorkflows:
+    'Enable scheduled workflows — create, schedule, and execute automated workflows on a cron schedule',
 };
 
 const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
@@ -26,6 +28,7 @@ const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
   githubImport: 'GitHub Import',
   adoptBranch: 'Adopt Branch',
   reactFileManager: 'React File Manager',
+  scheduledWorkflows: 'Scheduled Workflows',
 };
 
 const FLAG_KEYS: (keyof FeatureFlags)[] = [
@@ -35,6 +38,7 @@ const FLAG_KEYS: (keyof FeatureFlags)[] = [
   'githubImport',
   'adoptBranch',
   'reactFileManager',
+  'scheduledWorkflows',
 ];
 
 export interface FeatureFlagsSettingsSectionProps {

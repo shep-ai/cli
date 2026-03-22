@@ -27,6 +27,9 @@
  * | PR Checks Failed   | error    |
  * | PR Blocked         | warning  |
  * | MR Review Ready    | info     |
+ * | Workflow Started   | info     |
+ * | Workflow Completed | success  |
+ * | Workflow Failed    | error    |
  */
 /**
  * Types of agent lifecycle events that trigger notifications.
@@ -71,6 +74,15 @@ enum NotificationEventType {
 
   @doc("Feature is ready for merge review — PR created and waiting for approval")
   MergeReviewReady: "merge_review_ready",
+
+  @doc("Scheduled workflow execution has started")
+  WorkflowStarted: "workflow_started",
+
+  @doc("Scheduled workflow execution completed successfully")
+  WorkflowCompleted: "workflow_completed",
+
+  @doc("Scheduled workflow execution failed with an error")
+  WorkflowFailed: "workflow_failed",
 }
 
 /**

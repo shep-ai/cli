@@ -26,6 +26,10 @@ properties:
     type: boolean
     default: false
     description: Use the built-in React file manager instead of the native OS folder picker
+  scheduledWorkflows:
+    type: boolean
+    default: false
+    description: Enable scheduled workflows feature — workflow creation, scheduling, and execution
 required:
   - skills
   - envDeploy
@@ -33,4 +37,5 @@ required:
   - githubImport
   - adoptBranch
   - reactFileManager
+  - scheduledWorkflows
 description: Feature flag toggles for runtime feature control

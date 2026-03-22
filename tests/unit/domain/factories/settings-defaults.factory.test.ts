@@ -298,6 +298,9 @@ describe('createDefaultSettings', () => {
           prChecksFailed: true,
           prBlocked: true,
           mergeReviewReady: true,
+          workflowStarted: true,
+          workflowCompleted: true,
+          workflowFailed: true,
         },
       });
     });
@@ -318,6 +321,7 @@ describe('createDefaultSettings', () => {
         githubImport: false,
         adoptBranch: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       });
     });
   });
@@ -362,6 +366,9 @@ describe('createDefaultSettings', () => {
           prChecksFailed: true,
           prBlocked: true,
           mergeReviewReady: true,
+          workflowStarted: true,
+          workflowCompleted: true,
+          workflowFailed: true,
         },
       });
     });

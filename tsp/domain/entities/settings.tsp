@@ -424,6 +424,15 @@ model NotificationEventConfig {
 
   @doc("Notify when feature is ready for merge review")
   mergeReviewReady: boolean = true;
+
+  @doc("Notify when a scheduled workflow execution starts")
+  workflowStarted: boolean = true;
+
+  @doc("Notify when a scheduled workflow execution completes successfully")
+  workflowCompleted: boolean = true;
+
+  @doc("Notify when a scheduled workflow execution fails")
+  workflowFailed: boolean = true;
 }
 
 /**
@@ -487,6 +496,9 @@ model FeatureFlags {
 
   @doc("Use the built-in React file manager instead of the native OS folder picker")
   reactFileManager: boolean = false;
+
+  @doc("Enable scheduled workflows feature — workflow creation, scheduling, and execution")
+  scheduledWorkflows: boolean = false;
 }
 
 /**

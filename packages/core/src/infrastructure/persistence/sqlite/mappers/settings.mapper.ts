@@ -71,6 +71,9 @@ export interface SettingsRow {
   notif_evt_pr_checks_failed: number;
   notif_evt_pr_blocked: number;
   notif_evt_merge_review_ready: number;
+  notif_evt_workflow_started: number;
+  notif_evt_workflow_completed: number;
+  notif_evt_workflow_failed: number;
 
   // WorkflowConfig (workflow.*)
   workflow_open_pr_on_impl_complete: number;
@@ -113,6 +116,7 @@ export interface SettingsRow {
   feature_flag_github_import: number;
   feature_flag_adopt_branch: number;
   feature_flag_react_file_manager: number;
+  feature_flag_scheduled_workflows: number;
 }
 
 /**
@@ -172,6 +176,9 @@ export function toDatabase(settings: Settings): SettingsRow {
     notif_evt_pr_checks_failed: settings.notifications.events.prChecksFailed ? 1 : 0,
     notif_evt_pr_blocked: settings.notifications.events.prBlocked ? 1 : 0,
     notif_evt_merge_review_ready: settings.notifications.events.mergeReviewReady ? 1 : 0,
+    notif_evt_workflow_started: settings.notifications.events.workflowStarted ? 1 : 0,
+    notif_evt_workflow_completed: settings.notifications.events.workflowCompleted ? 1 : 0,
+    notif_evt_workflow_failed: settings.notifications.events.workflowFailed ? 1 : 0,
 
     // WorkflowConfig (boolean → INTEGER)
     workflow_open_pr_on_impl_complete: settings.workflow.openPrOnImplementationComplete ? 1 : 0,
@@ -217,6 +224,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     feature_flag_github_import: settings.featureFlags?.githubImport ? 1 : 0,
     feature_flag_adopt_branch: settings.featureFlags?.adoptBranch ? 1 : 0,
     feature_flag_react_file_manager: settings.featureFlags?.reactFileManager ? 1 : 0,
+    feature_flag_scheduled_workflows: settings.featureFlags?.scheduledWorkflows ? 1 : 0,
   };
 }
 
@@ -319,6 +327,9 @@ export function fromDatabase(row: SettingsRow): Settings {
         prChecksFailed: row.notif_evt_pr_checks_failed === 1,
         prBlocked: row.notif_evt_pr_blocked === 1,
         mergeReviewReady: row.notif_evt_merge_review_ready === 1,
+        workflowStarted: row.notif_evt_workflow_started === 1,
+        workflowCompleted: row.notif_evt_workflow_completed === 1,
+        workflowFailed: row.notif_evt_workflow_failed === 1,
       },
     },
 
@@ -350,6 +361,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       githubImport: row.feature_flag_github_import === 1,
       adoptBranch: row.feature_flag_adopt_branch === 1,
       reactFileManager: row.feature_flag_react_file_manager === 1,
+      scheduledWorkflows: row.feature_flag_scheduled_workflows === 1,
     },
 
     // Onboarding (INTEGER → boolean)

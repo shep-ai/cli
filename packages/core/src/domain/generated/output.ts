@@ -526,6 +526,18 @@ export type NotificationEventConfig = {
    * Notify when feature is ready for merge review
    */
   mergeReviewReady: boolean;
+  /**
+   * Notify when a scheduled workflow execution starts
+   */
+  workflowStarted: boolean;
+  /**
+   * Notify when a scheduled workflow execution completes successfully
+   */
+  workflowCompleted: boolean;
+  /**
+   * Notify when a scheduled workflow execution fails
+   */
+  workflowFailed: boolean;
 };
 
 /**
@@ -578,6 +590,10 @@ export type FeatureFlags = {
    * Use the built-in React file manager instead of the native OS folder picker
    */
   reactFileManager: boolean;
+  /**
+   * Enable scheduled workflows feature — workflow creation, scheduling, and execution
+   */
+  scheduledWorkflows: boolean;
 };
 
 /**
@@ -1504,6 +1520,9 @@ export enum NotificationEventType {
   PrChecksFailed = 'pr_checks_failed',
   PrBlocked = 'pr_blocked',
   MergeReviewReady = 'merge_review_ready',
+  WorkflowStarted = 'workflow_started',
+  WorkflowCompleted = 'workflow_completed',
+  WorkflowFailed = 'workflow_failed',
 }
 export enum NotificationSeverity {
   Info = 'info',
@@ -1566,6 +1585,102 @@ export type Repository = SoftDeletableEntity & {
    * Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)
    */
   remoteUrl?: string;
+};
+
+/**
+ * User-defined reusable automation that runs on demand or on a cron schedule
+ */
+export type ScheduledWorkflow = SoftDeletableEntity & {
+  /**
+   * Unique human-readable name identifying this workflow within the repository
+   */
+  name: string;
+  /**
+   * Optional human-readable description of what this workflow does
+   */
+  description?: string;
+  /**
+   * Agent prompt instruction that the AI agent will execute when the workflow runs
+   */
+  prompt: string;
+  /**
+   * Optional allowlist of tool names the workflow agent is permitted to use
+   */
+  toolConstraints?: string[];
+  /**
+   * Cron expression defining the schedule (5-field format: min hour dom month dow)
+   */
+  cronExpression?: string;
+  /**
+   * IANA timezone for cron evaluation (e.g. America/New_York). Defaults to UTC
+   */
+  timezone?: string;
+  /**
+   * Whether the workflow schedule is active. Disabled workflows retain their cron expression but do not auto-execute
+   */
+  enabled: boolean;
+  /**
+   * Timestamp of the most recent execution (manual or scheduled)
+   */
+  lastRunAt?: any;
+  /**
+   * Calculated timestamp of the next scheduled execution based on cron expression
+   */
+  nextRunAt?: any;
+  /**
+   * Absolute file system path to the repository this workflow operates on
+   */
+  repositoryPath: string;
+};
+export enum WorkflowTriggerType {
+  Manual = 'manual',
+  Scheduled = 'scheduled',
+}
+export enum WorkflowExecutionStatus {
+  Queued = 'queued',
+  Running = 'running',
+  Completed = 'completed',
+  Failed = 'failed',
+  Cancelled = 'cancelled',
+}
+export type integer = any;
+
+/**
+ * A single execution record for a scheduled workflow run
+ */
+export type WorkflowExecution = BaseEntity & {
+  /**
+   * ID of the ScheduledWorkflow that was executed
+   */
+  workflowId: UUID;
+  /**
+   * How this execution was triggered (manual or scheduled)
+   */
+  triggerType: WorkflowTriggerType;
+  /**
+   * Current lifecycle status of this execution
+   */
+  status: WorkflowExecutionStatus;
+  /**
+   * Timestamp when the execution started running
+   */
+  startedAt: any;
+  /**
+   * Timestamp when the execution completed or failed (null if still running)
+   */
+  completedAt?: any;
+  /**
+   * Duration of the execution in milliseconds (null if still running)
+   */
+  durationMs?: integer;
+  /**
+   * Summary of the execution output (truncated if too long)
+   */
+  outputSummary?: string;
+  /**
+   * Error message if the execution failed
+   */
+  errorMessage?: string;
 };
 
 /**

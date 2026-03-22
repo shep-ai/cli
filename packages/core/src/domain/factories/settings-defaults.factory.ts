@@ -131,6 +131,9 @@ export function createDefaultSettings(): Settings {
       prChecksFailed: true,
       prBlocked: true,
       mergeReviewReady: true,
+      workflowStarted: true,
+      workflowCompleted: true,
+      workflowFailed: true,
     },
   };
 
@@ -156,6 +159,7 @@ export function createDefaultSettings(): Settings {
     githubImport: false,
     adoptBranch: false,
     reactFileManager: false,
+    scheduledWorkflows: false,
   };
 
   return {

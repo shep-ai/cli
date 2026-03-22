@@ -133,6 +133,10 @@ export function mapEventTypeToState(eventType: NotificationEventType): FeatureNo
       return 'blocked';
     case NotificationEventType.MergeReviewReady:
       return 'action-required';
+    case NotificationEventType.WorkflowStarted:
+    case NotificationEventType.WorkflowCompleted:
+    case NotificationEventType.WorkflowFailed:
+      return 'running';
   }
 }
 

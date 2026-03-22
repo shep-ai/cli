@@ -64,6 +64,9 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         prChecksFailed: true,
         prBlocked: true,
         mergeReviewReady: true,
+        workflowStarted: true,
+        workflowCompleted: true,
+        workflowFailed: true,
       },
     },
     workflow: {
@@ -122,6 +125,9 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     notif_evt_pr_checks_failed: 1,
     notif_evt_pr_blocked: 1,
     notif_evt_merge_review_ready: 1,
+    notif_evt_workflow_started: 1,
+    notif_evt_workflow_completed: 1,
+    notif_evt_workflow_failed: 1,
     workflow_open_pr_on_impl_complete: 0,
     workflow_enable_evidence: 0,
     workflow_commit_evidence: 0,
@@ -148,6 +154,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     feature_flag_github_import: 0,
     feature_flag_adopt_branch: 0,
     feature_flag_react_file_manager: 0,
+    feature_flag_scheduled_workflows: 0,
     ...overrides,
   };
 }
@@ -172,6 +179,9 @@ describe('Settings Mapper', () => {
             prChecksFailed: true,
             prBlocked: true,
             mergeReviewReady: true,
+            workflowStarted: true,
+            workflowCompleted: true,
+            workflowFailed: true,
           },
         },
       });
@@ -199,6 +209,9 @@ describe('Settings Mapper', () => {
             prChecksFailed: true,
             prBlocked: true,
             mergeReviewReady: true,
+            workflowStarted: true,
+            workflowCompleted: true,
+            workflowFailed: true,
           },
         },
       });
@@ -226,6 +239,9 @@ describe('Settings Mapper', () => {
             prChecksFailed: true,
             prBlocked: true,
             mergeReviewReady: true,
+            workflowStarted: true,
+            workflowCompleted: true,
+            workflowFailed: true,
           },
         },
       });
@@ -255,6 +271,9 @@ describe('Settings Mapper', () => {
             prChecksFailed: false,
             prBlocked: false,
             mergeReviewReady: false,
+            workflowStarted: false,
+            workflowCompleted: false,
+            workflowFailed: false,
           },
         },
       });
@@ -338,6 +357,9 @@ describe('Settings Mapper', () => {
             prChecksFailed: false,
             prBlocked: false,
             mergeReviewReady: false,
+            workflowStarted: false,
+            workflowCompleted: false,
+            workflowFailed: false,
           },
         },
       });
@@ -370,6 +392,9 @@ describe('Settings Mapper', () => {
           prChecksFailed: true,
           prBlocked: true,
           mergeReviewReady: true,
+          workflowStarted: true,
+          workflowCompleted: true,
+          workflowFailed: true,
         },
       });
     });

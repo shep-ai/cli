@@ -19,6 +19,7 @@ const defaultFlags = {
   githubImport: false,
   adoptBranch: false,
   reactFileManager: false,
+  scheduledWorkflows: false,
 };
 
 describe('FeatureFlagsSettingsSection', () => {

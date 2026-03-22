@@ -13,6 +13,7 @@ const defaultFeatureFlags = {
   githubImport: false,
   adoptBranch: false,
   reactFileManager: false,
+  scheduledWorkflows: false,
 };
 
 const meta: Meta<typeof AppSidebar> = {

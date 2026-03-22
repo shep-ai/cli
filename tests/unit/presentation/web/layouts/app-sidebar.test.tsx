@@ -45,6 +45,7 @@ const defaultFlags = {
   githubImport: false,
   adoptBranch: false,
   reactFileManager: false,
+  scheduledWorkflows: false,
 };
 
 function renderWithSidebar(ui: React.ReactElement) {
