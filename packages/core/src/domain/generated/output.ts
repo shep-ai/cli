@@ -436,6 +436,10 @@ export type WorkflowConfig = {
    * Hide CI status badges from UI (default: true)
    */
   hideCiStatus?: boolean;
+  /**
+   * Maximum number of doctor fix attempts before giving up (default: 1)
+   */
+  doctorMaxFixAttempts?: number;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',
@@ -1668,6 +1672,80 @@ export type Evidence = {
    * Optional reference to the task this evidence proves
    */
   taskRef?: string;
+};
+
+/**
+ * Summary of a failed agent run for diagnostic reporting
+ */
+export type FailedRunSummary = {
+  /**
+   * Type of agent that failed (e.g. claude-code, gemini-cli)
+   */
+  agentType: string;
+  /**
+   * Name/identifier of the agent run
+   */
+  agentName: string;
+  /**
+   * Error message from the failed run
+   */
+  error: string;
+  /**
+   * ISO 8601 timestamp when the failure occurred
+   */
+  timestamp: string;
+};
+
+/**
+ * System environment information for diagnostic reporting
+ */
+export type SystemInfo = {
+  /**
+   * Node.js version (e.g. v20.11.0)
+   */
+  nodeVersion: string;
+  /**
+   * Operating system platform (e.g. darwin, linux, win32)
+   */
+  platform: string;
+  /**
+   * CPU architecture (e.g. x64, arm64)
+   */
+  arch: string;
+  /**
+   * gh CLI version string
+   */
+  ghVersion: string;
+};
+
+/**
+ * Structured diagnostic report collected by shep doctor for issue creation
+ */
+export type DoctorDiagnosticReport = {
+  /**
+   * User-provided description of the problem
+   */
+  userDescription: string;
+  /**
+   * Summaries of recent failed agent runs
+   */
+  failedRunSummaries: FailedRunSummary[];
+  /**
+   * System environment information
+   */
+  systemInfo: SystemInfo;
+  /**
+   * Current shep CLI version
+   */
+  cliVersion: string;
+  /**
+   * Feature ID when diagnosing a specific feature (optional)
+   */
+  featureId?: string;
+  /**
+   * Feature name when diagnosing a specific feature (optional)
+   */
+  featureName?: string;
 };
 export enum AgentStatus {
   Idle = 'Idle',

@@ -96,6 +96,9 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
       revParse: vi.fn(),
       localMergeSquash: vi.fn().mockResolvedValue(undefined),
+      createPrFromArgs: vi
+        .fn()
+        .mockResolvedValue({ url: 'https://github.com/org/repo/pull/1', number: 1 }),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(

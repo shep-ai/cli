@@ -1,0 +1,48 @@
+DoctorDiagnoseUseCase Unit Tests — 24/24 passing
+=================================================
+Test runner: Vitest v4.0.18
+
+DoctorDiagnoseUseCase > diagnostic collection
+  ✓ should return diagnostic report with failed agent runs from repository
+  ✓ should only include failed/errored runs (running/completed excluded)
+  ✓ should include at most 10 runs even if more exist
+  ✓ should exclude prompt and result fields from run summaries
+  ✓ should include CLI version and system info in report
+  ✓ should include user description in the diagnostic report
+  ✓ should handle gh version check failure gracefully
+
+DoctorDiagnoseUseCase > issue creation
+  ✓ should create issue with formatted body and return issueUrl
+  ✓ should include [shep doctor] prefix in issue title
+  ✓ should include diagnostic context in issue body
+  ✓ should include footer tag in issue body
+
+DoctorDiagnoseUseCase > no-fix flow
+  ✓ should skip entire fix workflow and return only issueUrl
+
+DoctorDiagnoseUseCase > maintainer flow (has push access)
+  ✓ should clone directly, push, and create same-repo PR
+  ✓ should create branch named doctor/fix-<issue-number>
+
+DoctorDiagnoseUseCase > contributor flow (no push access)
+  ✓ should fork, clone fork, and create cross-fork PR with --repo
+
+DoctorDiagnoseUseCase > agent invocation
+  ✓ should invoke agent with structured prompt containing issue context
+  ✓ should pass cwd option pointing to cloned directory
+
+DoctorDiagnoseUseCase > graceful degradation
+  ✓ should return issueUrl with prUrl undefined when agent fails
+  ✓ should fall back to contributor flow when push access check fails
+  ✓ should handle no uncommitted changes after agent run
+
+DoctorDiagnoseUseCase > temp directory cleanup
+  ✓ should clean up temp directory on success when no workdir specified
+  ✓ should clean up temp directory on failure when no workdir specified
+  ✓ should NOT clean up when workdir is specified
+
+DoctorDiagnoseUseCase > PR creation details
+  ✓ should reference issue in PR title and body
+
+Test Files  1 passed (1)
+     Tests  24 passed (24)

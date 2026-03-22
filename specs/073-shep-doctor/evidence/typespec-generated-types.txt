@@ -1,0 +1,40 @@
+TypeSpec Generated Types Verification
+=====================================
+
+DoctorDiagnosticReport, FailedRunSummary, SystemInfo value objects and
+doctorMaxFixAttempts WorkflowConfig extension all present in
+packages/core/src/domain/generated/output.ts.
+
+--- WorkflowConfig extension ---
+Line 440:  /** Maximum number of doctor fix attempts before giving up (default: 1) */
+Line 442:  doctorMaxFixAttempts?: number;
+
+--- FailedRunSummary ---
+Line 1678: /** Summary of a failed agent run for diagnostic reporting */
+Line 1680: export type FailedRunSummary = {
+             agentType: string;
+             agentName: string;
+             error: string;
+             timestamp: string;
+           };
+
+--- SystemInfo ---
+Line 1700: /** System environment information for diagnostic reporting */
+Line 1702: export type SystemInfo = {
+             nodeVersion: string;
+             platform: string;
+             arch: string;
+             ghVersion: string;
+           };
+
+--- DoctorDiagnosticReport ---
+Line 1722: /** Structured diagnostic report collected by shep doctor for issue creation */
+Line 1724: export type DoctorDiagnosticReport = {
+             userDescription: string;
+             failedRunSummaries: FailedRunSummary[];
+             systemInfo: SystemInfo;
+             cliVersion: string;
+           };
+
+All types correctly generated with JSDoc annotations.
+pnpm tsp:compile succeeds without errors.

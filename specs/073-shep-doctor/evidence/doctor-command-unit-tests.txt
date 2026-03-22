@@ -1,0 +1,48 @@
+Doctor Command Unit Tests — 28/28 passing
+==========================================
+Test runner: Vitest v4.0.18
+
+Doctor Command > command structure
+  ✓ should create a valid Commander command
+  ✓ should have the name "doctor"
+  ✓ should have a description
+  ✓ should accept description as an optional positional argument
+  ✓ should have --fix option
+  ✓ should have --no-fix option
+  ✓ should have --workdir option
+
+Doctor Command > prerequisite validation
+  ✓ should check gh CLI availability before proceeding
+  ✓ should check gh authentication before proceeding
+  ✓ should show error when gh CLI is not installed
+  ✓ should show error when gh is not authenticated
+
+Doctor Command > description collection
+  ✓ should use positional argument when provided
+  ✓ should prompt for description when not provided
+  ✓ should cancel when interactive description is empty
+
+Doctor Command > fix gate
+  ✓ should pass fix=true when --fix flag is set
+  ✓ should pass fix=false when --no-fix flag is set
+  ✓ should prompt for fix when neither flag is set
+  ✓ should pass fix=false when user declines fix prompt
+
+Doctor Command > workdir option
+  ✓ should pass workdir to use case when specified
+  ✓ should pass undefined workdir when not specified
+
+Doctor Command > result display
+  ✓ should show issue URL on success
+  ✓ should show PR URL when fix succeeds
+  ✓ should show flow type when PR is created
+  ✓ should show warning when fix attempt fails
+  ✓ should show cleanup message when temp dir is cleaned
+  ✓ should use spinner during use case execution
+
+Doctor Command > error handling
+  ✓ should handle use case errors gracefully
+  ✓ should handle Ctrl+C gracefully during prompts
+
+Test Files  1 passed (1)
+     Tests  28 passed (28)

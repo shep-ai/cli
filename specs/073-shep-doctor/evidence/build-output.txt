@@ -1,0 +1,10 @@
+$ pnpm build
+
+> @shepai/cli@1.135.2 build
+> pnpm build:cli
+
+> @shepai/cli@1.135.2 build:cli
+> tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && shx mkdir -p dist/packages/core/src/infrastructure/services/tool-installer && shx rm -rf dist/packages/core/src/infrastructure/services/tool-installer/tools && shx cp -r packages/core/src/infrastructure/services/tool-installer/tools dist/packages/core/src/infrastructure/services/tool-installer/tools
+
+Build completed successfully — no errors.
+TypeScript compilation, path alias resolution, and tool installer asset copy all complete.

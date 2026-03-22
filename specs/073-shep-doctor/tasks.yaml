@@ -1,0 +1,552 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "shep-doctor"
+summary: >
+  15 tasks across 6 phases implementing the shep doctor feature. Covers TypeSpec domain
+  models, service interface definitions, infrastructure implementations (GitHub issue creation,
+  push access detection, fork handling, programmatic PR creation), use case orchestration,
+  CLI command with interactive prompts, DI wiring, and integration testing. All code tasks
+  follow TDD with RED-GREEN-REFACTOR cycles.
+
+relatedFeatures:
+  - "041-ci-watch-fix-loop"
+
+technologies:
+  - "Commander.js"
+  - "tsyringe"
+  - "@inquirer/prompts"
+  - "gh CLI"
+  - "Vitest"
+  - "TypeSpec"
+
+relatedLinks:
+  - title: "GitHub Issue #436 - Feature request: Shep doctor"
+    url: "https://github.com/shep-ai/cli/issues/436"
+
+tasks:
+  # ── Phase 1: Domain Models & TypeSpec ──────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: "Create DoctorDiagnosticReport TypeSpec value object"
+    description: >
+      Define a DoctorDiagnosticReport value object in TypeSpec that captures
+      the structured diagnostic data for a doctor session: user description,
+      failed agent run summaries (agentType, agentName, error, timestamp),
+      system info (nodeVersion, platform, arch, ghVersion), and CLI version.
+      This is a transient value object (no BaseEntity) since it is never persisted.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "tsp/domain/value-objects/doctor-diagnostic-report.tsp exists with DoctorDiagnosticReport model"
+      - "Model includes userDescription (string), failedRunSummaries (array), systemInfo fields, and cliVersion"
+      - "FailedRunSummary sub-model includes agentType, agentName, error, and timestamp fields"
+      - "pnpm tsp:compile succeeds and generates types in domain/generated/output.ts"
+      - "No existing generated types are broken by the addition"
+    tdd:
+      red:
+        - "Verify that DoctorDiagnosticReport type does not exist in domain/generated/output.ts"
+      green:
+        - "Create tsp/domain/value-objects/doctor-diagnostic-report.tsp with the model definition"
+        - "Run pnpm tsp:compile and verify the type appears in generated output"
+      refactor:
+        - "Review field naming for consistency with existing TypeSpec models"
+        - "Ensure @doc annotations are clear and complete"
+    estimatedEffort: "30min"
+
+  - id: task-2
+    phaseId: phase-1
+    title: "Extend WorkflowConfig with doctorMaxFixAttempts"
+    description: >
+      Add an optional doctorMaxFixAttempts field (int32, default 1) to WorkflowConfig
+      in the Settings TypeSpec entity. This controls how many fix attempts the doctor
+      command makes before giving up. Follows the existing ciMaxFixAttempts pattern.
+    state: "Todo"
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "tsp/domain/entities/settings.tsp WorkflowConfig model has doctorMaxFixAttempts optional int32 field"
+      - "pnpm tsp:compile succeeds and WorkflowConfig type in generated output includes the new field"
+      - "Existing WorkflowConfig fields are unchanged"
+    tdd:
+      red:
+        - "Verify that WorkflowConfig in generated output does not have doctorMaxFixAttempts"
+      green:
+        - "Add doctorMaxFixAttempts?: int32 with @doc annotation to WorkflowConfig in settings.tsp"
+        - "Run pnpm tsp:compile and verify the field appears"
+      refactor:
+        - "Ensure the @doc annotation clearly describes the default value and purpose"
+    estimatedEffort: "15min"
+
+  # ── Phase 2: Service Interfaces (Output Ports) ────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: "Define IGitHubIssueService interface"
+    description: >
+      Create the IGitHubIssueService output port interface with createIssue() method,
+      co-located GitHubIssueCreateResult DTO, and GitHubIssueError/GitHubIssueErrorCode
+      error types. Follows the exact pattern used by IGitPrService and IGitHubRepositoryService.
+    state: "Todo"
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "packages/core/src/application/ports/output/services/github-issue-service.interface.ts exists"
+      - "IGitHubIssueService interface has createIssue(repo, title, body, labels) returning Promise<GitHubIssueCreateResult>"
+      - "GitHubIssueCreateResult has url (string) and number (number) fields"
+      - "GitHubIssueErrorCode enum covers GH_NOT_FOUND, AUTH_FAILURE, NETWORK_ERROR, CREATE_FAILED"
+      - "GitHubIssueError extends Error with code and optional cause"
+      - "Interface is exported from the services index"
+    tdd:
+      red:
+        - "Write a test that imports IGitHubIssueService and asserts the type shape compiles"
+        - "Write a test that creates a mock implementing IGitHubIssueService and calls createIssue"
+      green:
+        - "Create the interface file with all types, DTOs, and error classes"
+        - "Export from the ports/output/services/ barrel"
+      refactor:
+        - "Ensure naming conventions match existing interfaces (e.g., error constructor pattern)"
+        - "Verify JSDoc comments follow codebase style"
+    estimatedEffort: "30min"
+
+  - id: task-4
+    phaseId: phase-2
+    title: "Extend IGitHubRepositoryService with checkPushAccess and forkRepository"
+    description: >
+      Add two new method signatures to the existing IGitHubRepositoryService interface:
+      checkPushAccess(repoNameWithOwner) returning Promise<boolean>, and
+      forkRepository(repoNameWithOwner) returning Promise<ForkResult>. Add the ForkResult
+      DTO and any needed error types. checkPushAccess returns false as safe fallback on errors.
+    state: "Todo"
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "IGitHubRepositoryService has checkPushAccess(repoNameWithOwner: string): Promise<boolean>"
+      - "IGitHubRepositoryService has forkRepository(repoNameWithOwner: string): Promise<ForkResult>"
+      - "ForkResult interface has nameWithOwner (string) and cloneUrl (string) fields"
+      - "GitHubForkError extends Error is defined for fork failures"
+      - "Existing methods are unchanged"
+    tdd:
+      red:
+        - "Write a test that creates a mock implementing the extended IGitHubRepositoryService including new methods"
+        - "Test fails because the new methods don't exist on the interface yet"
+      green:
+        - "Add checkPushAccess and forkRepository method signatures to the interface"
+        - "Define ForkResult DTO and GitHubForkError class in the same file"
+      refactor:
+        - "Ensure new error classes follow the Object.setPrototypeOf pattern from existing errors"
+    estimatedEffort: "20min"
+
+  - id: task-5
+    phaseId: phase-2
+    title: "Extend IGitPrService with createPrFromArgs"
+    description: >
+      Add a createPrFromArgs() method to the existing IGitPrService interface that accepts
+      typed parameters (cwd, title, body, labels, base, optional repo for cross-fork targeting)
+      instead of reading from a pr.yaml file. Returns the existing PrCreateResult type.
+    state: "Todo"
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "IGitPrService has createPrFromArgs(cwd, args: PrCreateArgs): Promise<PrCreateResult>"
+      - "PrCreateArgs interface has title, body, labels (string[]), base (string), and optional repo (string) fields"
+      - "Existing createPr method and PrCreateResult type are unchanged"
+    tdd:
+      red:
+        - "Write a test that creates a mock implementing IGitPrService including createPrFromArgs"
+        - "Test fails because the new method doesn't exist on the interface"
+      green:
+        - "Add PrCreateArgs interface and createPrFromArgs method signature to the interface file"
+      refactor:
+        - "Verify PrCreateArgs field naming is consistent with existing types"
+    estimatedEffort: "15min"
+
+  # ── Phase 3: Infrastructure Service Implementations ────────────────────
+
+  - id: task-6
+    phaseId: phase-3
+    title: "Implement GitHubIssueService"
+    description: >
+      Create the GitHubIssueService class implementing IGitHubIssueService. Wraps
+      gh issue create with --repo, --title, --body, and --label flags. Parses the
+      created issue URL and number from gh output. Handles errors (gh not found,
+      auth failure, network errors) by throwing typed GitHubIssueError instances.
+      Injected ExecFunction follows the same pattern as GitHubRepositoryService.
+    state: "Todo"
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - "packages/core/src/infrastructure/services/external/github-issue.service.ts exists"
+      - "GitHubIssueService is @injectable() with @inject('ExecFunction') ExecFunction"
+      - "createIssue calls gh issue create with correct flags and parses the result"
+      - "Issue URL and number are correctly extracted from gh output"
+      - "Auth failures, missing gh, and network errors produce typed GitHubIssueError"
+      - "Unit tests cover success path and all error paths"
+    tdd:
+      red:
+        - "Write tests for createIssue: success returns URL and number, auth failure throws AUTH_FAILURE, missing gh throws GH_NOT_FOUND"
+        - "Write test that verifies correct gh args are passed (--repo, --title, --body, --label)"
+      green:
+        - "Implement GitHubIssueService with ExecFunction injection"
+        - "Parse issue URL from gh stdout, extract issue number from URL"
+        - "Map exec errors to GitHubIssueError codes"
+      refactor:
+        - "Extract URL/number parsing into a private helper method"
+        - "Ensure error messages are user-friendly"
+    estimatedEffort: "1h"
+
+  - id: task-7
+    phaseId: phase-3
+    title: "Implement checkPushAccess in GitHubRepositoryService"
+    description: >
+      Add the checkPushAccess() method to the existing GitHubRepositoryService. Calls
+      gh api repos/{owner}/{repo} --jq '.permissions.push' and returns the boolean result.
+      Returns false on any error (network, rate limit, API change) per NFR-9 resilience
+      requirement. This is the key method that determines maintainer vs contributor flow.
+    state: "Todo"
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "checkPushAccess('shep-ai/cli') calls gh api repos/shep-ai/cli --jq '.permissions.push'"
+      - "Returns true when gh api returns 'true'"
+      - "Returns false when gh api returns 'false'"
+      - "Returns false (not throws) on network errors, rate limiting, or unexpected output"
+      - "Unit tests cover all three paths (true, false, error fallback)"
+    tdd:
+      red:
+        - "Write test: checkPushAccess returns true when gh api returns 'true'"
+        - "Write test: checkPushAccess returns false when gh api returns 'false'"
+        - "Write test: checkPushAccess returns false when gh api throws an error"
+        - "Write test: checkPushAccess returns false when gh api returns unexpected output"
+      green:
+        - "Add checkPushAccess method to GitHubRepositoryService"
+        - "Call execFile('gh', ['api', 'repos/{nwo}', '--jq', '.permissions.push'])"
+        - "Parse stdout, return true only if trimmed output is exactly 'true'"
+        - "Wrap in try/catch, return false on any error"
+      refactor:
+        - "Ensure the method is well-documented with JSDoc explaining the fallback behavior"
+    estimatedEffort: "45min"
+
+  - id: task-8
+    phaseId: phase-3
+    title: "Implement forkRepository in GitHubRepositoryService"
+    description: >
+      Add the forkRepository() method to GitHubRepositoryService. Calls
+      gh repo fork {nwo} --clone=false and parses the fork's nameWithOwner from output.
+      Handles the idempotent case where a fork already exists (gh detects and returns it).
+      Throws GitHubForkError on actual failures.
+    state: "Todo"
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "forkRepository calls gh repo fork with --clone=false flag"
+      - "Returns ForkResult with fork nameWithOwner and cloneUrl on success"
+      - "Handles existing fork case (gh detects existing fork) without error"
+      - "Throws GitHubForkError on actual failures (auth, network)"
+      - "Unit tests cover new fork, existing fork, and failure cases"
+    tdd:
+      red:
+        - "Write test: forkRepository creates new fork and returns nameWithOwner"
+        - "Write test: forkRepository detects existing fork and returns it"
+        - "Write test: forkRepository throws GitHubForkError on auth failure"
+      green:
+        - "Add forkRepository method to GitHubRepositoryService"
+        - "Call execFile('gh', ['repo', 'fork', nwo, '--clone=false'])"
+        - "Parse fork nameWithOwner from gh output (handles both new and existing fork messages)"
+      refactor:
+        - "Extract fork output parsing into a private helper"
+    estimatedEffort: "45min"
+
+  - id: task-9
+    phaseId: phase-3
+    title: "Implement createPrFromArgs in GitPrService"
+    description: >
+      Add createPrFromArgs() to the existing GitPrService. Builds gh pr create command
+      with --title, --body, --label (repeated for each label), --base, and optional --repo
+      flag for cross-fork PRs. Returns PrCreateResult with PR URL and number. Handles
+      errors using the existing GitPrError pattern.
+    state: "Todo"
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - "createPrFromArgs builds correct gh pr create command with all args"
+      - "Labels are passed as repeated --label flags"
+      - "Optional repo flag is included only when provided (cross-fork flow)"
+      - "Returns PrCreateResult with URL and PR number"
+      - "Errors produce typed GitPrError with appropriate codes"
+      - "Unit tests cover same-repo PR, cross-fork PR, and error cases"
+    tdd:
+      red:
+        - "Write test: createPrFromArgs creates same-repo PR with correct gh args"
+        - "Write test: createPrFromArgs creates cross-fork PR with --repo flag"
+        - "Write test: createPrFromArgs throws GitPrError on auth failure"
+      green:
+        - "Add createPrFromArgs method to GitPrService"
+        - "Build gh args array from PrCreateArgs, conditionally adding --repo"
+        - "Parse PR URL and number from gh output using existing parsePrNumberFromUrl helper"
+      refactor:
+        - "Ensure argument building logic is clean and readable"
+    estimatedEffort: "45min"
+
+  # ── Phase 4: Use Case Orchestration ────────────────────────────────────
+
+  - id: task-10
+    phaseId: phase-4
+    title: "Implement DoctorDiagnoseUseCase - diagnostic collection"
+    description: >
+      Create the DoctorDiagnoseUseCase class with the first step of the workflow:
+      collecting diagnostic context. Query IAgentRunRepository for recent runs, filter
+      to failed/errored status (last 10), collect CLI version from IVersionService,
+      gather system info (Node version, platform, arch, gh version). Build a
+      DoctorDiagnosticReport value object. Sanitize data per NFR-2 (exclude prompts,
+      results, settings).
+    state: "Todo"
+    dependencies:
+      - task-1
+      - task-2
+      - task-3
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - "DoctorDiagnoseUseCase is @injectable() with all required dependencies injected"
+      - "execute() method queries IAgentRunRepository.list() and filters to failed/errored runs"
+      - "Collects at most 10 recent failed runs"
+      - "Each run summary includes only agentType, agentName, error, and timestamp (no prompt/result)"
+      - "Collects CLI version from IVersionService"
+      - "Collects Node version, platform, arch from process globals"
+      - "Builds DoctorDiagnosticReport with all collected data"
+      - "Unit tests verify diagnostic collection with mocked repositories"
+    tdd:
+      red:
+        - "Write test: execute() returns diagnostic report with failed agent runs from repository"
+        - "Write test: only failed/errored runs are included (running/completed excluded)"
+        - "Write test: at most 10 runs are included even if more exist"
+        - "Write test: run summaries exclude prompt and result fields"
+        - "Write test: CLI version and system info are included in report"
+      green:
+        - "Create DoctorDiagnoseUseCase with @inject for all dependencies"
+        - "Implement diagnostic collection in a private collectDiagnostics() method"
+        - "Filter agent runs by status, limit to 10, map to sanitized summaries"
+        - "Build and return DoctorDiagnosticReport"
+      refactor:
+        - "Extract sanitization logic into a private sanitizeRunSummary method"
+    estimatedEffort: "1h"
+
+  - id: task-11
+    phaseId: phase-4
+    title: "Implement DoctorDiagnoseUseCase - issue creation and fix workflow"
+    description: >
+      Extend DoctorDiagnoseUseCase with the remaining workflow steps: format and create
+      GitHub issue (FR-4, FR-5), check push access (FR-7), clone or fork+clone repo
+      (FR-8, FR-9), invoke AI agent for fix (FR-10), create PR (FR-11), and cleanup
+      temp directory (NFR-8). Implement graceful degradation (NFR-1) — if any step fails,
+      report failure and continue where possible. The use case accepts structured input
+      with description, flags (fix/noFix), and workdir override.
+    state: "Todo"
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - "Use case formats issue body with [shep doctor] title prefix, diagnostic context, and footer tag"
+      - "Issue is created via IGitHubIssueService.createIssue with bug and shep-doctor labels"
+      - "When fix is requested: push access is checked via IGitHubRepositoryService.checkPushAccess"
+      - "Maintainer flow: clones shep-ai/cli directly, creates doctor/fix-N branch"
+      - "Contributor flow: forks first, clones fork, creates doctor/fix-N branch"
+      - "Agent is invoked via IAgentExecutorProvider with structured prompt and repositoryPath"
+      - "PR is created via IGitPrService.createPrFromArgs, with --repo for contributor flow"
+      - "Temp directory is cleaned up in finally block (unless --workdir specified)"
+      - "Returns result with issueUrl, prUrl (optional), and flow type (maintainer/contributor)"
+      - "Graceful degradation: agent failure still returns issue URL"
+      - "Unit tests cover maintainer flow, contributor flow, no-fix flow, and failure scenarios"
+    tdd:
+      red:
+        - "Write test: execute creates issue with formatted body and returns issueUrl"
+        - "Write test: maintainer flow clones directly, pushes, creates same-repo PR"
+        - "Write test: contributor flow forks, clones fork, creates cross-fork PR with --repo"
+        - "Write test: --no-fix skips entire fix workflow and returns only issueUrl"
+        - "Write test: agent failure returns issueUrl with prUrl undefined"
+        - "Write test: push access check failure falls back to contributor flow"
+        - "Write test: temp directory cleanup runs on success"
+        - "Write test: temp directory cleanup runs on failure"
+        - "Write test: workdir override skips cleanup"
+      green:
+        - "Implement issue formatting with title derivation and body template"
+        - "Implement fix workflow: check access -> clone/fork -> agent -> PR"
+        - "Implement branching logic for maintainer vs contributor paths"
+        - "Add try/finally for temp directory cleanup"
+        - "Build structured agent prompt with issue context and fix instructions"
+      refactor:
+        - "Extract issue formatting into a private formatIssueBody method"
+        - "Extract repo setup logic into private setupRepository method"
+        - "Extract agent prompt building into private buildFixPrompt method"
+    estimatedEffort: "2h"
+
+  # ── Phase 5: CLI Command & DI Wiring ───────────────────────────────────
+
+  - id: task-12
+    phaseId: phase-5
+    title: "Create doctor CLI command"
+    description: >
+      Create the doctor.command.ts top-level CLI command using Commander.js. Handles:
+      optional [description] positional argument, --fix/--no-fix flags, --workdir option.
+      Validates prerequisites (gh installed via IToolInstallerService, gh authenticated via
+      IGitHubRepositoryService). Falls back to @inquirer/prompts input() for description
+      if not provided as argument. Shows fix confirmation via confirm() unless --fix/--no-fix.
+      Displays progress with spinner() and messages.*() at each step. Reports final results
+      (issue URL, PR URL).
+    state: "Todo"
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - "src/presentation/cli/commands/doctor.command.ts exports createDoctorCommand()"
+      - "Command is registered as 'doctor' with description"
+      - "Accepts optional [description] positional argument"
+      - "Supports --fix, --no-fix, and --workdir <path> options"
+      - "Validates gh CLI availability before proceeding"
+      - "Validates gh authentication before proceeding"
+      - "Prompts for description via @inquirer/prompts input() when not provided"
+      - "Shows fix confirmation via confirm() unless flags override"
+      - "Displays spinner during async operations"
+      - "Reports issue URL and PR URL on success"
+      - "Handles errors with messages.error() and non-zero exit code"
+      - "Handles Ctrl+C gracefully during prompts"
+    tdd:
+      red:
+        - "Write test: createDoctorCommand returns a Command with name 'doctor'"
+        - "Write test: command accepts description as positional argument"
+        - "Write test: command has --fix, --no-fix, and --workdir options"
+      green:
+        - "Create doctor.command.ts with createDoctorCommand factory function"
+        - "Implement prerequisite validation (gh check, auth check)"
+        - "Implement interactive description collection fallback"
+        - "Implement fix confirmation gate with flag overrides"
+        - "Resolve and call DoctorDiagnoseUseCase from container"
+        - "Display progress and results"
+      refactor:
+        - "Ensure error messages match the codebase's messaging style"
+        - "Verify spinner text is clear and informative at each step"
+    estimatedEffort: "1h 30min"
+
+  - id: task-13
+    phaseId: phase-5
+    title: "Register components in DI container and CLI program"
+    description: >
+      Register GitHubIssueService as IGitHubIssueService and DoctorDiagnoseUseCase in the
+      DI container. Add the doctor command to the CLI program in index.ts. No new registrations
+      needed for IGitHubRepositoryService or IGitPrService since they're already registered
+      and the new methods are on existing implementations.
+    state: "Todo"
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - "container.ts registers GitHubIssueService as singleton for 'IGitHubIssueService' token"
+      - "container.ts registers DoctorDiagnoseUseCase as singleton"
+      - "index.ts imports createDoctorCommand and adds it to the program"
+      - "pnpm build succeeds with no type errors"
+    tdd:
+      red:
+        - "Write test: container.resolve('IGitHubIssueService') returns a GitHubIssueService instance"
+        - "Write test: container.resolve(DoctorDiagnoseUseCase) returns an instance with all deps"
+      green:
+        - "Add IGitHubIssueService registration to container.ts"
+        - "Add DoctorDiagnoseUseCase registration to container.ts"
+        - "Add createDoctorCommand import and program.addCommand call to index.ts"
+      refactor:
+        - "Ensure registration order follows the existing convention (services before use cases)"
+    estimatedEffort: "20min"
+
+  # ── Phase 6: Integration Testing & Polish ──────────────────────────────
+
+  - id: task-14
+    phaseId: phase-6
+    title: "Integration tests for doctor workflow"
+    description: >
+      Write integration tests that exercise the DoctorDiagnoseUseCase with all dependencies
+      mocked at the service boundary (not at the exec level). Test the full sequential flow
+      for both maintainer and contributor paths, including diagnostic collection, issue creation,
+      repo setup, agent execution, and PR creation. Verify graceful degradation when individual
+      steps fail.
+    state: "Todo"
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - "Integration test covers complete maintainer flow (push access -> direct clone -> PR)"
+      - "Integration test covers complete contributor flow (no push access -> fork -> clone -> PR)"
+      - "Integration test covers issue-only flow (--no-fix)"
+      - "Integration test covers agent failure graceful degradation"
+      - "Integration test covers gh not installed error path"
+      - "Integration test covers gh not authenticated error path"
+      - "All tests pass with pnpm test:int"
+    tdd:
+      red:
+        - "Write integration test: maintainer flow end-to-end with all service mocks"
+        - "Write integration test: contributor flow end-to-end with all service mocks"
+        - "Write integration test: issue-only mode skips fix entirely"
+        - "Write integration test: agent failure still returns issue URL"
+      green:
+        - "Implement test fixtures and mock factories for all services"
+        - "Wire up use case with mock dependencies and execute full flows"
+        - "Assert correct service call sequences and return values"
+      refactor:
+        - "Extract common mock setup into shared helper functions"
+        - "Ensure test names clearly describe the scenario"
+    estimatedEffort: "1h 30min"
+
+  - id: task-15
+    phaseId: phase-6
+    title: "Build verification and final validation"
+    description: >
+      Run full build (pnpm build), type check, lint, and test suite to verify the entire
+      feature integrates correctly. Fix any issues found. Verify the doctor command appears
+      in --help output. Verify no regressions in existing tests.
+    state: "Todo"
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - "pnpm build succeeds with no errors"
+      - "pnpm validate succeeds (lint, format, typecheck, tsp)"
+      - "pnpm test:unit passes with no failures"
+      - "pnpm test:int passes with no failures"
+      - "shep doctor --help displays correct usage"
+      - "No regressions in existing test suites"
+    tdd: null
+    estimatedEffort: "30min"
+
+totalEstimate: "11h 15min"
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is organized into 15 tasks across 6 phases, building the feature
+  bottom-up through the Clean Architecture layers.
+
+  First, we establish the domain foundation with TypeSpec models -- DoctorDiagnosticReport
+  value object and WorkflowConfig extension. These compile to generated types that all
+  subsequent code depends on.
+
+  Next, we define the service interface contracts: a new IGitHubIssueService for issue
+  creation, and extensions to IGitHubRepositoryService (push access detection, forking)
+  and IGitPrService (programmatic PR creation with cross-fork support). These ports are
+  the contracts both implementations and the use case depend on.
+
+  With interfaces defined, we implement the infrastructure services: GitHubIssueService
+  wrapping gh issue create, push access detection via gh api, fork handling via gh repo fork,
+  and createPrFromArgs for programmatic PR creation. Each is independently testable with
+  a mocked ExecFunction.
+
+  The use case layer ties everything together. DoctorDiagnoseUseCase is split across two
+  tasks: first diagnostic collection (querying agent runs, gathering system info), then
+  the full workflow orchestration (issue creation, access detection, repo setup, agent
+  invocation, PR creation, cleanup). Both maintainer and contributor flows are handled
+  with graceful degradation throughout.
+
+  Finally, the CLI command and DI wiring connect the feature to users. The doctor command
+  handles argument parsing, interactive prompts, progress display, and error reporting.
+  Integration tests validate both flows end-to-end. A final build verification ensures
+  no regressions.
+
+  ---
+
+  _Task breakdown complete -- ready for implementation_
