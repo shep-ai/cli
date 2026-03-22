@@ -1,0 +1,59 @@
+PrSyncWatcherService Unit Tests — 55/55 passing
+=================================================
+
+start/stop lifecycle:
+ ✓ should set isRunning to true when started
+ ✓ should set isRunning to false when stopped
+ ✓ should be no-op when start() is called while already running
+ ✓ should poll at configured interval
+ ✓ should stop polling when stop() is called
+ ✓ should support custom poll interval
+
+PR status polling and transition detection:
+ ✓ should detect Open→Merged transition and update feature and agent run
+ ✓ should skip duplicate Maintain transition when merge node already handled it
+ ✓ should skip agent run update when feature has no agentRunId
+ ✓ should detect Open→Closed transition and update feature without lifecycle change
+ ✓ should not call update when PR status has not changed
+ ✓ should group features by repositoryPath for batch PR queries
+ ✓ should prune features that left Review from tracking map
+ ✓ should emit PrMerged notification with correct fields including featureId and agentRunId
+ ✓ should emit PrClosed notification with correct fields including featureId
+ ✓ should skip already-merged PRs during branch discovery (likely stale)
+ ✓ should discover open PR by branch name and populate feature PR data
+
+CI status polling and transition detection:
+ ✓ should emit PrChecksPassed notification on CI success
+ ✓ should emit PrChecksFailed notification on CI failure
+ ✓ should not trigger update when CI status is unchanged
+ ✓ should handle getCiStatus errors gracefully and continue
+
+error handling and edge cases:
+ ✓ should not make API calls when no features are in Review
+ ✓ should still poll GitHub for features without PR data (for branch-based discovery)
+ ✓ should skip features with missing repositoryPath
+ ✓ should skip feature when PR number is not found in listPrStatuses response
+ ✓ should isolate listPrStatuses errors per repository
+ ✓ should catch and log top-level poll errors
+
+mergeable status tracking:
+ ✓ should detect PR becoming unmergeable (conflicts) and emit PrBlocked notification
+ ✓ should not emit PrBlocked notification when mergeable is true
+ ✓ should not re-emit PrBlocked when mergeable status is unchanged
+ ✓ should update feature when mergeable status is undefined (unknown)
+
+upstream PR polling:
+ ✓ should poll upstream PR status and transition to Maintain on merge
+ ✓ should update upstreamPrStatus to Closed when upstream PR is closed
+ ✓ should no-op when upstream PR status is unchanged (still Open)
+ ✓ should handle upstream PR status check errors gracefully
+ ✓ should skip upstream polling when feature has no upstreamPrUrl
+
+singleton accessors:
+ ✓ should throw when initializing twice
+ ✓ should throw when getting without initialization
+ ✓ should report false for hasPrSyncWatcher when not initialized
+ ✓ should stop and clear instance on reset
+
+ Test Files  1 passed (1)
+      Tests  55 passed (55)

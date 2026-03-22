@@ -1,0 +1,20 @@
+GitForkService Unit Tests — 14/14 passing
+=========================================
+
+ ✓ GitForkService > forkRepository > should fork the repo and remap remotes on happy path
+ ✓ GitForkService > forkRepository > should detect origin is already a fork and set upstream to parent
+ ✓ GitForkService > forkRepository > should update upstream URL when remote already exists for a fork origin
+ ✓ GitForkService > forkRepository > should throw AUTH_FAILURE when gh auth fails
+ ✓ GitForkService > forkRepository > should throw FORK_FAILED for generic fork errors
+ ✓ GitForkService > pushToFork > should push branch to origin
+ ✓ GitForkService > pushToFork > should throw PUSH_FAILED on error
+ ✓ GitForkService > createUpstreamPr > should create PR to upstream repo
+ ✓ GitForkService > createUpstreamPr > should handle SSH remote URLs
+ ✓ GitForkService > createUpstreamPr > should throw PR_CREATE_FAILED on error
+ ✓ GitForkService > getUpstreamPrStatus > should return Open for open PR
+ ✓ GitForkService > getUpstreamPrStatus > should return Merged for merged PR
+ ✓ GitForkService > getUpstreamPrStatus > should return Closed for closed PR
+ ✓ GitForkService > getUpstreamPrStatus > should throw PR_STATUS_FAILED on error
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)

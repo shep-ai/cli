@@ -172,6 +172,8 @@ export class CreateFeatureUseCase {
       fast: input.fast ?? false,
       push: input.push ?? false,
       openPr: input.openPr ?? false,
+      forkAndPr: input.forkAndPr ?? false,
+      commitSpecs: input.commitSpecs ?? true,
       approvalGates: input.approvalGates ?? {
         allowPrd: false,
         allowPlan: false,
@@ -340,6 +342,8 @@ export class CreateFeatureUseCase {
           threadId: agentRun?.threadId ?? randomUUID(),
           push: input.push ?? false,
           openPr: input.openPr ?? false,
+          forkAndPr: input.forkAndPr ?? false,
+          commitSpecs: input.commitSpecs ?? true,
           ...(input.fast ? { fast: true } : {}),
           ...(input.agentType ? { agentType: input.agentType as AgentType } : {}),
           ...(input.model ? { model: input.model } : {}),

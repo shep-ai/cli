@@ -130,6 +130,8 @@ describe('parseWorkerArgs', () => {
       resumeFromInterrupt: false,
       push: false,
       openPr: false,
+      forkAndPr: false,
+      commitSpecs: true,
       resumePayload: undefined,
       agentType: undefined,
       fast: false,
@@ -436,6 +438,8 @@ describe('runWorker', () => {
         specDir: '/specs',
         push: false,
         openPr: false,
+        forkAndPr: false,
+        commitSpecs: true,
       },
       { configurable: { thread_id: 'thread-abc' } }
     );

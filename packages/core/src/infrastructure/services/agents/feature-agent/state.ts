@@ -81,6 +81,14 @@ export const FeatureAgentAnnotation = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => false,
   }),
+  forkAndPr: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => false,
+  }),
+  commitSpecs: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => true,
+  }),
   // --- Evidence state ---
   evidence: Annotation<Evidence[]>({
     reducer: (prev, next) => [...prev, ...next],

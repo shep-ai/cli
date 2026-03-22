@@ -38,6 +38,8 @@ export interface IFeatureAgentProcessService {
       resumeFromInterrupt?: boolean;
       push?: boolean;
       openPr?: boolean;
+      forkAndPr?: boolean;
+      commitSpecs?: boolean;
       resumePayload?: string;
       agentType?: AgentType;
       fast?: boolean;
