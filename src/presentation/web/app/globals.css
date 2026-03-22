@@ -255,6 +255,11 @@
   transition: transform 300ms ease;
 }
 
+.react-flow__edge path,
+.react-flow__connection-path {
+  transition: d 300ms ease;
+}
+
 /* ─── @cubone/react-file-manager — shadcn theme integration ─────────────── */
 .shep-file-manager {
   /* Hide the left navigation pane — navigation is handled via onFileOpen */

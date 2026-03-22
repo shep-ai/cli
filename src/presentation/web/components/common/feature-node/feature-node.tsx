@@ -89,6 +89,7 @@ export function FeatureNode({
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   return (
@@ -106,9 +107,10 @@ export function FeatureNode({
       {/* Action buttons — centered as a group to the left of the node.
           Tooltip side convention: left-side buttons use side="left", right-side buttons use side="right". */}
       <div
-        className="absolute top-1/2 -left-10 flex -translate-y-1/2 flex-col items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100"
+        className="absolute top-0 bottom-0 -left-14 flex items-center justify-center pl-4 pr-3 opacity-0 transition-opacity group-hover:opacity-100"
         onPointerDown={(e) => e.stopPropagation()}
       >
+        <div className="flex flex-col items-center gap-2">
         {/* Archive button */}
         {data.onArchive &&
         data.featureId &&
@@ -177,6 +179,7 @@ export function FeatureNode({
             </Tooltip>
           </TooltipProvider>
         ) : null}
+        </div>
       </div>
 
       {/* Delete confirmation dialog */}
@@ -264,8 +267,8 @@ export function FeatureNode({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent
-                  side="bottom"
-                  className="max-w-56 bg-white text-neutral-900 shadow-lg dark:bg-neutral-100 dark:text-neutral-900 [&_svg]:!bg-white [&_svg]:!fill-white dark:[&_svg]:!bg-neutral-100 dark:[&_svg]:!fill-neutral-100"
+                  side="right"
+                  className="max-w-56"
                 >
                   <p className="font-semibold">{lifecyclePhaseBadge[data.lifecycle].tooltip}</p>
                   <p className="mt-1 text-xs leading-relaxed text-neutral-500">
@@ -348,21 +351,33 @@ export function FeatureNode({
             {/* Left: Agent icons + ID */}
             <div className="flex items-center gap-1.5" style={{ transform: 'translateY(1px)' }}>
               {data.featureId ? (
-                <div className="flex items-baseline gap-1">
-                  <span className="text-muted-foreground/50 text-[10px]">ID</span>
-                  <button
-                    type="button"
-                    data-testid="feature-node-id"
-                    className="nodrag text-muted-foreground/60 hover:text-muted-foreground cursor-pointer font-mono text-[10px] transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(data.featureId);
-                    }}
-                    title={`Click to copy: ${data.featureId}`}
-                  >
-                    {data.featureId.slice(0, 6)}
-                  </button>
-                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        data-testid="feature-node-id"
+                        className="nodrag text-muted-foreground/60 hover:text-muted-foreground flex cursor-pointer items-baseline gap-1 font-mono text-[10px] transition-colors active:scale-95"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(data.featureId);
+                          setIdCopied(true);
+                          setTimeout(() => setIdCopied(false), 1500);
+                        }}
+                      >
+                        <span className="text-muted-foreground/50 font-sans text-[10px]">ID</span>
+                        {idCopied ? (
+                          <span className="text-emerald-500">Copied!</span>
+                        ) : (
+                          data.featureId.slice(0, 6)
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Click to copy: {data.featureId}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ) : null}
               {data.deployment ? (
                 <TooltipProvider>
@@ -399,7 +414,7 @@ export function FeatureNode({
                         )}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top">
+                    <TooltipContent side="bottom">
                       {data.deployment.status === DeploymentState.Booting
                         ? 'Deploying...'
                         : (data.deployment.url ?? 'Live')}
@@ -415,7 +430,7 @@ export function FeatureNode({
                         <Zap className="h-3 w-3 text-amber-500" />
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent side="top">Fast Mode</TooltipContent>
+                    <TooltipContent side="bottom">Fast Mode</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
