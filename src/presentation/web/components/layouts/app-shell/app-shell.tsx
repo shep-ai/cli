@@ -24,6 +24,8 @@ import { useFeatureFlags } from '@/hooks/feature-flags-context';
 
 interface AppShellProps {
   children: ReactNode;
+  /** Server-read sidebar state from cookie. */
+  sidebarOpen?: boolean;
 }
 
 /** Control center route prefixes where the FAB should be visible. */
@@ -35,7 +37,7 @@ function isControlCenterRoute(pathname: string): boolean {
   );
 }
 
-function AppShellInner({ children }: AppShellProps) {
+function AppShellInner({ children, sidebarOpen }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { guardedNavigate } = useDrawerCloseGuard();
@@ -151,7 +153,7 @@ function AppShellInner({ children }: AppShellProps) {
   ]);
 
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={sidebarOpen ?? false}>
       <AppSidebar
         features={features}
         featureFlags={featureFlags}
@@ -183,12 +185,12 @@ function AppShellInner({ children }: AppShellProps) {
   );
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, sidebarOpen }: AppShellProps) {
   return (
     <AgentEventsProvider>
       <DrawerCloseGuardProvider>
         <SidebarFeaturesProvider>
-          <AppShellInner>{children}</AppShellInner>
+          <AppShellInner sidebarOpen={sidebarOpen}>{children}</AppShellInner>
         </SidebarFeaturesProvider>
       </DrawerCloseGuardProvider>
     </AgentEventsProvider>

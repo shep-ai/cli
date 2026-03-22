@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import {
@@ -52,24 +52,16 @@ describe('SidebarProvider — localStorage persistence', () => {
       expect(screen.getByTestId('sidebar-state')).toHaveTextContent('open');
     });
 
-    it('restores open state from localStorage after hydration', async () => {
-      vi.mocked(localStorage.getItem).mockReturnValue('true');
-
-      render(<TestHarness defaultOpen={false} />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('sidebar-state')).toHaveTextContent('open');
-      });
-    });
-
-    it('restores closed state from localStorage after hydration', async () => {
-      vi.mocked(localStorage.getItem).mockReturnValue('false');
-
+    it('uses defaultOpen=true when server passes open state via cookie', () => {
       render(<TestHarness defaultOpen={true} />);
 
-      await waitFor(() => {
-        expect(screen.getByTestId('sidebar-state')).toHaveTextContent('closed');
-      });
+      expect(screen.getByTestId('sidebar-state')).toHaveTextContent('open');
+    });
+
+    it('uses defaultOpen=false when server passes closed state via cookie', () => {
+      render(<TestHarness defaultOpen={false} />);
+
+      expect(screen.getByTestId('sidebar-state')).toHaveTextContent('closed');
     });
 
     it('falls back to defaultOpen when localStorage has unexpected value', () => {

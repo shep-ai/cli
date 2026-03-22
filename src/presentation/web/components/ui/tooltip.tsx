@@ -5,8 +5,11 @@ import { Tooltip as TooltipPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 
+/** Default tooltip hover delay (ms) for canvas nodes and UI controls. */
+export const TOOLTIP_DELAY_MS = 400;
+
 function TooltipProvider({
-  delayDuration = 0,
+  delayDuration = TOOLTIP_DELAY_MS,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return (

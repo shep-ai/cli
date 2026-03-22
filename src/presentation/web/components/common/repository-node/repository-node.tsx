@@ -40,7 +40,14 @@ import {
   type SessionSummary,
 } from '@/components/common/feature-node/feature-sessions-dropdown';
 
-export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: string]: unknown }) {
+export function RepositoryNode({
+  data,
+  selected,
+}: {
+  data: RepositoryNodeData;
+  selected?: boolean;
+  [key: string]: unknown;
+}) {
   const router = useRouter();
   const featureFlags = useFeatureFlags();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -172,7 +179,10 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
             data.onClick?.();
           }
         }}
-        className="nodrag bg-card flex w-[26rem] cursor-pointer flex-col overflow-hidden rounded-xl border shadow-sm dark:bg-neutral-800/80"
+        className={cn(
+          'nodrag bg-card flex w-[26rem] cursor-pointer flex-col overflow-hidden rounded-xl border shadow-sm transition-[border-color,box-shadow] duration-200 dark:bg-neutral-800/80',
+          selected && 'border-blue-400 dark:border-amber-500/60'
+        )}
       >
         {/* Row 1: Repository name + action buttons */}
         <div className="flex items-center gap-3 px-4 py-3">
@@ -254,27 +264,28 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
               </>
             ) : null}
 
+            {data.onAdd ? <div className="ml-1.5" /> : null}
             {data.onAdd ? (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      aria-label="Add feature"
+                      aria-label="New feature"
                       data-testid="repository-node-add-button"
                       onClick={(e) => {
                         e.stopPropagation();
                         data.onAdd?.();
                       }}
                       className={cn(
-                        'text-muted-foreground hover:bg-accent dark:hover:bg-accent/50 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:text-blue-500',
-                        data.pulseAdd &&
-                          'animate-pulse-cta bg-blue-100 text-blue-500 dark:bg-blue-900/40'
+                        'flex h-6 shrink-0 cursor-pointer items-center gap-0.5 rounded bg-blue-500 px-1.5 text-[11px] font-bold text-white transition-colors hover:bg-blue-600 dark:bg-amber-500 dark:hover:bg-amber-400',
+                        data.pulseAdd && 'animate-pulse-cta'
                       )}
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-3 w-3" />
+                      <span className="translate-y-px">New</span>
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Add feature</TooltipContent>
+                  <TooltipContent side="top">New feature</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : null}

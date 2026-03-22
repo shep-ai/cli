@@ -36,6 +36,7 @@ import {
 } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
 import { getAgentTypeIcon } from './agent-type-icons';
+import { FeatureSessionsDropdown } from './feature-sessions-dropdown';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
 
 function AgentIcon({ agentType, className }: { agentType?: string; className?: string }) {
@@ -234,13 +235,15 @@ export function FeatureNode({
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm dark:bg-neutral-800/80',
+          'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm transition-[border-color] duration-200 dark:bg-neutral-800/80',
           data.state === 'action-required' &&
             'border-l-[3px] border-l-rose-400 dark:border-l-amber-500',
           data.state === 'action-required' &&
             selected &&
             'border-t-rose-400 border-r-rose-400 border-b-rose-400 dark:border-t-amber-500 dark:border-r-amber-500 dark:border-b-amber-500',
-          selected && data.state !== 'action-required' && 'ring-primary ring-1',
+          selected &&
+            data.state !== 'action-required' &&
+            'border-blue-400 dark:border-amber-500/60',
           data.state === 'deleting' && 'opacity-60',
           data.state === 'archived' && 'opacity-50'
         )}
@@ -370,7 +373,7 @@ export function FeatureNode({
                         )}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Click to copy: {data.featureId}</TooltipContent>
+                    <TooltipContent side="top">Click to copy: {data.featureId}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
@@ -409,7 +412,7 @@ export function FeatureNode({
                         )}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">
+                    <TooltipContent side="top">
                       {data.deployment.status === DeploymentState.Booting
                         ? 'Deploying...'
                         : (data.deployment.url ?? 'Live')}
@@ -425,9 +428,12 @@ export function FeatureNode({
                         <Zap className="h-3 w-3 text-amber-500" />
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Fast Mode</TooltipContent>
+                    <TooltipContent side="top">Fast Mode</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+              ) : null}
+              {data.repositoryPath ? (
+                <FeatureSessionsDropdown repositoryPath={data.repositoryPath} />
               ) : null}
             </div>
 
