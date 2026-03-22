@@ -1,3 +1,10 @@
+## [1.139.1](https://github.com/shep-ai/cli/compare/v1.139.0...v1.139.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* **deployment:** prevent spawned dev servers from killing parent processes ([#446](https://github.com/shep-ai/cli/issues/446)) ([2cdb464](https://github.com/shep-ai/cli/commit/2cdb464570eea582c8d1efdbf2aae0f098d4cd71))
+
 # [1.139.0](https://github.com/shep-ai/cli/compare/v1.138.0...v1.139.0) (2026-03-22)
 
 
