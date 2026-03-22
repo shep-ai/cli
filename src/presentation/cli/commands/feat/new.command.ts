@@ -24,8 +24,10 @@ import type { IFeatureRepository } from '@/application/ports/output/repositories
 import {
   GitHubAuthError,
   GitHubCloneError,
+  GitHubForkError,
   GitHubUrlParseError,
 } from '@/application/ports/output/services/github-repository-service.interface.js';
+import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
 import { colors, messages, symbols, spinner } from '../../ui/index.js';
 import { getShepHomeDir } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 import { getSettings, hasSettings } from '@/infrastructure/services/settings.service.js';
@@ -212,13 +214,23 @@ export function createNewCommand(): Command {
                     /(?:Cloning|Receiving objects|Resolving deltas|Updating files)[^]*?(?:\d+%|\.{3})/
                   );
                   if (progressMatch) {
-                    // Sanitize: take the first meaningful line, trim whitespace
                     const line = progressMatch[0].split('\n')[0].trim();
                     if (line.length > 0) {
                       spinnerLabel = line;
                       if (spinnerLabel.length > maxLabelLen) {
                         maxLabelLen = spinnerLabel.length;
                       }
+                    }
+                  }
+                },
+              },
+              forkOptions: {
+                onProgress: (data: string) => {
+                  const line = data.trim().split('\n')[0];
+                  if (line.length > 0) {
+                    spinnerLabel = `Forking: ${line}`;
+                    if (spinnerLabel.length > maxLabelLen) {
+                      maxLabelLen = spinnerLabel.length;
                     }
                   }
                 },
@@ -268,6 +280,16 @@ export function createNewCommand(): Command {
         console.log(`  ${colors.muted('Branch:')}   ${colors.accent(feature.branch)}`);
         console.log(`  ${colors.muted('Status:')}   ${feature.lifecycle}`);
         console.log(`  ${colors.muted('Worktree:')} ${worktreePath}`);
+        if (options.remote && feature.repositoryId) {
+          const repoRepo = container.resolve<IRepositoryRepository>('IRepositoryRepository');
+          const repo = await repoRepo.findById(feature.repositoryId);
+          if (repo?.isFork && repo.upstreamUrl) {
+            const upstreamShort = repo.upstreamUrl.replace('https://github.com/', '');
+            console.log(
+              `  ${colors.muted('Fork:')}     ${colors.accent('yes')} (upstream: ${upstreamShort})`
+            );
+          }
+        }
         if (feature.specPath) {
           console.log(`  ${colors.muted('Spec:')}     ${feature.specPath}`);
         }
@@ -314,6 +336,11 @@ export function createNewCommand(): Command {
         }
         if (error instanceof GitHubCloneError) {
           messages.error(`Clone failed: ${error.message}`);
+          process.exitCode = 1;
+          return;
+        }
+        if (error instanceof GitHubForkError) {
+          messages.error(`Fork failed: ${error.message}`);
           process.exitCode = 1;
           return;
         }

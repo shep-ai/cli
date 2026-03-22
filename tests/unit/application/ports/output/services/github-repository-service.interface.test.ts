@@ -205,6 +205,9 @@ describe('IGitHubRepositoryService', () => {
         repo: 'my-project',
         nameWithOwner: 'octocat/my-project',
       }),
+      checkPushAccess: async () => ({ hasPushAccess: true, viewerLogin: 'testuser' }),
+      forkRepository: async () => ({ nameWithOwner: 'testuser/my-project', alreadyExisted: false }),
+      getAuthenticatedUser: async () => 'testuser',
     };
 
     const methodNames: (keyof IGitHubRepositoryService)[] = [
@@ -212,9 +215,12 @@ describe('IGitHubRepositoryService', () => {
       'cloneRepository',
       'listUserRepositories',
       'parseGitHubUrl',
+      'checkPushAccess',
+      'forkRepository',
+      'getAuthenticatedUser',
     ];
 
-    expect(methodNames).toHaveLength(4);
+    expect(methodNames).toHaveLength(7);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

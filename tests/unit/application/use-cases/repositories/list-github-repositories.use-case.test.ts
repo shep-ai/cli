@@ -40,6 +40,11 @@ describe('ListGitHubRepositoriesUseCase', () => {
         .fn<() => Promise<GitHubRepo[]>>()
         .mockResolvedValue([createMockRepo()]),
       parseGitHubUrl: vi.fn(),
+      checkPushAccess: vi.fn().mockResolvedValue({ hasPushAccess: true, viewerLogin: 'testuser' }),
+      forkRepository: vi
+        .fn()
+        .mockResolvedValue({ nameWithOwner: 'testuser/repo', alreadyExisted: false }),
+      getAuthenticatedUser: vi.fn().mockResolvedValue('testuser'),
     };
 
     useCase = new ListGitHubRepositoriesUseCase(mockGitHubService);

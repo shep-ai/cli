@@ -58,6 +58,18 @@ export class GitHubRepoListError extends Error {
   }
 }
 
+/**
+ * Thrown when a `gh repo fork` operation fails.
+ */
+export class GitHubForkError extends Error {
+  constructor(message: string, cause?: Error) {
+    super(message);
+    this.name = 'GitHubForkError';
+    Object.setPrototypeOf(this, new.target.prototype);
+    if (cause) this.cause = cause;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -94,6 +106,34 @@ export interface ListUserRepositoriesOptions {
 export interface CloneOptions {
   /** Callback invoked with stderr chunks during clone for progress display */
   onProgress?: (data: string) => void;
+}
+
+/**
+ * Result of checking push access to a repository.
+ */
+export interface PushAccessResult {
+  /** Whether the authenticated user has push (write) access */
+  hasPushAccess: boolean;
+  /** The authenticated user's GitHub login (e.g. "octocat") */
+  viewerLogin: string;
+}
+
+/**
+ * Result of forking a repository.
+ */
+export interface ForkResult {
+  /** The fork's nameWithOwner (e.g. "myuser/their-project") */
+  nameWithOwner: string;
+  /** Whether the fork already existed before this call */
+  alreadyExisted: boolean;
+}
+
+/**
+ * Options for forking a repository.
+ */
+export interface ForkOptions {
+  /** Callback for progress display during fork operation */
+  onProgress?: (message: string) => void;
 }
 
 /**
@@ -162,4 +202,33 @@ export interface IGitHubRepositoryService {
    * @throws {GitHubUrlParseError} if the URL does not match any supported format
    */
   parseGitHubUrl(url: string): ParsedGitHubUrl;
+
+  /**
+   * Check if the authenticated user has push access to a repository.
+   *
+   * @param nameWithOwner - Full owner/repo identifier (e.g. "octocat/my-project")
+   * @returns Push access status and the authenticated user's login
+   * @throws {GitHubAuthError} if `gh` CLI is not installed or not authenticated
+   */
+  checkPushAccess(nameWithOwner: string): Promise<PushAccessResult>;
+
+  /**
+   * Fork a repository to the authenticated user's GitHub account.
+   *
+   * If a fork already exists, returns it without creating a new one.
+   *
+   * @param nameWithOwner - Full owner/repo identifier to fork (e.g. "octocat/my-project")
+   * @param options - Optional fork configuration (e.g. progress callback)
+   * @returns The fork's nameWithOwner and whether it already existed
+   * @throws {GitHubForkError} if the fork operation fails
+   */
+  forkRepository(nameWithOwner: string, options?: ForkOptions): Promise<ForkResult>;
+
+  /**
+   * Get the authenticated user's GitHub login.
+   *
+   * @returns The authenticated user's login (e.g. "octocat")
+   * @throws {GitHubAuthError} if `gh` CLI is not installed or not authenticated
+   */
+  getAuthenticatedUser(): Promise<string>;
 }

@@ -19,9 +19,11 @@ export interface IRepositoryRepository {
   softDelete(id: string): Promise<void>;
   /** Restore a soft-deleted repository by clearing deletedAt. */
   restore(id: string): Promise<void>;
+  /** Find a non-deleted repository by its upstream URL (for fork deduplication). */
+  findByUpstreamUrl(url: string): Promise<Repository | null>;
   /** Update specific fields on an existing repository. */
   update(
     id: string,
-    fields: Partial<Pick<Repository, 'name' | 'path' | 'remoteUrl'>>
+    fields: Partial<Pick<Repository, 'name' | 'path' | 'remoteUrl' | 'isFork' | 'upstreamUrl'>>
   ): Promise<Repository>;
 }

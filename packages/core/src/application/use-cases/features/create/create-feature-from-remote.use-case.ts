@@ -9,7 +9,10 @@
 
 import { injectable, inject } from 'tsyringe';
 import type { Feature } from '../../../../domain/generated/output.js';
-import type { CloneOptions } from '../../../ports/output/services/github-repository-service.interface.js';
+import type {
+  CloneOptions,
+  ForkOptions,
+} from '../../../ports/output/services/github-repository-service.interface.js';
 import type { ApprovalGates, Attachment } from '../../../../domain/generated/output.js';
 import { ImportGitHubRepositoryUseCase } from '../../repositories/import-github-repository.use-case.js';
 import { CreateFeatureUseCase } from './create-feature.use-case.js';
@@ -24,6 +27,8 @@ export interface CreateFeatureFromRemoteInput {
   defaultCloneDir?: string;
   /** Options for the clone subprocess (e.g. progress callback) */
   cloneOptions?: CloneOptions;
+  /** Options for the fork subprocess (e.g. progress callback) */
+  forkOptions?: ForkOptions;
 
   /** Description of the feature to create */
   userInput: string;
@@ -74,6 +79,7 @@ export class CreateFeatureFromRemoteUseCase {
       dest: input.cloneDest,
       defaultCloneDir: input.defaultCloneDir,
       cloneOptions: input.cloneOptions,
+      forkOptions: input.forkOptions,
     });
 
     return this.createFeature.execute(this.toCreateFeatureInput(input, repository.path));
@@ -90,6 +96,7 @@ export class CreateFeatureFromRemoteUseCase {
       dest: input.cloneDest,
       defaultCloneDir: input.defaultCloneDir,
       cloneOptions: input.cloneOptions,
+      forkOptions: input.forkOptions,
     });
 
     return this.createFeature.createRecord(this.toCreateFeatureInput(input, repository.path));

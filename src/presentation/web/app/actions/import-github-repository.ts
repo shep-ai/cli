@@ -7,6 +7,7 @@ import {
   GitHubAuthError,
   GitHubUrlParseError,
   GitHubCloneError,
+  GitHubForkError,
 } from '@shepai/core/application/ports/output/services/github-repository-service.interface';
 
 interface ImportGitHubRepositoryInput {
@@ -14,9 +15,15 @@ interface ImportGitHubRepositoryInput {
   dest?: string;
 }
 
+export interface ImportGitHubRepositoryResult {
+  repository?: Repository;
+  forked?: boolean;
+  error?: string;
+}
+
 export async function importGitHubRepository(
   input: ImportGitHubRepositoryInput
-): Promise<{ repository?: Repository; error?: string }> {
+): Promise<ImportGitHubRepositoryResult> {
   const { url, dest } = input;
 
   if (!url?.trim()) {
@@ -26,7 +33,7 @@ export async function importGitHubRepository(
   try {
     const useCase = resolve<ImportGitHubRepositoryUseCase>('ImportGitHubRepositoryUseCase');
     const repository = await useCase.execute({ url, dest });
-    return { repository };
+    return { repository, forked: repository.isFork === true };
   } catch (error: unknown) {
     if (error instanceof GitHubAuthError) {
       return { error: 'GitHub CLI is not authenticated. Run `gh auth login` to sign in.' };
@@ -36,6 +43,9 @@ export async function importGitHubRepository(
     }
     if (error instanceof GitHubCloneError) {
       return { error: `Clone failed: ${error.message}` };
+    }
+    if (error instanceof GitHubForkError) {
+      return { error: `Fork failed: ${error.message}` };
     }
     const message = error instanceof Error ? error.message : 'Failed to import repository';
     return { error: message };

@@ -33,6 +33,8 @@ export default async function CreateDrawerPage({ searchParams }: CreateDrawerPag
     id: r.id,
     name: r.name,
     path: r.path,
+    isFork: r.isFork,
+    upstreamUrl: r.upstreamUrl,
   }));
 
   return (
