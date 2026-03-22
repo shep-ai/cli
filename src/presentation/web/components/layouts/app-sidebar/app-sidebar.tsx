@@ -1,13 +1,17 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, Puzzle, Settings } from 'lucide-react';
+import Link from 'next/link';
+import type { Route } from 'next';
+import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
+  SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
+  SidebarMenuButton,
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
@@ -18,6 +22,9 @@ import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-togg
 import { ShepLogo } from '@/components/common/shep-logo';
 import { VersionBadge } from '@/components/common/version-badge';
 import { FeatureListItem } from '@/components/common/feature-list-item';
+import { useSoundEnabled } from '@/hooks/use-sound-enabled';
+import { useTheme } from '@/hooks/useTheme';
+import { useSoundAction } from '@/hooks/use-sound-action';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
 import { SidebarSectionHeader } from '@/components/common/sidebar-section-header';
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
@@ -54,6 +61,10 @@ export function AppSidebar({
   const collapsed = state === 'collapsed';
   const { mounted: showExpanded, visible: expandedVisible } = useDeferredMount(collapsed, 200);
   const versionData = useVersion();
+  const { enabled: soundEnabled, toggle: toggleSound } = useSoundEnabled();
+  const { resolvedTheme, theme, setTheme } = useTheme();
+  const toggleOnSound = useSoundAction('toggle-on');
+  const toggleOffSound = useSoundAction('toggle-off');
 
   const grouped = featureStatusOrder.map((key) => {
     const { label } = featureStatusConfig[key];
@@ -112,12 +123,6 @@ export function AppSidebar({
               active={pathname === '/skills'}
             />
           ) : null}
-          <SidebarNavItem
-            icon={Settings}
-            label="Settings"
-            href="/settings"
-            active={pathname === '/settings'}
-          />
         </SidebarMenu>
       </SidebarHeader>
 
@@ -156,6 +161,75 @@ export function AppSidebar({
           </div>
         ) : null}
       </SidebarContent>
+
+      <SidebarFooter className="border-t p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="flex items-center gap-1">
+              <SidebarMenuButton asChild tooltip="Settings" className="w-auto flex-none">
+                <Link href={'/settings' as Route}>
+                  <Settings className="h-4 w-4" />
+                </Link>
+              </SidebarMenuButton>
+              {!collapsed && (
+                <>
+                  <SidebarMenuButton
+                    tooltip="Toggle sound"
+                    className="w-auto flex-none"
+                    onClick={toggleSound}
+                    aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+                  >
+                    {soundEnabled ? (
+                      <Volume2 className="h-4 w-4" />
+                    ) : (
+                      <VolumeOff className="h-4 w-4" />
+                    )}
+                  </SidebarMenuButton>
+                  <SidebarMenuButton
+                    tooltip="Toggle theme"
+                    className="w-auto flex-none"
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                      const currentResolved = theme === 'system' ? resolvedTheme : theme;
+                      const goingToDark = currentResolved !== 'dark';
+                      const newTheme =
+                        theme === 'system'
+                          ? resolvedTheme === 'dark'
+                            ? 'light'
+                            : 'dark'
+                          : theme === 'dark'
+                            ? 'light'
+                            : 'dark';
+                      if (goingToDark) {
+                        toggleOnSound.play();
+                      } else {
+                        toggleOffSound.play();
+                      }
+                      const prefersReducedMotion =
+                        typeof window !== 'undefined' &&
+                        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      if (!(document as any).startViewTransition || prefersReducedMotion) {
+                        setTheme(newTheme);
+                        return;
+                      }
+                      document.documentElement.style.setProperty('--x', `${e.clientX}px`);
+                      document.documentElement.style.setProperty('--y', `${e.clientY}px`);
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      (document as any).startViewTransition(() => {
+                        setTheme(newTheme);
+                      });
+                    }}
+                    aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+                  >
+                    <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+                    <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+                  </SidebarMenuButton>
+                </>
+              )}
+            </div>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>
