@@ -107,78 +107,78 @@ export function FeatureNode({
       {/* Action buttons — centered as a group to the left of the node.
           Tooltip side convention: left-side buttons use side="left", right-side buttons use side="right". */}
       <div
-        className="absolute top-0 bottom-0 -left-14 flex items-center justify-center pl-4 pr-3 opacity-0 transition-opacity group-hover:opacity-100"
+        className="absolute top-0 bottom-0 -left-14 flex items-center justify-center pr-3 pl-4 opacity-0 transition-opacity group-hover:opacity-100"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col items-center gap-2">
-        {/* Archive button */}
-        {data.onArchive &&
-        data.featureId &&
-        data.state !== 'deleting' &&
-        data.state !== 'archived' ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  aria-label="Archive feature"
-                  data-testid="feature-node-archive-button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setArchiveConfirmOpen(true);
-                  }}
-                  className="bg-card text-muted-foreground flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors hover:border-gray-500 hover:text-gray-600"
-                >
-                  <Archive className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Archive feature</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+          {/* Archive button */}
+          {data.onArchive &&
+          data.featureId &&
+          data.state !== 'deleting' &&
+          data.state !== 'archived' ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Archive feature"
+                    data-testid="feature-node-archive-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setArchiveConfirmOpen(true);
+                    }}
+                    className="bg-card text-muted-foreground flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors hover:border-gray-500 hover:text-gray-600"
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Archive feature</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
 
-        {/* Delete button */}
-        {data.onDelete && data.featureId && data.state !== 'deleting' ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  aria-label="Delete feature"
-                  data-testid="feature-node-delete-button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmOpen(true);
-                  }}
-                  className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Delete feature</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+          {/* Delete button */}
+          {data.onDelete && data.featureId && data.state !== 'deleting' ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Delete feature"
+                    data-testid="feature-node-delete-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmOpen(true);
+                    }}
+                    className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Delete feature</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
 
-        {/* Unarchive button */}
-        {data.onUnarchive && data.featureId && data.state === 'archived' ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  aria-label="Unarchive feature"
-                  data-testid="feature-node-unarchive-button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    data.onUnarchive?.(data.featureId);
-                  }}
-                  className="bg-card text-muted-foreground hover:border-primary hover:text-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
-                >
-                  <ArchiveRestore className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Unarchive feature</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+          {/* Unarchive button */}
+          {data.onUnarchive && data.featureId && data.state === 'archived' ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Unarchive feature"
+                    data-testid="feature-node-unarchive-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      data.onUnarchive?.(data.featureId);
+                    }}
+                    className="bg-card text-muted-foreground hover:border-primary hover:text-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                  >
+                    <ArchiveRestore className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Unarchive feature</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
         </div>
       </div>
 
@@ -266,10 +266,7 @@ export function FeatureNode({
                     />
                   </span>
                 </TooltipTrigger>
-                <TooltipContent
-                  side="right"
-                  className="max-w-56"
-                >
+                <TooltipContent side="right" className="max-w-56">
                   <p className="font-semibold">{lifecyclePhaseBadge[data.lifecycle].tooltip}</p>
                   <p className="mt-1 text-xs leading-relaxed text-neutral-500">
                     {lifecyclePhaseBadge[data.lifecycle].description}
@@ -373,9 +370,7 @@ export function FeatureNode({
                         )}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      Click to copy: {data.featureId}
-                    </TooltipContent>
+                    <TooltipContent side="bottom">Click to copy: {data.featureId}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
