@@ -10,8 +10,11 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
   ISpecInitializerService,
+  SpecInitializerOptions,
   SpecInitializerResult,
 } from '@/application/ports/output/services/spec-initializer.interface.js';
+import { computeRepoHash } from '@/infrastructure/services/filesystem/repo-hash.js';
+import { getShepHomeDir } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 
 /**
  * Pad a number to 3 digits with leading zeros.
@@ -271,15 +274,27 @@ export class SpecInitializerService implements ISpecInitializerService {
     slug: string,
     featureNumber: number,
     description: string,
-    mode?: 'fast'
+    mode?: 'fast',
+    options?: SpecInitializerOptions
   ): Promise<SpecInitializerResult> {
-    // Scan existing specs/ directory for highest NNN prefix to avoid collisions
+    const storageMode = options?.storageMode ?? 'in-repo';
+
+    // Scan existing spec directories for highest NNN prefix to avoid collisions
     // (specs may have been created outside the DB, e.g., via /shep-kit:new-feature)
-    const resolvedNumber = await this.resolveNextNumber(basePath, featureNumber);
+    const resolvedNumber = await this.resolveNextNumber(
+      basePath,
+      featureNumber,
+      options?.repositoryPath
+    );
 
     const nnn = padNumber(resolvedNumber);
     const specDirName = `${nnn}-${slug}`;
-    const specDir = join(basePath, 'specs', specDirName);
+    const specDir = this.computeSpecDir(
+      basePath,
+      specDirName,
+      storageMode,
+      options?.repositoryPath
+    );
 
     // Create the spec directory
     await mkdir(specDir, { recursive: true });
@@ -310,27 +325,73 @@ export class SpecInitializerService implements ISpecInitializerService {
   }
 
   /**
-   * Scan specs/ for existing NNN-* directories and return the next available number.
+   * Compute the spec directory path based on storage mode.
+   */
+  private computeSpecDir(
+    basePath: string,
+    specDirName: string,
+    storageMode: 'in-repo' | 'shep-managed',
+    repositoryPath?: string
+  ): string {
+    if (storageMode === 'shep-managed') {
+      if (!repositoryPath) {
+        throw new Error('repositoryPath is required when storageMode is shep-managed');
+      }
+      const repoHash = computeRepoHash(repositoryPath);
+      return join(getShepHomeDir(), 'repos', repoHash, 'specs', specDirName);
+    }
+    return join(basePath, '.shep', 'specs', specDirName);
+  }
+
+  /**
+   * Scan spec directories for existing NNN-* entries and return the next available number.
+   * Scans up to 3 locations to prevent collisions during the transition period:
+   * 1. specs/ (legacy location)
+   * 2. .shep/specs/ (new in-repo location)
+   * 3. ~/.shep/repos/<hash>/specs/ (shep-managed location, when repositoryPath provided)
+   *
    * Uses the DB-derived hint as a minimum, but always respects filesystem state.
    */
-  private async resolveNextNumber(basePath: string, hint: number): Promise<number> {
-    const specsDir = join(basePath, 'specs');
-    let entries: string[];
-    try {
-      entries = await readdir(specsDir);
-    } catch {
-      // specs/ doesn't exist yet — use hint
-      return hint;
+  private async resolveNextNumber(
+    basePath: string,
+    hint: number,
+    repositoryPath?: string
+  ): Promise<number> {
+    const dirsToScan = [join(basePath, 'specs'), join(basePath, '.shep', 'specs')];
+
+    if (repositoryPath) {
+      const repoHash = computeRepoHash(repositoryPath);
+      dirsToScan.push(join(getShepHomeDir(), 'repos', repoHash, 'specs'));
     }
 
     let maxExisting = 0;
-    for (const entry of entries) {
-      const match = entry.match(/^(\d{3})-/);
-      if (match) {
-        maxExisting = Math.max(maxExisting, parseInt(match[1], 10));
-      }
+    for (const dir of dirsToScan) {
+      const max = await this.scanDirForMaxNumber(dir);
+      maxExisting = Math.max(maxExisting, max);
     }
 
     return Math.max(maxExisting + 1, hint);
+  }
+
+  /**
+   * Scan a single directory for NNN-* prefixed entries and return the max number found.
+   * Returns 0 if the directory does not exist or is empty.
+   */
+  private async scanDirForMaxNumber(dirPath: string): Promise<number> {
+    let entries: string[];
+    try {
+      entries = await readdir(dirPath);
+    } catch {
+      return 0;
+    }
+
+    let max = 0;
+    for (const entry of entries) {
+      const match = entry.match(/^(\d{3})-/);
+      if (match) {
+        max = Math.max(max, parseInt(match[1], 10));
+      }
+    }
+    return max;
   }
 }

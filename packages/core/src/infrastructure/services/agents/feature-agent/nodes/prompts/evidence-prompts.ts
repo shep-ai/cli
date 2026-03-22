@@ -5,8 +5,10 @@
  * (screenshots, test outputs, terminal recordings) proving that
  * completed tasks work as expected. Evidence files are saved to the
  * shep home folder (~/.shep/repos/<hash>/evidence/). When commitEvidence
- * is enabled, files are also committed to specs/<NNN>-<feature>/evidence/
- * in the worktree. The agent outputs a structured JSON manifest of
+ * is enabled, files are also committed to .shep/specs/<NNN>-<feature>/evidence/
+ * in the worktree. When the spec directory is outside the worktree
+ * (shep-managed mode), commitEvidence is forced to false since git
+ * cannot track files outside the worktree. The agent outputs a structured JSON manifest of
  * evidence records that the evidence-output-parser extracts for the
  * graph state.
  */
@@ -62,7 +64,13 @@ ${tasksContent}
   const specEvidenceRelPath = `${relativeSpecDir}/evidence`;
   const specEvidenceAbsPath = join(state.specDir, 'evidence').replaceAll('\\', '/');
 
-  const storageSection = options.commitEvidence
+  // When specDir is outside the worktree (shep-managed mode), force commitEvidence=false.
+  // In shep-managed mode, relative() produces paths starting with '..' which escape
+  // the worktree boundary, making git operations invalid.
+  const isSpecDirOutsideWorktree = relativeSpecDir.startsWith('..');
+  const effectiveCommitEvidence = isSpecDirOutsideWorktree ? false : options.commitEvidence;
+
+  const storageSection = effectiveCommitEvidence
     ? `## Evidence Storage
 
 Save all evidence files to BOTH locations:
@@ -85,7 +93,7 @@ Save all evidence files to the shep home folder:
 2. Save each evidence file with a descriptive name (e.g., \`homepage-screenshot.png\`, \`unit-test-results.txt\`)
 3. In the output JSON, set relativePath to the absolute path in the shep home folder (e.g., \`${shepEvidenceDir}/homepage-screenshot.png\`)`;
 
-  const commitSection = options.commitEvidence
+  const commitSection = effectiveCommitEvidence
     ? `\n${buildCommitPushBlock({
         push: state.push,
         files: [`${specEvidenceRelPath}/`],
@@ -98,7 +106,7 @@ However, if you make code fixes during evidence collection, those fixes MUST be 
 
   return `You are a senior software engineer performing the EVIDENCE COLLECTION phase of feature development.
 
-Your goal is to capture visual and textual evidence proving that the implemented tasks work as expected.${options.commitEvidence ? ' This evidence will be embedded in the pull request body for reviewer verification.' : ' This evidence will be available for review locally.'}
+Your goal is to capture visual and textual evidence proving that the implemented tasks work as expected.${effectiveCommitEvidence ? ' This evidence will be embedded in the pull request body for reviewer verification.' : ' This evidence will be available for review locally.'}
 
 ${specSection}
 ${tasksSection}
@@ -194,14 +202,14 @@ After capturing all evidence, output a JSON array of evidence records in a fence
     "type": "Screenshot",
     "capturedAt": "2026-01-01T12:00:00Z",
     "description": "Homepage showing new feature banner",
-    "relativePath": "${options.commitEvidence ? `${specEvidenceRelPath}/homepage-banner.png` : `${shepEvidenceDir}/homepage-banner.png`}",
+    "relativePath": "${effectiveCommitEvidence ? `${specEvidenceRelPath}/homepage-banner.png` : `${shepEvidenceDir}/homepage-banner.png`}",
     "taskRef": "task-1"
   },
   {
     "type": "TestOutput",
     "capturedAt": "2026-01-01T12:01:00Z",
     "description": "Unit test results — all 42 tests passing",
-    "relativePath": "${options.commitEvidence ? `${specEvidenceRelPath}/unit-test-results.txt` : `${shepEvidenceDir}/unit-test-results.txt`}",
+    "relativePath": "${effectiveCommitEvidence ? `${specEvidenceRelPath}/unit-test-results.txt` : `${shepEvidenceDir}/unit-test-results.txt`}",
     "taskRef": "task-2"
   }
 ]
@@ -211,7 +219,7 @@ Each evidence record must have:
 - **type**: One of Screenshot, Video, TestOutput, TerminalRecording
 - **capturedAt**: ISO 8601 timestamp of when the evidence was captured
 - **description**: Human-readable description of what this evidence proves
-- **relativePath**: ${options.commitEvidence ? `Path relative to the repo root (must start with \`${specEvidenceRelPath}/\`)` : `Absolute path in the shep home evidence folder (must start with \`${shepEvidenceDir}/\`)`}
+- **relativePath**: ${effectiveCommitEvidence ? `Path relative to the repo root (must start with \`${specEvidenceRelPath}/\`)` : `Absolute path in the shep home evidence folder (must start with \`${shepEvidenceDir}/\`)`}
 - **taskRef**: (optional) Reference to the task ID this evidence proves
 
 If no evidence can be captured (e.g., no UI to screenshot, no tests to run), output an empty JSON array:

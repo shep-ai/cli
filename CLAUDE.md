@@ -12,7 +12,7 @@ Guidance for Claude Code working in this repository.
 
 `/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → /shep-kit:implement → /shep-kit:commit-pr`
 
-Specs live in `specs/NNN-feature-name/`. **Edit YAML only — Markdown is auto-generated.**
+Specs live in `.shep/specs/NNN-feature-name/`. **Edit YAML only — Markdown is auto-generated.**
 
 ## Commands
 

@@ -13,6 +13,7 @@ export {
 } from './external-issue-fetcher.interface.js';
 export type {
   ISpecInitializerService,
+  SpecInitializerOptions,
   SpecInitializerResult,
 } from './spec-initializer.interface.js';
 export type { IVersionService } from './version-service.interface.js';

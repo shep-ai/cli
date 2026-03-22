@@ -136,7 +136,7 @@ This is a **soft check** - requires human judgment, but tool can identify potent
 
 ```yaml
 # Check spec.yaml.dependencies[] for feature references:
-# - Each referenced feature spec directory must exist in specs/
+# - Each referenced feature spec directory must exist in .shep/specs/ (or legacy specs/)
 # - BLOCKING if dependency references non-existent feature
 ```
 

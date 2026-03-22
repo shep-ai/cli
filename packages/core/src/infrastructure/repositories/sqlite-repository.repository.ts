@@ -21,8 +21,8 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
   async create(repository: Repository): Promise<Repository> {
     const row = toDatabase(repository);
     const insertStmt = this.db.prepare(`
-      INSERT OR IGNORE INTO repositories (id, name, path, created_at, updated_at)
-      VALUES (@id, @name, @path, @created_at, @updated_at)
+      INSERT OR IGNORE INTO repositories (id, name, path, spec_storage_mode, created_at, updated_at)
+      VALUES (@id, @name, @path, @spec_storage_mode, @created_at, @updated_at)
     `);
     insertStmt.run(row);
     const selectStmt = this.db.prepare('SELECT * FROM repositories WHERE path = ?');
@@ -74,7 +74,7 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
 
   async update(
     id: string,
-    fields: Partial<Pick<Repository, 'name' | 'path' | 'remoteUrl'>>
+    fields: Partial<Pick<Repository, 'name' | 'path' | 'remoteUrl' | 'specStorageMode'>>
   ): Promise<Repository> {
     const now = Date.now();
     const setClauses: string[] = ['updated_at = ?'];
@@ -91,6 +91,10 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
     if (fields.remoteUrl !== undefined) {
       setClauses.push('remote_url = ?');
       values.push(fields.remoteUrl);
+    }
+    if (fields.specStorageMode !== undefined) {
+      setClauses.push('spec_storage_mode = ?');
+      values.push(fields.specStorageMode);
     }
 
     values.push(id);

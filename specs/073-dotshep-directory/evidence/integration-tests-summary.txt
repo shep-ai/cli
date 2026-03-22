@@ -1,0 +1,20 @@
+[2026-03-20T23:06:24.285Z] [validate:spec.yaml] Validating spec.yaml
+[2026-03-20T23:06:24.286Z] [validate:spec.yaml] Validation passed
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/yaml-repair-cycle.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 44[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/local-merge.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 21158[2mms[22m[39m
+     [33m[2m✓[22m[39m local-merge-no-push: feature branch should be merged into main after node completes [33m 10016[2mms[22m[39m
+     [33m[2m✓[22m[39m no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden) [33m 4424[2mms[22m[39m
+     [33m[2m✓[22m[39m no-remote-local-merge: should merge locally without any remote [33m 6713[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/verify-merge.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 32083[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after a true merge (git merge) [33m 1840[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after a squash merge (git merge --squash) [33m 6966[2mms[22m[39m
+     [33m[2m✓[22m[39m should return false when branch has not been merged [33m 3905[2mms[22m[39m
+     [33m[2m✓[22m[39m should return false when main has extra commits after squash but feature has diverged [33m 4452[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after squash merge with modified tree when premergeBaseSha provided [33m 7611[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after squash merge even when local branch is deleted (remote fallback) [33m 7307[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m46 passed[39m[22m[90m (46)[39m
+[2m      Tests [22m [1m[32m523 passed[39m[22m[90m (523)[39m
+[2m   Start at [22m 01:06:03
+[2m   Duration [22m 33.40s[2m (transform 6.35s, setup 0ms, import 48.91s, tests 138.52s, environment 8ms)[22m
+

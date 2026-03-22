@@ -1,0 +1,236 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "dotshep-directory"
+summary: >
+  Migrate spec storage from specs/ to .shep/specs/ with a configurable per-repo storage mode
+  (in-repo vs shep-managed). Bottom-up implementation: extract shared computeRepoHash utility,
+  add specStorageMode column via SQLite migration, update TypeSpec model and mapper, modify
+  spec-initializer for dual-mode path construction with multi-directory NNN scanning, wire
+  CreateFeatureUseCase to pass storage mode, update evidence-prompts for shep-managed mode,
+  relocate test fixtures, update all tests (unit/integration/e2e), update 9 SKILL.md files
+  and documentation. No new libraries — uses existing Node.js fs/path/crypto and better-sqlite3.
+
+relatedFeatures: []
+
+technologies:
+  - "Node.js path module (join, relative, dirname)"
+  - "Node.js fs/promises (mkdir, readdir, writeFile)"
+  - "Node.js crypto (createHash for SHA-256 repoHash)"
+  - "better-sqlite3 (repositories table migration)"
+  - "tsyringe (dependency injection)"
+  - "TypeSpec (Repository model update)"
+  - "Vitest (unit, integration, e2e tests)"
+  - "Shell scripts (init-feature.sh)"
+
+relatedLinks:
+  - title: "GitHub Issue #370 - Write shep files into a .shep directory"
+    url: "https://github.com/shep-ai/cli/issues/370"
+
+phases:
+  - id: "phase-1"
+    name: "Foundation: Shared Utility & Domain Model"
+    description: >
+      Extract the duplicated SHA-256 repoHash computation into a shared utility function,
+      update the TypeSpec Repository model with the new specStorageMode field, regenerate
+      types, create the database migration (044), update the repository mapper, and update
+      the repository interface/implementation to accept specStorageMode in update(). This
+      phase establishes the data model foundation that all subsequent phases depend on.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Core: Spec-Initializer Dual-Mode Support"
+    description: >
+      Update the ISpecInitializerService interface with the new SpecInitializerOptions
+      parameter, implement dual-mode path construction in SpecInitializerService (in-repo
+      uses .shep/specs/, shep-managed uses ~/.shep/repos/<hash>/specs/), and add
+      multi-directory NNN scanning across specs/, .shep/specs/, and the shep-managed
+      location. This is the heart of the feature.
+    parallel: false
+
+  - id: "phase-3"
+    name: "Wiring: Use Case & Evidence Integration"
+    description: >
+      Wire CreateFeatureUseCase to read specStorageMode from the repository entity and
+      pass it to the spec-initializer via the options object. Update evidence-prompts.ts
+      to detect shep-managed mode (specDir outside worktree) and force commitEvidence=false.
+      This phase makes the feature usable end-to-end.
+    parallel: false
+
+  - id: "phase-4"
+    name: "Test Fixture Relocation & Test Updates"
+    description: >
+      Move specs/032-example-specs/ to tests/fixtures/spec-yaml-samples/, update the 3
+      test files referencing that fixture, update spec-initializer unit tests for
+      .shep/specs/ paths and both storage modes, update dev-executor test, integration
+      test, and e2e test. Add new test cases for shep-managed mode.
+    parallel: false
+
+  - id: "phase-5"
+    name: "Documentation, Scripts & Config"
+    description: >
+      Update init-feature.sh to use .shep/specs/, update all 9 SKILL.md files and 2
+      validation docs, update CLAUDE.md, spec-driven-workflow.md, and .prettierignore.
+      This phase is last because documentation reflects the finalized implementation.
+    parallel: false
+
+  - id: "phase-6"
+    name: "Validation & Cleanup"
+    description: >
+      Run full test suite (unit, integration, e2e), run pnpm validate (lint + format +
+      typecheck + tsp), run pnpm build, verify no regressions. Final gate before
+      commit-and-PR.
+    parallel: false
+
+filesToCreate:
+  - "packages/core/src/infrastructure/services/filesystem/repo-hash.ts"
+  - "tests/unit/infrastructure/services/filesystem/repo-hash.test.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/migrations/044-add-spec-storage-mode.ts"
+  - "tests/fixtures/spec-yaml-samples/spec.yaml"
+  - "tests/fixtures/spec-yaml-samples/research.yaml"
+  - "tests/fixtures/spec-yaml-samples/plan.yaml"
+  - "tests/fixtures/spec-yaml-samples/tasks.yaml"
+  - "tests/fixtures/spec-yaml-samples/feature.yaml"
+
+filesToModify:
+  - "tsp/domain/entities/repository.tsp"
+  - "packages/core/src/domain/generated/output.ts"
+  - "packages/core/src/application/ports/output/services/spec-initializer.interface.ts"
+  - "packages/core/src/application/ports/output/repositories/repository-repository.interface.ts"
+  - "packages/core/src/application/use-cases/features/create/create-feature.use-case.ts"
+  - "packages/core/src/infrastructure/services/spec/spec-initializer.service.ts"
+  - "packages/core/src/infrastructure/services/filesystem/shep-directory.service.ts"
+  - "packages/core/src/infrastructure/services/git/worktree.service.ts"
+  - "packages/core/src/infrastructure/services/ide-launchers/compute-worktree-path.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/mappers/repository.mapper.ts"
+  - "packages/core/src/infrastructure/repositories/sqlite-repository.repository.ts"
+  - "packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/evidence-prompts.ts"
+  - ".claude/skills/shep-kit-new-feature/scripts/init-feature.sh"
+  - ".claude/skills/shep-kit-new-feature/SKILL.md"
+  - ".claude/skills/shep-kit-new-feature-fast/SKILL.md"
+  - ".claude/skills/shep-kit-research/SKILL.md"
+  - ".claude/skills/shep-kit-plan/SKILL.md"
+  - ".claude/skills/shep-kit-status/SKILL.md"
+  - ".claude/skills/shep-kit-parallel-task/SKILL.md"
+  - ".claude/skills/shep-kit-merged/SKILL.md"
+  - ".claude/skills/shep-kit-implement/validation/completeness.md"
+  - ".claude/skills/shep-kit-implement/validation/consistency.md"
+  - "CLAUDE.md"
+  - "docs/development/spec-driven-workflow.md"
+  - ".prettierignore"
+  - "tests/unit/infrastructure/services/spec/spec-initializer.service.test.ts"
+  - "tests/unit/domain/factories/spec-yaml-parser.test.ts"
+  - "tests/unit/domain/factories/spec-yaml-artifact-parsing.test.ts"
+  - "tests/unit/infrastructure/spec-yaml-backward-compatibility.test.ts"
+  - "tests/unit/infrastructure/services/agents/executors/dev-executor.service.test.ts"
+  - "tests/integration/application/use-cases/features/start-feature.use-case.test.ts"
+  - "tests/e2e/cli/feat.test.ts"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature modifies the spec storage path from `<worktree>/specs/NNN-feature/` to
+  `<worktree>/.shep/specs/NNN-feature/` (in-repo mode) or `~/.shep/repos/<hash>/specs/NNN-feature/`
+  (shep-managed mode). The change follows Clean Architecture layer boundaries:
+
+  - **Domain**: The `Repository` TypeSpec model gains an optional `specStorageMode` field.
+    No business logic changes — the field is pure data.
+  - **Application**: The `ISpecInitializerService` interface gains an optional `options`
+    parameter with `storageMode` and `repositoryPath`. The `CreateFeatureUseCase` resolves
+    the setting from the repository entity and passes it through. The `IRepositoryRepository`
+    interface update() gains `specStorageMode` in its accepted fields.
+  - **Infrastructure**: The `SpecInitializerService` implements path branching. Migration
+    044 adds the column. The mapper handles the new field. `computeRepoHash()` is extracted
+    into a shared utility. WorktreeService and compute-worktree-path are updated to use it.
+  - **Presentation**: No changes — CLI passes the same inputs; the use case handles the rest.
+
+  The dependency direction remains clean: Presentation -> Application -> Domain, with
+  Infrastructure implementing Application ports. No layer violations introduced.
+
+  ## Key Design Decisions
+
+  ### 1. Options Object on initialize() (from research)
+  The spec-initializer is a stateless service that receives everything via parameters.
+  Rather than adding positional params to an already 5-param method, an optional trailing
+  `SpecInitializerOptions` object is added:
+
+  ```typescript
+  interface SpecInitializerOptions {
+    storageMode?: 'in-repo' | 'shep-managed';  // default: 'in-repo'
+    repositoryPath?: string;  // required when storageMode is 'shep-managed'
+  }
+  ```
+
+  This follows the `EvidencePromptOptions` pattern in the codebase. Existing callers pass
+  nothing and get in-repo behavior (default).
+
+  ### 2. spec_storage_mode on repositories table (from research)
+  A new `spec_storage_mode TEXT DEFAULT 'in-repo'` column on the `repositories` table
+  follows the precedent of migration 040-add-repository-remote-url. The Repository TypeSpec
+  model gets an optional field, the mapper handles column mapping, and existing queries
+  automatically include it. No new tables or services needed.
+
+  ### 3. Shared computeRepoHash() utility (from research)
+  The SHA-256 hash algorithm (normalize backslashes, hash, first 16 hex chars) is duplicated
+  in `WorktreeService.getWorktreePath()` (line 208) and `compute-worktree-path.ts` (line 24).
+  Extracting `computeRepoHash()` into `repo-hash.ts` creates a single source of truth.
+  All three consumers (worktree, compute-worktree-path, spec-initializer) import the same
+  function. This is a DRY refactor that improves the codebase.
+
+  ### 4. Triple-directory NNN scanning (from research)
+  The `resolveNextNumber()` method scans:
+  1. `join(basePath, 'specs')` — legacy location (backward compat)
+  2. `join(basePath, '.shep', 'specs')` — new in-repo location
+  3. `join(getShepHomeDir(), 'repos', repoHash, 'specs')` — shep-managed location
+
+  Each scan gracefully handles non-existent directories via try/catch returning empty.
+  The max NNN across all locations prevents collisions during the transition period.
+
+  ### 5. Evidence commitEvidence=false for shep-managed (from research)
+  When specDir is outside the worktree, `relative(cwd, specDir)` produces paths that escape
+  the worktree boundary, making git operations invalid. Forcing `commitEvidence=false` is
+  consistent with the shep-managed philosophy of no repo artifacts. Evidence is still
+  captured to `~/.shep/repos/<hash>/evidence/` and visible in the UI.
+
+  ### 6. No migration of existing specs (from requirements)
+  Existing features store absolute paths in the database. Old features continue pointing
+  at `specs/` and work fine. New features use `.shep/specs/` or `~/.shep/repos/<hash>/specs/`.
+  No file-moving logic needed — zero risk, zero complexity.
+
+  ## Implementation Strategy
+
+  The implementation follows a bottom-up, dependency-ordered approach across 6 phases.
+
+  **Phase 1 (Foundation)** comes first because everything else depends on the shared
+  `computeRepoHash()` utility, the TypeSpec model update, the database migration, and
+  the mapper changes. These are the data model primitives.
+
+  **Phase 2 (Core)** implements the actual path construction changes in the spec-initializer.
+  Once the interface and service support dual modes, all downstream consumers work
+  automatically via the stored absolute `specPath`.
+
+  **Phase 3 (Wiring)** connects the use case to the new options and updates evidence
+  handling. This phase makes the feature end-to-end functional.
+
+  **Phase 4 (Tests)** relocates fixtures and updates all test files. Tests are updated
+  after production code so they verify the new behavior.
+
+  **Phase 5 (Docs)** updates all documentation and scripts last because it reflects
+  the finalized implementation.
+
+  **Phase 6 (Validation)** is the final gate: full test suite, lint, typecheck, build.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Existing features break from path change | No migration — absolute paths in DB are unchanged. Old specPath continues to work. |
+  | NNN number collisions during transition | Triple-directory scanning covers specs/, .shep/specs/, and ~/.shep/repos/<hash>/specs/. |
+  | Evidence git operations fail in shep-managed mode | Force commitEvidence=false when specDir is outside the worktree. |
+  | Windows path separator issues | All new path construction uses path.join() with forward-slash normalization, following existing codebase conventions. |
+  | Migration breaks existing DB | ALTER TABLE ADD COLUMN with DEFAULT is non-destructive. Idempotent check (pragma table_info) prevents errors on re-run. |
+  | Test fixture relocation breaks tests | Move files first, update test paths atomically. Simple string constant change. |
+  | SKILL.md updates missed | Grep identified 9 SKILL.md + 2 validation docs. Each tracked as explicit task. |
+  | Repository.update() missing specStorageMode | Extend the Partial<Pick<...>> union in the interface and implementation. |

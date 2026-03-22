@@ -5,7 +5,7 @@
 # Usage: init-feature.sh <NNN> <feature-name>
 # Example: init-feature.sh 001 user-authentication
 #
-# Creates specs/NNN-feature-name/ with all template files
+# Creates .shep/specs/NNN-feature-name/ with all template files
 
 set -euo pipefail
 
@@ -41,7 +41,7 @@ if ! [[ "$FEATURE_NAME" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*$ ]]; then
     exit 1
 fi
 
-SPEC_DIR="specs/${NNN}-${FEATURE_NAME}"
+SPEC_DIR=".shep/specs/${NNN}-${FEATURE_NAME}"
 SKILL_DIR=".claude/skills/shep-kit-new-feature"
 
 # Check if spec directory already exists

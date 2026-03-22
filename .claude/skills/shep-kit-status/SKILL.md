@@ -10,11 +10,11 @@ Quickly orient the user on the current feature branch: what's done, what to try,
 ## Workflow
 
 1. **Detect current branch** — `git branch --show-current`
-2. **Find the matching spec** — look for a `specs/NNN-*` directory whose `feature.yaml` branch field matches the current branch
+2. **Find the matching spec** — look for a `.shep/specs/NNN-*` directory whose `feature.yaml` branch field matches the current branch
 3. **Read these files (in parallel):**
-   - `specs/NNN-*/feature.yaml` — lifecycle, phase, progress, completed phases
-   - `specs/NNN-*/tasks.yaml` — task list with states
-   - `specs/NNN-*/spec.yaml` — summary, success criteria
+   - `.shep/specs/NNN-*/feature.yaml` — lifecycle, phase, progress, completed phases
+   - `.shep/specs/NNN-*/tasks.yaml` — task list with states
+   - `.shep/specs/NNN-*/spec.yaml` — summary, success criteria
 4. **Read recent commits** — `git log --oneline -10` to see what was done
 5. **Produce the status report** (see format below)
 

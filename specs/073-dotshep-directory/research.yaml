@@ -1,0 +1,399 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: dotshep-directory
+summary: >
+  Technical research for migrating spec storage from specs/ to .shep/specs/ with configurable
+  in-repo vs shep-managed storage modes. Key decisions cover spec-initializer interface changes,
+  per-repo setting storage via a new column on the repositories table, repoHash extraction into
+  a shared utility, evidence-prompts handling for shep-managed mode, and dual-directory NNN
+  scanning. No new libraries required — the feature uses existing Node.js fs/path/crypto modules.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - "Node.js path module (join, relative, dirname)"
+  - "Node.js fs/promises (mkdir, readdir, writeFile)"
+  - "Node.js crypto (createHash for SHA-256 repoHash)"
+  - "better-sqlite3 (repositories table migration)"
+  - "tsyringe (dependency injection)"
+  - "TypeSpec (Repository model update)"
+  - "Vitest (unit, integration, e2e tests)"
+  - "Shell scripts (init-feature.sh)"
+
+relatedLinks:
+  - title: "GitHub Issue #370 - Write shep files into a .shep directory"
+    url: "https://github.com/shep-ai/cli/issues/370"
+
+decisions:
+  - title: "Spec-initializer interface design for storage mode"
+    chosen: "Add a storageMode option object parameter to ISpecInitializerService.initialize()"
+    rejected:
+      - "Read specStorageMode from getSettings() inside the service — rejected because the global settings singleton is a per-installation setting, not per-repo. The storage mode is per-repo, so the caller (CreateFeatureUseCase) must resolve it from the repository record and pass it in. Also violates Clean Architecture by having infrastructure read settings directly instead of receiving them via the use case."
+      - "Create a separate ShepManagedSpecInitializerService — rejected because both modes share 95% of logic (template rendering, NNN scanning, file writing). Only the path computation differs. A strategy/mode parameter avoids class duplication and keeps the single-service pattern."
+    rationale: >
+      The spec-initializer currently accepts basePath and constructs join(basePath, 'specs', specDirName).
+      Adding a storageMode parameter (plus repositoryPath for hash computation in shep-managed mode)
+      lets the initialize() method branch on path construction while keeping all other logic unchanged.
+      The CreateFeatureUseCase already has access to the repository entity and can resolve the
+      specStorageMode setting before calling initialize(). This follows the existing pattern where
+      the use case orchestrates and the service is a stateless tool.
+
+  - title: "Per-repo specStorageMode storage mechanism"
+    chosen: "Add a spec_storage_mode TEXT column to the existing repositories table via SQLite migration"
+    rejected:
+      - "Add to the global Settings singleton — rejected because Settings is per-installation (one row, singleton constraint). specStorageMode is per-repository. Adding it to Settings would require a map/object keyed by repo path, which contradicts the flat singleton design and adds mapper complexity."
+      - "Store in a .shep/config.json file inside each worktree — rejected because this introduces a second configuration source (files vs database), complicating the read path. The spec-initializer runs in the context of CreateFeatureUseCase which already has the repository entity from the DB. A DB column is the natural place and follows the existing pattern (repository.remoteUrl was added the same way via migration 040)."
+      - "Create a new repo_settings table — rejected because it adds an entire new table, repository interface, mapper, and use case for a single field. Over-engineering for the current scope. A column on repositories is simpler and follows the remoteUrl precedent."
+    rationale: >
+      The repositories table already stores per-repo metadata (name, path, remoteUrl). Adding a
+      spec_storage_mode column with a DEFAULT of 'in-repo' is the simplest approach. It follows
+      the exact pattern used by migration 040-add-repository-remote-url which added remoteUrl to
+      the same table. The Repository TypeSpec model gets a new optional field, the mapper gets
+      the column mapping, and the existing findByPath/findById queries automatically include it.
+      No new tables, no new services, no new repository interfaces needed.
+
+  - title: "RepoHash computation reuse strategy"
+    chosen: "Extract a shared computeRepoHash(repoPath) utility function from the existing worktree code"
+    rejected:
+      - "Duplicate the hash logic in spec-initializer.service.ts — rejected because the hash algorithm (SHA-256, normalize backslashes, first 16 hex chars) is already duplicated between WorktreeService.getWorktreePath() and compute-worktree-path.ts. Adding a third copy increases maintenance risk. DRY principle demands extraction."
+      - "Pass repoHash as a parameter from the use case — rejected because the use case does not currently compute the hash (the worktree service does it internally). While this would work, it couples the use case to hash implementation details. A shared utility is cleaner."
+    rationale: >
+      The same SHA-256 hash algorithm appears in worktree.service.ts:208 and compute-worktree-path.ts:24.
+      Both normalize backslashes and take the first 16 hex chars. Extracting computeRepoHash(repoPath)
+      into a shared utility (e.g., packages/core/src/infrastructure/services/filesystem/repo-hash.ts
+      or adding it to shep-directory.service.ts) eliminates duplication. The spec-initializer imports
+      this utility for shep-managed path construction. WorktreeService and compute-worktree-path can
+      also be updated to use it, reducing the codebase from 3 copies to 1.
+
+  - title: "Dual-directory NNN scanning implementation"
+    chosen: "Scan up to 3 directories (specs/, .shep/specs/, and ~/.shep/repos/<hash>/specs/) and take max across all"
+    rejected:
+      - "Scan only .shep/specs/ — rejected because during the transition period, existing features may have specs/ directories in the worktree. This could cause number collisions (e.g., specs/073-feature and .shep/specs/073-other-feature)."
+      - "Query the database for existing feature numbers — rejected because the spec-initializer is currently a pure filesystem service with no DB dependency. Adding a DB dependency breaks its clean design and makes it harder to test. The additional readdir calls are negligible in cost."
+    rationale: >
+      The resolveNextNumber() method currently scans join(basePath, 'specs'). It must also scan
+      join(basePath, '.shep', 'specs') for in-repo mode. For shep-managed mode, it additionally
+      scans join(getShepHomeDir(), 'repos', repoHash, 'specs'). Each scan is a try/catch readdir
+      that gracefully returns 0 entries if the directory doesn't exist. The max NNN across all
+      scanned directories is used. This prevents collisions during the transition period at
+      negligible performance cost (~1-3 readdir calls that may return ENOENT).
+
+  - title: "Evidence-prompts handling for shep-managed mode"
+    chosen: "Force commitEvidence=false when specDir is outside the worktree (shep-managed mode)"
+    rejected:
+      - "Adjust relative path computation to handle paths outside the worktree — rejected because relative(cwd, specDir) produces paths like '../../../.shep/repos/<hash>/specs/...' which break git add instructions and violate the worktree boundary. The resulting prompts would instruct the agent to run git operations outside the worktree, which is invalid."
+      - "Copy evidence from shep-managed location into the worktree for committing — rejected because it adds complexity (two-step copy + commit), can fail if the worktree is on a different filesystem, and the spec requirement (FR-10) states that shep-managed mode should be transparent with no downstream changes needed."
+    rationale: >
+      When specDir is outside the worktree (shep-managed mode), the evidence-prompts.ts relative()
+      call (line 61) produces a path that escapes the worktree. The commitEvidence option instructs
+      the agent to git-add files at this relative path, which fails because git cannot track files
+      outside the worktree. The simplest fix is to force commitEvidence=false when the spec storage
+      mode is shep-managed. Evidence is still captured to the shep home evidence directory
+      (~/.shep/repos/<hash>/evidence/<featureId>/) and remains available via the UI. This is
+      consistent with the spec's intent: shep-managed mode means no spec artifacts in the repo.
+
+  - title: "ISpecInitializerService interface change strategy"
+    chosen: "Add an optional options object parameter to initialize() with storageMode and repositoryPath"
+    rejected:
+      - "Add individual parameters (storageMode, repositoryPath) — rejected because adding 2+ positional params to an already 5-param method hurts readability. An options object is extensible and self-documenting."
+      - "Create a new overloaded method initializeManaged() — rejected because it splits the flow into two methods that share most logic. Callers would need conditional branching to pick the right method."
+    rationale: >
+      The current interface is initialize(basePath, slug, featureNumber, description, mode?).
+      Adding an optional options object as the last parameter preserves backward compatibility
+      (existing callers pass nothing and get in-repo behavior). The options object contains
+      storageMode ('in-repo' | 'shep-managed') and repositoryPath (needed for hash computation
+      in shep-managed mode). This is the same extensibility pattern used throughout the codebase
+      (e.g., EvidencePromptOptions). The interface JSDoc is updated to document the new parameter.
+
+  - title: "Test fixture relocation strategy"
+    chosen: "Move specs/032-example-specs/ to tests/fixtures/spec-yaml-samples/ and update all 3 referencing test files"
+    rejected:
+      - "Move to .shep/specs/032-example-specs/ — rejected because .shep/ is for runtime-generated artifacts, not committed test fixtures. Test fixtures are version-controlled source code that should live under tests/."
+      - "Keep in specs/ — rejected because leaving a specs/ directory in the project root undermines the goal of this feature (clean root with .shep/ convention). It would also confuse the NNN scanner."
+    rationale: >
+      Three test files reference specs/032-example-specs: spec-yaml-parser.test.ts,
+      spec-yaml-artifact-parsing.test.ts, and spec-yaml-backward-compatibility.test.ts. Moving
+      the fixture to tests/fixtures/spec-yaml-samples/ follows the convention of separating test
+      data from production output. The path update is a simple constant change in each file.
+      No test logic changes needed — only the directory path string.
+
+openQuestions:
+  - question: "Should the spec-initializer accept the storage mode via a new options parameter or should it read from the repository record directly?"
+    resolved: true
+    options:
+      - option: "Options parameter on initialize()"
+        description: "Add an optional options object { storageMode, repositoryPath } to the initialize() method. The CreateFeatureUseCase resolves the setting from the repository record and passes it in. Follows Clean Architecture — the service receives what it needs from the orchestrator."
+        selected: true
+      - option: "Inject IRepositoryRepository into spec-initializer"
+        description: "The service queries the repository record itself to read specStorageMode. Breaks the current stateless design of the service and adds a DB dependency. Makes unit testing harder — need to mock the repository."
+        selected: false
+      - option: "Read from global settings via getSettings()"
+        description: "The service reads a global setting. Does not work because specStorageMode is per-repo, not global. Would require the settings singleton to track per-repo overrides, which contradicts its flat singleton design."
+        selected: false
+    selectionRationale: >
+      The spec-initializer is currently a pure service with no dependencies — it takes input
+      parameters and writes files. Adding a DB dependency would break this clean design and make
+      testing harder. The use case layer is the right place to resolve configuration, and the
+      service should receive it as a parameter. This follows the existing pattern where
+      CreateFeatureUseCase passes worktreePath and mode to the initializer.
+
+  - question: "How should the repoHash be made available to the spec-initializer for shep-managed path construction?"
+    resolved: true
+    options:
+      - option: "Shared computeRepoHash() utility function"
+        description: "Extract the SHA-256 hash logic into a standalone exported function (e.g., in repo-hash.ts or shep-directory.service.ts). Both worktree service and spec-initializer import it. DRY, testable, single source of truth."
+        selected: true
+      - option: "Pass repoHash as parameter from the use case"
+        description: "The use case computes the hash (or gets it from worktree service) and passes it to initialize(). Decouples the initializer from hash algorithm but adds another parameter. The use case currently doesn't compute hashes directly."
+        selected: false
+      - option: "Pass repositoryPath and let the service compute the hash"
+        description: "The options object includes repositoryPath, and the service computes the hash internally using the existing algorithm. Keeps the hash computation close to where it is used but does not address the duplication across worktree service."
+        selected: false
+    selectionRationale: >
+      The SHA-256 hash algorithm is already duplicated between WorktreeService (line 208) and
+      compute-worktree-path.ts (line 24). Adding a third copy in spec-initializer would make it
+      worse. Extracting a computeRepoHash(repoPath) utility eliminates all duplication. The
+      spec-initializer passes repositoryPath in the options, and the utility handles normalization
+      and hashing. This is a small, focused refactor that improves the codebase while serving
+      the feature's needs.
+
+  - question: "Should evidence commitEvidence be forced off in shep-managed mode, or should we attempt to handle relative paths outside the worktree?"
+    resolved: true
+    options:
+      - option: "Force commitEvidence=false for shep-managed mode"
+        description: "When specDir is outside the worktree, override commitEvidence to false regardless of user settings. Evidence is still captured to ~/.shep/repos/<hash>/evidence/ and visible in the UI. Simple, safe, consistent with the shep-managed philosophy of 'no repo artifacts'."
+        selected: true
+      - option: "Handle relative paths outside the worktree in evidence prompts"
+        description: "Modify evidence-prompts.ts to detect when specDir is outside the worktree and use absolute paths in git add instructions. Complex, fragile (git add of absolute paths outside worktree may fail), and contradicts the intent of shep-managed mode."
+        selected: false
+      - option: "Copy evidence into worktree before committing"
+        description: "After capturing evidence to shep-managed path, copy files into the worktree for git commit. Adds a copy step, potential cross-filesystem issues, and dual storage of the same files. Over-engineered for the use case."
+        selected: false
+    selectionRationale: >
+      The evidence-prompts.ts code (line 61) uses relative(cwd, state.specDir) to compute
+      the relative path from the worktree to the spec directory. When specDir is in ~/.shep/
+      (shep-managed mode), this produces a path like '../../../.shep/repos/<hash>/specs/...'
+      which escapes the worktree boundary. Git operations on such paths are invalid. Forcing
+      commitEvidence=false is the simplest and safest fix. It aligns with the shep-managed
+      philosophy: the user chose shep-managed mode precisely to keep spec artifacts out of the
+      repo, so committing evidence to the repo would be contradictory.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Spec-Initializer Interface Design for Storage Mode
+
+  **Chosen:** Add an optional options object parameter to `ISpecInitializerService.initialize()`
+
+  **Rejected:**
+  - Read `specStorageMode` from `getSettings()` inside the service — violates Clean Architecture; storage mode is per-repo, not global
+  - Create a separate `ShepManagedSpecInitializerService` — 95% code duplication for one path difference
+
+  **Rationale:** The spec-initializer is a pure stateless service. The `CreateFeatureUseCase` resolves the storage mode from the repository record and passes it via an options object. This preserves the existing architecture pattern where use cases orchestrate and services are tools.
+
+  **Interface change:**
+  ```typescript
+  interface SpecInitializerOptions {
+    storageMode?: 'in-repo' | 'shep-managed';  // default: 'in-repo'
+    repositoryPath?: string;  // required when storageMode is 'shep-managed'
+  }
+
+  initialize(
+    basePath: string,
+    slug: string,
+    featureNumber: number,
+    description: string,
+    mode?: 'fast',
+    options?: SpecInitializerOptions
+  ): Promise<SpecInitializerResult>;
+  ```
+
+  ### 2. Per-Repo specStorageMode Storage Mechanism
+
+  **Chosen:** Add `spec_storage_mode TEXT DEFAULT 'in-repo'` column to the `repositories` table
+
+  **Rejected:**
+  - Global Settings singleton — per-installation, not per-repo; contradicts singleton design
+  - `.shep/config.json` in worktree — introduces second config source; complicates read path
+  - New `repo_settings` table — over-engineering for one field
+
+  **Rationale:** Follows the exact precedent set by migration `040-add-repository-remote-url` which added `remote_url` to the same table. The Repository TypeSpec model gets a new optional `specStorageMode` field, the mapper handles the column, and existing queries automatically include it. No new tables, services, or interfaces needed.
+
+  **Migration:**
+  ```sql
+  ALTER TABLE repositories ADD COLUMN spec_storage_mode TEXT DEFAULT 'in-repo';
+  ```
+
+  ### 3. RepoHash Computation Reuse
+
+  **Chosen:** Extract a shared `computeRepoHash(repoPath)` utility function
+
+  **Rejected:**
+  - Duplicate hash logic in spec-initializer — creates a 3rd copy of the same algorithm
+  - Pass repoHash from use case — couples use case to hash implementation details
+
+  **Rationale:** The SHA-256 hash computation (normalize backslashes, hash, take first 16 hex chars) is already duplicated between `WorktreeService.getWorktreePath()` (line 208) and `compute-worktree-path.ts` (line 24). Extracting `computeRepoHash()` into `shep-directory.service.ts` (or a dedicated `repo-hash.ts`) creates a single source of truth. All three consumers import the same function.
+
+  ### 4. Dual-Directory NNN Scanning
+
+  **Chosen:** Scan up to 3 directories and take max NNN across all
+
+  **Rejected:**
+  - Scan only `.shep/specs/` — collision risk with existing `specs/` directories
+  - Query database — adds DB dependency to a pure filesystem service
+
+  **Rationale:** The `resolveNextNumber()` method scans:
+  1. `join(basePath, 'specs')` — legacy location (backward compat)
+  2. `join(basePath, '.shep', 'specs')` — new in-repo location
+  3. `join(getShepHomeDir(), 'repos', repoHash, 'specs')` — shep-managed location (only when in shep-managed mode)
+
+  Each scan gracefully handles non-existent directories via try/catch. The max NNN across all locations prevents collisions during the transition period.
+
+  ### 5. Evidence-Prompts Handling for Shep-Managed Mode
+
+  **Chosen:** Force `commitEvidence=false` when storage mode is shep-managed
+
+  **Rejected:**
+  - Handle relative paths outside worktree — `relative()` produces paths escaping the worktree; git operations fail
+  - Copy evidence into worktree before commit — over-engineered; contradicts shep-managed philosophy
+
+  **Rationale:** In `evidence-prompts.ts` (line 61), `relative(cwd, state.specDir)` assumes specDir is within the worktree. When specDir is in `~/.shep/` (shep-managed), the relative path escapes the worktree, making git operations invalid. Forcing `commitEvidence=false` is safe because evidence is still captured to `~/.shep/repos/<hash>/evidence/` and accessible via the UI. Users who chose shep-managed mode want no repo artifacts — committing evidence would be contradictory.
+
+  ### 6. Interface Change Strategy
+
+  **Chosen:** Add optional options object as last parameter to `initialize()`
+
+  **Rejected:**
+  - Add individual positional parameters — already 5 params; hurts readability
+  - Create overloaded `initializeManaged()` method — splits shared logic into two methods
+
+  **Rationale:** An optional trailing options object is self-documenting, extensible, and backward-compatible. Existing callers pass no options and get in-repo behavior (the default). The pattern matches `EvidencePromptOptions` used elsewhere in the codebase.
+
+  ### 7. Test Fixture Relocation
+
+  **Chosen:** Move `specs/032-example-specs/` to `tests/fixtures/spec-yaml-samples/`
+
+  **Rejected:**
+  - Move to `.shep/specs/` — .shep/ is for runtime artifacts, not committed test fixtures
+  - Keep in `specs/` — undermines the clean-root goal; confuses NNN scanner
+
+  **Rationale:** Three test files reference the fixture: `spec-yaml-parser.test.ts`, `spec-yaml-artifact-parsing.test.ts`, `spec-yaml-backward-compatibility.test.ts`. Moving to `tests/fixtures/` separates test data from production output. Path update is a simple string constant change.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `node:path` (join, relative, dirname) | Path construction | Use (existing) | Already used throughout; no new dependency |
+  | `node:fs/promises` (mkdir, readdir, writeFile) | Directory and file operations | Use (existing) | Already used in spec-initializer; recursive mkdir handles .shep/ creation |
+  | `node:crypto` (createHash) | SHA-256 repo hash | Use (existing) | Already used in worktree.service.ts and compute-worktree-path.ts |
+  | `better-sqlite3` | Database migration | Use (existing) | Already used for all SQLite operations; new migration follows existing pattern |
+  | `tsyringe` | Dependency injection | Use (existing) | Already used for spec-initializer registration in container.ts |
+  | TypeSpec compiler | Domain model update | Use (existing) | Repository model update requires `pnpm tsp:compile` to regenerate types |
+  | Vitest | Testing | Use (existing) | All test files already use Vitest |
+
+  No new libraries are required. This feature exclusively uses existing dependencies.
+
+  ## Security Considerations
+
+  ### Path Traversal Prevention
+  - All path construction uses `path.join()` which resolves `..` segments safely
+  - The spec-initializer receives `basePath` from the use case (validated upstream)
+  - `computeRepoHash()` normalizes the repo path before hashing — no injection risk
+  - `mkdir({ recursive: true })` only creates directories under the computed parent
+
+  ### Shep-Managed Mode File Permissions
+  - The `~/.shep/` directory is created with `0o700` (owner-only) by `ensureShepDirectory()`
+  - Specs stored under `~/.shep/repos/<hash>/specs/` inherit these permissions
+  - No change needed — existing permission model covers the new subdirectory
+
+  ### Database Migration Safety
+  - `ALTER TABLE ADD COLUMN` with `DEFAULT 'in-repo'` is a non-destructive, additive change
+  - Existing rows get the default value automatically
+  - No data migration or rewrite needed
+
+  ## Performance Implications
+
+  ### NNN Scanning Overhead
+  - Current: 1 readdir call (specs/)
+  - After: 2-3 readdir calls (specs/, .shep/specs/, optionally ~/.shep/repos/<hash>/specs/)
+  - Each call that hits a non-existent directory returns immediately via ENOENT
+  - Total overhead: ~0-2ms additional (negligible for a directory creation operation)
+
+  ### Path Construction
+  - One additional `computeRepoHash()` call in shep-managed mode (~0.1ms for SHA-256)
+  - All other operations (mkdir, writeFile) are identical in both modes
+
+  ### No Caching Needed
+  - Spec initialization is a one-time operation per feature creation
+  - The repoHash could be cached but the computation is so fast it is unnecessary
+
+  ## Architecture Notes
+
+  ### Clean Architecture Compliance
+
+  The changes respect the existing layer boundaries:
+
+  - **Domain Layer**: Repository TypeSpec model gets a new optional `specStorageMode` field. No business logic changes.
+  - **Application Layer**: `CreateFeatureUseCase` reads `repository.specStorageMode` and passes it to the spec-initializer via options. The interface (`ISpecInitializerService`) is updated with the optional parameter.
+  - **Infrastructure Layer**: `SpecInitializerService` implements the path branching logic. Database migration adds the column. Mapper handles the new field.
+  - **Presentation Layer**: No changes. CLI passes the same inputs; the use case handles the rest.
+
+  ### Dependency Direction
+  ```
+  Presentation → Application → Domain
+       ↓              ↓
+  Infrastructure (implements Application ports)
+  ```
+  - The spec-initializer interface is defined in `application/ports/output/services/`
+  - The implementation is in `infrastructure/services/spec/`
+  - The use case orchestrates by calling the port interface
+  - No layer violations introduced
+
+  ### Key Files Changed (Production Code)
+
+  | File | Change | Layer |
+  | ---- | ------ | ----- |
+  | `tsp/domain/entities/repository.tsp` | Add `specStorageMode?: string` | Domain |
+  | `packages/core/src/domain/generated/output.ts` | Regenerated (auto) | Domain |
+  | `packages/core/src/application/ports/output/services/spec-initializer.interface.ts` | Add options param | Application |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | Pass options to initializer | Application |
+  | `packages/core/src/infrastructure/services/spec/spec-initializer.service.ts` | Path branching + multi-dir scan | Infrastructure |
+  | `packages/core/src/infrastructure/services/filesystem/shep-directory.service.ts` | Add `computeRepoHash()` or new file | Infrastructure |
+  | `packages/core/src/infrastructure/persistence/sqlite/mappers/repository.mapper.ts` | Map spec_storage_mode column | Infrastructure |
+  | `packages/core/src/infrastructure/repositories/sqlite-repository.repository.ts` | Include new column in queries | Infrastructure |
+  | Migration file (044-add-spec-storage-mode.ts) | ALTER TABLE repositories ADD COLUMN | Infrastructure |
+  | `.claude/skills/shep-kit-new-feature/scripts/init-feature.sh` | Change specs/ to .shep/specs/ | Presentation |
+  | `evidence-prompts.ts` | Force commitEvidence=false for shep-managed | Infrastructure |
+
+  ### Data Flow for Feature Creation
+
+  ```
+  CLI/Web → CreateFeatureUseCase
+    1. Resolve repository entity from DB (includes specStorageMode)
+    2. Create worktree via WorktreeService
+    3. Call specInitializer.initialize(worktreePath, slug, num, desc, mode, {
+         storageMode: repository.specStorageMode ?? 'in-repo',
+         repositoryPath: repository.path
+       })
+    4. SpecInitializerService:
+       - if storageMode === 'in-repo':  specDir = join(basePath, '.shep', 'specs', specDirName)
+       - if storageMode === 'shep-managed': specDir = join(getShepHomeDir(), 'repos', computeRepoHash(repositoryPath), 'specs', specDirName)
+    5. mkdir(specDir, { recursive: true })
+    6. Write template files
+    7. Return { specDir, featureNumber }
+    8. Feature.specPath = specDir (absolute path stored in DB)
+  ```
+
+  ### Backward Compatibility
+
+  - Existing features with `specPath` pointing to `specs/NNN-feature/` continue to work
+  - The database stores absolute paths — no path rewriting needed
+  - All downstream consumers (agent nodes, UI use cases, evidence) read from `feature.specPath`
+  - The `readSpecFile()` helper works with any absolute path
+  - No database migration for existing feature records
+
+  ---
+
+  _Research phase complete — proceed with /shep-kit:plan_

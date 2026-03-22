@@ -206,6 +206,48 @@ describe('buildEvidencePrompt', () => {
     });
   });
 
+  describe('shep-managed mode (specDir outside worktree)', () => {
+    it('should force commitEvidence=false when specDir is outside worktree', () => {
+      // specDir is in ~/.shep/repos/<hash>/specs/ (outside the worktree)
+      const state = baseState({
+        worktreePath: '/home/user/.shep/repos/abc123/wt/feat-test',
+        specDir: '/home/user/.shep/repos/abc123/specs/057-test-feature',
+      });
+
+      const prompt = buildEvidencePrompt(state, { commitEvidence: true });
+
+      // Should NOT include commit instructions even though commitEvidence=true
+      expect(prompt).toContain('Do NOT commit or push');
+      expect(prompt).not.toContain('Spec folder');
+    });
+
+    it('should keep commitEvidence=true when specDir is inside worktree (.shep/specs/ path)', () => {
+      // In-repo mode: specDir is inside the worktree under .shep/specs/
+      const state = baseState({
+        worktreePath: '/home/user/.shep/repos/abc123/wt/feat-test',
+        specDir: '/home/user/.shep/repos/abc123/wt/feat-test/.shep/specs/057-test-feature',
+      });
+
+      const prompt = buildEvidencePrompt(state, { commitEvidence: true });
+
+      // Should include commit instructions since specDir is inside the worktree
+      expect(prompt).toContain('Spec folder');
+      expect(prompt).not.toContain('Do NOT commit or push');
+    });
+
+    it('should keep commitEvidence behavior unchanged when specDir is inside worktree (legacy specs/ path)', () => {
+      // Legacy path: specDir is inside the worktree under specs/
+      const state = baseState({
+        worktreePath: '/home/user/.shep/repos/abc123/wt/feat-test',
+        specDir: '/home/user/.shep/repos/abc123/wt/feat-test/specs/057-test-feature',
+      });
+
+      const prompt = buildEvidencePrompt(state, { commitEvidence: true });
+
+      expect(prompt).toContain('Spec folder');
+    });
+  });
+
   describe('commitEvidence=true', () => {
     it('should include spec evidence folder storage instructions', () => {
       const prompt = buildEvidencePrompt(baseState(), { commitEvidence: true });

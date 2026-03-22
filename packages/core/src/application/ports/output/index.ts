@@ -38,6 +38,7 @@ export type {
   ExternalIssue,
   INotificationService,
   ISpecInitializerService,
+  SpecInitializerOptions,
   SpecInitializerResult,
   IVersionService,
   IWebServerService,

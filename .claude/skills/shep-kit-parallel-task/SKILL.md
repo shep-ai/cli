@@ -91,7 +91,7 @@ Determine the next spec number and run the existing init script **inside the wor
 cd .worktrees/<dir-name>
 
 # Determine next spec number
-NEXT_NUM=$(ls -d specs/[0-9][0-9][0-9]-* 2>/dev/null | wc -l | xargs -I{} printf "%03d" $(({} + 1)))
+NEXT_NUM=$(ls -d .shep/specs/[0-9][0-9][0-9]-* specs/[0-9][0-9][0-9]-* 2>/dev/null | wc -l | xargs -I{} printf "%03d" $(({} + 1)))
 [ -z "$NEXT_NUM" ] && NEXT_NUM="001"
 
 # Run init-feature.sh (reuses shep-kit:new-feature templates)
@@ -104,7 +104,7 @@ The init script sets `branch: feat/NNN-feature-name` but our actual branch is di
 
 ```bash
 # Update branch name in feature.yaml to match the actual worktree branch
-sed -i "s|branch: 'feat/.*'|branch: '<branch-name>'|" specs/NNN-feature-name/feature.yaml
+sed -i "s|branch: 'feat/.*'|branch: '<branch-name>'|" .shep/specs/NNN-feature-name/feature.yaml
 ```
 
 ### 7. Fill spec.md (if requirements provided)
@@ -122,7 +122,7 @@ Otherwise leave the template placeholders for manual filling.
 
 ```bash
 cd .worktrees/<dir-name>
-git add specs/
+git add .shep/specs/
 git commit -m "feat(specs): add NNN-feature-name specification"
 ```
 
@@ -156,7 +156,7 @@ fi
 | -------- | ---------------------------------------- |
 | Worktree | `.worktrees/<dir-name>`                  |
 | Branch   | `<branch-name>` (based on `origin/main`) |
-| Spec     | `specs/NNN-feature-name/`                |
+| Spec     | `.shep/specs/NNN-feature-name/`                |
 
 A new editor window should be opening. Once it's loaded, open the AI agent panel and continue with `/shep-kit:research`.
 
@@ -175,7 +175,7 @@ A new editor window should be opening. Once it's loaded, open the AI agent panel
 | -------- | ---------------------------------------- |
 | Worktree | `.worktrees/<dir-name>`                  |
 | Branch   | `<branch-name>` (based on `origin/main`) |
-| Spec     | `specs/NNN-feature-name/`                |
+| Spec     | `.shep/specs/NNN-feature-name/`                |
 
 Could not auto-open an editor. Open it manually:
 

@@ -6,10 +6,10 @@
  * to enable testability without mocking node:child_process directly.
  */
 
-import { createHash } from 'node:crypto';
 import { mkdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { injectable, inject } from 'tsyringe';
+import { computeRepoHash } from '../filesystem/repo-hash';
 
 const GIT_AUTO_INIT_USER = 'shep-ai[bot]';
 const GIT_AUTO_INIT_EMAIL = 'bot@shep.bot';
@@ -203,9 +203,7 @@ export class WorktreeService implements IWorktreeService {
   }
 
   getWorktreePath(repoPath: string, branch: string): string {
-    // Normalize separators before hashing so C:\foo and C:/foo produce the same hash
-    const normalizedRepoPath = repoPath.replace(/\\/g, '/');
-    const repoHash = createHash('sha256').update(normalizedRepoPath).digest('hex').slice(0, 16);
+    const repoHash = computeRepoHash(repoPath);
     const slug = branch.replace(/\//g, '-');
     return path.join(getShepHomeDir(), 'repos', repoHash, 'wt', slug).replace(/\\/g, '/');
   }

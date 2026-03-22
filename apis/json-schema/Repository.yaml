@@ -11,6 +11,9 @@ properties:
   remoteUrl:
     type: string
     description: "Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)"
+  specStorageMode:
+    type: string
+    description: "Spec storage mode: 'in-repo' stores specs at <worktree>/.shep/specs/, 'shep-managed' stores at ~/.shep/repos/<hash>/specs/"
 required:
   - name
   - path

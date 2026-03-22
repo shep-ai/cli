@@ -138,7 +138,7 @@ describe('CLI: feat', () => {
         .digest('hex')
         .slice(0, 16);
       const worktreePath = join(shepHome, 'repos', repoHash, 'wt', 'feat-spec-init-check');
-      const specDir = join(worktreePath, 'specs', '001-spec-init-check');
+      const specDir = join(worktreePath, '.shep', 'specs', '001-spec-init-check');
 
       expect(existsSync(specDir)).toBe(true);
 
