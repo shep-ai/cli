@@ -18,9 +18,6 @@
 
 | File | Responsibility |
 |------|---------------|
-| `tsp/common/enums/lifecycle.tsp` | Add `AwaitingUpstream` enum member (modify) |
-| `tsp/domain/entities/feature.tsp` | Add `forkAndPr`, `commitSpecs` fields (modify) |
-| `tsp/domain/value-objects/pull-request.tsp` | Add upstream PR fields (modify) |
 | `packages/core/src/application/ports/output/services/git-fork-service.interface.ts` | `IGitForkService` interface + error types |
 | `packages/core/src/infrastructure/services/git/git-fork.service.ts` | Fork service implementation |
 | `tests/unit/infrastructure/services/git/git-fork.service.test.ts` | Fork service unit tests |
@@ -32,6 +29,9 @@
 
 | File | Changes |
 |------|---------|
+| `tsp/common/enums/lifecycle.tsp` | Add `AwaitingUpstream` enum member |
+| `tsp/domain/entities/feature.tsp` | Add `forkAndPr`, `commitSpecs` fields |
+| `tsp/domain/value-objects/pull-request.tsp` | Add upstream PR fields |
 | `packages/core/src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts` | Map new fields |
 | `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` | Add `forkAndPr`, `commitSpecs` channels |
 | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts` | Pass new flags to graph state |
@@ -376,15 +376,26 @@ describe('GitForkService', () => {
       await expect(service.forkRepository('/repo')).resolves.not.toThrow();
     });
 
-    it('should detect origin is already a fork and skip forking', async () => {
-      // First call: gh repo view to detect fork
+    it('should detect origin is already a fork and ensure upstream remote', async () => {
+      // First call: gh repo view detects fork
       vi.mocked(mockExec)
         .mockResolvedValueOnce({
           stdout: JSON.stringify({ isFork: true, parent: { owner: { login: 'upstream-owner' }, name: 'repo' } }),
           stderr: '',
-        });
+        })
+        // Second call: git remote get-url upstream — fails (doesn't exist)
+        .mockRejectedValueOnce(new Error('No such remote'))
+        // Third call: git remote add upstream
+        .mockResolvedValueOnce({ stdout: '', stderr: '' });
 
       await service.forkRepository('/repo');
+
+      // Verify upstream remote was added
+      expect(mockExec).toHaveBeenCalledWith(
+        'git',
+        ['remote', 'add', 'upstream', 'https://github.com/upstream-owner/repo.git'],
+        expect.objectContaining({ cwd: '/repo' })
+      );
     });
 
     it('should throw AUTH_FAILURE when not authenticated', async () => {
@@ -605,11 +616,7 @@ export class GitForkService implements IGitForkService {
   }
 
   private async getUpstreamRepo(cwd: string): Promise<string> {
-    const { stdout } = await this.execFile(
-      'gh', ['repo', 'view', '--json', 'owner,name', '-R', 'upstream'],
-      { cwd }
-    );
-    // Fallback: parse upstream remote URL
+    // Try parsing the upstream remote URL directly (fastest, no API call)
     try {
       const { stdout: remoteUrl } = await this.execFile(
         'git', ['remote', 'get-url', 'upstream'],
@@ -618,10 +625,23 @@ export class GitForkService implements IGitForkService {
       const match = remoteUrl.trim().match(/github\.com[/:]([^/]+)\/([^/.]+)/);
       if (match) return `${match[1]}/${match[2]}`;
     } catch {
-      // ignore
+      // upstream remote doesn't exist, fall through
     }
+
+    // Fallback: use gh CLI to get upstream repo info
+    const { stdout } = await this.execFile(
+      'gh', ['repo', 'view', '--json', 'parent'],
+      { cwd }
+    );
     const data = JSON.parse(stdout.trim());
-    return `${data.owner.login}/${data.name}`;
+    if (data.parent?.owner?.login && data.parent?.name) {
+      return `${data.parent.owner.login}/${data.parent.name}`;
+    }
+
+    throw new GitForkError(
+      'Could not determine upstream repository',
+      GitForkErrorCode.FORK_FAILED
+    );
   }
 }
 ```
@@ -825,14 +845,73 @@ git commit -m "feat(agents): add fork-and-pr branch to merge node"
 
 ---
 
-## Task 7: Create Feature Use Case — SHEP_HOME Spec Path
+## Task 7: Create Feature Use Case — SHEP_HOME Spec Path (TDD)
 
 **Files:**
 - Modify: `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts`
+- Modify: tests for create-feature use case
 
-- [ ] **Step 1: Add SHEP_HOME spec path logic**
+- [ ] **Step 1: Write failing tests for commitSpecs spec path logic (RED)**
 
-In the `initializeAndSpawn` method, before the spec initialization call (around line 253), add:
+Add tests to the create-feature use case test file:
+
+```typescript
+describe('commitSpecs spec path', () => {
+  it('should use SHEP_HOME spec path when commitSpecs is false', async () => {
+    const result = await useCase.initializeAndSpawn(feature, {
+      ...baseInput,
+      commitSpecs: false,
+    }, true);
+
+    // specInitializer.initialize should be called with SHEP_HOME-based path
+    expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
+      expect.stringContaining('.shep/specs/'),
+      expect.any(String),
+      expect.any(Number),
+      expect.any(String),
+      undefined
+    );
+  });
+
+  it('should use worktree spec path when commitSpecs is true', async () => {
+    const result = await useCase.initializeAndSpawn(feature, {
+      ...baseInput,
+      commitSpecs: true,
+    }, true);
+
+    // specInitializer.initialize should be called with worktree path (existing behavior)
+    expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
+      expect.not.stringContaining('.shep/specs/'),
+      expect.any(String),
+      expect.any(Number),
+      expect.any(String),
+      undefined
+    );
+  });
+
+  it('should default commitSpecs to true when not specified', async () => {
+    const result = await useCase.initializeAndSpawn(feature, baseInput, true);
+
+    // Should use worktree path (default behavior)
+    expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
+      expect.not.stringContaining('.shep/specs/'),
+      expect.any(String),
+      expect.any(Number),
+      expect.any(String),
+      undefined
+    );
+  });
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail (RED)**
+
+Run: `pnpm test:unit -- --grep "commitSpecs spec path"`
+Expected: FAIL — commitSpecs not handled yet
+
+- [ ] **Step 3: Implement SHEP_HOME spec path logic (GREEN)**
+
+In the `initializeAndSpawn` method, before the spec initialization call (search for `specInitializer.initialize`), add:
 
 ```typescript
 // Determine spec base path: SHEP_HOME when commitSpecs=false, worktree when true
@@ -861,7 +940,12 @@ const { specDir } = await this.specInitializer.initialize(
 );
 ```
 
-- [ ] **Step 2: Pass `forkAndPr` and `commitSpecs` to feature record in `createRecord`**
+- [ ] **Step 4: Run tests (GREEN)**
+
+Run: `pnpm test:unit -- --grep "commitSpecs spec path"`
+Expected: All PASS
+
+- [ ] **Step 5: Pass `forkAndPr` and `commitSpecs` to feature record in `createRecord`**
 
 In the feature record creation within `createRecord()`, add:
 
@@ -870,7 +954,7 @@ forkAndPr: input.forkAndPr ?? false,
 commitSpecs: input.commitSpecs ?? true,
 ```
 
-- [ ] **Step 3: Pass flags to agent spawn**
+- [ ] **Step 6: Pass flags to agent spawn**
 
 In the agent spawn call, pass the new flags so they reach the worker:
 
@@ -879,15 +963,15 @@ forkAndPr: input.forkAndPr ?? false,
 commitSpecs: input.commitSpecs ?? true,
 ```
 
-- [ ] **Step 4: Run create feature tests**
+- [ ] **Step 7: Run full create-feature tests**
 
 Run: `pnpm test:unit -- --grep "create-feature"`
-Expected: Existing tests pass.
+Expected: All tests pass.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add packages/core/src/application/use-cases/features/create/create-feature.use-case.ts
+git add packages/core/src/application/use-cases/features/create/create-feature.use-case.ts tests/
 git commit -m "feat(domain): support shep-home spec path when commit-specs is false"
 ```
 
@@ -1136,6 +1220,55 @@ git commit -m "feat(domain): add poll upstream pr use case with tests"
 
 ---
 
+## Task 9b: Enforce `commitSpecs` Immutability (TDD)
+
+**Files:**
+- Modify: the feature update use case or feature repository update path
+- Add: test for immutability constraint
+
+- [ ] **Step 1: Write failing test (RED)**
+
+Add a test that verifies `commitSpecs` cannot be changed after feature creation:
+
+```typescript
+it('should reject changes to commitSpecs after creation', async () => {
+  const feature = await createFeatureWithCommitSpecs(true);
+
+  await expect(
+    updateFeature({ ...feature, commitSpecs: false })
+  ).rejects.toThrow(/commitSpecs cannot be changed/);
+});
+```
+
+- [ ] **Step 2: Run test (RED)**
+
+Run the test, verify it fails because there's no guard yet.
+
+- [ ] **Step 3: Implement immutability guard (GREEN)**
+
+In the feature update path (either the update use case or the repository's `update` method), add a check:
+
+```typescript
+// Enforce commitSpecs immutability
+const existing = await this.featureRepo.findById(feature.id);
+if (existing && existing.commitSpecs !== feature.commitSpecs) {
+  throw new Error('commitSpecs cannot be changed after feature creation');
+}
+```
+
+- [ ] **Step 4: Run test (GREEN)**
+
+Expected: Test passes.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add -A
+git commit -m "feat(domain): enforce commit-specs immutability after creation"
+```
+
+---
+
 ## Task 10: Extend PrSyncWatcherService
 
 **Files:**
@@ -1349,23 +1482,31 @@ git commit -m "feat(web): add fork-and-pr and commit-specs toggles to feature cr
 
 - [ ] **Step 1: Add create drawer stories for new toggles**
 
-In `feature-create-drawer.stories.tsx`, add:
+In `feature-create-drawer.stories.tsx`, add stories that use Storybook `play` functions to toggle the new switches (since the component manages state internally via `useState`, not via props):
 
 ```typescript
 export const ForkAndPrEnabled: Story = {
-  args: {
-    ...baseProps,
-    initialValues: { forkAndPr: true },
+  args: { ...baseProps },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Click the Fork toggle to enable it
+    const forkToggle = canvas.getByLabelText('Fork');
+    await userEvent.click(forkToggle);
   },
 };
 
 export const CommitSpecsDisabled: Story = {
-  args: {
-    ...baseProps,
-    initialValues: { commitSpecs: false },
+  args: { ...baseProps },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // The Commit Specs toggle defaults to on — click to disable
+    const commitToggle = canvas.getByLabelText('Commit');
+    await userEvent.click(commitToggle);
   },
 };
 ```
+
+Note: Import `within` from `@storybook/test` and `userEvent` from `@storybook/test` at the top of the stories file if not already imported.
 
 - [ ] **Step 2: Add feature node story for AwaitingUpstream**
 
