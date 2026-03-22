@@ -26,4 +26,13 @@ model PullRequest {
 
   @doc("Whether the PR can be merged (false = merge conflicts)")
   mergeable?: boolean;
+
+  /** URL of the PR created on the upstream repo (fork-and-PR flow only) */
+  upstreamPrUrl?: string;
+
+  /** PR number on the upstream repo */
+  upstreamPrNumber?: int32;
+
+  /** Status of the upstream PR (Open, Merged, Closed) */
+  upstreamPrStatus?: PrStatus;
 }

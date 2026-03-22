@@ -650,3 +650,65 @@ export const WithRepoSelectorEmpty: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Open (No Repos)' }));
   },
 };
+
+/* ---------------------------------------------------------------------------
+ * Fork-and-PR toggle stories
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Fork toggle enabled — clicking the "Fork" switch sets `forkAndPr: true`,
+ * which also forces Push and Create PR on and disables the Commit Specs toggle.
+ * The submitted payload will include `forkAndPr: true`.
+ */
+export const ForkAndPrEnabled: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Fork Enabled)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fork Enabled)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    // The Switch with id="fork-and-pr" is labeled "Fork"
+    const forkToggle = await body.findByRole('switch', { name: /fork/i });
+    await userEvent.click(forkToggle);
+  },
+};
+
+/**
+ * Commit Specs disabled — the "Commit" switch under the SPECS section is
+ * turned off so spec files are not committed alongside the implementation.
+ * Demonstrates that `commitSpecs: false` flows through to the submitted payload.
+ */
+export const CommitSpecsDisabled: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Commit Specs Off)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Commit Specs Off)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    // The Switch with id="commit-specs" is labeled "Commit"
+    const commitToggle = await body.findByRole('switch', { name: /commit/i });
+    await userEvent.click(commitToggle);
+  },
+};
+
+/**
+ * Fork enabled with description typed — a fully ready-to-submit form with
+ * Fork-and-PR turned on. Demonstrates the combined state: Fork forces Push
+ * and Create PR on, disables Commit Specs, and the description is filled in.
+ */
+export const ForkAndPrWithDescription: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Fork + Description)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fork + Description)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const descInput = await body.findByPlaceholderText(
+      'e.g. Add GitHub OAuth login with callback handling and token refresh...'
+    );
+    await userEvent.type(descInput, 'Add OAuth2 login via forked repo and open upstream PR.');
+
+    const forkToggle = body.getByRole('switch', { name: /fork/i });
+    await userEvent.click(forkToggle);
+  },
+};

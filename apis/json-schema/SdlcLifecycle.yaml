@@ -14,4 +14,5 @@ enum:
   - Pending
   - Deleting
   - Archived
+  - AwaitingUpstream
 description: Software Development Lifecycle stages for feature progression

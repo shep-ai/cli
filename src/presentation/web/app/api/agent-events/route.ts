@@ -63,6 +63,7 @@ const LIFECYCLE_TO_NODE: Record<SdlcLifecycle, string> = {
   [SdlcLifecycle.Pending]: 'pending',
   [SdlcLifecycle.Deleting]: 'blocked',
   [SdlcLifecycle.Archived]: 'archived',
+  [SdlcLifecycle.AwaitingUpstream]: 'merge',
 };
 
 const STATUS_TO_EVENT: Partial<

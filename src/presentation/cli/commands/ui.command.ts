@@ -36,6 +36,7 @@ import {
   getPrSyncWatcher,
 } from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
 import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
+import { PollUpstreamPrUseCase } from '@/application/use-cases/features/poll-upstream-pr.use-case.js';
 import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
 import { colors, fmt, messages } from '../ui/index.js';
 
@@ -92,13 +93,15 @@ Examples:
         // Start PR sync watcher to detect PR/CI status transitions on GitHub
         const gitPrService = container.resolve<IGitPrService>('IGitPrService');
         const db = getExistingConnection();
+        const pollUpstreamPrUseCase = container.resolve(PollUpstreamPrUseCase);
         initializePrSyncWatcher(
           featureRepo,
           runRepo,
           gitPrService,
           notificationService,
           undefined,
-          db
+          db,
+          pollUpstreamPrUseCase
         );
         getPrSyncWatcher().start();
 

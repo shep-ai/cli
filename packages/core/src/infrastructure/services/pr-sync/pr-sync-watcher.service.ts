@@ -3,7 +3,9 @@
  *
  * Polls GitHub PR status and CI status for features in the Review lifecycle
  * stage, updating feature records and emitting notifications when transitions
- * are detected. Follows the NotificationWatcherService polling pattern.
+ * are detected. Also polls features in the AwaitingUpstream lifecycle stage,
+ * delegating to PollUpstreamPrUseCase to check upstream fork PR status.
+ * Follows the NotificationWatcherService polling pattern.
  *
  * Maintains in-memory tracking of last-known PR and CI status per feature
  * to avoid duplicate updates and notifications. Features are grouped by
@@ -27,7 +29,16 @@ import type {
   PrStatusInfo,
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface.js';
+import type {
+  PollUpstreamPrInput,
+  PollUpstreamPrOutput,
+} from '../../../application/use-cases/features/poll-upstream-pr.use-case.js';
 import type Database from 'better-sqlite3';
+
+/** Minimal interface satisfied by PollUpstreamPrUseCase */
+interface IPollUpstreamPrUseCase {
+  execute(input: PollUpstreamPrInput): Promise<PollUpstreamPrOutput>;
+}
 
 const DEFAULT_POLL_INTERVAL_MS = 30_000;
 const LOCK_TTL_MS = 60_000;
@@ -53,6 +64,7 @@ export class PrSyncWatcherService {
   private readonly agentRunRepo: IAgentRunRepository;
   private readonly gitPrService: IGitPrService;
   private readonly notificationService: INotificationService;
+  private readonly pollUpstreamPrUseCase: IPollUpstreamPrUseCase | null;
   private readonly pollIntervalMs: number;
   private readonly trackedFeatures = new Map<string, PrWatcherState>();
   private readonly skippedRepos = new Set<string>();
@@ -68,12 +80,14 @@ export class PrSyncWatcherService {
     gitPrService: IGitPrService,
     notificationService: INotificationService,
     pollIntervalMs: number = DEFAULT_POLL_INTERVAL_MS,
-    db: Database.Database | null = null
+    db: Database.Database | null = null,
+    pollUpstreamPrUseCase: IPollUpstreamPrUseCase | null = null
   ) {
     this.featureRepo = featureRepo;
     this.agentRunRepo = agentRunRepo;
     this.gitPrService = gitPrService;
     this.notificationService = notificationService;
+    this.pollUpstreamPrUseCase = pollUpstreamPrUseCase;
     this.pollIntervalMs = pollIntervalMs;
     this.db = db;
     this.processId = `${process.pid}-${Date.now()}`;
@@ -143,30 +157,42 @@ export class PrSyncWatcherService {
 
       this.pollCycle++;
 
-      const allFeatures = await this.featureRepo.list({ lifecycle: SdlcLifecycle.Review });
+      const [reviewFeaturesFull, awaitingFeaturesFull] = await Promise.all([
+        this.featureRepo.list({ lifecycle: SdlcLifecycle.Review }),
+        this.featureRepo.list({ lifecycle: SdlcLifecycle.AwaitingUpstream }),
+      ]);
 
       // Include features with a valid repositoryPath (with or without PR data)
-      const features = allFeatures.filter((f) => f.repositoryPath);
+      const reviewFeatures = reviewFeaturesFull.filter((f) => f.repositoryPath);
+      const awaitingFeatures = awaitingFeaturesFull.filter((f) => f.repositoryPath);
+      const features = [...reviewFeatures, ...awaitingFeatures];
 
       if (features.length === 0) {
         this.trackedFeatures.clear();
         return;
       }
 
-      // Group features by repositoryPath for batch queries
+      // Process AwaitingUpstream features via PollUpstreamPrUseCase
+      if (this.pollUpstreamPrUseCase) {
+        for (const feature of awaitingFeatures) {
+          await this.processAwaitingUpstreamFeature(feature);
+        }
+      }
+
+      // Group Review features by repositoryPath for batch queries
       const byRepo = new Map<string, Feature[]>();
-      for (const feature of features) {
+      for (const feature of reviewFeatures) {
         const group = byRepo.get(feature.repositoryPath) ?? [];
         group.push(feature);
         byRepo.set(feature.repositoryPath, group);
       }
 
-      // Process each repository
+      // Process each repository (Review lifecycle)
       for (const [repoPath, repoFeatures] of byRepo) {
         await this.processRepository(repoPath, repoFeatures);
       }
 
-      // Prune features no longer in Review
+      // Prune features no longer in Review or AwaitingUpstream
       const currentFeatureIds = new Set(features.map((f) => f.id));
       for (const trackedId of this.trackedFeatures.keys()) {
         if (!currentFeatureIds.has(trackedId)) {
@@ -201,6 +227,22 @@ export class PrSyncWatcherService {
       console.warn(
         `${TAG} Rate limited for ${repoPath}, backing off until ${new Date(backoffUntil).toISOString()}`
       );
+    }
+  }
+
+  private async processAwaitingUpstreamFeature(feature: Feature): Promise<void> {
+    if (!this.pollUpstreamPrUseCase) return;
+
+    try {
+      const result = await this.pollUpstreamPrUseCase.execute({ featureId: feature.id });
+      // eslint-disable-next-line no-console
+      console.log(
+        `${TAG} AwaitingUpstream poll for "${feature.name}": status=${result.status} transitioned=${result.transitioned}`
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      // eslint-disable-next-line no-console
+      console.warn(`${TAG} PollUpstreamPrUseCase failed for "${feature.name}": ${msg}`);
     }
   }
 
@@ -495,7 +537,8 @@ export function initializePrSyncWatcher(
   gitPrService: IGitPrService,
   notificationService: INotificationService,
   pollIntervalMs?: number,
-  db?: Database.Database | null
+  db?: Database.Database | null,
+  pollUpstreamPrUseCase?: IPollUpstreamPrUseCase | null
 ): void {
   if (watcherInstance !== null) {
     throw new Error('PR sync watcher already initialized. Cannot re-initialize.');
@@ -507,7 +550,8 @@ export function initializePrSyncWatcher(
     gitPrService,
     notificationService,
     pollIntervalMs,
-    db ?? null
+    db ?? null,
+    pollUpstreamPrUseCase ?? null
   );
 }
 

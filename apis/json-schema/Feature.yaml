@@ -57,6 +57,14 @@ properties:
     type: boolean
     default: false
     description: "Create PR after implementation (default: false)"
+  forkAndPr:
+    type: boolean
+    default: false
+    description: Fork repo and create PR to upstream at merge time
+  commitSpecs:
+    type: boolean
+    default: false
+    description: Commit specs/evidences into the repo (defaults false when forkAndPr is enabled)
   approvalGates:
     $ref: ApprovalGates.yaml
     description: Approval gates configuration (embedded value object)
@@ -90,6 +98,8 @@ required:
   - fast
   - push
   - openPr
+  - forkAndPr
+  - commitSpecs
   - approvalGates
 allOf:
   - $ref: SoftDeletableEntity.yaml

@@ -36,6 +36,8 @@ describe('SQLiteFeatureRepository', () => {
     fast: false,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
@@ -321,6 +323,27 @@ describe('SQLiteFeatureRepository', () => {
       const found = await repository.findById('feat-1');
       expect(found?.name).toBe('Updated Feature');
       expect(found?.description).toBe('Updated description');
+    });
+
+    it('should throw when attempting to change commitSpecs after creation', async () => {
+      await repository.create(createTestFeature({ commitSpecs: true }));
+
+      const updated = createTestFeature({ commitSpecs: false });
+
+      await expect(repository.update(updated)).rejects.toThrow(
+        'commitSpecs is immutable after feature creation'
+      );
+    });
+
+    it('should allow update when commitSpecs is unchanged', async () => {
+      await repository.create(createTestFeature({ commitSpecs: true }));
+
+      const updated = createTestFeature({
+        commitSpecs: true,
+        lifecycle: SdlcLifecycle.Implementation,
+      });
+
+      await expect(repository.update(updated)).resolves.not.toThrow();
     });
   });
 

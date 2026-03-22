@@ -32,6 +32,7 @@ describe('FeatureAgentAnnotation', () => {
       // Original: featureId, repositoryPath, specDir, worktreePath, currentNode, error,
       //           approvalGates, messages, validationRetries, lastValidationTarget, lastValidationErrors
       // Merge:    prUrl, prNumber, commitHash, ciStatus, push, openPr
+      // Fork:     forkAndPr, commitSpecs
       // Approval: _approvalAction, _rejectionFeedback, _needsReexecution
       // CI fix:   ciFixAttempts, ciFixHistory, ciFixStatus
       expect(channelNames).toContain('prUrl');
@@ -40,6 +41,8 @@ describe('FeatureAgentAnnotation', () => {
       expect(channelNames).toContain('ciStatus');
       expect(channelNames).toContain('push');
       expect(channelNames).toContain('openPr');
+      expect(channelNames).toContain('forkAndPr');
+      expect(channelNames).toContain('commitSpecs');
       expect(channelNames).not.toContain('autoMerge');
       expect(channelNames).not.toContain('allowMerge');
       expect(channelNames).toContain('_approvalAction');
@@ -52,7 +55,7 @@ describe('FeatureAgentAnnotation', () => {
       expect(channelNames).toContain('evidence');
       expect(channelNames).toContain('evidenceRetries');
       expect(channelNames).toContain('resumeReason');
-      expect(channelNames.length).toBe(27);
+      expect(channelNames.length).toBe(29);
     });
   });
 

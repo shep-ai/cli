@@ -172,6 +172,8 @@ export class CreateFeatureUseCase {
       fast: input.fast ?? false,
       push: input.push ?? false,
       openPr: input.openPr ?? false,
+      forkAndPr: input.forkAndPr ?? false,
+      commitSpecs: input.commitSpecs ?? false,
       approvalGates: input.approvalGates ?? {
         allowPrd: false,
         allowPlan: false,
@@ -249,9 +251,24 @@ export class CreateFeatureUseCase {
     const worktreePath = this.worktreeService.getWorktreePath(effectiveRepoPath, branch);
     await this.worktreeService.create(effectiveRepoPath, branch, worktreePath, defaultBranch);
 
+    // Determine spec base path — use SHEP_HOME when commitSpecs is false
+    const commitSpecs = input.commitSpecs ?? true;
+    let specBasePath: string;
+    if (commitSpecs) {
+      specBasePath = worktreePath;
+    } else {
+      const { getShepHomeDir } = await import(
+        '@/infrastructure/services/filesystem/shep-directory.service.js'
+      );
+      const { join } = await import('node:path');
+      const { mkdir } = await import('node:fs/promises');
+      specBasePath = join(getShepHomeDir(), 'specs', feature.id);
+      await mkdir(specBasePath, { recursive: true, mode: 0o700 });
+    }
+
     // Initialize spec directory — full user input goes into spec.yaml as-is
     const { specDir } = await this.specInitializer.initialize(
-      worktreePath,
+      specBasePath,
       slug,
       featureNumber,
       input.userInput,

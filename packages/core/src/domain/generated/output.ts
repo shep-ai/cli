@@ -775,6 +775,7 @@ export enum SdlcLifecycle {
   Pending = 'Pending',
   Deleting = 'Deleting',
   Archived = 'Archived',
+  AwaitingUpstream = 'AwaitingUpstream',
 }
 
 /**
@@ -863,6 +864,18 @@ export type PullRequest = {
    * Whether the PR can be merged (false = merge conflicts)
    */
   mergeable?: boolean;
+  /**
+   * URL of the PR created on the upstream repo (fork-and-PR flow only)
+   */
+  upstreamPrUrl?: string;
+  /**
+   * PR number on the upstream repo
+   */
+  upstreamPrNumber?: number;
+  /**
+   * Status of the upstream PR (Open, Merged, Closed)
+   */
+  upstreamPrStatus?: PrStatus;
 };
 
 /**
@@ -963,6 +976,14 @@ export type Feature = SoftDeletableEntity & {
    * Create PR after implementation (default: false)
    */
   openPr: boolean;
+  /**
+   * Fork repo and create PR to upstream at merge time
+   */
+  forkAndPr: boolean;
+  /**
+   * Commit specs/evidences into the repo (defaults false when forkAndPr is enabled)
+   */
+  commitSpecs: boolean;
   /**
    * Approval gates configuration (embedded value object)
    */

@@ -40,6 +40,8 @@ import type { IToolInstallerService } from '../../application/ports/output/servi
 import { ToolInstallerServiceImpl } from '../services/tool-installer/tool-installer.service.js';
 import type { IGitPrService } from '../../application/ports/output/services/git-pr-service.interface.js';
 import { GitPrService } from '../services/git/git-pr.service.js';
+import { GitForkService } from '../services/git/git-fork.service.js';
+import type { IGitForkService } from '../../application/ports/output/services/git-fork-service.interface.js';
 import type { IIdeLauncherService } from '../../application/ports/output/services/ide-launcher-service.interface.js';
 import { JsonDrivenIdeLauncherService } from '../services/ide-launchers/json-driven-ide-launcher.service.js';
 import type { IDaemonService } from '../../application/ports/output/services/daemon-service.interface.js';
@@ -224,6 +226,7 @@ export async function initializeContainer(): Promise<typeof container> {
     ToolInstallerServiceImpl
   );
   container.registerSingleton<IGitPrService>('IGitPrService', GitPrService);
+  container.registerSingleton<IGitForkService>('IGitForkService', GitForkService);
   container.registerSingleton<IGitHubRepositoryService>(
     'IGitHubRepositoryService',
     GitHubRepositoryService
