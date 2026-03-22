@@ -11,10 +11,22 @@ import {
   RotateCcw,
   Play,
   Eye,
+  Archive,
+  ArchiveRestore,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
 import {
   featureNodeStateConfig,
@@ -76,6 +88,7 @@ export function FeatureNode({
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   return (
     <div className="animate-in fade-in group relative duration-300">
@@ -89,47 +102,127 @@ export function FeatureNode({
         />
       ) : null}
 
-      {/* Delete button — visible on hover, positioned to the left (hidden when deleting) */}
-      {data.onDelete && data.featureId && data.state !== 'deleting' ? (
-        <>
-          <div
-            className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    aria-label="Delete feature"
-                    data-testid="feature-node-delete-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setConfirmOpen(true);
-                    }}
-                    className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Delete feature</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+      {/* Action buttons — centered as a group to the left of the node */}
+      <div
+        className="absolute top-1/2 -left-10 flex -translate-y-1/2 flex-col items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {/* Archive button */}
+        {data.onArchive &&
+        data.featureId &&
+        data.state !== 'deleting' &&
+        data.state !== 'archived' ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label="Archive feature"
+                  data-testid="feature-node-archive-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setArchiveConfirmOpen(true);
+                  }}
+                  className="bg-card text-muted-foreground flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors hover:border-gray-500 hover:text-gray-600"
+                >
+                  <Archive className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Archive feature</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
 
-          <DeleteFeatureDialog
-            open={confirmOpen}
-            onOpenChange={setConfirmOpen}
-            onConfirm={(cleanup, cascadeDelete, closePr) => {
-              setConfirmOpen(false);
-              data.onDelete?.(data.featureId, cleanup, cascadeDelete, closePr);
-            }}
-            isDeleting={false}
-            featureName={data.name ?? 'this feature'}
-            featureId={data.featureId}
-            hasChildren={data.hasChildren}
-            hasOpenPr={!!data.pr && data.pr.status === 'Open'}
-          />
-        </>
+        {/* Delete button */}
+        {data.onDelete && data.featureId && data.state !== 'deleting' ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label="Delete feature"
+                  data-testid="feature-node-delete-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmOpen(true);
+                  }}
+                  className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Delete feature</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+
+        {/* Unarchive button */}
+        {data.onUnarchive && data.featureId && data.state === 'archived' ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label="Unarchive feature"
+                  data-testid="feature-node-unarchive-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    data.onUnarchive?.(data.featureId);
+                  }}
+                  className="bg-card text-muted-foreground hover:border-primary hover:text-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                >
+                  <ArchiveRestore className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Unarchive feature</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+      </div>
+
+      {/* Delete confirmation dialog */}
+      {data.onDelete && data.featureId && data.state !== 'deleting' ? (
+        <DeleteFeatureDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          onConfirm={(cleanup, cascadeDelete, closePr) => {
+            setConfirmOpen(false);
+            data.onDelete?.(data.featureId, cleanup, cascadeDelete, closePr);
+          }}
+          isDeleting={false}
+          featureName={data.name ?? 'this feature'}
+          featureId={data.featureId}
+          hasChildren={data.hasChildren}
+          hasOpenPr={!!data.pr && data.pr.status === 'Open'}
+        />
+      ) : null}
+
+      {/* Archive confirmation dialog */}
+      {data.onArchive &&
+      data.featureId &&
+      data.state !== 'deleting' &&
+      data.state !== 'archived' ? (
+        <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+          <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Archive feature?</AlertDialogTitle>
+              <AlertDialogDescription>
+                <strong>{data.name}</strong> will be hidden from the canvas. You can unarchive it
+                later to restore it.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setArchiveConfirmOpen(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setArchiveConfirmOpen(false);
+                  data.onArchive?.(data.featureId);
+                }}
+              >
+                Archive
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       ) : null}
 
       <div
@@ -139,7 +232,8 @@ export function FeatureNode({
           'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm dark:bg-neutral-800/80',
           data.state === 'action-required' && 'border-amber-300/60 dark:border-amber-700/40',
           selected && 'ring-primary ring-2',
-          data.state === 'deleting' && 'opacity-60'
+          data.state === 'deleting' && 'opacity-60',
+          data.state === 'archived' && 'opacity-50'
         )}
       >
         {/* Phase dot + label — absolute top-right corner (hidden during creation) */}

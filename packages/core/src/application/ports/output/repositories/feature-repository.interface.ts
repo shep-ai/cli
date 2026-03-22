@@ -19,6 +19,8 @@ export interface FeatureListFilters {
   lifecycle?: SdlcLifecycle;
   /** When true, include soft-deleted features in results. Default: false. */
   includeDeleted?: boolean;
+  /** When true, include archived features in results. Default: false. */
+  includeArchived?: boolean;
 }
 
 /**

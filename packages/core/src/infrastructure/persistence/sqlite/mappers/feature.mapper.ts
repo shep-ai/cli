@@ -58,6 +58,8 @@ export interface FeatureRow {
   pr_mergeable: number | null;
   // Feature dependency
   parent_id: string | null;
+  // Archive state
+  previous_lifecycle: string | null;
   // User attachments (JSON array)
   attachments: string;
   // Soft delete
@@ -111,6 +113,8 @@ export function toDatabase(feature: Feature): FeatureRow {
     pr_mergeable: feature.pr?.mergeable !== undefined ? (feature.pr.mergeable ? 1 : 0) : null,
     // Feature dependency
     parent_id: feature.parentId ?? null,
+    // Archive state
+    previous_lifecycle: feature.previousLifecycle ?? null,
     // User attachments
     attachments: JSON.stringify(
       (feature.attachments ?? []).map((a) => ({ ...a, size: Number(a.size) }))
@@ -175,6 +179,10 @@ export function fromDatabase(row: FeatureRow): Feature {
     }),
     // Feature dependency
     ...(row.parent_id != null && { parentId: row.parent_id }),
+    // Archive state
+    ...(row.previous_lifecycle != null && {
+      previousLifecycle: row.previous_lifecycle as SdlcLifecycle,
+    }),
     // User attachments
     attachments: JSON.parse(row.attachments ?? '[]'),
     // Soft delete

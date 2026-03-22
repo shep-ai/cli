@@ -9,8 +9,6 @@ import {
   FloatingActionButton,
   type FloatingActionButtonAction,
 } from '@/components/common/floating-action-button';
-import { ThemeToggle } from '@/components/common/theme-toggle';
-import { SoundToggle } from '@/components/common/sound-toggle';
 import { ReactFileManagerDialog } from '@/components/common/react-file-manager-dialog';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
 import { GitHubImportDialog } from '@/components/common/github-import-dialog';
@@ -161,13 +159,6 @@ function AppShellInner({ children }: AppShellProps) {
       />
       <SidebarInset>
         <div className="relative h-full">
-          <div
-            className="absolute top-3 right-3 z-50 flex gap-1"
-            data-test-id="canvas-actions-toolbar"
-          >
-            <SoundToggle />
-            <ThemeToggle />
-          </div>
           <main className="h-full">{children}</main>
           {isControlCenterRoute(pathname) && hasRepositories ? (
             <FloatingActionButton actions={fabActions} />

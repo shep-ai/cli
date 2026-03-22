@@ -144,4 +144,40 @@ describe('createLsCommand', () => {
     // They should be visually different
     expect(blockedStatus).not.toEqual(pendingStatus);
   });
+
+  it('should not pass includeArchived by default', async () => {
+    mockListExecute.mockResolvedValue([]);
+
+    const cmd = createLsCommand();
+    await cmd.parseAsync([], { from: 'user' });
+
+    // Called with no filters (or undefined)
+    expect(mockListExecute).toHaveBeenCalledWith(undefined);
+  });
+
+  it('should pass includeArchived: true when --show-archived is provided', async () => {
+    mockListExecute.mockResolvedValue([]);
+
+    const cmd = createLsCommand();
+    await cmd.parseAsync(['--show-archived'], { from: 'user' });
+
+    expect(mockListExecute).toHaveBeenCalledWith(
+      expect.objectContaining({ includeArchived: true })
+    );
+  });
+
+  it('should display Archived features with muted styling', async () => {
+    const archivedFeature = makeFeature({ lifecycle: 'Archived' });
+    mockListExecute.mockResolvedValue([archivedFeature]);
+
+    const cmd = createLsCommand();
+    await cmd.parseAsync(['--show-archived'], { from: 'user' });
+
+    expect(renderListViewMock).toHaveBeenCalledOnce();
+    const { rows } = renderListViewMock.mock.calls[0][0];
+    expect(rows).toHaveLength(1);
+    const statusCol = rows[0][2];
+    expect(statusCol).toContain('[muted:○]');
+    expect(statusCol).toContain('[muted:Archived]');
+  });
 });

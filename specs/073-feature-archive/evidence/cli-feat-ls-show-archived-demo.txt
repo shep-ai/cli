@@ -1,0 +1,65 @@
+=== feat ls --help (showing --show-archived flag) ===
+
+
+
+Usage: shep feat ls [options]
+
+List features
+
+Options:
+  -r, --repo <path>  Filter by repository path
+  --include-deleted  Include soft-deleted features
+  --show-archived    Include archived features
+  -h, --help         display help for command
+
+=== feat ls default (archived features hidden) ===
+
+
+
+
+  Features (16)
+
+  ID          Name                              Status                 Repo                  R P M ↑     Elapsed     Done        
+  527f4c50    Scheduled & On-Demand Workflo…    ⠋ evidence             cli                   □ □ □ ■     5h 30m      
+  91038372    Feature Archive and Visibilit…    ⠋ evidence             cli                   □ ■ □ ■     6h 10m      
+  c2c55300    Git Rebase and Fork Sync          ❯ Review Merge         cli                   □ □ □ ■     4d          
+  b91d9dce    Psytrance Show Intelligence B…    ❯ Review Merge         bitch-repo            □ □ □ ■     2d          
+  11cdbd72    Adopted Branch Agent Run Supp…    ❯ Review Merge         cli                   □ ■ □ ■     2h 18m      
+  43dd16b4    Coasts Containerized Dev Serv…    ❯ Review Merge         cli                   □ □ □ ■     3h 45m      
+  01dcbb44    Remote Repository Contributio…    ❯ Review Merge         cli                   □ □ □ ■     4h 48m      
+  91e3bd34    Add Project to Registry           ❯ Review Merge         awesome-coding-ai     □ □ □ ■     8m          
+  4a5fad7d    Migrate Shep Files to .shep D…    ❯ Review Merge         cli                   □ ■ □ ■     5h 8m       
+  4ed50136    Shep Doctor Self-Healing Comm…    ❯ Review Merge         cli                   □ □ □ ■     4h 48m      
+  fc09efe0    Agent-Based Local Dev Environ…    ✓ Completed            cli                   □ □ □ ■     3h 14m      4d ago
+  a6652dde    Hide CI Status Display            ✓ Completed            cli                   □ ■ □ ■     2h 45m      1d ago
+  d154136a    Feature Detail Drawer Panel       ✓ Completed            instagram             □ □ □ □     21m         1d ago
+  b44746c3    GitHub CLI Prerequisite Check…    ✓ Completed            cli                   □ □ □ ■     10m         1d ago
+  5344a259    Merge Diff Viewer with File T…    ○ Pending              cli                   □ ■ □ ■                 
+  f4aa5e4a    Github Remote Init                ○ Review               cli                   □ □ □ □                 
+
+
+=== feat ls --show-archived (includes archived features) ===
+
+
+
+
+  Features (16)
+
+  ID          Name                              Status                 Repo                  R P M ↑     Elapsed     Done        
+  527f4c50    Scheduled & On-Demand Workflo…    ⠋ evidence             cli                   □ □ □ ■     5h 30m      
+  91038372    Feature Archive and Visibilit…    ⠋ evidence             cli                   □ ■ □ ■     6h 11m      
+  c2c55300    Git Rebase and Fork Sync          ❯ Review Merge         cli                   □ □ □ ■     4d          
+  b91d9dce    Psytrance Show Intelligence B…    ❯ Review Merge         bitch-repo            □ □ □ ■     2d          
+  11cdbd72    Adopted Branch Agent Run Supp…    ❯ Review Merge         cli                   □ ■ □ ■     2h 18m      
+  43dd16b4    Coasts Containerized Dev Serv…    ❯ Review Merge         cli                   □ □ □ ■     3h 45m      
+  01dcbb44    Remote Repository Contributio…    ❯ Review Merge         cli                   □ □ □ ■     4h 48m      
+  91e3bd34    Add Project to Registry           ❯ Review Merge         awesome-coding-ai     □ □ □ ■     8m          
+  4a5fad7d    Migrate Shep Files to .shep D…    ❯ Review Merge         cli                   □ ■ □ ■     5h 8m       
+  4ed50136    Shep Doctor Self-Healing Comm…    ❯ Review Merge         cli                   □ □ □ ■     4h 48m      
+  fc09efe0    Agent-Based Local Dev Environ…    ✓ Completed            cli                   □ □ □ ■     3h 14m      4d ago
+  a6652dde    Hide CI Status Display            ✓ Completed            cli                   □ ■ □ ■     2h 45m      1d ago
+  d154136a    Feature Detail Drawer Panel       ✓ Completed            instagram             □ □ □ □     21m         1d ago
+  b44746c3    GitHub CLI Prerequisite Check…    ✓ Completed            cli                   □ □ □ ■     10m         1d ago
+  5344a259    Merge Diff Viewer with File T…    ○ Pending              cli                   □ ■ □ ■                 
+  f4aa5e4a    Github Remote Init                ○ Review               cli                   □ □ □ □                 
+

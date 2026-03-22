@@ -6,6 +6,7 @@ import {
   CircleX,
   Trash2,
   Clock,
+  Archive,
   type LucideIcon,
 } from 'lucide-react';
 import type { Node } from '@xyflow/react';
@@ -20,7 +21,8 @@ export type FeatureNodeState =
   | 'blocked'
   | 'pending'
   | 'error'
-  | 'deleting';
+  | 'deleting'
+  | 'archived';
 
 export type FeatureLifecyclePhase =
   | 'pending'
@@ -256,6 +258,8 @@ export interface FeatureNodeData {
   onRetry?: (featureId: string) => void;
   onStart?: (featureId: string) => void;
   onStop?: (featureId: string) => void;
+  onArchive?: (featureId: string) => void;
+  onUnarchive?: (featureId: string) => void;
   showHandles?: boolean;
 }
 
@@ -351,6 +355,16 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-gray-600',
     badgeBgClass: 'bg-gray-100',
     label: 'Deleting...',
+    showProgressBar: false,
+  },
+  archived: {
+    icon: Archive,
+    borderClass: 'border-l-gray-500',
+    labelClass: 'text-gray-500',
+    progressClass: 'bg-gray-500',
+    badgeClass: 'text-gray-600',
+    badgeBgClass: 'bg-gray-100',
+    label: 'Archived',
     showProgressBar: false,
   },
 };

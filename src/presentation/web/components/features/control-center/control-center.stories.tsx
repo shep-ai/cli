@@ -278,3 +278,77 @@ export const DagreLayout: Story = {
     initialEdges: dagreLayoutedEdges,
   },
 };
+
+// --- Archive toggle stories ---
+
+const archiveRepoNode: RepositoryNodeType = {
+  id: 'repo-archive',
+  type: 'repositoryNode',
+  position: { x: 50, y: 115 },
+  data: { name: 'shep-ai/cli' },
+};
+
+const archivedFeatureNodes: FeatureNodeType[] = [
+  {
+    id: 'feat-active',
+    type: 'featureNode',
+    position: { x: 400, y: 0 },
+    data: {
+      name: 'Auth Module',
+      description: 'OAuth2 authentication flow',
+      featureId: '#f1',
+      lifecycle: 'implementation',
+      state: 'running',
+      progress: 65,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
+    },
+  },
+  {
+    id: 'feat-done',
+    type: 'featureNode',
+    position: { x: 400, y: 230 },
+    data: {
+      name: 'Payment Gateway',
+      description: 'Stripe integration for subscriptions',
+      featureId: '#f2',
+      lifecycle: 'deploy',
+      state: 'done',
+      progress: 100,
+      runtime: '1h 42m',
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/payment-gateway',
+    },
+  },
+  {
+    id: 'feat-archived',
+    type: 'featureNode',
+    position: { x: 800, y: 115 },
+    data: {
+      name: 'Old Dashboard',
+      description: 'Previous iteration of the admin dashboard',
+      featureId: '#f3',
+      lifecycle: 'maintain',
+      state: 'archived',
+      progress: 100,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/old-dashboard',
+    },
+  },
+];
+
+/**
+ * Canvas with active and archived features.
+ * The archive toggle button appears in the top-right corner ("Show archived").
+ * Click the toggle to reveal the dimmed archived feature node.
+ */
+export const WithArchivedFeatures: Story = {
+  args: {
+    initialNodes: [archiveRepoNode, ...archivedFeatureNodes] as CanvasNodeType[],
+    initialEdges: [
+      { id: 'e-repo-active', source: 'repo-archive', target: 'feat-active', ...dashedEdge },
+      { id: 'e-repo-done', source: 'repo-archive', target: 'feat-done', ...dashedEdge },
+      { id: 'e-repo-archived', source: 'repo-archive', target: 'feat-archived', ...dashedEdge },
+    ] as Edge[],
+  },
+};

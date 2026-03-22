@@ -1,0 +1,54 @@
+=== feat --help (showing archive and unarchive commands registered) ===
+
+
+
+Usage: shep feat [options] [command]
+
+Manage features through the SDLC lifecycle
+
+Options:
+  -h, --help                   display help for command
+
+Commands:
+  new [options] <description>  Create a new feature
+  ls [options]                 List features
+  show <id>                    Show feature details
+  del [options] <id>           Delete a feature
+  resume <id>                  Resume a stopped or failed feature agent
+  start <id>                   Start a pending feature (spawn the agent)
+  review [id]                  Interactive review of a feature waiting for
+                               approval
+  approve [id]                 Approve a feature waiting for review
+  reject [options] [id]        Reject a feature waiting for review
+  logs [options] <id>          View feature agent logs
+  adopt [options] <branch>     Adopt an existing branch as a tracked feature
+  archive [options] <id>       Archive a feature to hide it from the canvas
+  unarchive <id>               Restore an archived feature to its previous state
+  help [command]               display help for command
+
+=== feat archive --help ===
+
+
+
+Usage: shep feat archive [options] <id>
+
+Archive a feature to hide it from the canvas
+
+Arguments:
+  id           Feature ID or prefix
+
+Options:
+  -f, --force  Skip confirmation prompt
+  -h, --help   display help for command
+
+=== Attempting to archive a non-existent feature ===
+
+
+
+✗ Failed to archive feature
+Error: Feature not found: "nonexistent"
+    at ShowFeatureUseCase.execute (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/packages/core/src/application/use-cases/features/show-feature.use-case.ts:28:13)
+    at async Command.<anonymous> (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/src/presentation/cli/commands/feat/archive.command.ts:36:25)
+    at async Command.parseAsync (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/node_modules/.pnpm/commander@14.0.3/node_modules/commander/lib/command.js:1122:5)
+    at async bootstrap (/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive/src/presentation/cli/index.ts:131:5)
+ ELIFECYCLE  Command failed with exit code 1.

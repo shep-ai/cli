@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
@@ -12,10 +12,12 @@ import {
   CANVAS_LAYOUT_DEFAULTS,
   type LayoutDirection,
 } from '@/lib/layout-with-dagre';
+import { archiveFeature } from '@/app/actions/archive-feature';
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { resumeFeature } from '@/app/actions/resume-feature';
 import { startFeature } from '@/app/actions/start-feature';
 import { stopFeature } from '@/app/actions/stop-feature';
+import { unarchiveFeature } from '@/app/actions/unarchive-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { getFeatureMetadata } from '@/app/actions/get-feature-metadata';
@@ -40,6 +42,7 @@ export interface ControlCenterState {
   handleConnect: (connection: Connection) => void;
   handleAddRepository: (path: string) => { wasEmpty: boolean; repoPath: string };
   handleLayout: (direction: LayoutDirection) => void;
+  handleArchiveFeature: (featureId: string) => void;
   handleDeleteFeature: (
     featureId: string,
     cleanup?: boolean,
@@ -49,12 +52,17 @@ export interface ControlCenterState {
   handleRetryFeature: (featureId: string) => void;
   handleStartFeature: (featureId: string) => void;
   handleStopFeature: (featureId: string) => void;
+  handleUnarchiveFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
   createFeatureNode: (
     sourceNodeId: string | null,
     dataOverride?: Partial<FeatureNodeData>,
     edgeType?: string
   ) => string;
+  /** Whether archived features are shown on the canvas. */
+  showArchived: boolean;
+  /** Toggle archived feature visibility. */
+  setShowArchived: (show: boolean) => void;
   /** Stable lookup: repositoryPath for a feature node. */
   getFeatureRepositoryPath: (featureNodeId: string) => string | undefined;
   /** Stable lookup: repository data by nodeId. */
@@ -77,6 +85,9 @@ export function useControlCenterState(
   const deleteSound = useSoundAction('delete');
   const createSound = useSoundAction('create');
 
+  // Archive toggle: persists during session, resets on page reload (FR-10)
+  const [showArchived, setShowArchived] = useState(false);
+
   const {
     nodes,
     edges,
@@ -95,7 +106,7 @@ export function useControlCenterState(
     beginMutation,
     endMutation,
     isMutating,
-  } = useGraphState(initialNodes, initialEdges);
+  } = useGraphState(initialNodes, initialEdges, showArchived);
 
   // Refs for stable access to latest nodes/edges without callback recreation
   const nodesRef = useRef(nodes);
@@ -395,6 +406,54 @@ export function useControlCenterState(
     [beginMutation, endMutation]
   );
 
+  const handleArchiveFeature = useCallback(
+    (featureId: string) => {
+      const nodeId = `feat-${featureId}`;
+      beginMutation();
+      updateFeature(nodeId, { state: 'archived' });
+
+      archiveFeature(featureId)
+        .then((result) => {
+          if (result.error) {
+            updateFeature(nodeId, { state: 'done' });
+            toast.error(result.error);
+          } else {
+            toast.success('Feature archived');
+          }
+        })
+        .catch(() => {
+          updateFeature(nodeId, { state: 'done' });
+          toast.error('Failed to archive feature');
+        })
+        .finally(() => endMutation());
+    },
+    [updateFeature, beginMutation, endMutation]
+  );
+
+  const handleUnarchiveFeature = useCallback(
+    (featureId: string) => {
+      const nodeId = `feat-${featureId}`;
+      beginMutation();
+      updateFeature(nodeId, { state: 'done' });
+
+      unarchiveFeature(featureId)
+        .then((result) => {
+          if (result.error) {
+            updateFeature(nodeId, { state: 'archived' });
+            toast.error(result.error);
+          } else {
+            toast.success('Feature unarchived');
+          }
+        })
+        .catch(() => {
+          updateFeature(nodeId, { state: 'archived' });
+          toast.error('Failed to unarchive feature');
+        })
+        .finally(() => endMutation());
+    },
+    [updateFeature, beginMutation, endMutation]
+  );
+
   const handleDeleteFeature = useCallback(
     (featureId: string, cleanup?: boolean, cascadeDelete?: boolean, closePr?: boolean) => {
       const nodeId = `feat-${featureId}`;
@@ -597,13 +656,17 @@ export function useControlCenterState(
     onNodesChange,
     handleConnect,
     handleAddRepository,
+    handleArchiveFeature,
     handleLayout,
     handleDeleteFeature,
     handleRetryFeature,
     handleStartFeature,
     handleStopFeature,
+    handleUnarchiveFeature,
     handleDeleteRepository,
     createFeatureNode,
+    showArchived,
+    setShowArchived,
     getFeatureRepositoryPath,
     getRepositoryData,
     setCallbacks,

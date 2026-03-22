@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive
+
+ ✓  node  tests/unit/application/use-cases/features/unarchive-feature.use-case.test.ts (11 tests) 5ms
+ ✓  node  tests/unit/application/use-cases/features/archive-feature.use-case.test.ts (16 tests) 8ms
+
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+   Start at  01:14:44
+   Duration  141ms (transform 80ms, setup 0ms, import 134ms, tests 13ms, environment 0ms)
+

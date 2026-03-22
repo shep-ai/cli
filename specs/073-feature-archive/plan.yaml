@@ -1,0 +1,197 @@
+name: "feature-archive"
+summary: >
+  Implementation plan for feature archiving. The approach adds Archived as a new SdlcLifecycle
+  enum value with a previousLifecycle field for state restoration on unarchive. Filtering follows
+  the existing includeDeleted pattern via a SQL WHERE clause. Two focused use cases
+  (ArchiveFeatureUseCase, UnarchiveFeatureUseCase) handle business validation. The web UI uses
+  client-side filtering for instant toggle response, and the CLI adds dedicated archive/unarchive
+  subcommands. All changes are additive and follow established codebase patterns — no new
+  libraries required.
+
+relatedFeatures: []
+
+technologies:
+  - "TypeSpec (SdlcLifecycle enum, Feature model)"
+  - "SQLite / better-sqlite3 (persistence, migrations via umzug)"
+  - "tsyringe (DI container for use case registration)"
+  - "React Flow / @xyflow/react (canvas rendering, toolbar prop)"
+  - "Next.js server actions (archive/unarchive mutations)"
+  - "Commander.js (CLI feat archive/unarchive subcommands)"
+  - "lucide-react (Archive, ArchiveRestore icons)"
+  - "Storybook (component stories)"
+  - "sonner (toast notifications)"
+
+relatedLinks:
+  - title: "GitHub Issue #435 - Add archive option for features"
+    url: "https://github.com/shep-ai/cli/issues/435"
+
+phases:
+  - id: "phase-1"
+    name: "Domain & Infrastructure Foundation"
+    description: >
+      Establishes the domain model changes (TypeSpec enum + field), database migration, mapper
+      updates, and repository filtering. This phase comes first because every subsequent layer
+      (use cases, CLI, web UI) depends on the Archived lifecycle state existing in the generated
+      types and the database schema supporting previousLifecycle storage.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Application Layer — Use Cases & DI"
+    description: >
+      Creates ArchiveFeatureUseCase and UnarchiveFeatureUseCase with full business validation
+      (state eligibility, active children check, previousLifecycle restoration). Registers both
+      in the DI container with singleton + string-token aliases. This phase depends on Phase 1
+      for the domain types and repository interface changes.
+    parallel: false
+
+  - id: "phase-3"
+    name: "CLI Commands"
+    description: >
+      Adds feat archive, feat unarchive subcommands and --show-archived flag to feat ls.
+      Follows the existing Commander.js pattern (del.command.ts, start.command.ts). Depends on
+      Phase 2 use cases being available in the DI container.
+    parallel: false
+
+  - id: "phase-4"
+    name: "Web UI — Server Actions & State Management"
+    description: >
+      Creates archive-feature and unarchive-feature server actions, updates use-control-center-state
+      with archive/unarchive handlers and showArchived toggle state, and wires the toggle through
+      use-graph-state to deriveGraph for client-side filtering. Depends on Phase 2 for use cases
+      and Phase 1 for domain types.
+    parallel: false
+
+  - id: "phase-5"
+    name: "Web UI — Visual Components & Canvas Integration"
+    description: >
+      Adds the archived FeatureNodeState config (icon, muted styling, badge), updates
+      derive-feature-state to map SdlcLifecycle.Archived, adds archive/unarchive action buttons
+      to the feature node, and integrates the toolbar toggle into FeaturesCanvas. Also updates
+      the SSE LIFECYCLE_TO_NODE mapping. Depends on Phase 4 for state management and callbacks.
+    parallel: false
+
+  - id: "phase-6"
+    name: "Storybook Stories & Integration Polish"
+    description: >
+      Creates colocated Storybook stories for all new/modified UI components (archived node state,
+      toolbar toggle, archive/unarchive buttons). Verifies end-to-end behavior across all layers.
+      This phase is last because it exercises the complete feature stack.
+    parallel: false
+
+filesToCreate:
+  - "packages/core/src/infrastructure/persistence/sqlite/migrations/044-add-previous-lifecycle.ts"
+  - "packages/core/src/application/use-cases/features/archive-feature.use-case.ts"
+  - "packages/core/src/application/use-cases/features/unarchive-feature.use-case.ts"
+  - "src/presentation/cli/commands/feat/archive.command.ts"
+  - "src/presentation/cli/commands/feat/unarchive.command.ts"
+  - "src/presentation/web/app/actions/archive-feature.ts"
+  - "src/presentation/web/app/actions/unarchive-feature.ts"
+  - "packages/core/src/application/use-cases/features/__tests__/archive-feature.use-case.test.ts"
+  - "packages/core/src/application/use-cases/features/__tests__/unarchive-feature.use-case.test.ts"
+
+filesToModify:
+  - "tsp/common/enums/lifecycle.tsp"
+  - "tsp/domain/entities/feature.tsp"
+  - "packages/core/src/domain/generated/output.ts"
+  - "packages/core/src/application/ports/output/repositories/feature-repository.interface.ts"
+  - "packages/core/src/infrastructure/repositories/sqlite-feature.repository.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts"
+  - "packages/core/src/infrastructure/di/container.ts"
+  - "packages/core/src/domain/lifecycle-gates.ts"
+  - "src/presentation/cli/commands/feat/index.ts"
+  - "src/presentation/cli/commands/feat/ls.command.ts"
+  - "src/presentation/web/components/common/feature-node/feature-node-state-config.ts"
+  - "src/presentation/web/components/common/feature-node/derive-feature-state.ts"
+  - "src/presentation/web/lib/derive-graph.ts"
+  - "src/presentation/web/app/api/agent-events/route.ts"
+  - "src/presentation/web/components/features/control-center/use-control-center-state.ts"
+  - "src/presentation/web/hooks/use-graph-state.ts"
+  - "src/presentation/web/app/(dashboard)/get-graph-data.ts"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The feature archive capability fits cleanly into the existing Clean Architecture layers:
+
+  **Domain Layer**: A new `Archived` value joins the `SdlcLifecycle` enum alongside existing
+  special states (`Blocked`, `Pending`, `Deleting`). A new optional `previousLifecycle` field
+  on the Feature entity stores the pre-archive state for restoration — following the same
+  pattern as `specPath`, `worktreePath`, and `parentId` (optional fields that only apply in
+  certain lifecycle states).
+
+  **Application Layer**: Two focused use cases — `ArchiveFeatureUseCase` and
+  `UnarchiveFeatureUseCase` — follow the established pattern of `DeleteFeatureUseCase` and
+  `StartFeatureUseCase`: constructor injection via `@inject('IFeatureRepository')`, ID
+  resolution via `findById ?? findByIdPrefix`, and throwing `Error` on validation failure.
+
+  **Infrastructure Layer**: The `SQLiteFeatureRepository.list()` method already builds dynamic
+  WHERE clauses from `FeatureListFilters`. Adding `includeArchived?: boolean` follows the
+  identical `includeDeleted` pattern: when false (default), append `lifecycle != ?` with
+  `'Archived'` as the param. A migration adds the `previous_lifecycle` TEXT column, and the
+  feature mapper gains the corresponding field mapping.
+
+  **Presentation — CLI**: Dedicated `feat archive <id>` and `feat unarchive <id>` subcommands
+  follow the Commander.js pattern of `del.command.ts` and `start.command.ts`. The `feat ls`
+  command gains a `--show-archived` flag mirroring the existing `--include-deleted` concept.
+
+  **Presentation — Web**: Server actions follow the `delete-feature.ts` pattern. The canvas
+  toggle uses React `useState` in `use-control-center-state` (session-only persistence per
+  FR-10). `get-graph-data.ts` always fetches with `includeArchived: true` so the client has
+  full data for instant toggle response (NFR-3). `deriveGraph` filters archived features
+  before building nodes when the toggle is off.
+
+  ## Key Design Decisions
+
+  ### 1. Lifecycle State vs Soft-Delete (Research Decision #1)
+  Archive uses a new `Archived` lifecycle enum value — NOT the soft-delete mechanism. This
+  preserves the semantic distinction: archived features have `deletedAt = null` and remain
+  fully queryable when the filter is disabled (NFR-5). Overloading `deletedAt` would conflate
+  "hidden but preserved" with "actually deleted."
+
+  ### 2. Previous Lifecycle Restoration (Research Decision #2)
+  The `previousLifecycle` optional field on Feature is a simple, type-safe approach using the
+  existing TypeSpec pattern of optional fields. One nullable TEXT column in SQLite. The
+  alternative (metadata table or JSON blob) adds unnecessary complexity for a single scalar.
+
+  ### 3. Separate Use Cases (Research Decision #4)
+  Archive and unarchive have different validation rules: archive checks state eligibility +
+  active children; unarchive only checks Archived state + previousLifecycle presence. Keeping
+  them separate follows the single-responsibility pattern of existing use cases.
+
+  ### 4. Client-Side Toggle Filtering (Research Decision #5)
+  The server always returns all features (including archived). The client filters before
+  calling `deriveGraph()`. This ensures instant toggle response (NFR-3) without server
+  round-trips. The tradeoff is slightly more data transfer, but archived features are
+  lightweight (no active agent runs).
+
+  ### 5. Lifecycle Gates Exclusion
+  `Archived` is NOT added to `POST_IMPLEMENTATION` in lifecycle-gates.ts. An archived parent
+  should not unblock child features — archiving is about hiding, not completing.
+
+  ## Implementation Strategy
+
+  The phases follow strict dependency order — each layer depends on the one below it.
+  Domain/infrastructure first (types must exist), then application (use cases need types +
+  repository), then presentation (CLI/web need use cases).
+
+  Within presentation, CLI comes before web because CLI commands are simpler (no state
+  management) and provide a fast verification that the use cases work correctly. Web UI
+  comes last because it has the most moving parts (state management, canvas integration,
+  SSE events).
+
+  Storybook stories are grouped in a final phase because they exercise the complete component
+  stack and serve as visual verification of all archived states.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compilation breaks existing generated types | Run `pnpm tsp:compile` immediately after editing .tsp files; verify output.ts diff is additive only (new enum value + new optional field) |
+  | Archived features leak into existing queries (feat ls, canvas, SSE) | Default `includeArchived: false` in FeatureListFilters; explicit WHERE clause exclusion. Unit test that list() excludes Archived by default |
+  | Unarchive with null previousLifecycle | UnarchiveFeatureUseCase validates previousLifecycle is non-null before proceeding. Unit test for this edge case |
+  | Child features orphaned when parent archived | ArchiveFeatureUseCase checks findByParentId for active children; rejects with descriptive error. Unit test for this guard |
+  | SSE LIFECYCLE_TO_NODE TypeScript error for missing Archived key | Record<SdlcLifecycle, string> is exhaustive — add Archived mapping immediately after TypeSpec regeneration |
+  | Feature node state config incomplete | FeatureNodeState union type enforces exhaustive config — TypeScript will error if archived config is missing |
+  | Toggle state persists across page reloads | Use React useState (not localStorage); state naturally resets on component unmount per FR-10 |

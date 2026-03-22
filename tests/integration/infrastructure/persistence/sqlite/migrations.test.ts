@@ -876,6 +876,41 @@ describe('SQLite Migrations', () => {
     });
   });
 
+  describe('migration 044: previous_lifecycle on features', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add previous_lifecycle column to features table', () => {
+      const schema = getTableSchema(db, 'features');
+      const col = schema.find((c) => c.name === 'previous_lifecycle');
+
+      expect(col).toBeDefined();
+      expect(col?.type).toBe('TEXT');
+      expect(col?.notnull).toBe(0); // nullable
+    });
+
+    it('should default previous_lifecycle to NULL for existing rows', () => {
+      const now = Date.now();
+      db.prepare(
+        `INSERT INTO features (id, name, slug, description, user_query, repository_path, branch, lifecycle, messages, related_artifacts, created_at, updated_at)
+         VALUES ('f-test', 'test', 'test', 'desc', '', '/repo', 'main', 'Maintain', '[]', '[]', ?, ?)`
+      ).run(now, now);
+
+      const row = db
+        .prepare('SELECT previous_lifecycle FROM features WHERE id = ?')
+        .get('f-test') as {
+        previous_lifecycle: string | null;
+      };
+      expect(row.previous_lifecycle).toBeNull();
+    });
+
+    it('should be idempotent (running twice does not error)', async () => {
+      clearMigrationsAfter(db, '043');
+      await expect(runSQLiteMigrations(db)).resolves.not.toThrow();
+    });
+  });
+
   describe('umzug migration tracking', () => {
     let expectedCount: number;
 

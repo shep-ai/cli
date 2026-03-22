@@ -139,7 +139,12 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
   const listRepos = resolve<ListRepositoriesUseCase>('ListRepositoriesUseCase');
   const agentRunRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
 
-  const [features, repositories] = await Promise.all([listFeatures.execute(), listRepos.execute()]);
+  // Always include archived features so the client has full data for instant
+  // show/hide toggle without a server round-trip (NFR-3).
+  const [features, repositories] = await Promise.all([
+    listFeatures.execute({ includeArchived: true }),
+    listRepos.execute(),
+  ]);
 
   // Read git info from cache (zero git calls). Stale entries trigger
   // a fire-and-forget background refresh for the next poll cycle.

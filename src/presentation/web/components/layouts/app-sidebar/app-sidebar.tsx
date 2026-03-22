@@ -1,13 +1,17 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, Puzzle, Settings } from 'lucide-react';
+import Link from 'next/link';
+import type { Route } from 'next';
+import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
+  SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
+  SidebarMenuButton,
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
@@ -18,10 +22,14 @@ import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-togg
 import { ShepLogo } from '@/components/common/shep-logo';
 import { VersionBadge } from '@/components/common/version-badge';
 import { FeatureListItem } from '@/components/common/feature-list-item';
+import { useSoundEnabled } from '@/hooks/use-sound-enabled';
+import { useTheme } from '@/hooks/useTheme';
+import { useSoundAction } from '@/hooks/use-sound-action';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
 import { SidebarSectionHeader } from '@/components/common/sidebar-section-header';
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeferredMount } from '@/hooks/use-deferred-mount';
 import { useVersion } from '@/hooks/use-version';
 import type { FeatureFlagsState } from '@/lib/feature-flags';
@@ -54,6 +62,11 @@ export function AppSidebar({
   const collapsed = state === 'collapsed';
   const { mounted: showExpanded, visible: expandedVisible } = useDeferredMount(collapsed, 200);
   const versionData = useVersion();
+  const { enabled: soundEnabled, toggle: toggleSound } = useSoundEnabled();
+  const { resolvedTheme, theme, setTheme } = useTheme();
+  const toggleOnSound = useSoundAction('toggle-on');
+  const toggleOffSound = useSoundAction('toggle-off');
+  const clickSound = useSoundAction('navigate');
 
   const grouped = featureStatusOrder.map((key) => {
     const { label } = featureStatusConfig[key];
@@ -112,12 +125,6 @@ export function AppSidebar({
               active={pathname === '/skills'}
             />
           ) : null}
-          <SidebarNavItem
-            icon={Settings}
-            label="Settings"
-            href="/settings"
-            active={pathname === '/settings'}
-          />
         </SidebarMenu>
       </SidebarHeader>
 
@@ -125,13 +132,13 @@ export function AppSidebar({
         {showExpanded ? (
           <div
             className={[
-              'min-w-0 overflow-hidden transition-opacity duration-200 ease-out',
+              'flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity duration-200 ease-out',
               '[&_[data-sidebar=group-label]]:!mt-0 [&_[data-sidebar=group-label]]:!opacity-100 [&_[data-sidebar=group-label]]:!transition-none',
               expandedVisible ? 'opacity-100' : 'opacity-0',
             ].join(' ')}
           >
             <SidebarSectionHeader label="Features" />
-            <ScrollArea>
+            <ScrollArea className="min-h-0 flex-1">
               {grouped.map(({ key, label, items }) =>
                 items.length > 0 ? (
                   <FeatureStatusGroup key={key} label={label} count={items.length}>
@@ -156,6 +163,100 @@ export function AppSidebar({
           </div>
         ) : null}
       </SidebarContent>
+
+      <SidebarFooter className="border-t p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="flex items-center gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SidebarMenuButton asChild tooltip="Settings" className="w-auto flex-none">
+                      <Link href={'/settings' as Route} onClick={() => clickSound.play()}>
+                        <Settings className="h-4 w-4" />
+                      </Link>
+                    </SidebarMenuButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" hidden={collapsed}>
+                    Settings
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {!collapsed && <div className="flex-1" />}
+              {!collapsed && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton
+                        className="w-auto flex-none"
+                        onClick={() => {
+                          clickSound.play();
+                          toggleSound();
+                        }}
+                        aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+                      >
+                        {soundEnabled ? (
+                          <Volume2 className="h-4 w-4" />
+                        ) : (
+                          <VolumeOff className="h-4 w-4" />
+                        )}
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton
+                        className="w-auto flex-none"
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                          const currentResolved = theme === 'system' ? resolvedTheme : theme;
+                          const goingToDark = currentResolved !== 'dark';
+                          const newTheme =
+                            theme === 'system'
+                              ? resolvedTheme === 'dark'
+                                ? 'light'
+                                : 'dark'
+                              : theme === 'dark'
+                                ? 'light'
+                                : 'dark';
+                          if (goingToDark) {
+                            toggleOnSound.play();
+                          } else {
+                            toggleOffSound.play();
+                          }
+                          const prefersReducedMotion =
+                            typeof window !== 'undefined' &&
+                            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                          if (!('startViewTransition' in document) || prefersReducedMotion) {
+                            setTheme(newTheme);
+                            return;
+                          }
+                          document.documentElement.style.setProperty('--x', `${e.clientX}px`);
+                          document.documentElement.style.setProperty('--y', `${e.clientY}px`);
+                          (
+                            document as unknown as { startViewTransition: (cb: () => void) => void }
+                          ).startViewTransition(() => {
+                            setTheme(newTheme);
+                          });
+                        }}
+                        aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+                      >
+                        <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+                        <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>

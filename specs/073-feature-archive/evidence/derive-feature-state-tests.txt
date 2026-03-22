@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-archive
+
+ ✓  web  tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts (47 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  47 passed (47)
+   Start at  01:49:00
+   Duration  628ms (transform 50ms, setup 125ms, import 33ms, tests 3ms, environment 406ms)
+

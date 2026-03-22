@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { expect, fn, waitFor } from '@storybook/test';
+import { expect, fn, userEvent, waitFor, within } from '@storybook/test';
 import { ReactFlowProvider, ReactFlow, useNodesState } from '@xyflow/react';
 import { DeploymentState, PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { FeatureNode } from './feature-node';
@@ -252,6 +252,16 @@ const allStatesData: FeatureNodeData[] = [
     worktreePath: '/home/user/.shep/repos/abc123/wt/feat-legacy-api-cleanup',
     agentType: 'claude-code' as AgentTypeValue,
     hasAgentRun: true,
+  },
+  {
+    name: 'Old Dashboard',
+    description: 'Previous iteration of the admin dashboard',
+    featureId: '#f8',
+    lifecycle: 'maintain' as FeatureLifecyclePhase,
+    state: 'archived',
+    progress: 100,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/old-dashboard',
   },
 ];
 
@@ -697,4 +707,72 @@ export const PendingWithStart: Story = {
     onStart: fn(),
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const Archived: Story = {
+  args: {
+    name: 'Old Dashboard',
+    description: 'Previous iteration of the admin dashboard',
+    featureId: '#a1',
+    lifecycle: 'maintain',
+    state: 'archived',
+    progress: 100,
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const ArchivedWithUnarchive: Story = {
+  args: {
+    name: 'Old Dashboard',
+    description: 'Previous iteration of the admin dashboard',
+    featureId: '#a2',
+    lifecycle: 'maintain',
+    state: 'archived',
+    progress: 100,
+    onUnarchive: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const DoneWithArchive: Story = {
+  args: {
+    name: 'Completed Feature',
+    description: 'A feature ready to be archived',
+    featureId: '#ar1',
+    lifecycle: 'maintain',
+    state: 'done',
+    progress: 100,
+    runtime: '2h 30m',
+    onArchive: fn(),
+    onDelete: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+/** Shows the archive confirmation dialog in its open state. */
+export const ArchiveConfirmationDialog: Story = {
+  args: {
+    name: 'Payment Gateway',
+    description: 'Stripe integration for subscriptions',
+    featureId: '#cd1',
+    lifecycle: 'maintain',
+    state: 'done',
+    progress: 100,
+    runtime: '1h 42m',
+    onArchive: fn(),
+  },
+  render: (args) => <FeatureNodeCanvas data={args} style={{ width: 600, height: 500 }} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Hover over the node to reveal the archive button
+    const card = await waitFor(() => canvas.getByTestId('feature-node-card'));
+    await userEvent.hover(card);
+    // Click the archive button to open the confirmation dialog
+    const archiveButton = await waitFor(() => canvas.getByTestId('feature-node-archive-button'));
+    await userEvent.click(archiveButton);
+    // Verify the dialog is open
+    await waitFor(() => {
+      expect(document.querySelector('[role="alertdialog"]')).toBeTruthy();
+    });
+  },
 };

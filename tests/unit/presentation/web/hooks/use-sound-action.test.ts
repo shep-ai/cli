@@ -76,8 +76,8 @@ describe('useSoundAction', () => {
     ['toggle-off', 'toggle_off', 0.3],
     ['click', 'tap_01', 0.3],
     ['cancel', 'transition_down', 0.3],
-    ['expand', 'swipe', 0.3],
-    ['collapse', 'swipe', 0.3],
+    ['expand', 'tap_01', 0.2],
+    ['collapse', 'tap_01', 0.2],
     ['menu-open', 'select', 0.3],
     ['copy', 'select', 0.3],
     // Drawers & transitions (0.4)

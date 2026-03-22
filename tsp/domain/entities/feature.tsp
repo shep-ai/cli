@@ -404,6 +404,11 @@ model Feature extends SoftDeletableEntity {
   @doc("Parent feature ID for dependency tracking (optional)")
   parentId?: UUID;
 
+  // ── Archive State ──────────────────────────────────────────
+
+  @doc("Lifecycle state prior to archiving, used to restore on unarchive (only set when lifecycle is Archived)")
+  previousLifecycle?: SdlcLifecycle;
+
   // ── User Attachments ─────────────────────────────────────
 
   @doc("Files attached by the user when creating or messaging this feature")
