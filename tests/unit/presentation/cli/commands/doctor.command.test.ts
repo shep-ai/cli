@@ -140,6 +140,12 @@ describe('Doctor Command', () => {
       const opt = cmd.options.find((o) => o.long === '--workdir');
       expect(opt).toBeDefined();
     });
+
+    it('should have --feature-id option', () => {
+      const cmd = createDoctorCommand();
+      const opt = cmd.options.find((o) => o.long === '--feature-id');
+      expect(opt).toBeDefined();
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -292,6 +298,30 @@ describe('Doctor Command', () => {
 
       expect(mockUseCaseExecute).toHaveBeenCalledWith(
         expect.objectContaining({ workdir: undefined })
+      );
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Feature ID option
+  // -----------------------------------------------------------------------
+
+  describe('feature-id option', () => {
+    it('should pass featureId to use case when specified', async () => {
+      const cmd = createDoctorCommand();
+      await cmd.parseAsync(['node', 'test', 'problem', '--no-fix', '--feature-id', 'abc-123']);
+
+      expect(mockUseCaseExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ featureId: 'abc-123' })
+      );
+    });
+
+    it('should pass undefined featureId when not specified', async () => {
+      const cmd = createDoctorCommand();
+      await cmd.parseAsync(['node', 'test', 'problem', '--no-fix']);
+
+      expect(mockUseCaseExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ featureId: undefined })
       );
     });
   });

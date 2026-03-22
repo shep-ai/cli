@@ -23,6 +23,7 @@ import type { IGitHubRepositoryService } from '@/application/ports/output/servic
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service.js';
 import {
   GitHubIssueError,
@@ -178,6 +179,21 @@ function createMockExecFunction(): ExecFunction {
   return vi.fn().mockResolvedValue({ stdout: 'gh version 2.50.0\n', stderr: '' });
 }
 
+function createMockFeatureRepo(): IFeatureRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn().mockResolvedValue(null),
+    findByIdPrefix: vi.fn().mockResolvedValue(null),
+    findBySlug: vi.fn().mockResolvedValue(null),
+    findByBranch: vi.fn().mockResolvedValue(null),
+    list: vi.fn().mockResolvedValue([]),
+    update: vi.fn(),
+    findByParentId: vi.fn().mockResolvedValue([]),
+    delete: vi.fn(),
+    softDelete: vi.fn(),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Helper to build the use case with all mocks
 // ---------------------------------------------------------------------------
@@ -191,6 +207,7 @@ interface MockSet {
   agentExecutorProvider: IAgentExecutorProvider;
   agentExecutor: IAgentExecutor;
   execFunction: ExecFunction;
+  featureRepo: IFeatureRepository;
 }
 
 function buildUseCase(mocks: MockSet): DoctorDiagnoseUseCase {
@@ -201,7 +218,8 @@ function buildUseCase(mocks: MockSet): DoctorDiagnoseUseCase {
     mocks.repoService,
     mocks.prService,
     mocks.agentExecutorProvider,
-    mocks.execFunction
+    mocks.execFunction,
+    mocks.featureRepo
   );
 }
 
@@ -241,6 +259,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       useCase = buildUseCase(mocks);
     });
@@ -374,6 +393,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       useCase = buildUseCase(mocks);
     });
@@ -446,6 +466,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       useCase = buildUseCase(mocks);
     });
@@ -517,6 +538,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -554,6 +576,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -589,6 +612,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -638,6 +662,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -665,6 +690,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -690,6 +716,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -713,6 +740,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -738,6 +766,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -768,6 +797,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -816,6 +846,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -856,6 +887,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction,
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -889,6 +921,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -911,6 +944,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutorProvider: provider,
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
+        featureRepo: createMockFeatureRepo(),
       };
       const useCase = buildUseCase(mocks);
 

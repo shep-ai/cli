@@ -25,6 +25,7 @@ import type { IGitHubRepositoryService } from '@/application/ports/output/servic
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service.js';
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,19 @@ function createMocks() {
     .fn()
     .mockResolvedValue({ stdout: 'gh version 2.40.0\n', stderr: '' });
 
+  const featureRepo: IFeatureRepository = {
+    create: vi.fn(),
+    findById: vi.fn().mockResolvedValue(null),
+    findByIdPrefix: vi.fn().mockResolvedValue(null),
+    findBySlug: vi.fn().mockResolvedValue(null),
+    findByBranch: vi.fn().mockResolvedValue(null),
+    list: vi.fn().mockResolvedValue([]),
+    update: vi.fn(),
+    findByParentId: vi.fn().mockResolvedValue([]),
+    delete: vi.fn(),
+    softDelete: vi.fn(),
+  };
+
   return {
     agentRunRepo,
     versionService,
@@ -146,6 +160,7 @@ function createMocks() {
     agentExecutorProvider,
     execFunction,
     mockExecutor,
+    featureRepo,
   };
 }
 
@@ -157,7 +172,8 @@ function createUseCase(mocks: ReturnType<typeof createMocks>) {
     mocks.repoService,
     mocks.prService,
     mocks.agentExecutorProvider,
-    mocks.execFunction
+    mocks.execFunction,
+    mocks.featureRepo
   );
 }
 
@@ -572,6 +588,103 @@ describe('DoctorDiagnoseUseCase', () => {
       expect(prArgs.body).toContain('#42');
       expect(prArgs.base).toBe('main');
       expect(prArgs.labels).toContain('shep-doctor');
+    });
+  });
+
+  describe('feature-specific diagnostics', () => {
+    it('should filter failed runs by featureId when provided', async () => {
+      const runs: AgentRun[] = [
+        createFailedRun('r1', { featureId: 'feat-abc' }),
+        createFailedRun('r2', { featureId: 'feat-xyz' }),
+        createFailedRun('r3', { featureId: 'feat-abc' }),
+      ];
+      vi.mocked(mocks.agentRunRepo.list).mockResolvedValue(runs);
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
+        id: 'feat-abc',
+        name: 'My Feature',
+      } as any);
+
+      const result = await useCase.execute({
+        description: 'feature broke',
+        fix: false,
+        featureId: 'feat-abc',
+      });
+
+      expect(result.diagnosticReport.failedRunSummaries).toHaveLength(2);
+      expect(result.diagnosticReport.featureId).toBe('feat-abc');
+      expect(result.diagnosticReport.featureName).toBe('My Feature');
+    });
+
+    it('should resolve feature by ID prefix when findById returns null', async () => {
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue(null);
+      vi.mocked(mocks.featureRepo.findByIdPrefix).mockResolvedValue({
+        id: 'feat-abc-full-id',
+        name: 'Prefixed Feature',
+      } as any);
+
+      const failedRun = createFailedRun('r1', { featureId: 'feat-abc-full-id' });
+      vi.mocked(mocks.agentRunRepo.list).mockResolvedValue([failedRun]);
+
+      const result = await useCase.execute({
+        description: 'test',
+        fix: false,
+        featureId: 'feat-abc',
+      });
+
+      expect(mocks.featureRepo.findById).toHaveBeenCalledWith('feat-abc');
+      expect(mocks.featureRepo.findByIdPrefix).toHaveBeenCalledWith('feat-abc');
+      expect(result.diagnosticReport.featureId).toBe('feat-abc-full-id');
+      expect(result.diagnosticReport.featureName).toBe('Prefixed Feature');
+    });
+
+    it('should return all failed runs when featureId is not provided', async () => {
+      const runs: AgentRun[] = [
+        createFailedRun('r1', { featureId: 'feat-abc' }),
+        createFailedRun('r2', { featureId: 'feat-xyz' }),
+        createFailedRun('r3'),
+      ];
+      vi.mocked(mocks.agentRunRepo.list).mockResolvedValue(runs);
+
+      const result = await useCase.execute({
+        description: 'general issue',
+        fix: false,
+      });
+
+      expect(result.diagnosticReport.failedRunSummaries).toHaveLength(3);
+      expect(result.diagnosticReport.featureId).toBeUndefined();
+      expect(result.diagnosticReport.featureName).toBeUndefined();
+    });
+
+    it('should not set featureId in report when feature is not found', async () => {
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue(null);
+      vi.mocked(mocks.featureRepo.findByIdPrefix).mockResolvedValue(null);
+
+      const result = await useCase.execute({
+        description: 'test',
+        fix: false,
+        featureId: 'nonexistent',
+      });
+
+      expect(result.diagnosticReport.featureId).toBeUndefined();
+      expect(result.diagnosticReport.featureName).toBeUndefined();
+    });
+
+    it('should include feature context in issue body when featureId is provided', async () => {
+      vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
+        id: 'feat-123',
+        name: 'Auth Feature',
+      } as any);
+
+      await useCase.execute({
+        description: 'auth broke',
+        fix: false,
+        featureId: 'feat-123',
+      });
+
+      const bodyArg = vi.mocked(mocks.issueService.createIssue).mock.calls[0][2];
+      expect(bodyArg).toContain('Feature ID');
+      expect(bodyArg).toContain('feat-123');
+      expect(bodyArg).toContain('Auth Feature');
     });
   });
 });
