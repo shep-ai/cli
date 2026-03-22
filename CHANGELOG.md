@@ -1,3 +1,10 @@
+## [1.142.1](https://github.com/shep-ai/cli/compare/v1.142.0...v1.142.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* **web:** restore feature-specific session filtering by worktree path ([#453](https://github.com/shep-ai/cli/issues/453)) ([04d35b1](https://github.com/shep-ai/cli/commit/04d35b133d5b135b9af9c3f39221fd28fa73de70))
+
 # [1.142.0](https://github.com/shep-ai/cli/compare/v1.141.0...v1.142.0) (2026-03-22)
 
 
