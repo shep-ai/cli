@@ -36,7 +36,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         lifecycle, messages, plan, related_artifacts,
         agent_run_id, spec_path,
         fast,
-        push, open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
+        push, open_pr, fork_and_pr, commit_specs, auto_merge, allow_prd, allow_plan, allow_merge,
         pr_url, pr_number, pr_status, commit_hash, ci_status,
         ci_fix_attempts, ci_fix_history, pr_mergeable,
         parent_id, previous_lifecycle,
@@ -46,7 +46,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         @lifecycle, @messages, @plan, @related_artifacts,
         @agent_run_id, @spec_path,
         @fast,
-        @push, @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
+        @push, @open_pr, @fork_and_pr, @commit_specs, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
         @pr_url, @pr_number, @pr_status, @commit_hash, @ci_status,
         @ci_fix_attempts, @ci_fix_history, @pr_mergeable,
         @parent_id, @previous_lifecycle,
@@ -147,6 +147,11 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
   }
 
   async update(feature: Feature): Promise<void> {
+    const existing = await this.findById(feature.id);
+    if (existing !== null && existing.commitSpecs !== feature.commitSpecs) {
+      throw new Error('commitSpecs is immutable after feature creation');
+    }
+
     const row = toDatabase(feature);
 
     const stmt = this.db.prepare(`

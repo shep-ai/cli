@@ -324,6 +324,27 @@ describe('SQLiteFeatureRepository', () => {
       expect(found?.name).toBe('Updated Feature');
       expect(found?.description).toBe('Updated description');
     });
+
+    it('should throw when attempting to change commitSpecs after creation', async () => {
+      await repository.create(createTestFeature({ commitSpecs: true }));
+
+      const updated = createTestFeature({ commitSpecs: false });
+
+      await expect(repository.update(updated)).rejects.toThrow(
+        'commitSpecs is immutable after feature creation'
+      );
+    });
+
+    it('should allow update when commitSpecs is unchanged', async () => {
+      await repository.create(createTestFeature({ commitSpecs: true }));
+
+      const updated = createTestFeature({
+        commitSpecs: true,
+        lifecycle: SdlcLifecycle.Implementation,
+      });
+
+      await expect(repository.update(updated)).resolves.not.toThrow();
+    });
   });
 
   describe('delete()', () => {
