@@ -420,7 +420,7 @@ describe('FeatureNode', () => {
     it('applies ring classes when selected is true', () => {
       renderFeatureNode(undefined, { selected: true });
       const card = screen.getByTestId('feature-node-card');
-      expect(card.className).toContain('ring-2');
+      expect(card.className).toContain('ring-1');
       expect(card.className).toContain('ring-primary');
     });
 

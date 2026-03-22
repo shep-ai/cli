@@ -200,7 +200,7 @@ export function FeatureSessionsDropdown({
               </button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent side="bottom">
+          <TooltipContent side="top">
             {hasActiveSessions ? 'Sessions (active)' : 'Sessions'}
           </TooltipContent>
         </Tooltip>

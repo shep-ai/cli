@@ -89,6 +89,7 @@ export function FeatureNode({
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   return (
@@ -103,79 +104,82 @@ export function FeatureNode({
         />
       ) : null}
 
-      {/* Action buttons — centered as a group to the left of the node */}
+      {/* Action buttons — centered as a group to the left of the node.
+          Tooltip side convention: left-side buttons use side="left", right-side buttons use side="right". */}
       <div
-        className="absolute top-1/2 -left-10 flex -translate-y-1/2 flex-col items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100"
+        className="absolute top-0 bottom-0 -left-14 flex items-center justify-center pr-3 pl-4 opacity-0 transition-opacity group-hover:opacity-100"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {/* Archive button */}
-        {data.onArchive &&
-        data.featureId &&
-        data.state !== 'deleting' &&
-        data.state !== 'archived' ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  aria-label="Archive feature"
-                  data-testid="feature-node-archive-button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setArchiveConfirmOpen(true);
-                  }}
-                  className="bg-card text-muted-foreground flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors hover:border-gray-500 hover:text-gray-600"
-                >
-                  <Archive className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Archive feature</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+        <div className="flex flex-col items-center gap-2">
+          {/* Archive button */}
+          {data.onArchive &&
+          data.featureId &&
+          data.state !== 'deleting' &&
+          data.state !== 'archived' ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Archive feature"
+                    data-testid="feature-node-archive-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setArchiveConfirmOpen(true);
+                    }}
+                    className="bg-card text-muted-foreground flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors hover:border-gray-500 hover:text-gray-600"
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Archive feature</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
 
-        {/* Delete button */}
-        {data.onDelete && data.featureId && data.state !== 'deleting' ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  aria-label="Delete feature"
-                  data-testid="feature-node-delete-button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmOpen(true);
-                  }}
-                  className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Delete feature</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+          {/* Delete button */}
+          {data.onDelete && data.featureId && data.state !== 'deleting' ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Delete feature"
+                    data-testid="feature-node-delete-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmOpen(true);
+                    }}
+                    className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Delete feature</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
 
-        {/* Unarchive button */}
-        {data.onUnarchive && data.featureId && data.state === 'archived' ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  aria-label="Unarchive feature"
-                  data-testid="feature-node-unarchive-button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    data.onUnarchive?.(data.featureId);
-                  }}
-                  className="bg-card text-muted-foreground hover:border-primary hover:text-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
-                >
-                  <ArchiveRestore className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Unarchive feature</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+          {/* Unarchive button */}
+          {data.onUnarchive && data.featureId && data.state === 'archived' ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Unarchive feature"
+                    data-testid="feature-node-unarchive-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      data.onUnarchive?.(data.featureId);
+                    }}
+                    className="bg-card text-muted-foreground hover:border-primary hover:text-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                  >
+                    <ArchiveRestore className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Unarchive feature</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+        </div>
       </div>
 
       {/* Delete confirmation dialog */}
@@ -233,7 +237,10 @@ export function FeatureNode({
           'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm dark:bg-neutral-800/80',
           data.state === 'action-required' &&
             'border-l-[3px] border-l-rose-400 dark:border-l-amber-500',
-          selected && 'ring-primary ring-2',
+          data.state === 'action-required' &&
+            selected &&
+            'border-t-rose-400 border-r-rose-400 border-b-rose-400 dark:border-t-amber-500 dark:border-r-amber-500 dark:border-b-amber-500',
+          selected && data.state !== 'action-required' && 'ring-primary ring-1',
           data.state === 'deleting' && 'opacity-60',
           data.state === 'archived' && 'opacity-50'
         )}
@@ -259,10 +266,7 @@ export function FeatureNode({
                     />
                   </span>
                 </TooltipTrigger>
-                <TooltipContent
-                  side="bottom"
-                  className="max-w-56 bg-white text-neutral-900 shadow-lg dark:bg-neutral-100 dark:text-neutral-900 [&_svg]:!bg-white [&_svg]:!fill-white dark:[&_svg]:!bg-neutral-100 dark:[&_svg]:!fill-neutral-100"
-                >
+                <TooltipContent side="right" className="max-w-56">
                   <p className="font-semibold">{lifecyclePhaseBadge[data.lifecycle].tooltip}</p>
                   <p className="mt-1 text-xs leading-relaxed text-neutral-500">
                     {lifecyclePhaseBadge[data.lifecycle].description}
@@ -344,21 +348,31 @@ export function FeatureNode({
             {/* Left: Agent icons + ID */}
             <div className="flex items-center gap-1.5" style={{ transform: 'translateY(1px)' }}>
               {data.featureId ? (
-                <div className="flex items-baseline gap-1">
-                  <span className="text-muted-foreground/50 text-[10px]">ID</span>
-                  <button
-                    type="button"
-                    data-testid="feature-node-id"
-                    className="nodrag text-muted-foreground/60 hover:text-muted-foreground cursor-pointer font-mono text-[10px] transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(data.featureId);
-                    }}
-                    title={`Click to copy: ${data.featureId}`}
-                  >
-                    {data.featureId.slice(0, 6)}
-                  </button>
-                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        data-testid="feature-node-id"
+                        className="nodrag text-muted-foreground/60 hover:text-muted-foreground flex cursor-pointer items-baseline gap-1 font-mono text-[10px] transition-colors active:scale-95"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(data.featureId);
+                          setIdCopied(true);
+                          setTimeout(() => setIdCopied(false), 1500);
+                        }}
+                      >
+                        <span className="text-muted-foreground/50 font-sans text-[10px]">ID</span>
+                        {idCopied ? (
+                          <span className="text-emerald-500">Copied!</span>
+                        ) : (
+                          data.featureId.slice(0, 6)
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Click to copy: {data.featureId}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ) : null}
               {data.deployment ? (
                 <TooltipProvider>
@@ -395,7 +409,7 @@ export function FeatureNode({
                         )}
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top">
+                    <TooltipContent side="bottom">
                       {data.deployment.status === DeploymentState.Booting
                         ? 'Deploying...'
                         : (data.deployment.url ?? 'Live')}
@@ -411,7 +425,7 @@ export function FeatureNode({
                         <Zap className="h-3 w-3 text-amber-500" />
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent side="top">Fast Mode</TooltipContent>
+                    <TooltipContent side="bottom">Fast Mode</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
@@ -509,18 +523,25 @@ export function FeatureNode({
           className="h-0! w-0! border-0! bg-transparent!"
           style={{ top: 70 }}
         >
-          <button
-            type="button"
-            aria-label="Add"
-            data-testid="feature-node-action-button"
-            onClick={(e) => {
-              e.stopPropagation();
-              data.onAction?.();
-            }}
-            className="nodrag absolute top-1/2 left-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-blue-500 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-600"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Add feature"
+                  data-testid="feature-node-action-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    data.onAction?.();
+                  }}
+                  className="nodrag absolute top-1/2 left-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-blue-500 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-600"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Add feature</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </Handle>
       ) : data.showHandles ? (
         <Handle
