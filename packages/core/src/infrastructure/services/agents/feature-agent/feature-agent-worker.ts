@@ -49,6 +49,8 @@ export interface WorkerArgs {
   resumeFromInterrupt?: boolean;
   push?: boolean;
   openPr?: boolean;
+  forkAndPr?: boolean;
+  commitSpecs?: boolean;
   resumePayload?: string;
   agentType?: AgentType;
   fast?: boolean;
@@ -88,6 +90,8 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const resumeFromInterrupt = args.includes('--resume-from-interrupt');
   const push = args.includes('--push');
   const openPr = args.includes('--open-pr');
+  const forkAndPr = args.includes('--fork-and-pr');
+  const commitSpecs = args.includes('--commit-specs');
   const fast = args.includes('--fast');
   const threadIdx = args.indexOf('--thread-id');
   const threadId =
@@ -126,6 +130,8 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     resumeFromInterrupt,
     push,
     openPr,
+    forkAndPr,
+    commitSpecs,
     resumePayload,
     agentType,
     fast,
@@ -191,6 +197,8 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
     ...(args.resumeFromInterrupt ? ['--resume-from-interrupt'] : []),
     ...(args.push ? ['--push'] : []),
     ...(args.openPr ? ['--open-pr'] : []),
+    ...(args.forkAndPr ? ['--fork-and-pr'] : []),
+    ...(args.commitSpecs ? ['--commit-specs'] : []),
     ...(args.resumePayload ? ['--resume-payload', args.resumePayload] : []),
     ...(args.agentType ? ['--agent-type', args.agentType] : []),
     ...(args.fast ? ['--fast'] : []),
@@ -357,6 +365,8 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           ...(args.resumeReason ? { resumeReason: args.resumeReason } : {}),
           push: args.push ?? false,
           openPr: args.openPr ?? false,
+          forkAndPr: args.forkAndPr ?? false,
+          commitSpecs: args.commitSpecs ?? true,
         },
         graphConfig
       );
@@ -372,6 +382,8 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           ...(args.model ? { model: args.model } : {}),
           push: args.push ?? false,
           openPr: args.openPr ?? false,
+          forkAndPr: args.forkAndPr ?? false,
+          commitSpecs: args.commitSpecs ?? true,
         },
         graphConfig
       );

@@ -124,6 +124,8 @@ export class StartFeatureUseCase {
           threadId: agentRun.threadId,
           push: resolved.push,
           openPr: resolved.openPr,
+          forkAndPr: resolved.forkAndPr,
+          commitSpecs: resolved.commitSpecs,
           agentType: agentRun.agentType,
           ...(resolved.fast ? { fast: true } : {}),
           ...(agentRun.modelId ? { model: agentRun.modelId } : {}),

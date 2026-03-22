@@ -29,6 +29,8 @@ function createMockFeature(id: string): Feature {
     fast: false,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date(),
     updatedAt: new Date(),

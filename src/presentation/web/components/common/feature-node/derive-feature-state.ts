@@ -151,6 +151,7 @@ export const sdlcLifecycleMap: Record<string, FeatureLifecyclePhase> = {
   Maintain: 'maintain',
   Pending: 'pending',
   Archived: 'maintain',
+  AwaitingUpstream: 'review',
 };
 
 /** Map agent graph node names (from agent_run.result or SSE phaseName) to UI lifecycle phases. */

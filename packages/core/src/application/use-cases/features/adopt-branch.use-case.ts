@@ -117,6 +117,8 @@ export class AdoptBranchUseCase {
       fast: false,
       push: false,
       openPr: hasOpenPr,
+      forkAndPr: false,
+      commitSpecs: false,
       approvalGates: {
         allowPrd: false,
         allowPlan: false,

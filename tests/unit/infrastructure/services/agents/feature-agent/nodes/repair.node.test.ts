@@ -51,6 +51,8 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     ciStatus: null,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
     _approvalAction: null,
     _rejectionFeedback: null,
     _needsReexecution: false,

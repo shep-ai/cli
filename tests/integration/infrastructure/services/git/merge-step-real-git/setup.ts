@@ -287,6 +287,8 @@ export function makeState(overrides: Partial<FeatureAgentState>): FeatureAgentSt
     ciStatus: null,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
     ciFixAttempts: 0,
     ciFixHistory: [],
     ciFixStatus: 'idle',

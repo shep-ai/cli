@@ -6,6 +6,8 @@ export interface CreateFeatureInput {
   approvalGates?: ApprovalGates;
   push?: boolean;
   openPr?: boolean;
+  forkAndPr?: boolean;
+  commitSpecs?: boolean;
   /** Optional ID of the parent feature. When set, child may be created in Blocked state. */
   parentId?: string;
   /** Pre-supplied name (skips AI metadata extraction for name). */

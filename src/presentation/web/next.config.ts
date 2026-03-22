@@ -48,6 +48,11 @@ function loadDevFallbacks(): Record<string, string> {
 }
 
 const nextConfig: NextConfig = {
+  // Control per-request logging in dev mode (set NEXT_LOG_REQUESTS=false to suppress)
+  logging: {
+    incomingRequests: process.env.NEXT_LOG_REQUESTS !== 'false',
+  },
+
   // Pin turbopack root to the monorepo root so it doesn't infer a wrong
   // workspace root from unrelated lockfiles higher in the filesystem.
   turbopack: {

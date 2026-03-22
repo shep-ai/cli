@@ -40,6 +40,8 @@ export interface FeatureRow {
   // Workflow configuration (flat columns)
   push: number;
   open_pr: number;
+  fork_and_pr?: number;
+  commit_specs?: number;
   auto_merge: number;
   allow_prd: number;
   allow_plan: number;
@@ -95,6 +97,8 @@ export function toDatabase(feature: Feature): FeatureRow {
     // Flatten workflow flags to individual columns
     push: feature.push ? 1 : 0,
     open_pr: feature.openPr ? 1 : 0,
+    fork_and_pr: feature.forkAndPr ? 1 : 0,
+    commit_specs: feature.commitSpecs ? 1 : 0,
     auto_merge: feature.approvalGates?.allowMerge ? 1 : 0,
     allow_prd: feature.approvalGates?.allowPrd ? 1 : 0,
     allow_plan: feature.approvalGates?.allowPlan ? 1 : 0,
@@ -156,6 +160,8 @@ export function fromDatabase(row: FeatureRow): Feature {
     // Assemble workflow flags from flat columns
     push: row.push === 1,
     openPr: row.open_pr === 1,
+    forkAndPr: (row.fork_and_pr ?? 0) === 1,
+    commitSpecs: (row.commit_specs ?? 0) === 1,
     approvalGates: {
       allowPrd: row.allow_prd === 1,
       allowPlan: row.allow_plan === 1,
