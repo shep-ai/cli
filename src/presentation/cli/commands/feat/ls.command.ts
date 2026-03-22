@@ -1,8 +1,8 @@
 /**
  * Feature List Command
  *
- * Lists features in a formatted list with optional filtering.
- * Derives real-time status from the agent run (not stale Feature.lifecycle).
+ * Lists features in a hierarchical tree view: repo → feature → child → child…
+ * Repos and features are ordered by creation date descending.
  *
  * Usage: shep feat ls [options]
  *
@@ -17,8 +17,9 @@ import { container } from '@/infrastructure/di/container.js';
 import { ListFeaturesUseCase } from '@/application/use-cases/features/list-features.use-case.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
-import type { Feature, AgentRun, PhaseTiming } from '@/domain/generated/output.js';
-import { colors, symbols, messages, renderListView } from '../../ui/index.js';
+import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
+import type { Feature, AgentRun, PhaseTiming, Repository } from '@/domain/generated/output.js';
+import { colors, symbols, messages, fmt } from '../../ui/index.js';
 
 interface LsOptions {
   repo?: string;
@@ -46,22 +47,10 @@ const NODE_TO_REVIEW: Record<string, string> = {
   merge: 'Review Merge',
 };
 
-/** Status priority for sorting (lower = higher priority). */
-const STATUS_PRIORITY: Record<string, number> = {
-  running: 0,
-  pending: 0,
-  waiting_approval: 1,
-  failed: 2,
-  interrupted: 2,
-  completed: 3,
-};
-
 /**
  * Derive the display status from the agent run.
- * Returns the current graph node as a phase label with an activity indicator.
  */
 function formatStatus(feature: Feature, run: AgentRun | null): string {
-  // Blocked features show "Waiting" — the parent relationship is conveyed by tree indentation
   if (feature.lifecycle === 'Archived') {
     return `${colors.muted(symbols.dotEmpty)} ${colors.muted('Archived')}`;
   }
@@ -144,7 +133,6 @@ function formatElapsed(run: AgentRun | null, phaseTimings: PhaseTiming[]): strin
     const now = Date.now();
     const totalMs = phaseTimings.reduce((sum, pt) => {
       if (pt.durationMs != null) return sum + Number(pt.durationMs);
-      // Phase still running — add live delta
       if (pt.startedAt) return sum + (now - new Date(pt.startedAt).getTime());
       return sum;
     }, 0);
@@ -153,7 +141,6 @@ function formatElapsed(run: AgentRun | null, phaseTimings: PhaseTiming[]): strin
     return isRunning ? colors.info(formatDuration(totalMs)) : colors.muted(formatDuration(totalMs));
   }
 
-  // Fallback to run timestamps if no phase timings
   if (!run?.startedAt) return '';
   const started = new Date(run.startedAt).getTime();
   const isRunning = run.status === 'running' || run.status === 'pending';
@@ -184,10 +171,188 @@ function formatGates(feature: Feature): string {
   return `${gate(allowPrd)} ${gate(allowPlan)} ${gate(allowMerge)} ${push}`;
 }
 
-/** Get sort priority for a run status (lower = shown first). */
-function getStatusPriority(run: AgentRun | null): number {
-  if (!run) return 4;
-  return STATUS_PRIORITY[run.status] ?? 4;
+/** Convert a date value (any type from domain) to a timestamp for sorting. */
+export function toTimestamp(val: unknown): number {
+  if (!val) return 0;
+  try {
+    return new Date(val as string | Date).getTime();
+  } catch {
+    return 0;
+  }
+}
+
+/** Strip ANSI escape sequences to get visible character count. */
+function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x1B\[[0-9;]*m/g, '');
+}
+
+/** Pad a string that may contain ANSI codes to a given visible width. */
+function ansiPad(text: string, width: number): string {
+  const visible = stripAnsi(text).length;
+  if (visible >= width) return text;
+  return text + ' '.repeat(width - visible);
+}
+
+// ─── Tree Data Structures ────────────────────────────────────────────────────
+
+interface Entry {
+  feature: Feature;
+  run: AgentRun | null;
+  phases: PhaseTiming[];
+}
+
+interface TreeNode {
+  entry: Entry;
+  children: TreeNode[];
+}
+
+interface RepoGroup {
+  repoPath: string;
+  repoName: string;
+  repoCreatedAt: number;
+  roots: TreeNode[];
+}
+
+interface FlatRow {
+  entry: Entry;
+  parentIsLast: boolean[];
+  isLast: boolean;
+}
+
+/**
+ * Build a recursive feature tree within a single repo group.
+ * Features with a parentId that matches another feature in the group become children.
+ * All levels are sorted by createdAt descending.
+ */
+export function buildTree(entries: Entry[]): TreeNode[] {
+  const byId = new Map<string, Entry>();
+  for (const e of entries) byId.set(e.feature.id, e);
+
+  const childrenByParent = new Map<string, Entry[]>();
+  const rootEntries: Entry[] = [];
+
+  for (const e of entries) {
+    const pid = e.feature.parentId;
+    if (pid && byId.has(pid)) {
+      const list = childrenByParent.get(pid) ?? [];
+      list.push(e);
+      childrenByParent.set(pid, list);
+    } else {
+      rootEntries.push(e);
+    }
+  }
+
+  function sortDesc(arr: Entry[]): Entry[] {
+    return [...arr].sort(
+      (a, b) => toTimestamp(b.feature.createdAt) - toTimestamp(a.feature.createdAt)
+    );
+  }
+
+  function buildNodes(arr: Entry[]): TreeNode[] {
+    return sortDesc(arr).map((e) => ({
+      entry: e,
+      children: buildNodes(childrenByParent.get(e.feature.id) ?? []),
+    }));
+  }
+
+  return buildNodes(rootEntries);
+}
+
+/**
+ * Group entries by repositoryPath and sort repos by createdAt desc.
+ * Uses the Repository entity's createdAt if available; falls back to the
+ * newest feature's createdAt in that repo group.
+ */
+export function groupByRepo(entries: Entry[], repos: Repository[]): RepoGroup[] {
+  const repoByPath = new Map<string, Repository>();
+  for (const r of repos) {
+    repoByPath.set(r.path.replace(/\\/g, '/'), r);
+  }
+
+  const groupMap = new Map<string, Entry[]>();
+  for (const e of entries) {
+    const repoPath = e.feature.repositoryPath.replace(/\\/g, '/');
+    const list = groupMap.get(repoPath) ?? [];
+    list.push(e);
+    groupMap.set(repoPath, list);
+  }
+
+  const groups: RepoGroup[] = [];
+  for (const [repoPath, groupEntries] of groupMap) {
+    const repo = repoByPath.get(repoPath);
+    const repoCreatedAt = repo
+      ? toTimestamp(repo.createdAt)
+      : Math.max(...groupEntries.map((e) => toTimestamp(e.feature.createdAt)));
+    groups.push({
+      repoPath,
+      repoName: path.basename(repoPath),
+      repoCreatedAt,
+      roots: buildTree(groupEntries),
+    });
+  }
+
+  groups.sort((a, b) => b.repoCreatedAt - a.repoCreatedAt);
+  return groups;
+}
+
+/** Flatten a tree into rows with prefix context for rendering. */
+export function flattenTree(nodes: TreeNode[], parentIsLast: boolean[]): FlatRow[] {
+  const result: FlatRow[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const isLast = i === nodes.length - 1;
+    result.push({ entry: node.entry, parentIsLast, isLast });
+    if (node.children.length > 0) {
+      result.push(...flattenTree(node.children, [...parentIsLast, isLast]));
+    }
+  }
+  return result;
+}
+
+/** Build the tree-drawing prefix string for a given depth context. */
+export function buildTreePrefix(parentIsLast: boolean[], isLast: boolean): string {
+  let prefix = '';
+  for (const wasLast of parentIsLast) {
+    prefix += wasLast ? '   ' : '│  ';
+  }
+  prefix += isLast ? '└─ ' : '├─ ';
+  return prefix;
+}
+
+// Column widths for feature rows
+const FIRST_COL_WIDTH = 44; // tree prefix + id + 2 spaces + name
+const STATUS_WIDTH = 22;
+const GATES_WIDTH = 10;
+const ELAPSED_WIDTH = 9;
+
+/** Render a single feature row as a formatted string. */
+export function renderFeatureRow(entry: Entry, treePrefix: string): string {
+  const { feature, run, phases } = entry;
+  const shortId = colors.muted(feature.id.slice(0, 8));
+  const prefixPlusId = `${treePrefix}${shortId}  `;
+  const prefixPlusIdLen = stripAnsi(prefixPlusId).length;
+  const nameMax = Math.max(FIRST_COL_WIDTH - prefixPlusIdLen, 8);
+  const name = truncate(feature.name, nameMax);
+  const firstCol = ansiPad(prefixPlusId + name, FIRST_COL_WIDTH);
+  const status = ansiPad(formatStatus(feature, run), STATUS_WIDTH);
+  const gates = ansiPad(formatGates(feature), GATES_WIDTH);
+  const elapsed = ansiPad(formatElapsed(run, phases), ELAPSED_WIDTH);
+  const done = formatDone(run);
+  return `  ${firstCol}  ${status}  ${gates}  ${elapsed}  ${done}`;
+}
+
+/** Count total features across all repo groups. */
+function countFeatures(groups: RepoGroup[]): number {
+  let count = 0;
+  function countNodes(nodes: TreeNode[]): void {
+    for (const n of nodes) {
+      count++;
+      countNodes(n.children);
+    }
+  }
+  for (const g of groups) countNodes(g.roots);
+  return count;
 }
 
 export function createLsCommand(): Command {
@@ -201,6 +366,7 @@ export function createLsCommand(): Command {
         const useCase = container.resolve(ListFeaturesUseCase);
         const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
         const phaseRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
+        const repoRepo = container.resolve<IRepositoryRepository>('IRepositoryRepository');
 
         const filters = {
           ...(options.repo && { repositoryPath: options.repo }),
@@ -211,83 +377,59 @@ export function createLsCommand(): Command {
           Object.keys(filters).length > 0 ? filters : undefined
         );
 
-        // Load agent runs and phase timings for all features in parallel
-        const [runs, timings] = await Promise.all([
+        // Load agent runs, phase timings, and repos in parallel
+        const [runs, timings, repos] = await Promise.all([
           Promise.all(
             features.map((f) =>
               f.agentRunId ? runRepo.findById(f.agentRunId) : Promise.resolve(null)
             )
           ),
           Promise.all(features.map((f) => phaseRepo.findByFeatureId(f.id))),
+          repoRepo.list(),
         ]);
 
-        // Pair features with runs/timings and sort by status priority
-        const paired = features
-          .map((feature, i) => ({ feature, run: runs[i], phases: timings[i] }))
-          .sort((a, b) => getStatusPriority(a.run) - getStatusPriority(b.run));
+        const entries: Entry[] = features.map((feature, i) => ({
+          feature,
+          run: runs[i],
+          phases: timings[i],
+        }));
 
-        // Build tree: group blocked children under their parent
-        type Entry = (typeof paired)[number];
-        const childrenByParent = new Map<string, Entry[]>();
-        const roots: Entry[] = [];
-        for (const entry of paired) {
-          const pid = entry.feature.parentId;
-          if (pid && entry.feature.lifecycle === 'Blocked') {
-            const list = childrenByParent.get(pid) ?? [];
-            list.push(entry);
-            childrenByParent.set(pid, list);
-          } else {
-            roots.push(entry);
-          }
-        }
-        // Flatten: parent then its blocked children
-        const ordered: { entry: Entry; indent: boolean }[] = [];
-        for (const entry of roots) {
-          ordered.push({ entry, indent: false });
-          const kids = childrenByParent.get(entry.feature.id);
-          if (kids) {
-            for (const kid of kids) {
-              ordered.push({ entry: kid, indent: true });
-            }
-            childrenByParent.delete(entry.feature.id);
-          }
-        }
-        // Append orphaned blocked children (parent not in current list)
-        for (const kids of childrenByParent.values()) {
-          for (const kid of kids) {
-            ordered.push({ entry: kid, indent: false });
-          }
+        const groups = groupByRepo(entries, repos);
+        const total = countFeatures(groups);
+
+        if (total === 0) {
+          messages.newline();
+          messages.info('No features found');
+          messages.newline();
+          return;
         }
 
-        const rows = ordered.map(({ entry: { feature, run, phases }, indent }) => {
-          const repo = path.basename(feature.repositoryPath);
-          const prefix = indent ? `${colors.muted('└')} ` : '';
+        const lines: string[] = [];
+        lines.push('');
+        lines.push(`  ${fmt.heading(`Features (${total})`)}`);
+        lines.push('');
 
-          return [
-            prefix + feature.id.slice(0, 8),
-            prefix + truncate(feature.name, indent ? 28 : 30),
-            formatStatus(feature, run),
-            colors.muted(repo),
-            formatGates(feature),
-            formatElapsed(run, phases),
-            formatDone(run),
-          ];
-        });
+        // Column headers
+        const h1 = colors.muted('NAME'.padEnd(FIRST_COL_WIDTH));
+        const h2 = colors.muted('STATUS'.padEnd(STATUS_WIDTH));
+        const h3 = colors.muted('R P M ↑'.padEnd(GATES_WIDTH));
+        const h4 = colors.muted('ELAPSED'.padEnd(ELAPSED_WIDTH));
+        const h5 = colors.muted('DONE');
+        lines.push(`  ${h1}  ${h2}  ${h3}  ${h4}  ${h5}`);
 
-        renderListView({
-          title: 'Features',
-          columns: [
-            { label: 'ID', width: 10 },
-            { label: 'Name', width: 32 },
-            { label: 'Status', width: 21 },
-            { label: 'Repo', width: 20 },
-            { label: 'R P M ↑', width: 10 },
-            { label: 'Elapsed', width: 10 },
-            { label: 'Done', width: 12 },
-          ],
-          rows,
-          emptyMessage: 'No features found',
-        });
+        for (const group of groups) {
+          lines.push('');
+          lines.push(`  ${fmt.heading(group.repoName)}  ${colors.muted(group.repoPath)}`);
+
+          const flatRows = flattenTree(group.roots, []);
+          for (const { entry, parentIsLast, isLast } of flatRows) {
+            const treePrefix = buildTreePrefix(parentIsLast, isLast);
+            lines.push(renderFeatureRow(entry, treePrefix));
+          }
+        }
+
+        lines.push('');
+        console.log(lines.join('\n'));
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         messages.error('Failed to list features', err);
