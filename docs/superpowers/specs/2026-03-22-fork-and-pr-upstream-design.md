@@ -70,7 +70,7 @@ The new `AwaitingUpstream` state affects these existing consumers:
 | Merge node (`merge.node.ts`) | Transitions `Review -> Maintain` | Add branch: when `forkAndPr=true`, transition to `AwaitingUpstream` instead |
 | `PrSyncWatcherService` | Polls features in `Review` state | Extend to also poll features in `AwaitingUpstream`, calling `getUpstreamPrStatus` instead of local PR status |
 | Feature agent graph | Terminates after merge node | No change — graph still terminates after merge node. `AwaitingUpstream` is a post-agent state (polling is external, not agent-driven) |
-| Archive logic | Only `Maintain`, `Pending`, `Blocked` archivable | Add `AwaitingUpstream` to archivable states |
+| Archive logic | Uses blocklist (`NON_ARCHIVABLE_STATES`: `Archived`, `Deleting`) | No change needed — `AwaitingUpstream` is archivable by default since it's not in the blocklist |
 | Web UI lifecycle colors/icons | Maps each lifecycle to visual treatment | Add visual treatment for `AwaitingUpstream` |
 | Feature agent state (`state.ts`) | Has `push`, `openPr` channels | Add `forkAndPr` and `commitSpecs` channels; worker populates from feature record |
 
