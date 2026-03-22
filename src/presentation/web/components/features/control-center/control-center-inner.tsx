@@ -387,7 +387,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   }, [nodes, isCreateDrawerOpen]);
 
   const archiveToggle = (
-    <Panel position="top-right">
+    <Panel position="top-right" className="!top-12">
       <button
         type="button"
         aria-label={showArchived ? 'Hide archived features' : 'Show archived features'}
