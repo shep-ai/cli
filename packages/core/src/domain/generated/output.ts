@@ -1784,6 +1784,14 @@ export type DoctorDiagnosticReport = {
    * Current shep CLI version
    */
   cliVersion: string;
+  /**
+   * Feature ID when diagnosing a specific feature (optional)
+   */
+  featureId?: string;
+  /**
+   * Feature name when diagnosing a specific feature (optional)
+   */
+  featureName?: string;
 };
 export enum AgentStatus {
   Idle = 'Idle',

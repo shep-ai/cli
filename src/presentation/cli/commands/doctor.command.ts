@@ -23,6 +23,7 @@ import { colors, messages, spinner } from '../ui/index.js';
 interface DoctorOptions {
   fix?: boolean;
   workdir?: string;
+  featureId?: string;
 }
 
 /**
@@ -61,6 +62,7 @@ export function createDoctorCommand(): Command {
             description: problemDescription,
             fix: shouldFix,
             workdir: options.workdir,
+            featureId: options.featureId,
           })
         );
 
@@ -102,8 +104,9 @@ export function createDoctorCommand(): Command {
     });
 
   // Commander handles --no-fix by negating the --fix option, but we need
-  // explicit --workdir as a separate option
+  // explicit --workdir and --feature-id as separate options
   cmd.option('--workdir <path>', 'Custom directory for the cloned repository');
+  cmd.option('--feature-id <id>', 'Scope diagnostics to a specific feature (by ID or prefix)');
 
   return cmd;
 }

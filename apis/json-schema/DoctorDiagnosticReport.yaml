@@ -16,6 +16,12 @@ properties:
   cliVersion:
     type: string
     description: Current shep CLI version
+  featureId:
+    type: string
+    description: Feature ID when diagnosing a specific feature (optional)
+  featureName:
+    type: string
+    description: Feature name when diagnosing a specific feature (optional)
 required:
   - userDescription
   - failedRunSummaries

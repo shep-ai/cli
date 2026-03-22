@@ -22,6 +22,7 @@ import type { IGitHubIssueService } from '../../ports/output/services/github-iss
 import type { IGitHubRepositoryService } from '../../ports/output/services/github-repository-service.interface.js';
 import type { IGitPrService } from '../../ports/output/services/git-pr-service.interface.js';
 import type { IAgentExecutorProvider } from '../../ports/output/agents/agent-executor-provider.interface.js';
+import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { ExecFunction } from '../../../infrastructure/services/git/worktree.service.js';
 import type {
   DoctorDiagnosticReport,
@@ -39,6 +40,7 @@ export interface DoctorDiagnoseInput {
   description: string;
   fix: boolean;
   workdir?: string;
+  featureId?: string;
 }
 
 export interface DoctorDiagnoseResult {
@@ -79,12 +81,14 @@ export class DoctorDiagnoseUseCase {
     @inject('IAgentExecutorProvider')
     private readonly agentExecutorProvider: IAgentExecutorProvider,
     @inject('ExecFunction')
-    private readonly execFile: ExecFunction
+    private readonly execFile: ExecFunction,
+    @inject('IFeatureRepository')
+    private readonly featureRepo: IFeatureRepository
   ) {}
 
   async execute(input: DoctorDiagnoseInput): Promise<DoctorDiagnoseResult> {
     // Step 1: Collect diagnostics
-    const diagnosticReport = await this.collectDiagnostics(input.description);
+    const diagnosticReport = await this.collectDiagnostics(input.description, input.featureId);
 
     // Step 2: Create GitHub issue
     const issueTitle = this.formatIssueTitle(input.description);
@@ -114,9 +118,25 @@ export class DoctorDiagnoseUseCase {
   // Diagnostic Collection (Task 10)
   // -------------------------------------------------------------------------
 
-  private async collectDiagnostics(userDescription: string): Promise<DoctorDiagnosticReport> {
+  private async collectDiagnostics(
+    userDescription: string,
+    featureId?: string
+  ): Promise<DoctorDiagnosticReport> {
+    // Resolve feature context if featureId is provided
+    let resolvedFeatureId: string | undefined;
+    let featureName: string | undefined;
+    if (featureId) {
+      const feature =
+        (await this.featureRepo.findById(featureId)) ??
+        (await this.featureRepo.findByIdPrefix(featureId));
+      if (feature) {
+        resolvedFeatureId = feature.id;
+        featureName = feature.name;
+      }
+    }
+
     const [failedRunSummaries, systemInfo, cliVersion] = await Promise.all([
-      this.collectFailedRuns(),
+      this.collectFailedRuns(resolvedFeatureId),
       this.collectSystemInfo(),
       Promise.resolve(this.versionService.getVersion().version),
     ]);
@@ -126,16 +146,22 @@ export class DoctorDiagnoseUseCase {
       failedRunSummaries,
       systemInfo,
       cliVersion,
+      featureId: resolvedFeatureId,
+      featureName,
     };
   }
 
-  private async collectFailedRuns(): Promise<FailedRunSummary[]> {
+  private async collectFailedRuns(featureId?: string): Promise<FailedRunSummary[]> {
     const allRuns = await this.agentRunRepo.list();
 
-    return allRuns
-      .filter((run) => run.status === AgentRunStatus.failed)
-      .slice(0, MAX_FAILED_RUNS)
-      .map((run) => this.sanitizeRunSummary(run));
+    let filtered = allRuns.filter((run) => run.status === AgentRunStatus.failed);
+
+    // When a feature ID is provided, scope to runs associated with that feature
+    if (featureId) {
+      filtered = filtered.filter((run) => run.featureId === featureId);
+    }
+
+    return filtered.slice(0, MAX_FAILED_RUNS).map((run) => this.sanitizeRunSummary(run));
   }
 
   private sanitizeRunSummary(run: AgentRun): FailedRunSummary {
@@ -181,6 +207,14 @@ export class DoctorDiagnoseUseCase {
     sections.push('## Problem Description\n');
     sections.push(report.userDescription);
 
+    if (report.featureId) {
+      sections.push('\n## Feature Context\n');
+      sections.push(`- **Feature ID:** ${report.featureId}`);
+      if (report.featureName) {
+        sections.push(`- **Feature Name:** ${report.featureName}`);
+      }
+    }
+
     sections.push('\n## Environment\n');
     sections.push(`- **shep CLI version:** ${report.cliVersion}`);
     sections.push(`- **Node.js:** ${report.systemInfo.nodeVersion}`);
@@ -188,7 +222,10 @@ export class DoctorDiagnoseUseCase {
     sections.push(`- **gh CLI:** ${report.systemInfo.ghVersion}`);
 
     if (report.failedRunSummaries.length > 0) {
-      sections.push('\n## Recent Failed Agent Runs\n');
+      const heading = report.featureId
+        ? '\n## Failed Agent Runs (feature-scoped)\n'
+        : '\n## Recent Failed Agent Runs\n';
+      sections.push(heading);
       for (const run of report.failedRunSummaries) {
         sections.push(`### ${run.agentName} (${run.agentType})`);
         sections.push(`- **Error:** ${run.error}`);

@@ -41,4 +41,10 @@ model DoctorDiagnosticReport {
 
   @doc("Current shep CLI version")
   cliVersion: string;
+
+  @doc("Feature ID when diagnosing a specific feature (optional)")
+  featureId?: string;
+
+  @doc("Feature name when diagnosing a specific feature (optional)")
+  featureName?: string;
 }
