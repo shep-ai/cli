@@ -17,7 +17,7 @@ import { EmptyState } from '@/components/common/empty-state';
 import { FeatureNode } from '@/components/common/feature-node';
 import type { FeatureNodeType, FeatureNodeData } from '@/components/common/feature-node';
 import { RepositoryNode } from '@/components/common/repository-node';
-import type { RepositoryNodeType } from '@/components/common/repository-node';
+import type { RepositoryNodeType, RepositoryNodeData } from '@/components/common/repository-node';
 import { DependencyEdge } from './dependency-edge';
 
 export type CanvasNodeType = FeatureNodeType | RepositoryNodeType;
@@ -26,6 +26,7 @@ export interface FeaturesCanvasProps {
   nodes: CanvasNodeType[];
   edges: Edge[];
   selectedFeatureId?: string | null;
+  selectedRepository?: { id: string | null; path: string | null };
   defaultViewport?: Viewport;
   onNodesChange?: (changes: NodeChange<CanvasNodeType>[]) => void;
   onAddFeature?: () => void;
@@ -60,6 +61,7 @@ export function FeaturesCanvas({
   nodes,
   edges,
   selectedFeatureId,
+  selectedRepository,
   defaultViewport,
   onNodesChange,
   onAddFeature,
@@ -88,19 +90,33 @@ export function FeaturesCanvas({
   );
 
   // Callbacks and showHandles are already injected into node.data by deriveGraph.
-  // Only selectedFeatureId highlighting needs to be applied here.
-  const enrichedNodes = useMemo(
-    () =>
-      selectedFeatureId == null
-        ? nodes
-        : (nodes.map((node) =>
-            node.type === 'featureNode' &&
-            (node.data as FeatureNodeData).featureId === selectedFeatureId
-              ? { ...node, selected: true }
-              : node
-          ) as CanvasNodeType[]),
-    [nodes, selectedFeatureId]
-  );
+  // Apply selectedFeatureId and selectedRepository highlighting here.
+  const enrichedNodes = useMemo(() => {
+    const hasFeatureSel = selectedFeatureId != null;
+    const hasRepoSel =
+      selectedRepository != null &&
+      (selectedRepository.id != null || selectedRepository.path != null);
+    if (!hasFeatureSel && !hasRepoSel) return nodes;
+    return nodes.map((node) => {
+      if (
+        hasFeatureSel &&
+        node.type === 'featureNode' &&
+        (node.data as FeatureNodeData).featureId === selectedFeatureId
+      ) {
+        return { ...node, selected: true };
+      }
+      if (hasRepoSel && node.type === 'repositoryNode') {
+        const rd = node.data as RepositoryNodeData;
+        const matchById =
+          selectedRepository!.id != null &&
+          (node.id === selectedRepository!.id || rd.id === selectedRepository!.id);
+        const matchByPath =
+          selectedRepository!.path != null && rd.repositoryPath === selectedRepository!.path;
+        if (matchById || matchByPath) return { ...node, selected: true };
+      }
+      return node;
+    }) as CanvasNodeType[];
+  }, [nodes, selectedFeatureId, selectedRepository]);
 
   const isEmpty = nodes.length === 0;
 

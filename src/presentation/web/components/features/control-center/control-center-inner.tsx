@@ -16,6 +16,7 @@ import {
 } from '@/hooks/sidebar-features-context';
 
 import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
+import { useSelectedRepository } from '@/hooks/use-selected-repository';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
 import { useViewportPersistence } from '@/hooks/use-viewport-persistence';
@@ -39,6 +40,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const router = useRouter();
   const pathname = usePathname();
   const selectedFeatureId = useSelectedFeatureId();
+  const selectedRepository = useSelectedRepository();
   const clickSound = useSoundAction('click');
   const { guardedNavigate } = useDrawerCloseGuard();
   const { fitView } = useReactFlow();
@@ -411,6 +413,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       nodes={showCanvas ? displayNodes : []}
       edges={showCanvas ? edges : []}
       selectedFeatureId={selectedFeatureId}
+      selectedRepository={selectedRepository}
       defaultViewport={defaultViewport}
       onNodesChange={onNodesChange}
       onConnect={handleConnect}
