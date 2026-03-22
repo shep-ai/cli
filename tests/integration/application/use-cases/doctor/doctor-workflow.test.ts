@@ -17,6 +17,8 @@ import { DoctorDiagnoseUseCase } from '@/application/use-cases/doctor/doctor-dia
 import type { AgentRun } from '@/domain/generated/output.js';
 import { AgentRunStatus, AgentType } from '@/domain/generated/output.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { PhaseTiming } from '@/domain/generated/output.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import type { IGitHubIssueService } from '@/application/ports/output/services/github-issue-service.interface.js';
 import type { IGitHubRepositoryService } from '@/application/ports/output/services/github-repository-service.interface.js';
@@ -194,6 +196,12 @@ function createMockFeatureRepo(): IFeatureRepository {
   };
 }
 
+function createMockPhaseTimingRepo(): Pick<IPhaseTimingRepository, 'findByFeatureId'> {
+  return {
+    findByFeatureId: vi.fn<(featureId: string) => Promise<PhaseTiming[]>>().mockResolvedValue([]),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Helper to build the use case with all mocks
 // ---------------------------------------------------------------------------
@@ -208,6 +216,7 @@ interface MockSet {
   agentExecutor: IAgentExecutor;
   execFunction: ExecFunction;
   featureRepo: IFeatureRepository;
+  phaseTimingRepo: Pick<IPhaseTimingRepository, 'findByFeatureId'>;
 }
 
 function buildUseCase(mocks: MockSet): DoctorDiagnoseUseCase {
@@ -219,7 +228,8 @@ function buildUseCase(mocks: MockSet): DoctorDiagnoseUseCase {
     mocks.prService,
     mocks.agentExecutorProvider,
     mocks.execFunction,
-    mocks.featureRepo
+    mocks.featureRepo,
+    mocks.phaseTimingRepo as any
   );
 }
 
@@ -260,6 +270,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       useCase = buildUseCase(mocks);
     });
@@ -394,6 +405,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       useCase = buildUseCase(mocks);
     });
@@ -467,6 +479,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       useCase = buildUseCase(mocks);
     });
@@ -539,6 +552,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -577,6 +591,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -613,6 +628,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -663,6 +679,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -691,6 +708,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -717,6 +735,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -741,6 +760,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -767,6 +787,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -798,6 +819,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -847,6 +869,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -888,6 +911,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction,
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -922,6 +946,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -945,6 +970,7 @@ describe('DoctorDiagnoseUseCase Integration', () => {
         agentExecutor: executor,
         execFunction: createMockExecFunction(),
         featureRepo: createMockFeatureRepo(),
+        phaseTimingRepo: createMockPhaseTimingRepo(),
       };
       const useCase = buildUseCase(mocks);
 
@@ -961,6 +987,67 @@ describe('DoctorDiagnoseUseCase Integration', () => {
       // The prefix is 15 chars, so total should be reasonable
       expect(title.startsWith('[shep doctor] ')).toBe(true);
       expect(title.length).toBeLessThanOrEqual(80); // prefix + 60 + "..."
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 11. Feature-Scoped Rich Diagnostics
+  // -----------------------------------------------------------------------
+
+  describe('feature-scoped rich diagnostics', () => {
+    it('should produce enriched report with all feature context', async () => {
+      const feature = {
+        id: 'feat-rich',
+        name: 'Rich Feature',
+        specPath: '/nonexistent/specs/042-rich', // won't find files — that's OK (best-effort)
+        lifecycle: 'Review',
+        branch: 'feat/rich',
+        description: 'Feature with full context',
+        messages: [{ id: 'm1', role: 'user', content: 'Start' }],
+        plan: { overview: 'Implement rich diagnostics', tasks: [] },
+        fast: false,
+        push: false,
+        openPr: true,
+        approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
+      } as any;
+
+      const { provider, executor } = createMockAgentExecutorProvider();
+      const featureRepo = createMockFeatureRepo();
+      vi.mocked(featureRepo.findById).mockResolvedValue(feature);
+
+      const runs = [
+        createFailedAgentRun('r1', { featureId: 'feat-rich', prompt: 'Do analysis', result: 'Done' }),
+      ];
+
+      const mocks: MockSet = {
+        agentRunRepo: createMockAgentRunRepo(runs),
+        versionService: createMockVersionService(),
+        issueService: createMockIssueService(),
+        repoService: createMockRepoService(),
+        prService: createMockPrService(),
+        agentExecutorProvider: provider,
+        agentExecutor: executor,
+        execFunction: createMockExecFunction(),
+        featureRepo,
+        phaseTimingRepo: createMockPhaseTimingRepo(),
+      };
+      const useCase = buildUseCase(mocks);
+
+      const result = await useCase.execute({
+        description: 'full context test',
+        fix: false,
+        featureId: 'feat-rich',
+      });
+
+      const report = result.diagnosticReport;
+      expect(report.featureId).toBe('feat-rich');
+      expect(report.featureLifecycle).toBe('Review');
+      expect(report.featureBranch).toBe('feat/rich');
+      expect(report.conversationMessages).toContain('Start');
+      expect(report.featurePlan).toContain('rich diagnostics');
+      expect(report.agentRunDetails).toHaveLength(1);
+      expect(report.agentRunDetails![0].prompt).toBe('Do analysis');
+      expect(report.featureWorkflowConfig).toContain('openPr');
     });
   });
 });
