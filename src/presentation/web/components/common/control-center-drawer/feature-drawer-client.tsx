@@ -11,6 +11,7 @@ import type {
 import { approveFeature } from '@/app/actions/approve-feature';
 import { resumeFeature } from '@/app/actions/resume-feature';
 import { startFeature } from '@/app/actions/start-feature';
+import { stopFeature } from '@/app/actions/stop-feature';
 import { rejectFeature } from '@/app/actions/reject-feature';
 import type { RejectAttachment } from '@/components/common/drawer-action-bar';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
@@ -437,6 +438,20 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     });
   }, []);
 
+  const handleStop = useCallback(async (featureId: string) => {
+    const result = await stopFeature(featureId);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success('Feature stopped');
+    // Optimistically update the drawer view — agent run will be interrupted
+    setView((prev) => {
+      if (prev.type !== 'feature') return prev;
+      return { ...prev, node: { ...prev.node, state: 'error' } };
+    });
+  }, []);
+
   // ── Hooks (always called unconditionally per Rules of Hooks) ──────────
 
   const featureActionsInput =
@@ -614,6 +629,9 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       ...featureNode,
       ...(featureNode.state === 'error' && { onRetry: handleRetry }),
       ...(featureNode.state === 'pending' && { onStart: handleStart }),
+      ...((featureNode.state === 'running' || featureNode.state === 'action-required') && {
+        onStop: handleStop,
+      }),
     };
     body = (
       <FeatureDrawerTabs

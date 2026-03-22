@@ -59,6 +59,9 @@ export default tseslint.config(
       // TypeSpec (handled by tsp linter)
       'tsp/**',
 
+      // Spec YAML files (not JS/TS, handled by spec tooling)
+      'specs/**',
+
       // Test outputs
       'test-results/**',
       'playwright-report/**',

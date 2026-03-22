@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { fn } from '@storybook/test';
 import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { OverviewTab } from './overview-tab';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -155,21 +154,6 @@ export const Blocked: Story = {
 /** Error state showing error message detail. */
 export const Error: Story = {
   args: { data: errorData },
-};
-
-const errorWithRetryData: FeatureNodeData = {
-  ...errorData,
-  onRetry: fn(),
-};
-
-/** Error state with retry button visible. */
-export const ErrorWithRetry: Story = {
-  args: { data: errorWithRetryData },
-};
-
-/** Running state with stop button visible. */
-export const RunningWithStop: Story = {
-  args: { data: { ...fullData, onStop: fn() } },
 };
 
 /** Minimal data — only required fields, no optional details or PR. */

@@ -1,0 +1,33 @@
+feature:
+  id: 070-feature-drawer-controls
+  name: feature-drawer-controls
+  number: 70
+  branch: feat/070-feature-drawer-controls
+  lifecycle: research
+  createdAt: '2026-03-16T16:59:47Z'
+status:
+  phase: research
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-16T16:59:47Z'
+  lastUpdatedBy: feature-agent
+  completedPhases:
+    - fast-implement
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-03-16T16:59:47Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

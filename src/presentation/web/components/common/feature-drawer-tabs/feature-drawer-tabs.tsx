@@ -27,6 +27,7 @@ import { OverviewTab } from './overview-tab';
 import { ActivityTab } from './activity-tab';
 import { LogTab } from './log-tab';
 import { PlanTab } from './plan-tab';
+import { FeatureRunningControls } from './feature-running-controls';
 import { useFeatureLogs } from '@/hooks/use-feature-logs';
 import { useTabDataFetch } from './use-tab-data-fetch';
 import type { TabFetchers } from './use-tab-data-fetch';
@@ -365,6 +366,8 @@ export function FeatureDrawerTabs({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* Controls bar — visible above all tabs */}
+      <FeatureRunningControls data={featureNode} />
       <Tabs
         value={activeTab}
         onValueChange={handleTabChange}
