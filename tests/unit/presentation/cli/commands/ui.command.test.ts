@@ -43,7 +43,8 @@ vi.mock('@/infrastructure/di/container.js', () => ({
         token === 'IPhaseTimingRepository' ||
         token === 'INotificationService' ||
         token === 'IFeatureRepository' ||
-        token === 'IGitPrService'
+        token === 'IGitPrService' ||
+        token === 'IGitForkService'
       ) {
         return {};
       }
