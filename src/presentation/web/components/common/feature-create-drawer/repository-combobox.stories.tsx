@@ -12,6 +12,25 @@ const SAMPLE_REPOSITORIES: RepositoryOption[] = [
   { id: 'repo-004', name: 'docs-site', path: '/Users/dev/projects/docs-site' },
 ];
 
+const REPOS_WITH_FORKS: RepositoryOption[] = [
+  { id: 'repo-001', name: 'my-app', path: '/Users/dev/projects/my-app' },
+  {
+    id: 'repo-002',
+    name: 'react',
+    path: '/Users/dev/projects/react',
+    isFork: true,
+    upstreamUrl: 'https://github.com/facebook/react',
+  },
+  { id: 'repo-003', name: 'shared-lib', path: '/Users/dev/libs/shared-lib' },
+  {
+    id: 'repo-004',
+    name: 'next.js',
+    path: '/Users/dev/projects/next.js',
+    isFork: true,
+    upstreamUrl: 'https://github.com/vercel/next.js',
+  },
+];
+
 const flagsWithGitHubImport: FeatureFlagsState = {
   skills: false,
   envDeploy: false,
@@ -124,4 +143,26 @@ export const WithGitHubImportDisabled: Story = {
 /** Empty list with GitHub import — shows import option alongside add repository. */
 export const EmptyWithGitHubImport: Story = {
   render: () => <RepositoryComboboxWrapper repositories={[]} flags={flagsWithGitHubImport} />,
+};
+
+/** Forked repositories — shows "Fork" badge next to forked repo names in dropdown. */
+export const WithForkedRepositories: Story = {
+  render: () => <RepositoryComboboxWrapper repositories={REPOS_WITH_FORKS} />,
+};
+
+/** Pre-selected fork — trigger button shows "Fork" badge with upstream tooltip. */
+export const PreSelectedFork: Story = {
+  render: () => (
+    <RepositoryComboboxWrapper
+      repositories={REPOS_WITH_FORKS}
+      initialValue="/Users/dev/projects/react"
+    />
+  ),
+};
+
+/** Forked repos with GitHub import enabled — combines fork badges and import action. */
+export const ForkedWithGitHubImport: Story = {
+  render: () => (
+    <RepositoryComboboxWrapper repositories={REPOS_WITH_FORKS} flags={flagsWithGitHubImport} />
+  ),
 };

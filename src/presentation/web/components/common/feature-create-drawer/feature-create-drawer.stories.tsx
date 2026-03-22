@@ -572,6 +572,24 @@ const SAMPLE_REPOSITORIES: RepositoryOption[] = [
   { id: 'repo-003', name: 'shared-lib', path: '/Users/dev/libs/shared-lib' },
 ];
 
+const REPOS_WITH_FORKS: RepositoryOption[] = [
+  { id: 'repo-001', name: 'my-app', path: '/Users/dev/projects/my-app' },
+  {
+    id: 'repo-002',
+    name: 'react',
+    path: '/Users/dev/projects/react',
+    isFork: true,
+    upstreamUrl: 'https://github.com/facebook/react',
+  },
+  {
+    id: 'repo-003',
+    name: 'next.js',
+    path: '/Users/dev/projects/next.js',
+    isFork: true,
+    upstreamUrl: 'https://github.com/vercel/next.js',
+  },
+];
+
 function CreateDrawerWithRepoSelector() {
   const [open, setOpen] = useState(false);
 
@@ -648,5 +666,50 @@ export const WithRepoSelectorEmpty: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Open (No Repos)' }));
+  },
+};
+
+/* ---------------------------------------------------------------------------
+ * Forked repository stories
+ * ------------------------------------------------------------------------- */
+
+function CreateDrawerWithForkedRepos() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="flex h-screen items-start p-4">
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        Open (Forked Repos)
+      </Button>
+      <FeatureCreateDrawer
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          logClose();
+        }}
+        onSubmit={(data) => {
+          logSubmit(data);
+          setOpen(false);
+        }}
+        repositoryPath=""
+        repositories={REPOS_WITH_FORKS}
+        currentAgentType="claude-code"
+        currentModel="claude-sonnet-4-6"
+      />
+    </div>
+  );
+}
+
+/**
+ * With forked repositories — repo selector shows "Fork" badge on forked repos.
+ * Hover the badge to see the upstream repository URL in a tooltip.
+ * Demonstrates the auto-fork feature where cloned repos are marked as forks
+ * with their upstream origin tracked.
+ */
+export const WithForkedRepos: Story = {
+  render: () => <CreateDrawerWithForkedRepos />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Forked Repos)' }));
   },
 };
