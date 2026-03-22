@@ -177,13 +177,11 @@ describe('PollUpstreamPrUseCase', () => {
     });
 
     it('should return open status without calling fork service when feature has no upstream PR data', async () => {
-      mockFeatureRepo.findById = vi
-        .fn()
-        .mockResolvedValue(
-          createMockFeature({
-            pr: createMockPr({ upstreamPrUrl: undefined, upstreamPrNumber: undefined }),
-          })
-        );
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(
+        createMockFeature({
+          pr: createMockPr({ upstreamPrUrl: undefined, upstreamPrNumber: undefined }),
+        })
+      );
 
       const result = await useCase.execute({ featureId: 'feat-abc-123-uuid' });
 

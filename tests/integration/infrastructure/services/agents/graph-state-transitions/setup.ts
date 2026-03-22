@@ -172,13 +172,11 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
       createUpstreamPr: vi
         .fn()
         .mockResolvedValue({ url: 'https://github.com/upstream/repo/pull/1', number: 1 }),
-      getUpstreamPrStatus: vi
-        .fn()
-        .mockResolvedValue({
-          state: 'open',
-          url: 'https://github.com/upstream/repo/pull/1',
-          number: 1,
-        }),
+      getUpstreamPrStatus: vi.fn().mockResolvedValue({
+        state: 'open',
+        url: 'https://github.com/upstream/repo/pull/1',
+        number: 1,
+      }),
     },
     gitPrService: {
       hasRemote: vi.fn().mockResolvedValue(true),

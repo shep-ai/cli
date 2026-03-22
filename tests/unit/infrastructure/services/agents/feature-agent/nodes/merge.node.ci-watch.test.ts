@@ -205,13 +205,11 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
       createUpstreamPr: vi
         .fn()
         .mockResolvedValue({ url: 'https://github.com/upstream/repo/pull/1', number: 1 }),
-      getUpstreamPrStatus: vi
-        .fn()
-        .mockResolvedValue({
-          state: 'open',
-          url: 'https://github.com/upstream/repo/pull/1',
-          number: 1,
-        }),
+      getUpstreamPrStatus: vi.fn().mockResolvedValue({
+        state: 'open',
+        url: 'https://github.com/upstream/repo/pull/1',
+        number: 1,
+      }),
     },
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
     ...overrides,
