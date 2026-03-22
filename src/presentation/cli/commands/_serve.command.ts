@@ -48,6 +48,7 @@ import {
   getWorkflowScheduler,
   hasWorkflowScheduler,
 } from '@/infrastructure/services/workflow-scheduler/workflow-scheduler.service.js';
+import { hasSettings, getSettings } from '@/infrastructure/services/settings.service.js';
 
 function parsePort(value: string): number {
   const port = parseInt(value, 10);
@@ -87,14 +88,18 @@ export function createServeCommand(): Command {
         initializeNotificationWatcher(runRepo, phaseTimingRepo, featureRepo, notificationService);
         getNotificationWatcher().start();
 
-        // Start workflow scheduler
-        const workflowRepo = container.resolve<IWorkflowRepository>('IWorkflowRepository');
-        const executionRepo = container.resolve<IWorkflowExecutionRepository>(
-          'IWorkflowExecutionRepository'
-        );
-        const clock = container.resolve<IClock>('IClock');
-        initializeWorkflowScheduler(workflowRepo, executionRepo, clock, notificationService);
-        await getWorkflowScheduler().start();
+        // Start workflow scheduler (only when feature flag is enabled)
+        const scheduledWorkflowsEnabled =
+          hasSettings() && getSettings().featureFlags?.scheduledWorkflows === true;
+        if (scheduledWorkflowsEnabled) {
+          const workflowRepo = container.resolve<IWorkflowRepository>('IWorkflowRepository');
+          const executionRepo = container.resolve<IWorkflowExecutionRepository>(
+            'IWorkflowExecutionRepository'
+          );
+          const clock = container.resolve<IClock>('IClock');
+          initializeWorkflowScheduler(workflowRepo, executionRepo, clock, notificationService);
+          await getWorkflowScheduler().start();
+        }
 
         // Graceful shutdown handler — identical pattern to ui.command.ts
         let isShuttingDown = false;

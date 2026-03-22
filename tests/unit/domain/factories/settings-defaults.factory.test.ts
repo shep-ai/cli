@@ -321,6 +321,7 @@ describe('createDefaultSettings', () => {
         githubImport: false,
         adoptBranch: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       });
     });
   });

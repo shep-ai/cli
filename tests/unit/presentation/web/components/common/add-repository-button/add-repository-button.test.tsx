@@ -55,6 +55,7 @@ vi.mock('@/hooks/feature-flags-context', () => ({
     githubImport: true,
     adoptBranch: false,
     reactFileManager: false,
+    scheduledWorkflows: false,
   })),
 }));
 
@@ -75,6 +76,7 @@ describe('AddRepositoryButton', () => {
       githubImport: true,
       adoptBranch: false,
       reactFileManager: false,
+      scheduledWorkflows: false,
     });
   });
 
@@ -170,6 +172,7 @@ describe('AddRepositoryButton', () => {
         githubImport: true,
         adoptBranch: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       });
     });
 
@@ -298,6 +301,7 @@ describe('AddRepositoryButton', () => {
         githubImport: true,
         adoptBranch: false,
         reactFileManager: true,
+        scheduledWorkflows: false,
       });
     });
 
@@ -368,6 +372,7 @@ describe('AddRepositoryButton', () => {
         githubImport: true,
         adoptBranch: false,
         reactFileManager: true,
+        scheduledWorkflows: false,
       });
       const user = userEvent.setup();
       render(<AddRepositoryButton />);

@@ -590,6 +590,10 @@ export type FeatureFlags = {
    * Use the built-in React file manager instead of the native OS folder picker
    */
   reactFileManager: boolean;
+  /**
+   * Enable scheduled workflows feature — workflow creation, scheduling, and execution
+   */
+  scheduledWorkflows: boolean;
 };
 
 /**

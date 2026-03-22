@@ -10,6 +10,7 @@ const defaultFlags: FeatureFlagsState = {
   githubImport: false,
   adoptBranch: false,
   reactFileManager: false,
+  scheduledWorkflows: false,
 };
 
 const FeatureFlagsContext = createContext<FeatureFlagsState>(defaultFlags);

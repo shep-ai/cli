@@ -40,6 +40,7 @@ export const AllSections: Story = {
         githubImport: false,
         adoptBranch: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       },
     },
     shepHome: '/opt/shep',

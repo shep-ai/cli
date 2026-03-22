@@ -159,6 +159,7 @@ export function createDefaultSettings(): Settings {
     githubImport: false,
     adoptBranch: false,
     reactFileManager: false,
+    scheduledWorkflows: false,
   };
 
   return {

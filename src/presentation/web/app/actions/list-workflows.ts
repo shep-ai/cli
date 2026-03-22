@@ -1,6 +1,7 @@
 'use server';
 
 import { resolve } from '@/lib/server-container';
+import { getFeatureFlags } from '@/lib/feature-flags';
 import type { ListWorkflowsUseCase } from '@shepai/core/application/use-cases/workflows/list-workflows.use-case';
 import type { ScheduledWorkflow } from '@shepai/core/domain/generated/output';
 
@@ -10,6 +11,10 @@ export interface ListWorkflowsResult {
 }
 
 export async function listWorkflows(repositoryPath?: string): Promise<ListWorkflowsResult> {
+  if (!getFeatureFlags().scheduledWorkflows) {
+    return { workflows: [] };
+  }
+
   try {
     const useCase = resolve<ListWorkflowsUseCase>('ListWorkflowsUseCase');
     const workflows = await useCase.execute(repositoryPath ? { repositoryPath } : undefined);
