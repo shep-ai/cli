@@ -1,3 +1,10 @@
+# [1.142.0](https://github.com/shep-ai/cli/compare/v1.141.0...v1.142.0) (2026-03-22)
+
+
+### Features
+
+* **web:** compact log viewer, canvas ux improvements, and sidebar persistence fix ([#451](https://github.com/shep-ai/cli/issues/451)) ([362a595](https://github.com/shep-ai/cli/commit/362a5954d2bf120ad53f604963497aa5de6d9bd0))
+
 # [1.141.0](https://github.com/shep-ai/cli/compare/v1.140.0...v1.141.0) (2026-03-22)
 
 
