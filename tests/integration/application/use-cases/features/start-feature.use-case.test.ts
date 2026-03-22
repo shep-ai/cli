@@ -70,6 +70,8 @@ describe('StartFeatureUseCase (integration)', () => {
     fast: false,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     specPath: '/wt/feat-test/specs/001-test',
     createdAt: new Date('2026-02-01T00:00:00Z'),

@@ -44,6 +44,8 @@ function createMockFeature(overrides: Partial<Feature> = {}): Feature {
     fast: false,
     push: true,
     openPr: true,
+    forkAndPr: false,
+    commitSpecs: true,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     pr: {
       url: 'https://github.com/org/repo/pull/1',

@@ -1,0 +1,36 @@
+feature:
+  id: '074-fork-and-pr'
+  name: 'fork-and-pr'
+  number: 74
+  branch: 'feat/074-fork-and-pr'
+  lifecycle: 'research'
+  createdAt: '2026-03-22T17:31:26Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-22T17:31:26Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-22T17:31:26Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []

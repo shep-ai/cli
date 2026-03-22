@@ -379,6 +379,12 @@ model Feature extends SoftDeletableEntity {
   @doc("Create PR after implementation (default: false)")
   openPr: boolean = false;
 
+  @doc("Fork repo and create PR to upstream at merge time (default: false)")
+  forkAndPr: boolean = false;
+
+  @doc("Commit specs/evidences into the repo (defaults false when forkAndPr is enabled)")
+  commitSpecs: boolean = true;
+
   @doc("Approval gates configuration (embedded value object)")
   approvalGates: ApprovalGates;
 
