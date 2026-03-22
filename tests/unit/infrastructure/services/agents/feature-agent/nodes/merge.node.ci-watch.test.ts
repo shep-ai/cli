@@ -176,6 +176,12 @@ function createMockGitPrService(overrides: Partial<IGitPrService> = {}): IGitPrS
     getRemoteUrl: vi.fn().mockResolvedValue('https://github.com/test-owner/test-repo'),
     listPrStatuses: vi.fn().mockResolvedValue([]),
     getMergeableStatus: vi.fn().mockResolvedValue(undefined),
+    syncMain: vi.fn().mockResolvedValue(undefined),
+    rebaseOnMain: vi.fn().mockResolvedValue(undefined),
+    getConflictedFiles: vi.fn().mockResolvedValue([]),
+    stageFiles: vi.fn().mockResolvedValue(undefined),
+    rebaseContinue: vi.fn().mockResolvedValue(undefined),
+    rebaseAbort: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   } as IGitPrService;
 }

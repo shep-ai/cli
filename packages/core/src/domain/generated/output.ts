@@ -575,6 +575,10 @@ export type FeatureFlags = {
    */
   adoptBranch: boolean;
   /**
+   * Enable git rebase-on-main and sync-main operations in the web UI
+   */
+  gitRebaseSync: boolean;
+  /**
    * Use the built-in React file manager instead of the native OS folder picker
    */
   reactFileManager: boolean;

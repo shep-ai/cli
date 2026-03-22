@@ -726,6 +726,14 @@ export class GitPrService implements IGitPrService {
     const message = error instanceof Error ? error.message : String(error);
     const cause = error instanceof Error ? error : undefined;
 
+    // Rebase-specific: detect "CONFLICT" during rebase operations
+    if (message.includes('CONFLICT') && message.includes('rebase')) {
+      return new GitPrError(message, GitPrErrorCode.REBASE_CONFLICT, cause);
+    }
+    // Sync-specific: non-fast-forward or diverged branch
+    if (message.includes('non-fast-forward') || message.includes('diverged')) {
+      return new GitPrError(message, GitPrErrorCode.SYNC_FAILED, cause);
+    }
     if (message.includes('rejected') || message.includes('conflict')) {
       return new GitPrError(message, GitPrErrorCode.MERGE_CONFLICT, cause);
     }
@@ -772,5 +780,194 @@ export class GitPrService implements IGitPrService {
       deletions: delMatch ? parseInt(delMatch[1], 10) : 0,
       commitCount,
     };
+  }
+
+  // --- Rebase & Sync operations ---
+
+  async syncMain(cwd: string, baseBranch: string): Promise<void> {
+    try {
+      // Detect current branch
+      const { stdout } = await this.execFile('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd });
+      const currentBranch = stdout.trim();
+
+      if (currentBranch === baseBranch) {
+        // On the base branch — use git pull --ff-only
+        await this.execFile('git', ['pull', '--ff-only', 'origin', baseBranch], { cwd });
+      } else {
+        // On a different branch — fetch the remote ref only (updates origin/<baseBranch>).
+        // We intentionally do NOT update the local <baseBranch> ref because it may be
+        // checked out in another worktree, which causes git to refuse the update with:
+        //   "fatal: refusing to fetch into branch 'refs/heads/main' checked out at ..."
+        await this.execFile('git', ['fetch', 'origin', baseBranch], { cwd });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+
+      if (
+        message.includes('non-fast-forward') ||
+        message.includes('Not possible to fast-forward') ||
+        message.includes('diverged')
+      ) {
+        throw new GitPrError(
+          `Cannot fast-forward '${baseBranch}': local branch has diverged from remote. ` +
+            `Resolve the divergence manually with 'git checkout ${baseBranch} && git reset --hard origin/${baseBranch}' ` +
+            `if you want to discard local changes on ${baseBranch}.`,
+          GitPrErrorCode.SYNC_FAILED,
+          cause
+        );
+      }
+
+      throw new GitPrError(
+        `Failed to sync '${baseBranch}' with remote: ${message}`,
+        GitPrErrorCode.GIT_ERROR,
+        cause
+      );
+    }
+  }
+
+  async rebaseOnMain(cwd: string, featureBranch: string, baseBranch: string): Promise<void> {
+    // Check for dirty worktree before starting
+    const dirty = await this.hasUncommittedChanges(cwd);
+    if (dirty) {
+      throw new GitPrError(
+        `Cannot rebase: working directory has uncommitted changes. ` +
+          `Please commit or stash your changes before rebasing.`,
+        GitPrErrorCode.GIT_ERROR
+      );
+    }
+
+    // Checkout the feature branch
+    try {
+      await this.execFile('git', ['checkout', featureBranch], { cwd });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+      if (
+        message.includes('did not match') ||
+        message.includes('not a commit') ||
+        message.includes('pathspec')
+      ) {
+        throw new GitPrError(
+          `Branch '${featureBranch}' not found.`,
+          GitPrErrorCode.BRANCH_NOT_FOUND,
+          cause
+        );
+      }
+      throw new GitPrError(
+        `Failed to checkout '${featureBranch}': ${message}`,
+        GitPrErrorCode.GIT_ERROR,
+        cause
+      );
+    }
+
+    // Rebase onto origin/<baseBranch> (the remote-tracking ref).
+    // We use origin/<baseBranch> rather than the local <baseBranch> because:
+    // 1. syncMain fetches origin/<baseBranch> — it's always up-to-date
+    // 2. The local <baseBranch> may be checked out in another worktree and stale
+    const rebaseTarget = `origin/${baseBranch}`;
+    try {
+      await this.execFile('git', ['rebase', rebaseTarget], { cwd });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+
+      // Detect rebase conflict from git stderr/exit code
+      if (message.includes('CONFLICT') || message.includes('could not apply')) {
+        // Get the list of conflicted files to include in the error message
+        let conflictedFiles: string[] = [];
+        try {
+          conflictedFiles = await this.getConflictedFiles(cwd);
+        } catch {
+          // Failed to get conflicted files — still report the conflict
+        }
+
+        const fileList =
+          conflictedFiles.length > 0 ? ` Conflicted files: ${conflictedFiles.join(', ')}` : '';
+        throw new GitPrError(
+          `Rebase of '${featureBranch}' onto '${baseBranch}' encountered conflicts.${fileList}`,
+          GitPrErrorCode.REBASE_CONFLICT,
+          cause
+        );
+      }
+
+      throw new GitPrError(
+        `Rebase of '${featureBranch}' onto '${baseBranch}' failed: ${message}`,
+        GitPrErrorCode.GIT_ERROR,
+        cause
+      );
+    }
+  }
+
+  async getConflictedFiles(cwd: string): Promise<string[]> {
+    try {
+      const { stdout } = await this.execFile('git', ['diff', '--name-only', '--diff-filter=U'], {
+        cwd,
+      });
+      return stdout
+        .trim()
+        .split('\n')
+        .filter((f) => f.length > 0)
+        .map((f) => f.replace(/\\/g, '/'));
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
+  async stageFiles(cwd: string, files: string[]): Promise<void> {
+    try {
+      await this.execFile('git', ['add', ...files], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
+  async rebaseContinue(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['rebase', '--continue'], {
+        cwd,
+        env: { ...process.env, GIT_EDITOR: 'true' },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const cause = error instanceof Error ? error : undefined;
+
+      if (message.includes('CONFLICT') || message.includes('could not apply')) {
+        throw new GitPrError(
+          `Rebase continue encountered new conflicts: ${message}`,
+          GitPrErrorCode.REBASE_CONFLICT,
+          cause
+        );
+      }
+      throw this.parseGitError(error);
+    }
+  }
+
+  async rebaseAbort(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['rebase', '--abort'], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
+  async getBranchSyncStatus(
+    cwd: string,
+    featureBranch: string,
+    baseBranch: string
+  ): Promise<{ ahead: number; behind: number }> {
+    try {
+      const remoteRef = `origin/${baseBranch}`;
+      const [aheadResult, behindResult] = await Promise.all([
+        this.execFile('git', ['rev-list', '--count', `${remoteRef}..${featureBranch}`], { cwd }),
+        this.execFile('git', ['rev-list', '--count', `${featureBranch}..${remoteRef}`], { cwd }),
+      ]);
+      return {
+        ahead: parseInt(aheadResult.stdout.trim(), 10) || 0,
+        behind: parseInt(behindResult.stdout.trim(), 10) || 0,
+      };
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { Button } from '@/components/ui/button';
+import { FeatureFlagsProvider } from '@/hooks/feature-flags-context';
 import { RepositoryDrawer } from './repository-drawer';
 import type { RepositoryNodeData } from './repository-node-config';
 
@@ -81,4 +82,41 @@ function RepositoryDrawerShellTemplate({ data }: { data: RepositoryNodeData }) {
 /** Repository drawer rendered inside a full-page context — starts open. */
 export const InDrawer: Story = {
   render: () => <RepositoryDrawerShellTemplate data={repoData} />,
+};
+
+/* ---------------------------------------------------------------------------
+ * Git operations story — wraps with FeatureFlagsProvider to enable gitRebaseSync
+ * ------------------------------------------------------------------------- */
+
+function WithGitOpsTemplate({ data }: { data: RepositoryNodeData }) {
+  const [selected, setSelected] = useState<RepositoryNodeData | null>(data);
+  const allEnabledFlags = {
+    skills: true,
+    envDeploy: true,
+    debug: true,
+    githubImport: true,
+    adoptBranch: true,
+    gitRebaseSync: true,
+    reactFileManager: true,
+  };
+
+  return (
+    <FeatureFlagsProvider flags={allEnabledFlags}>
+      <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
+        <button
+          type="button"
+          onClick={() => setSelected(data)}
+          style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px' }}
+        >
+          Open Drawer
+        </button>
+        <RepositoryDrawer data={selected} onClose={() => setSelected(null)} />
+      </div>
+    </FeatureFlagsProvider>
+  );
+}
+
+/** Repository drawer with git operations section visible (gitRebaseSync flag enabled). */
+export const WithGitOperations: Story = {
+  render: () => <WithGitOpsTemplate data={repoData} />,
 };

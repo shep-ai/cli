@@ -18,6 +18,7 @@ const defaultFlags = {
   debug: false,
   githubImport: false,
   adoptBranch: false,
+  gitRebaseSync: false,
   reactFileManager: false,
 };
 
@@ -34,12 +35,14 @@ describe('FeatureFlagsSettingsSection', () => {
     expect(screen.getByTestId('switch-flag-debug')).toBeDefined();
     expect(screen.getByTestId('switch-flag-githubImport')).toBeDefined();
     expect(screen.getByTestId('switch-flag-adoptBranch')).toBeDefined();
+    expect(screen.getByTestId('switch-flag-gitRebaseSync')).toBeDefined();
     expect(screen.getByTestId('switch-flag-reactFileManager')).toBeDefined();
     expect(screen.getByText('Skills')).toBeDefined();
     expect(screen.getByText('Deployments')).toBeDefined();
     expect(screen.getByText('Debug')).toBeDefined();
     expect(screen.getByText('GitHub Import')).toBeDefined();
     expect(screen.getByText('Adopt Branch')).toBeDefined();
+    expect(screen.getByText('Git Rebase & Sync')).toBeDefined();
     expect(screen.getByText('React File Manager')).toBeDefined();
   });
 
@@ -55,6 +58,9 @@ describe('FeatureFlagsSettingsSection', () => {
     expect(screen.getByText('Enable GitHub repository import in the web UI')).toBeDefined();
     expect(
       screen.getByText('Enable the ability to adopt existing branches as tracked features')
+    ).toBeDefined();
+    expect(
+      screen.getByText('Enable git rebase-on-main and sync-main operations in the web UI')
     ).toBeDefined();
     expect(
       screen.getByText(

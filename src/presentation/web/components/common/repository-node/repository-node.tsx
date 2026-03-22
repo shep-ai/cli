@@ -45,7 +45,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
   const featureFlags = useFeatureFlags();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const actions = useRepositoryActions(
-    data.repositoryPath ? { repositoryPath: data.repositoryPath } : null
+    data.repositoryPath ? { repositoryId: data.id, repositoryPath: data.repositoryPath } : null
   );
   const deployAction = useDeployAction(
     data.repositoryPath

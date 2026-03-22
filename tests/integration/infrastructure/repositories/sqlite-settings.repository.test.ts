@@ -509,6 +509,7 @@ describe('SQLiteSettingsRepository', () => {
         debug: true,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
         reactFileManager: false,
       };
 
@@ -521,6 +522,7 @@ describe('SQLiteSettingsRepository', () => {
         debug: true,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
         reactFileManager: false,
       });
     });
@@ -537,6 +539,7 @@ describe('SQLiteSettingsRepository', () => {
         debug: false,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
         reactFileManager: false,
       });
     });
@@ -551,6 +554,7 @@ describe('SQLiteSettingsRepository', () => {
         debug: false,
         githubImport: false,
         adoptBranch: true,
+        gitRebaseSync: false,
         reactFileManager: false,
       };
       settings.updatedAt = new Date('2025-01-02T00:00:00Z');
@@ -563,6 +567,7 @@ describe('SQLiteSettingsRepository', () => {
         debug: false,
         githubImport: false,
         adoptBranch: true,
+        gitRebaseSync: false,
         reactFileManager: false,
       });
     });
@@ -575,6 +580,7 @@ describe('SQLiteSettingsRepository', () => {
         debug: true,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
         reactFileManager: false,
       };
 
@@ -582,7 +588,7 @@ describe('SQLiteSettingsRepository', () => {
 
       const row = db
         .prepare(
-          'SELECT feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_github_import, feature_flag_adopt_branch, feature_flag_react_file_manager FROM settings WHERE id = ?'
+          'SELECT feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_github_import, feature_flag_adopt_branch, feature_flag_git_rebase_sync, feature_flag_react_file_manager FROM settings WHERE id = ?'
         )
         .get('singleton') as Record<string, number>;
       expect(row.feature_flag_skills).toBe(1);
@@ -590,6 +596,7 @@ describe('SQLiteSettingsRepository', () => {
       expect(row.feature_flag_debug).toBe(1);
       expect(row.feature_flag_github_import).toBe(0);
       expect(row.feature_flag_adopt_branch).toBe(0);
+      expect(row.feature_flag_git_rebase_sync).toBe(0);
       expect(row.feature_flag_react_file_manager).toBe(0);
     });
   });

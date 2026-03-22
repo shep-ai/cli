@@ -372,3 +372,41 @@ export const EvidenceCollectOnly: Story = {
     },
   },
 };
+
+/* ---------------------------------------------------------------------------
+ * Git operations stories
+ * ------------------------------------------------------------------------- */
+
+/** Feature with rebase action available — shows "GIT OPERATIONS" section. */
+export const WithRebaseAction: Story = {
+  args: {
+    data: noPrData,
+    onRebaseOnMain: fn(),
+    onRefreshSync: fn(),
+    syncStatus: { ahead: 5, behind: 3, baseBranch: 'main', checkedAt: new Date().toISOString() },
+    syncLoading: false,
+    syncError: null,
+    rebaseLoading: false,
+    rebaseError: null,
+  },
+};
+
+/** Rebase action in loading state. */
+export const RebaseLoading: Story = {
+  args: {
+    data: noPrData,
+    onRebaseOnMain: fn(),
+    rebaseLoading: true,
+    rebaseError: null,
+  },
+};
+
+/** Rebase action showing error. */
+export const RebaseError: Story = {
+  args: {
+    data: noPrData,
+    onRebaseOnMain: fn(),
+    rebaseLoading: false,
+    rebaseError: 'Rebase failed: unresolvable conflicts in src/index.ts',
+  },
+};

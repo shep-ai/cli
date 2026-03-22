@@ -39,6 +39,7 @@ export const AllSections: Story = {
         debug: false,
         githubImport: false,
         adoptBranch: false,
+        gitRebaseSync: false,
         reactFileManager: false,
       },
     },

@@ -8,12 +8,15 @@ const defaultActions: FeatureActionsState = {
   openInIde: vi.fn(),
   openInShell: vi.fn(),
   openSpecsFolder: vi.fn(),
+  rebaseOnMain: vi.fn(),
   ideLoading: false,
   shellLoading: false,
   specsLoading: false,
+  rebaseLoading: false,
   ideError: null,
   shellError: null,
   specsError: null,
+  rebaseError: null,
 };
 
 describe('OpenActionMenu', () => {

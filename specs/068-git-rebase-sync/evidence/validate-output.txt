@@ -1,0 +1,30 @@
+tsp/domain/value-objects/attachment.tsp 1ms (unchanged)
+tsp/domain/value-objects/ci-fix-record.tsp 1ms (unchanged)
+tsp/domain/value-objects/evidence.tsp 1ms (unchanged)
+tsp/domain/value-objects/feature-status-metadata.tsp 1ms (unchanged)
+tsp/domain/value-objects/gantt.tsp 0ms (unchanged)
+tsp/domain/value-objects/index.tsp 0ms (unchanged)
+tsp/domain/value-objects/pull-request.tsp 0ms (unchanged)
+tsp/domain/value-objects/spec-metadata.tsp 1ms (unchanged)
+tsp/domain/value-objects/tool-install-command.tsp 1ms (unchanged)
+tsp/domain/value-objects/tool-installation-status.tsp 1ms (unchanged)
+tsp/main.tsp 0ms (unchanged)
+tsp/README.md 12ms (unchanged)
+tsp/ui/index.tsp 1ms (unchanged)
+tsp/ui/prd-questionnaire.tsp 1ms (unchanged)
+tspconfig.yaml 2ms (unchanged)
+types/eslint-plugins.d.ts 3ms (unchanged)
+vitest.config.manual.mjs 6ms (unchanged)
+vitest.config.ts 7ms (unchanged)
+
+> @shepai/cli@1.119.0 typecheck /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-git-rebase-sync
+> tsc --noEmit
+
+
+> @shepai/cli@1.119.0 tsp:compile /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-git-rebase-sync
+> tsp compile tsp/
+
+TypeSpec compiler v0.60.1
+
+Compilation completed successfully.
+

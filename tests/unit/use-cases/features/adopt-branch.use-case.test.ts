@@ -92,6 +92,13 @@ describe('AdoptBranchUseCase', () => {
       localMergeSquash: vi.fn().mockResolvedValue(undefined),
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
       getFailureLogs: vi.fn().mockResolvedValue(''),
+      syncMain: vi.fn().mockResolvedValue(undefined),
+      rebaseOnMain: vi.fn().mockResolvedValue(undefined),
+      getConflictedFiles: vi.fn().mockResolvedValue([]),
+      stageFiles: vi.fn().mockResolvedValue(undefined),
+      rebaseContinue: vi.fn().mockResolvedValue(undefined),
+      rebaseAbort: vi.fn().mockResolvedValue(undefined),
+      getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
     };
 
     useCase = new AdoptBranchUseCase(

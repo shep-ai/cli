@@ -29,12 +29,30 @@ import {
 } from '@/components/common/feature-node/agent-type-icons';
 import { getModelMeta } from '@/lib/model-metadata';
 import { formatDuration } from '@/lib/format-duration';
+import { BranchSyncStatus } from './branch-sync-status';
+import type { BranchSyncData } from '@/hooks/use-branch-sync-status';
 
 export interface OverviewTabProps {
   data: FeatureNodeData;
+  syncStatus?: BranchSyncData | null;
+  syncLoading?: boolean;
+  syncError?: string | null;
+  onRefreshSync?: () => void;
+  onRebaseOnMain?: () => void;
+  rebaseLoading?: boolean;
+  rebaseError?: string | null;
 }
 
-export function OverviewTab({ data }: OverviewTabProps) {
+export function OverviewTab({
+  data,
+  syncStatus,
+  syncLoading,
+  syncError,
+  onRefreshSync,
+  onRebaseOnMain,
+  rebaseLoading,
+  rebaseError,
+}: OverviewTabProps) {
   const isCompleted = data.lifecycle === 'maintain';
   return (
     <>
@@ -96,6 +114,17 @@ export function OverviewTab({ data }: OverviewTabProps) {
         </>
       ) : null}
       <FeatureDetails data={data} />
+      {onRebaseOnMain && data.branch && onRefreshSync ? (
+        <BranchSyncStatus
+          syncStatus={syncStatus ?? null}
+          syncLoading={syncLoading ?? false}
+          syncError={syncError ?? null}
+          onRefreshSync={onRefreshSync}
+          onRebaseOnMain={onRebaseOnMain}
+          rebaseLoading={rebaseLoading ?? false}
+          rebaseError={rebaseError ?? null}
+        />
+      ) : null}
       <FeatureSettings data={data} />
     </>
   );

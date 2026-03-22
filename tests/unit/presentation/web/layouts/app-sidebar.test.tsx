@@ -44,6 +44,7 @@ const defaultFlags = {
   debug: false,
   githubImport: false,
   adoptBranch: false,
+  gitRebaseSync: false,
   reactFileManager: false,
 };
 

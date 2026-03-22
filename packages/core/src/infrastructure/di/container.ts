@@ -118,6 +118,10 @@ import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/feat
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 import { CleanupFeatureWorktreeUseCase } from '../../application/use-cases/features/cleanup-feature-worktree.use-case.js';
 import { UpgradeCliUseCase } from '../../application/use-cases/upgrade/upgrade-cli.use-case.js';
+import { SyncRepositoryMainUseCase } from '../../application/use-cases/repositories/sync-repository-main.use-case.js';
+import { RebaseFeatureOnMainUseCase } from '../../application/use-cases/features/rebase-feature-on-main.use-case.js';
+import { GetBranchSyncStatusUseCase } from '../../application/use-cases/features/get-branch-sync-status.use-case.js';
+import { ConflictResolutionService } from '../services/agents/conflict-resolution/conflict-resolution.service.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -374,6 +378,13 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(UpdateFeatureLifecycleUseCase);
   container.registerSingleton(CleanupFeatureWorktreeUseCase);
   container.registerSingleton(UpgradeCliUseCase);
+  container.registerSingleton(ConflictResolutionService);
+  container.register('ConflictResolutionService', {
+    useFactory: (c) => c.resolve(ConflictResolutionService),
+  });
+  container.registerSingleton(SyncRepositoryMainUseCase);
+  container.registerSingleton(RebaseFeatureOnMainUseCase);
+  container.registerSingleton(GetBranchSyncStatusUseCase);
 
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
@@ -475,6 +486,15 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('UpgradeCliUseCase', {
     useFactory: (c) => c.resolve(UpgradeCliUseCase),
+  });
+  container.register('SyncRepositoryMainUseCase', {
+    useFactory: (c) => c.resolve(SyncRepositoryMainUseCase),
+  });
+  container.register('RebaseFeatureOnMainUseCase', {
+    useFactory: (c) => c.resolve(RebaseFeatureOnMainUseCase),
+  });
+  container.register('GetBranchSyncStatusUseCase', {
+    useFactory: (c) => c.resolve(GetBranchSyncStatusUseCase),
   });
 
   _initialized = true;
