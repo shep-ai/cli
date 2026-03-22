@@ -29,6 +29,7 @@ import { FeatureStatusGroup } from '@/components/common/feature-status-group';
 import { SidebarSectionHeader } from '@/components/common/sidebar-section-header';
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeferredMount } from '@/hooks/use-deferred-mount';
 import { useVersion } from '@/hooks/use-version';
 import type { FeatureFlagsState } from '@/lib/feature-flags';
@@ -65,6 +66,7 @@ export function AppSidebar({
   const { resolvedTheme, theme, setTheme } = useTheme();
   const toggleOnSound = useSoundAction('toggle-on');
   const toggleOffSound = useSoundAction('toggle-off');
+  const clickSound = useSoundAction('navigate');
 
   const grouped = featureStatusOrder.map((key) => {
     const { label } = featureStatusConfig[key];
@@ -166,65 +168,90 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-1">
-              <SidebarMenuButton asChild tooltip="Settings" className="w-auto flex-none">
-                <Link href={'/settings' as Route}>
-                  <Settings className="h-4 w-4" />
-                </Link>
-              </SidebarMenuButton>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SidebarMenuButton asChild tooltip="Settings" className="w-auto flex-none">
+                      <Link href={'/settings' as Route} onClick={() => clickSound.play()}>
+                        <Settings className="h-4 w-4" />
+                      </Link>
+                    </SidebarMenuButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" hidden={collapsed}>
+                    Settings
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {!collapsed && <div className="flex-1" />}
               {!collapsed && (
-                <>
-                  <SidebarMenuButton
-                    tooltip="Toggle sound"
-                    className="w-auto flex-none"
-                    onClick={toggleSound}
-                    aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
-                  >
-                    {soundEnabled ? (
-                      <Volume2 className="h-4 w-4" />
-                    ) : (
-                      <VolumeOff className="h-4 w-4" />
-                    )}
-                  </SidebarMenuButton>
-                  <SidebarMenuButton
-                    tooltip="Toggle theme"
-                    className="w-auto flex-none"
-                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                      const currentResolved = theme === 'system' ? resolvedTheme : theme;
-                      const goingToDark = currentResolved !== 'dark';
-                      const newTheme =
-                        theme === 'system'
-                          ? resolvedTheme === 'dark'
-                            ? 'light'
-                            : 'dark'
-                          : theme === 'dark'
-                            ? 'light'
-                            : 'dark';
-                      if (goingToDark) {
-                        toggleOnSound.play();
-                      } else {
-                        toggleOffSound.play();
-                      }
-                      const prefersReducedMotion =
-                        typeof window !== 'undefined' &&
-                        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      if (!(document as any).startViewTransition || prefersReducedMotion) {
-                        setTheme(newTheme);
-                        return;
-                      }
-                      document.documentElement.style.setProperty('--x', `${e.clientX}px`);
-                      document.documentElement.style.setProperty('--y', `${e.clientY}px`);
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      (document as any).startViewTransition(() => {
-                        setTheme(newTheme);
-                      });
-                    }}
-                    aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
-                  >
-                    <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-                    <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-                  </SidebarMenuButton>
-                </>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton
+                        className="w-auto flex-none"
+                        onClick={() => {
+                          clickSound.play();
+                          toggleSound();
+                        }}
+                        aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+                      >
+                        {soundEnabled ? (
+                          <Volume2 className="h-4 w-4" />
+                        ) : (
+                          <VolumeOff className="h-4 w-4" />
+                        )}
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton
+                        className="w-auto flex-none"
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                          const currentResolved = theme === 'system' ? resolvedTheme : theme;
+                          const goingToDark = currentResolved !== 'dark';
+                          const newTheme =
+                            theme === 'system'
+                              ? resolvedTheme === 'dark'
+                                ? 'light'
+                                : 'dark'
+                              : theme === 'dark'
+                                ? 'light'
+                                : 'dark';
+                          if (goingToDark) {
+                            toggleOnSound.play();
+                          } else {
+                            toggleOffSound.play();
+                          }
+                          const prefersReducedMotion =
+                            typeof window !== 'undefined' &&
+                            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                          if (!('startViewTransition' in document) || prefersReducedMotion) {
+                            setTheme(newTheme);
+                            return;
+                          }
+                          document.documentElement.style.setProperty('--x', `${e.clientX}px`);
+                          document.documentElement.style.setProperty('--y', `${e.clientY}px`);
+                          (
+                            document as unknown as { startViewTransition: (cb: () => void) => void }
+                          ).startViewTransition(() => {
+                            setTheme(newTheme);
+                          });
+                        }}
+                        aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+                      >
+                        <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+                        <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           </SidebarMenuItem>
