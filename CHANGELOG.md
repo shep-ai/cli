@@ -1,3 +1,10 @@
+# [1.138.0](https://github.com/shep-ai/cli/compare/v1.137.0...v1.138.0) (2026-03-22)
+
+
+### Features
+
+* **domain:** add feature archive and unarchive capability ([#440](https://github.com/shep-ai/cli/issues/440)) ([a664222](https://github.com/shep-ai/cli/commit/a66422280beb7a00284bb1a2dcfd74a87c711742))
+
 # [1.137.0](https://github.com/shep-ai/cli/compare/v1.136.1...v1.137.0) (2026-03-22)
 
 
