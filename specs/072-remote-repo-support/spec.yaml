@@ -105,3 +105,7 @@ rejectionFeedback:
     message: "add UI evidence"
     phase: "merge"
     timestamp: "2026-03-22T08:01:26.090Z"
+  - iteration: 2
+    message: "the tree view should be all collpased by default and the tree view should be collapsable acordion like"
+    phase: "merge"
+    timestamp: "2026-03-22T08:56:01.557Z"
