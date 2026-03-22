@@ -131,3 +131,7 @@ rejectionFeedback:
     message: "lets fine tune the requirements,\nfor some repos or even some features we won't want the spec files to get commits on the repo itself but we would still want to have them stored in shep and be availble both for the UI and the agent context"
     phase: "requirements"
     timestamp: "2026-03-20T20:29:29.935Z"
+  - iteration: 2
+    message: "Add evidence for the support in the ui of this feature (and rebase on main and resolve conflcits)"
+    phase: "merge"
+    timestamp: "2026-03-22T08:01:07.107Z"
