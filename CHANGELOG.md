@@ -1,3 +1,10 @@
+# [1.139.0](https://github.com/shep-ai/cli/compare/v1.138.0...v1.139.0) (2026-03-22)
+
+
+### Features
+
+* **web:** redesign action-required feature nodes ([#445](https://github.com/shep-ai/cli/issues/445)) ([bb4fe7b](https://github.com/shep-ai/cli/commit/bb4fe7b0ba827ce3f7f9cd12bf77275571401cd5))
+
 # [1.138.0](https://github.com/shep-ai/cli/compare/v1.137.0...v1.138.0) (2026-03-22)
 
 
