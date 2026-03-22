@@ -256,9 +256,7 @@ export class DoctorDiagnoseUseCase {
     };
   }
 
-  private async collectSpecYamls(
-    specPath?: string
-  ): Promise<Partial<DoctorDiagnosticReport>> {
+  private async collectSpecYamls(specPath?: string): Promise<Partial<DoctorDiagnosticReport>> {
     if (!specPath) return {};
     const files = [
       'spec.yaml',
@@ -276,9 +274,7 @@ export class DoctorDiagnoseUseCase {
     ] as const;
 
     const results: Partial<DoctorDiagnosticReport> = {};
-    const reads = await Promise.all(
-      files.map((f) => this.readFileSafe(path.join(specPath, f)))
-    );
+    const reads = await Promise.all(files.map((f) => this.readFileSafe(path.join(specPath, f))));
     for (let i = 0; i < files.length; i++) {
       if (reads[i]) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -392,29 +388,29 @@ export class DoctorDiagnoseUseCase {
         sections.push(
           `<details><summary>Agent: ${detail.agentName} (${detail.agentType})</summary>\n`
         );
-        sections.push('### Prompt\n```\n' + detail.prompt + '\n```\n');
+        sections.push(`### Prompt\n\`\`\`\n${detail.prompt}\n\`\`\`\n`);
         if (detail.result) {
-          sections.push('### Result\n```\n' + detail.result + '\n```\n');
+          sections.push(`### Result\n\`\`\`\n${detail.result}\n\`\`\`\n`);
         }
         if (detail.error) {
-          sections.push('### Error\n```\n' + detail.error + '\n```\n');
+          sections.push(`### Error\n\`\`\`\n${detail.error}\n\`\`\`\n`);
         }
         sections.push('</details>\n');
       }
     }
 
     if (report.conversationMessages) {
-      const msgCount = (report.conversationMessages.match(/"id"/g) || []).length;
+      const msgCount = (report.conversationMessages.match(/"id"/g) ?? []).length;
       sections.push('\n## Conversation History\n');
       sections.push(`<details><summary>Messages (${msgCount} messages)</summary>\n`);
-      sections.push('```json\n' + report.conversationMessages + '\n```\n');
+      sections.push(`\`\`\`json\n${report.conversationMessages}\n\`\`\`\n`);
       sections.push('</details>\n');
     }
 
     if (report.featurePlan) {
       sections.push('\n## Feature Plan\n');
       sections.push('<details><summary>Plan & Tasks</summary>\n');
-      sections.push('```json\n' + report.featurePlan + '\n```\n');
+      sections.push(`\`\`\`json\n${report.featurePlan}\n\`\`\`\n`);
       sections.push('</details>\n');
     }
 
@@ -432,7 +428,7 @@ export class DoctorDiagnoseUseCase {
       for (const [name, content] of specEntries) {
         if (content) {
           sections.push(`<details><summary>${name}</summary>\n`);
-          sections.push('```yaml\n' + content + '\n```\n');
+          sections.push(`\`\`\`yaml\n${content}\n\`\`\`\n`);
           sections.push('</details>\n');
         }
       }
@@ -441,13 +437,11 @@ export class DoctorDiagnoseUseCase {
     if (report.workerLogs?.length) {
       sections.push('\n## Worker Logs\n');
       for (const log of report.workerLogs) {
-        const suffix = log.truncated
-          ? ` (truncated, ${log.originalLength} chars total)`
-          : '';
+        const suffix = log.truncated ? ` (truncated, ${log.originalLength} chars total)` : '';
         sections.push(
           `<details><summary>Worker log: ${log.agentName} (${log.agentRunId})${suffix}</summary>\n`
         );
-        sections.push('```\n' + log.content + '\n```\n');
+        sections.push(`\`\`\`\n${log.content}\n\`\`\`\n`);
         sections.push('</details>\n');
       }
     }
@@ -455,7 +449,7 @@ export class DoctorDiagnoseUseCase {
     if (report.phaseTimings) {
       sections.push('\n## Phase Timings\n');
       sections.push('<details><summary>Phase timing data</summary>\n');
-      sections.push('```json\n' + report.phaseTimings + '\n```\n');
+      sections.push(`\`\`\`json\n${report.phaseTimings}\n\`\`\`\n`);
       sections.push('</details>\n');
     }
 

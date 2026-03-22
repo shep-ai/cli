@@ -31,6 +31,7 @@ import type { IFeatureRepository } from '@/application/ports/output/repositories
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service.js';
 
 vi.mock('node:fs/promises', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const actual = await importOriginal<typeof import('node:fs/promises')>();
   return {
     ...actual,
@@ -784,8 +785,10 @@ describe('DoctorDiagnoseUseCase', () => {
           prompt: 'Analyze this',
           result: 'Analysis done',
         }),
-        { ...createFailedRun('r2', { featureId: 'feat-abc', prompt: 'Plan this' }),
-          status: AgentRunStatus.completed },
+        {
+          ...createFailedRun('r2', { featureId: 'feat-abc', prompt: 'Plan this' }),
+          status: AgentRunStatus.completed,
+        },
       ];
       vi.mocked(mocks.agentRunRepo.list).mockResolvedValue(runs);
       vi.mocked(mocks.featureRepo.findById).mockResolvedValue({
