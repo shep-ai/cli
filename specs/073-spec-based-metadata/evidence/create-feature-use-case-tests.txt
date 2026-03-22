@@ -1,0 +1,50 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-spec-based-metadata
+
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > without parentId (baseline) > should create a feature and spawn the agent 2ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > without parentId (baseline) > should persist the feature with no parentId 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > should accept parentId in the input without TypeScript errors 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — parent validation > should throw when parentId references a non-existent feature 1ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — gate logic (child lifecycle) > should create child in Blocked state when parent lifecycle is Blocked 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — gate logic (child lifecycle) > should create child in Blocked state when parent lifecycle is Started 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — gate logic (child lifecycle) > should create child in Blocked state when parent lifecycle is Planning (< Implementation) 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — gate logic (child lifecycle) > should create child in Started state when parent lifecycle is Implementation 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — gate logic (child lifecycle) > should create child in Started state when parent lifecycle is Review 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — gate logic (child lifecycle) > should create child in Started state when parent lifecycle is Maintain 1ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — persistence > should persist parentId on the created feature 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — repositoryPath resolution > should use parent repositoryPath instead of input repositoryPath 1ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > with parentId — repositoryPath resolution > should use input repositoryPath when no parentId is given 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > cycle detection > should reject a self-reference (A → A) 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > cycle detection > should reject a two-node cycle (A.parentId → B, B.parentId → A) 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > cycle detection > should reject a deep cycle (A → B → C → D → A) 1ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > cycle detection > should allow a valid deep chain without cycles (A → B → C) 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > repository creation guard > throws if repositoryRepo.create() returns falsy 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > fast mode > should set lifecycle to Implementation when fast=true 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > fast mode > should set lifecycle to Requirements when fast=false 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > fast mode > should set lifecycle to Requirements when fast is undefined 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > fast mode > should pass fast flag to specInitializer.initialize() as mode 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > fast mode > should not pass mode to specInitializer.initialize() when fast is false 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > fast mode > should pass fast=true to agentProcess.spawn() options 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > fast mode > should not include fast in spawn options when fast is false 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > fast mode > should still set lifecycle to Blocked for child feature with fast=true when parent is Blocked 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > pending flag > should accept pending field in CreateFeatureInput without TypeScript errors 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > pending flag > should create feature in Pending lifecycle when pending=true 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > pending flag > should not spawn agent when pending=true 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > pending flag > should create feature in Pending lifecycle when pending=true and parentId is set 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > pending flag > should create feature in Pending lifecycle when pending=true, parentId set, and parent in POST_IMPLEMENTATION 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > pending flag > should preserve existing behavior when pending is false 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > pending flag > should preserve existing behavior when pending is undefined 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > pending flag > should set fast feature to Pending lifecycle when pending=true and fast=true 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > model field wiring > should pass model to spawn when input.model is provided 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > model field wiring > should not set model on spawn options when input.model is absent 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > model field wiring > should accept model field in CreateFeatureInput without TypeScript errors 1ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > agent validation before spawn > should throw with meaningful error when agent is not available 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > agent validation before spawn > should mark agent run as failed when agent is not available 1ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > agent validation before spawn > should spawn agent when validation passes 0ms
+ ✓  node  tests/unit/application/use-cases/features/create-feature.use-case.test.ts > CreateFeatureUseCase > agent validation before spawn > should validate the input agentType when provided 0ms
+
+ Test Files  1 passed (1)
+      Tests  41 passed (41)
+   Start at  10:29:08
+   Duration  159ms (transform 65ms, setup 0ms, import 88ms, tests 15ms, environment 0ms)
+
