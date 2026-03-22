@@ -352,6 +352,7 @@ export function SettingsPageClient({
     githubImport: false,
     adoptBranch: false,
     reactFileManager: false,
+    coastsDevServer: false,
   };
 
   // Agent state
@@ -1455,6 +1456,18 @@ export function SettingsPageClient({
               checked={flags.reactFileManager}
               onChange={(v) => {
                 const newFlags = { ...flags, reactFileManager: v };
+                setFlags(newFlags);
+                save({ featureFlags: newFlags });
+              }}
+            />
+            <SwitchRow
+              label="Coasts Dev Server"
+              description="Enable Coasts containerized runtime isolation for the dev server"
+              id="flag-coastsDevServer"
+              testId="switch-flag-coastsDevServer"
+              checked={flags.coastsDevServer}
+              onChange={(v) => {
+                const newFlags = { ...flags, coastsDevServer: v };
                 setFlags(newFlags);
                 save({ featureFlags: newFlags });
               }}

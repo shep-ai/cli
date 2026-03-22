@@ -1,0 +1,16 @@
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-coasts-dev-server
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > startCoastsDevServer > runs prerequisite check as the first step 2ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > startCoastsDevServer > throws when prerequisites are not met 1ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > startCoastsDevServer > does not call build/run when prerequisites fail 0ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > startCoastsDevServer > calls generateCoastfile when no Coastfile exists 1ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > startCoastsDevServer > does not call generateCoastfile when Coastfile exists 0ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > startCoastsDevServer > calls coast build then coast run in sequence 0ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > startCoastsDevServer > returns the CoastInstance from coast run 0ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > startCoastsDevServer > propagates coast build errors 0ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > startCoastsDevServer > propagates coast run errors 0ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > shutdownCoasts > calls coastsService.stop() with workDir 0ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > shutdownCoasts > does not throw when coastsService.stop() fails 2ms
+ ✓  node  tests/unit/presentation/dev-server-coasts.test.ts > Coasts Dev Server Startup > shutdownCoasts > does nothing when service is null 0ms
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Duration  97ms (transform 23ms, setup 0ms, import 30ms, tests 7ms, environment 0ms)

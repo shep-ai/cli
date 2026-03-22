@@ -1,0 +1,39 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-coasts-dev-server
+
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > checkPrerequisites > returns allMet true when all checks pass 1ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > checkPrerequisites > coastBinary is false when coast --version throws ENOENT 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > checkPrerequisites > docker is false when docker info exits non-zero 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > checkPrerequisites > coastdRunning is false when coast ls fails 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > checkPrerequisites > missingMessages includes install instructions for each missing prerequisite 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > checkPrerequisites > Windows platform returns allMet false immediately 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > checkPrerequisites > all three checks run in parallel (not sequentially) 12ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > build > calls execFile with coast build args and workDir cwd 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > build > uses 30-second timeout 1ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > build > throws with stderr on non-zero exit 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > run > parses port and url from stdout 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > run > returns CoastInstance on success 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > run > calls execFile with coast run args 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > run > throws with stderr on failure 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > stop > calls execFile with coast stop args 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > stop > does not throw when no instance is running 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > checkout > calls execFile with coast checkout args 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > lookup > returns CoastInstance when instance exists 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > lookup > returns null when no instance found 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > lookup > calls execFile with coast lookup args 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > isRunning > returns true when lookup succeeds 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > isRunning > returns false when lookup fails 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > hasCoastfile > returns true when Coastfile exists 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > hasCoastfile > returns false when Coastfile missing 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > getInstallationPrompt > runs coast installation-prompt subprocess 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > getInstallationPrompt > returns cached value on second call 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > generateCoastfile > calls getInstallationPrompt then structuredCaller 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > generateCoastfile > writes content to workDir/Coastfile 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > generateCoastfile > returns the Coastfile path 0ms
+ ✓  node  tests/unit/infrastructure/services/coasts.service.test.ts > CoastsService > generateCoastfile > agent schema includes content and warnings fields 0ms
+
+ Test Files  1 passed (1)
+      Tests  30 passed (30)
+   Start at  16:58:04
+   Duration  136ms (transform 36ms, setup 0ms, import 56ms, tests 18ms, environment 0ms)
+

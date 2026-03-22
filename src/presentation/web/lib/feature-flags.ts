@@ -19,6 +19,7 @@ export interface FeatureFlagsState {
   githubImport: boolean;
   adoptBranch: boolean;
   reactFileManager: boolean;
+  coastsDevServer: boolean;
 }
 
 export function getFeatureFlags(): FeatureFlagsState {
@@ -33,6 +34,7 @@ export function getFeatureFlags(): FeatureFlagsState {
           githubImport: flags.githubImport,
           adoptBranch: flags.adoptBranch,
           reactFileManager: flags.reactFileManager,
+          coastsDevServer: flags.coastsDevServer,
         };
       }
     }
@@ -50,6 +52,7 @@ export function getFeatureFlags(): FeatureFlagsState {
     githubImport: false,
     adoptBranch: false,
     reactFileManager: isEnabled(process.env.NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER),
+    coastsDevServer: isEnabled(process.env.NEXT_PUBLIC_FLAG_COASTS_DEV_SERVER),
   };
 }
 
@@ -75,5 +78,8 @@ export const featureFlags = {
   },
   get reactFileManager() {
     return getFeatureFlags().reactFileManager;
+  },
+  get coastsDevServer() {
+    return getFeatureFlags().coastsDevServer;
   },
 } as const;

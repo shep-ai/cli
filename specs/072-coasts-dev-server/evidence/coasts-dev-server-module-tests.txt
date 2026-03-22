@@ -1,0 +1,25 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-coasts-dev-server
+
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > runs full Coasts flow when all prerequisites met and Coastfile exists 1ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > throws when prerequisites are not met (missing coast binary) 1ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > throws when Docker is not running 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > throws when coastd daemon is not running 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > includes missing prerequisite messages in error 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > calls generateCoastfile when no Coastfile exists 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > logs Coastfile generation progress 1ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > throws when Coastfile generation fails 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > throws when coast build fails 1ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > throws when coast run fails 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > logs [dev-server:coasts] prefix messages throughout startup 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > startCoastsDevServer > returns the CoastInstance from coast run 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > shutdownCoasts > calls stop() on the coastsService 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > shutdownCoasts > does nothing when coastsService is null (bare mode) 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > shutdownCoasts > catches and logs errors from stop() without rethrowing 0ms
+ ✓  web  tests/unit/presentation/web/coasts-dev-server.test.ts > shutdownCoasts > logs [dev-server:coasts] prefix during shutdown 0ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  16:58:10
+   Duration  553ms (transform 31ms, setup 116ms, import 20ms, tests 7ms, environment 343ms)
+
