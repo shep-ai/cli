@@ -82,6 +82,8 @@ git commit -m "<type>(<scope>): <description>"
 
 Follow conventional commits. Commit message must be lowercase.
 
+**Release-aware type selection:** Only `feat` and `fix` trigger semantic release. If the change is visible to end users (UI, CLI output, API behavior), you MUST use `feat` or `fix` — never `style`, `refactor`, or `chore`. See `.claude/rules/commit-conventions.md` for the full decision table.
+
 ### 3. Push & Create PR
 
 ```bash

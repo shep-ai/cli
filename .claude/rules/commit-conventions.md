@@ -11,6 +11,25 @@ If you are asked to produce a commit message and your first attempt would violat
 
 feat | fix | docs | style | refactor | perf | test | build | ci | chore | revert
 
+## Release-Aware Type Selection (CRITICAL)
+
+Semantic release only publishes on `feat` (minor) and `fix` (patch). Other types (`style`, `refactor`, `perf`, `chore`, etc.) do NOT trigger a release.
+
+**Rule: If a change is visible to end users or must be propagated to clients, use `feat` or `fix` — NEVER `style`, `refactor`, or `chore`.**
+
+Think about it: if the change affects what users see or experience, it must reach them via a release. Choose the type based on whether the change needs to ship, not just what kind of edit it is.
+
+| Change | Correct type | Wrong type |
+|--------|-------------|------------|
+| UI color/layout change visible to users | `feat` or `fix` | `style` |
+| Refactor that changes API behavior | `feat` or `fix` | `refactor` |
+| Performance improvement users will notice | `feat` (or `fix` if it was a perf bug) | `perf` |
+| Internal code reformatting (no user impact) | `style` | — |
+| Internal refactor (no user impact) | `refactor` | — |
+| Dev tooling, CI config, test-only changes | `chore`, `ci`, `test` | — |
+
+**Ask yourself: "Does the user need this change?" If yes → `feat` or `fix`.** If no → use the appropriate non-releasing type.
+
 ## Allowed <scope>
 
 specs | shep-kit | cli | tui | web | api | domain | agents | deployment | tsp | deps | config | dx | release | ci
