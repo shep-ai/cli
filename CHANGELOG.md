@@ -1,3 +1,10 @@
+## [1.136.1](https://github.com/shep-ai/cli/compare/v1.136.0...v1.136.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* **domain:** resolve file references in feature metadata generation ([#444](https://github.com/shep-ai/cli/issues/444)) ([5b87fdc](https://github.com/shep-ai/cli/commit/5b87fdcff4ca52f40be96f22583d39bba8242c21))
+
 # [1.136.0](https://github.com/shep-ai/cli/compare/v1.135.3...v1.136.0) (2026-03-21)
 
 
