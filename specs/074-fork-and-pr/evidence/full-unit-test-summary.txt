@@ -1,0 +1,11 @@
+Full Unit Test Suite Summary
+============================
+Vitest v4.0.18
+
+ Test Files  346 passed (346)
+      Tests  4695 passed (4695)
+   Start at  20:23:12
+   Duration  45.90s
+
+All 346 test files passed with 4695 individual tests passing.
+No failures.
