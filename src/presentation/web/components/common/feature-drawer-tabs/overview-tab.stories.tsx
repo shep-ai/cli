@@ -382,6 +382,10 @@ export const WithRebaseAction: Story = {
   args: {
     data: noPrData,
     onRebaseOnMain: fn(),
+    onRefreshSync: fn(),
+    syncStatus: { ahead: 5, behind: 3, baseBranch: 'main', checkedAt: new Date().toISOString() },
+    syncLoading: false,
+    syncError: null,
     rebaseLoading: false,
     rebaseError: null,
   },
