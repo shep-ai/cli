@@ -88,20 +88,20 @@
   --color-primary: #3b82f6;
   --color-primary-foreground: #ffffff;
 
-  --color-secondary: #1e293b;
-  --color-secondary-foreground: #f8fafc;
+  --color-secondary: #262626;
+  --color-secondary-foreground: #fafafa;
 
-  --color-muted: #1e293b;
-  --color-muted-foreground: #94a3b8;
+  --color-muted: #262626;
+  --color-muted-foreground: #a3a3a3;
 
-  --color-accent: #1e293b;
-  --color-accent-foreground: #f8fafc;
+  --color-accent: #262626;
+  --color-accent-foreground: #fafafa;
 
   --color-destructive: #dc2626;
   --color-destructive-foreground: #ffffff;
 
-  --color-border: #1e293b;
-  --color-input: #1e293b;
+  --color-border: #333333;
+  --color-input: #3a3a3a;
   --color-ring: #3b82f6;
 
   --color-card: #0a0a0a;
@@ -233,6 +233,10 @@
   --sidebar-accent-foreground: var(--color-accent-foreground);
   --sidebar-border: var(--color-border);
   --sidebar-ring: var(--color-ring);
+}
+
+.dark {
+  --sidebar: #1a1a1a;
 }
 
 @theme inline {
@@ -402,8 +406,8 @@
 
   /* ── Scrollbar styling ───────────────────────────────────────── */
   & ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
   }
 
   & ::-webkit-scrollbar-track {
@@ -411,12 +415,12 @@
   }
 
   & ::-webkit-scrollbar-thumb {
-    background: var(--color-border);
+    background: color-mix(in srgb, var(--color-foreground) 15%, transparent);
     border-radius: 9999px;
   }
 
   & ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-muted-foreground);
+    background: color-mix(in srgb, var(--color-foreground) 30%, transparent);
   }
 
   /* ── Dark mode overrides ─────────────────────────────────────── */

@@ -103,7 +103,8 @@ export function FeatureNode({
         />
       ) : null}
 
-      {/* Action buttons — centered as a group to the left of the node */}
+      {/* Action buttons — centered as a group to the left of the node.
+          Tooltip side convention: left-side buttons use side="left", right-side buttons use side="right". */}
       <div
         className="absolute top-1/2 -left-10 flex -translate-y-1/2 flex-col items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100"
         onPointerDown={(e) => e.stopPropagation()}
@@ -128,7 +129,7 @@ export function FeatureNode({
                   <Archive className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Archive feature</TooltipContent>
+              <TooltipContent side="left">Archive feature</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : null}
@@ -150,7 +151,7 @@ export function FeatureNode({
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Delete feature</TooltipContent>
+              <TooltipContent side="left">Delete feature</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : null}
@@ -172,7 +173,7 @@ export function FeatureNode({
                   <ArchiveRestore className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Unarchive feature</TooltipContent>
+              <TooltipContent side="left">Unarchive feature</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : null}
@@ -512,18 +513,25 @@ export function FeatureNode({
           className="h-0! w-0! border-0! bg-transparent!"
           style={{ top: 70 }}
         >
-          <button
-            type="button"
-            aria-label="Add"
-            data-testid="feature-node-action-button"
-            onClick={(e) => {
-              e.stopPropagation();
-              data.onAction?.();
-            }}
-            className="nodrag absolute top-1/2 left-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-blue-500 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-600"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Add feature"
+                  data-testid="feature-node-action-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    data.onAction?.();
+                  }}
+                  className="nodrag absolute top-1/2 left-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-blue-500 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-600"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Add feature</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </Handle>
       ) : data.showHandles ? (
         <Handle
