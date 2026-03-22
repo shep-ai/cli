@@ -7,6 +7,7 @@ import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-la
 import type { IFeatureRepository } from '@shepai/core/application/ports/output/repositories/feature-repository.interface';
 import type { IDeploymentService } from '@shepai/core/application/ports/output/services/deployment-service.interface';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
+import { isSameShepInstance } from '@/lib/is-same-shep-instance';
 
 const log = createDeploymentLogger('[deployFeature]');
 
@@ -39,6 +40,14 @@ export async function deployFeature(
     if (!existsSync(worktreePath)) {
       log.warn(`worktree path does not exist on disk: "${worktreePath}"`);
       return { success: false, error: `Worktree path does not exist: ${worktreePath}` };
+    }
+
+    if (isSameShepInstance(feature.repositoryPath)) {
+      log.warn('rejected — feature belongs to the running shep instance');
+      return {
+        success: false,
+        error: 'Cannot start a dev server for features of the repository Shep is running from',
+      };
     }
 
     log.info('worktree path exists, calling deploymentService.start()');

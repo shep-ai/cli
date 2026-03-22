@@ -6,6 +6,7 @@ import { resolve } from '@/lib/server-container';
 import { createDeploymentLogger } from '@shepai/core/infrastructure/services/deployment/deployment-logger';
 import type { IDeploymentService } from '@shepai/core/application/ports/output/services/deployment-service.interface';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
+import { isSameShepInstance } from '@/lib/is-same-shep-instance';
 
 const log = createDeploymentLogger('[deployRepository]');
 
@@ -23,6 +24,14 @@ export async function deployRepository(
     if (!existsSync(repositoryPath)) {
       log.warn(`directory does not exist: "${repositoryPath}"`);
       return { success: false, error: `Directory does not exist: ${repositoryPath}` };
+    }
+
+    if (isSameShepInstance(repositoryPath)) {
+      log.warn('rejected — target is the running shep instance');
+      return {
+        success: false,
+        error: 'Cannot start a dev server for the repository Shep is running from',
+      };
     }
 
     log.info('directory exists, calling deploymentService.start()');
