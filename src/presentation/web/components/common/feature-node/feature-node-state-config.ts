@@ -30,6 +30,7 @@ export type FeatureLifecyclePhase =
   | 'research'
   | 'implementation'
   | 'review'
+  | 'awaitingUpstream'
   | 'deploy'
   | 'maintain';
 
@@ -40,6 +41,7 @@ export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
   research: 'RESEARCH',
   implementation: 'IMPLEMENTATION',
   review: 'REVIEW',
+  awaitingUpstream: 'AWAITING UPSTREAM',
   deploy: 'DEPLOY & QA',
   maintain: 'COMPLETED',
 };
@@ -51,6 +53,7 @@ export const lifecycleBorderColors: Record<FeatureLifecyclePhase, string> = {
   research: 'border-l-cyan-500',
   implementation: 'border-l-blue-500',
   review: 'border-l-amber-500',
+  awaitingUpstream: 'border-l-amber-500',
   deploy: 'border-l-emerald-500',
   maintain: 'border-l-gray-400',
 };
@@ -62,6 +65,7 @@ export const lifecycleAccentColors: Record<FeatureLifecyclePhase, string> = {
   research: 'bg-cyan-500',
   implementation: 'bg-blue-500',
   review: 'bg-amber-500',
+  awaitingUpstream: 'bg-amber-500',
   deploy: 'bg-emerald-500',
   maintain: 'bg-gray-400',
 };
@@ -122,6 +126,15 @@ export const lifecyclePhaseBadge: Record<
     description:
       'Ready to merge — the code is complete. Review the changes and approve to merge into your repository.',
   },
+  awaitingUpstream: {
+    letter: 'U',
+    bg: 'bg-amber-100 dark:bg-amber-900/40',
+    text: 'text-amber-600 dark:text-amber-300',
+    dot: 'bg-amber-500',
+    tooltip: 'Awaiting upstream merge',
+    description:
+      'PR submitted to upstream — waiting for the upstream maintainer to review and merge.',
+  },
   deploy: {
     letter: 'Q',
     bg: 'bg-lime-100 dark:bg-lime-900/40',
@@ -162,6 +175,7 @@ export const lifecycleRunningVerbs: Record<FeatureLifecyclePhase, string> = {
   research: 'Researching',
   implementation: 'Implementing',
   review: 'Reviewing',
+  awaitingUpstream: 'Awaiting upstream',
   deploy: 'Deploying',
   maintain: 'Maintaining',
 };
