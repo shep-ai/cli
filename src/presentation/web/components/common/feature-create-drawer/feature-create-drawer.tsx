@@ -72,6 +72,8 @@ export interface FeatureCreatePayload {
   ciWatchEnabled: boolean;
   enableEvidence: boolean;
   commitEvidence: boolean;
+  forkAndPr: boolean;
+  commitSpecs: boolean;
   parentId?: string;
   /** When true, skip SDLC phases and implement directly from the prompt. */
   fast: boolean;
@@ -231,6 +233,8 @@ export function FeatureCreateDrawer({
   const [ciWatchEnabled, setCiWatchEnabled] = useState(workflowDefaults?.ciWatchEnabled !== false);
   const [enableEvidence, setEnableEvidence] = useState(defaultEnableEvidence);
   const [commitEvidence, setCommitEvidence] = useState(defaultCommitEvidence);
+  const [forkAndPr, setForkAndPr] = useState(false);
+  const [commitSpecs, setCommitSpecs] = useState(true);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
   const [fast, setFast] = useState(false);
   const [pending, setPending] = useState(false);
@@ -282,6 +286,8 @@ export function FeatureCreateDrawer({
     setCiWatchEnabled(defaultCiWatch);
     setEnableEvidence(defaultEnableEvidence);
     setCommitEvidence(defaultCommitEvidence);
+    setForkAndPr(false);
+    setCommitSpecs(true);
     setParentId(undefined);
     setSelectedRepoPath(validRepoPath || undefined);
     setLocalRepos(repositories ?? []);
@@ -452,11 +458,13 @@ export function FeatureCreateDrawer({
           allowPlan: approvalGates.allowPlan ?? false,
           allowMerge: approvalGates.allowMerge ?? false,
         },
-        push: push || openPr,
-        openPr,
+        push: push || openPr || forkAndPr,
+        openPr: openPr || forkAndPr,
         ciWatchEnabled,
         enableEvidence,
         commitEvidence,
+        forkAndPr,
+        commitSpecs,
         fast,
         ...(pending ? { pending } : {}),
         ...(overrideAgent ? { agentType: overrideAgent } : {}),
@@ -478,6 +486,8 @@ export function FeatureCreateDrawer({
       enableEvidence,
       ciWatchEnabled,
       commitEvidence,
+      forkAndPr,
+      commitSpecs,
       fast,
       pending,
       overrideAgent,
@@ -956,12 +966,12 @@ export function FeatureCreateDrawer({
                         <Switch
                           id="push"
                           size="sm"
-                          checked={push || openPr}
+                          checked={push || openPr || forkAndPr}
                           onCheckedChange={(v) => {
                             setPush(v);
                             if (!v && openPr) setOpenPr(false);
                           }}
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || forkAndPr}
                         />
                         <Label htmlFor="push" className="cursor-pointer text-xs font-medium">
                           Push
@@ -978,12 +988,12 @@ export function FeatureCreateDrawer({
                         <Switch
                           id="open-pr"
                           size="sm"
-                          checked={openPr}
+                          checked={openPr || forkAndPr}
                           onCheckedChange={(v) => {
                             setOpenPr(v);
                             if (!v) setCommitEvidence(false);
                           }}
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || forkAndPr}
                         />
                         <Label htmlFor="open-pr" className="cursor-pointer text-xs font-medium">
                           PR
@@ -1010,6 +1020,68 @@ export function FeatureCreateDrawer({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">Watch CI and auto-fix after push.</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="fork-and-pr"
+                          size="sm"
+                          checked={forkAndPr}
+                          onCheckedChange={(v) => {
+                            setForkAndPr(v);
+                            if (v) {
+                              setCommitSpecs(false);
+                              setPush(true);
+                              setOpenPr(true);
+                            }
+                          }}
+                          disabled={isSubmitting}
+                        />
+                        <Label htmlFor="fork-and-pr" className="cursor-pointer text-xs font-medium">
+                          Fork
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Fork the repository and open a PR from the fork.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
+              {/* Specs row */}
+              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
+                <span className="text-muted-foreground w-16 shrink-0 text-xs font-semibold tracking-wider">
+                  SPECS
+                </span>
+                <div className="flex flex-1 items-center gap-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="commit-specs"
+                          size="sm"
+                          checked={commitSpecs}
+                          onCheckedChange={setCommitSpecs}
+                          disabled={isSubmitting || forkAndPr}
+                        />
+                        <Label
+                          htmlFor="commit-specs"
+                          className={cn(
+                            'cursor-pointer text-xs font-medium',
+                            forkAndPr && 'opacity-50'
+                          )}
+                        >
+                          Commit
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {forkAndPr
+                        ? 'Disabled when Fork is enabled'
+                        : 'Commit spec files alongside implementation.'}
+                    </TooltipContent>
                   </Tooltip>
                 </div>
               </div>

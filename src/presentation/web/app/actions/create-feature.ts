@@ -28,6 +28,8 @@ interface CreateFeatureInput {
   };
   push?: boolean;
   openPr?: boolean;
+  forkAndPr?: boolean;
+  commitSpecs?: boolean;
   parentId?: string;
   /** When true, skip SDLC phases and implement directly from the prompt. */
   fast?: boolean;
@@ -50,6 +52,8 @@ export async function createFeature(
     approvalGates,
     push,
     openPr,
+    forkAndPr,
+    commitSpecs,
     parentId,
     fast,
     pending,
@@ -82,6 +86,8 @@ export async function createFeature(
       approvalGates: gates,
       push: push ?? false,
       openPr: openPr ?? false,
+      ...(forkAndPr ? { forkAndPr } : {}),
+      ...(commitSpecs !== undefined ? { commitSpecs } : {}),
       ...(parentId ? { parentId } : {}),
       description,
       ...(fast ? { fast } : {}),
@@ -101,6 +107,8 @@ export async function createFeature(
           approvalGates: gates,
           push: push ?? false,
           openPr: openPr ?? false,
+          ...(forkAndPr ? { forkAndPr } : {}),
+          ...(commitSpecs !== undefined ? { commitSpecs } : {}),
           ...(parentId ? { parentId } : {}),
           ...(fast ? { fast } : {}),
           ...(pending ? { pending } : {}),
