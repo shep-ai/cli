@@ -52,7 +52,7 @@ export function buildFileTree(fileDiffs: MergeReviewFileDiff[]): TreeViewElement
   return collapseSingleChildFolders(root);
 }
 
-/** Collapse folders that contain only one child folder (e.g. src/components → src/components). */
+/** Collapse folders that contain only one child folder (e.g. src/components -> src/components). */
 function collapseSingleChildFolders(elements: TreeViewElement[]): TreeViewElement[] {
   return elements.map((el) => {
     if (el.type === 'folder' && el.children) {
@@ -71,18 +71,16 @@ function collapseSingleChildFolders(elements: TreeViewElement[]): TreeViewElemen
   });
 }
 
-/** Collect all folder IDs for expanding the tree by default. */
-function getAllFolderIds(elements: TreeViewElement[]): string[] {
-  const ids: string[] = [];
-  for (const el of elements) {
-    if (el.type === 'folder') {
-      ids.push(el.id);
-      if (el.children) {
-        ids.push(...getAllFolderIds(el.children));
-      }
-    }
-  }
-  return ids;
+/** Count the total number of file descendants under an element. */
+function countFiles(element: TreeViewElement): number {
+  if (element.type === 'file') return 1;
+  if (!element.children) return 0;
+  return element.children.reduce((sum, child) => sum + countFiles(child), 0);
+}
+
+/** Get folder IDs for the first level of folders only (top-level). */
+function getTopLevelFolderIds(elements: TreeViewElement[]): string[] {
+  return elements.filter((el) => el.type === 'folder').map((el) => el.id);
 }
 
 function HunkView({ hunk }: { hunk: MergeReviewDiffHunk }) {
@@ -154,8 +152,14 @@ function FileTreeNode({
   onSelectFile: (path: string) => void;
 }) {
   if (element.type === 'folder' && element.children) {
+    const fileCount = countFiles(element);
     return (
-      <Folder key={element.id} value={element.id} element={element.name} isSelectable={false}>
+      <Folder
+        key={element.id}
+        value={element.id}
+        element={`${element.name} (${fileCount})`}
+        className="text-muted-foreground"
+      >
         {element.children.map((child) => (
           <FileTreeNode
             key={child.id}
@@ -202,7 +206,7 @@ export function DiffView({ fileDiffs }: DiffViewProps) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   const treeElements = useMemo(() => buildFileTree(fileDiffs), [fileDiffs]);
-  const allFolderIds = useMemo(() => getAllFolderIds(treeElements), [treeElements]);
+  const topLevelFolderIds = useMemo(() => getTopLevelFolderIds(treeElements), [treeElements]);
 
   const diffMap = useMemo(() => {
     const map = new Map<string, MergeReviewFileDiff>();
@@ -233,7 +237,7 @@ export function DiffView({ fileDiffs }: DiffViewProps) {
         <div className="py-2">
           <Tree
             elements={treeElements}
-            initialExpandedItems={allFolderIds}
+            initialExpandedItems={topLevelFolderIds}
             indicator={true}
             sort="none"
             className="text-xs"
