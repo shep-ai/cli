@@ -91,7 +91,7 @@ WorkerLogEntry {
   agentName: string
   content: string               // Full log file content, truncated if over MAX_LOG_CHARS
   truncated: boolean            // True if content was truncated
-  originalLength?: int64        // Original character count (only set when truncated)
+  originalLength?: int32        // Original character count (only set when truncated)
 }
 ```
 
