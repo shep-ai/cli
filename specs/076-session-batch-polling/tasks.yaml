@@ -1,0 +1,177 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: session-batch-polling
+summary: >
+  7 tasks across 3 phases to centralize session fetching into a batch poll.
+
+tasks:
+  - id: task-1
+    title: extract shared session scanner module
+    description: >
+      Move scanClaudeSessions, scanCursorSessions, and helper functions from
+      /api/sessions/route.ts into a shared module that both the existing
+      per-path endpoint and the new batch endpoint can import.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - shared module exports scanClaudeSessions and scanCursorSessions
+      - existing /api/sessions route still works unchanged (imports from shared module)
+      - no duplicate code between old and new endpoints
+    tdd:
+      red:
+        - existing /api/sessions tests still pass after extraction
+      green:
+        - move functions to shared module, update imports
+      refactor:
+        - clean up exports, ensure no circular dependencies
+    estimatedEffort: S
+
+  - id: task-2
+    title: create /api/sessions-batch endpoint
+    description: >
+      New GET endpoint that accepts a paths query parameter (JSON-encoded array
+      of {path, includeWorktrees} objects) and returns { sessionsByPath: Record<string, SessionSummary[]> }.
+      Includes server-side cache with 30s TTL.
+    state: Todo
+    dependencies: [task-1]
+    acceptanceCriteria:
+      - accepts paths query param with JSON array of path specs
+      - returns sessionsByPath keyed by repository path
+      - caches results for 30s (subsequent calls within TTL return cached data)
+      - limits to 5 sessions per path
+      - handles missing/invalid paths gracefully
+    tdd:
+      red:
+        - test returns empty object for empty paths array
+        - test returns sessions grouped by path
+        - test cache returns same result within TTL
+        - test handles invalid paths without crashing
+      green:
+        - implement endpoint with cache and scanner calls
+      refactor:
+        - extract cache logic if reusable
+    estimatedEffort: M
+
+  - id: task-3
+    title: create useSessionsBatch polling hook
+    description: >
+      Client-side hook that polls /api/sessions-batch every 30s. Accepts a list
+      of repository paths (from the graph state). Skips polling when document is
+      hidden. Returns a Map<string, SessionSummary[]>.
+    state: Todo
+    dependencies: [task-2]
+    acceptanceCriteria:
+      - polls /api/sessions-batch every 30 seconds
+      - skips poll when document.hidden is true
+      - provides getSessionsForPath(path) lookup function
+      - provides hasActiveSessions(path) boolean helper
+      - fetches immediately on mount, then on interval
+      - cleans up interval on unmount
+    tdd:
+      red:
+        - test initial fetch on mount
+        - test interval polling at 30s
+        - test skips when document.hidden
+        - test cleanup on unmount
+      green:
+        - implement hook with setInterval and fetch
+      refactor:
+        - memoize lookup functions
+    estimatedEffort: M
+
+  - id: task-4
+    title: create SessionsProvider context
+    description: >
+      React context that wraps useSessionsBatch and provides session data to
+      the component tree. Accepts repositoryPaths prop to know what to fetch.
+    state: Todo
+    dependencies: [task-3]
+    acceptanceCriteria:
+      - exports SessionsProvider component
+      - exports useSessionsContext hook for consumers
+      - provides getSessionsForPath and hasActiveSessions functions
+      - children can access session data without prop drilling
+    tdd:
+      red:
+        - test context provides sessions to children
+        - test useSessionsContext throws outside provider
+      green:
+        - implement provider and context hook
+      refactor:
+        - ensure stable references with useCallback/useMemo
+    estimatedEffort: S
+
+  - id: task-5
+    title: refactor FeatureSessionsDropdown to consume context
+    description: >
+      Replace internal fetch logic with context consumption. The dropdown reads
+      sessions from SessionsProvider instead of calling /api/sessions. Keep the
+      dropdown open/expand/copy UX unchanged.
+    state: Todo
+    dependencies: [task-4]
+    acceptanceCriteria:
+      - dropdown renders session list from context (no HTTP fetch on open)
+      - session count badge shows from context data
+      - active session indicator (green dot) shows from context data
+      - dropdown still supports expand/collapse for >3 sessions
+      - copy resume command, copy session ID, open in IDE still work
+      - onCreateFromSession callback still works for repo nodes
+    tdd:
+      red:
+        - test renders sessions from context without fetching
+        - test shows active indicator from context data
+        - test copy actions still functional
+      green:
+        - replace useState+fetch with useSessionsContext
+        - derive hasActiveSessions and session count from context
+      refactor:
+        - remove unused fetch-related state and callbacks
+    estimatedEffort: M
+
+  - id: task-6
+    title: wire SessionsProvider into control center
+    description: >
+      Wrap the ControlCenter component tree with SessionsProvider, passing the
+      list of all repository paths (including worktree paths) derived from the
+      graph state.
+    state: Todo
+    dependencies: [task-5]
+    acceptanceCriteria:
+      - SessionsProvider wraps ControlCenter or its inner component
+      - repository paths include both main repos and feature worktree paths
+      - paths update when repos/features are added or removed
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-7
+    title: update storybook stories
+    description: >
+      Update FeatureSessionsDropdown stories to use a mock SessionsProvider
+      instead of fetch mocks. Add story for active session indicator.
+    state: Todo
+    dependencies: [task-5]
+    acceptanceCriteria:
+      - all existing stories render correctly with mock provider
+      - new story shows active session green dot indicator
+      - storybook build passes
+    tdd: null
+    estimatedEffort: S
+
+totalEstimate: M (5-7 hours implementation)
+
+openQuestions: []
+
+content:
+  summary: >
+    7 tasks across 3 phases. Phase 1 (tasks 1-2) builds the server-side batch
+    endpoint. Phase 2 (tasks 3-4) creates the client-side context and polling.
+    Phase 3 (tasks 5-7) refactors the dropdown and wires everything together.
+
+  acceptanceChecklist:
+    - zero per-node session HTTP requests
+    - single batch fetch every 30 seconds
+    - active indicator visible on nodes without opening dropdown
+    - dropdown opens instantly with pre-loaded data
+    - polling pauses when tab is hidden
+    - storybook stories pass

@@ -1,0 +1,42 @@
+feature:
+  id: '076-session-batch-polling'
+  name: 'session-batch-polling'
+  number: 76
+  branch: 'feat/076-session-batch-polling'
+  lifecycle: 'implementation'
+  createdAt: '2026-03-23T00:00:00Z'
+
+status:
+  phase: 'ready-to-implement'
+  progress:
+    completed: 0
+    total: 7
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-23T00:00:00Z'
+  lastUpdatedBy: 'shep-kit:new-feature-fast'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-23T00:00:00Z'
+    completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'research-complete'
+    completedAt: '2026-03-23T00:00:00Z'
+    completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'plan-complete'
+    completedAt: '2026-03-23T00:00:00Z'
+    completedBy: 'shep-kit:new-feature-fast'
+
+errors:
+  current: null
+  history: []

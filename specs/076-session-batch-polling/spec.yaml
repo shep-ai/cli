@@ -1,0 +1,64 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: session-batch-polling
+number: 076
+branch: feat/076-session-batch-polling
+oneLiner: centralize session fetching into a single batch poll to eliminate per-node network calls
+summary: >
+  Replace per-node lazy session fetching with a centralized background poll that
+  fetches sessions for ALL repositories in a single request. Provides a React
+  context so every FeatureSessionsDropdown reads from shared state instead of
+  making independent HTTP calls. Keeps session data fresh (active indicator,
+  session count) without per-component network overhead.
+phase: Requirements
+
+sizeEstimate: M
+relatedFeatures: []
+technologies:
+  - Next.js API route
+  - React Context
+  - setInterval polling
+
+openQuestions: []
+
+content:
+  problemStatement: >
+    Each FeatureSessionsDropdown instance independently fetches /api/sessions on
+    dropdown open. With ~25 repos/worktrees visible on the canvas, opening the
+    page and interacting triggers 25+ individual HTTP requests. Session data goes
+    stale between opens, and there is no way to show live active-session
+    indicators on nodes without the user first clicking the dropdown.
+
+  successCriteria:
+    - Sessions for ALL repositories fetched in a single HTTP request on a background interval
+    - FeatureSessionsDropdown renders instantly from shared context data (zero per-instance fetches)
+    - Active session indicator (green dot) visible on nodes without opening the dropdown
+    - Session data refreshes every 30 seconds in the background
+    - Polling pauses when browser tab is hidden
+    - No regression in dropdown UX (session list, copy commands, create-from-session)
+
+  affectedAreas:
+    - area: /api/sessions-batch (new)
+      impact: high
+      reasoning: New batch endpoint that accepts multiple repo paths and returns sessions grouped by path
+    - area: SessionsProvider context (new)
+      impact: high
+      reasoning: New React context that polls the batch endpoint and provides sessions to all consumers
+    - area: FeatureSessionsDropdown
+      impact: high
+      reasoning: Refactored from self-fetching component to context-consumer
+    - area: FeatureNode / RepositoryNode
+      impact: low
+      reasoning: Pass context-derived active indicator, minimal changes
+    - area: /api/sessions (existing)
+      impact: none
+      reasoning: Kept as-is for backward compatibility
+
+  dependencies: []
+
+  sizeEstimateReasoning: >
+    M — New API endpoint reuses existing scanner functions, new context is
+    straightforward, dropdown refactor removes code rather than adding it.
+    Main complexity is wiring the context through the component tree and
+    handling the batch response shape.

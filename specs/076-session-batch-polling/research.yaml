@@ -1,0 +1,61 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: session-batch-polling
+summary: >
+  Batch session fetching via /api/sessions-batch endpoint, consumed by a
+  SessionsProvider React context polling on 30s interval.
+
+decisions:
+  - title: session delivery mechanism
+    chosen: separate /api/sessions-batch endpoint with dedicated React context
+    rejected:
+      - extend /api/graph-data response with sessions (adds filesystem I/O to critical-path poll, bloats reconcile)
+      - bake sessions into node data (expensive JSON comparison on every reconcile, 200KB+ per cycle)
+    rationale: >
+      Decoupled polling lets graph-data stay fast (~150ms) while sessions poll on
+      a longer 30s cadence. Context avoids per-node state and eliminates fetch
+      duplication. Session data changes are orthogonal to graph topology changes.
+
+  - title: polling interval
+    chosen: 30 seconds
+    rejected:
+      - 15 seconds (unnecessary for session freshness)
+      - 60 seconds (too stale for active-session detection with 5-min threshold)
+    rationale: >
+      30s balances freshness with server load. Active sessions have a 5-minute
+      threshold, so 30s polling catches transitions within 1 poll cycle.
+
+  - title: server-side caching
+    chosen: in-memory Map with 30s TTL per batch key
+    rejected:
+      - no caching (filesystem scan on every request)
+    rationale: >
+      Session scanning reads filesystem directories and parses JSONL headers.
+      Caching avoids redundant I/O when multiple clients connect.
+
+technologies:
+  - React Context API
+  - Next.js API route (GET)
+  - setInterval with document.hidden guard
+
+openQuestions: []
+
+content:
+  technologyDecisions: >
+    Uses existing session scanning functions (scanClaudeSessions,
+    scanCursorSessions) from /api/sessions/route.ts. The new batch endpoint
+    accepts a JSON-encoded array of {path, includeWorktrees} objects and returns
+    Record<string, SessionSummary[]>. Server-side result caching (30s TTL)
+    prevents redundant filesystem I/O across poll cycles and multiple clients.
+
+  securityConsiderations: >
+    No new security surface. The batch endpoint uses the same path-based
+    scanning as the existing /api/sessions endpoint. No user input is passed
+    to shell commands.
+
+  performanceImplications: >
+    Eliminates 25+ individual HTTP requests per dropdown interaction cycle.
+    Batch scanning amortizes directory listing overhead. Server-side cache
+    ensures subsequent polls within the TTL window are near-instant.
+    Estimated batch response size: ~50-150KB for 25 repos x 10 sessions.
