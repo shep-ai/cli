@@ -39,6 +39,8 @@ vi.mock('@/infrastructure/services/settings.service.js', () => ({
 }));
 
 const MOCK_SPEC_YAML = `name: test
+number: 1
+branch: feat/001-test
 oneLiner: A test feature
 summary: Test feature summary
 phase: analyze

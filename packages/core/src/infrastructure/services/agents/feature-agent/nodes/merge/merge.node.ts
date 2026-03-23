@@ -41,6 +41,7 @@ import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 import { runCiWatchFixLoop } from './ci-watch-fix-loop.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
 import type { CleanupFeatureWorktreeUseCase } from '@/application/use-cases/features/cleanup-feature-worktree.use-case.js';
+import type { IGitForkService } from '@/application/ports/output/services/git-fork-service.interface.js';
 
 export interface MergeNodeDeps {
   executor: IAgentExecutor;
@@ -73,6 +74,7 @@ export interface MergeNodeDeps {
    */
   revParse: (cwd: string, ref: string) => Promise<string>;
   gitPrService: IGitPrService;
+  gitForkService?: IGitForkService;
   cleanupFeatureWorktreeUseCase: Pick<CleanupFeatureWorktreeUseCase, 'execute'>;
 }
 
@@ -300,6 +302,69 @@ export function createMergeNode(deps: MergeNodeDeps) {
           commitHash = feature.pr.commitHash ?? commitHash;
           ciStatus = (feature.pr.ciStatus as string) ?? ciStatus;
         }
+      }
+
+      // --- Fork-and-PR flow ---
+      // When forkAndPr=true, fork the repo, push to the fork, create upstream PR,
+      // then transition to AwaitingUpstream instead of merging.
+      if (state.forkAndPr && deps.gitForkService) {
+        log.info('Fork-and-PR flow: forking repo and creating upstream PR');
+
+        await deps.gitForkService.forkRepository(cwd);
+        log.info('Repository forked, remotes remapped');
+
+        await deps.gitForkService.pushToFork(cwd, branch);
+        log.info(`Branch ${branch} pushed to fork`);
+
+        const upstreamPr = await deps.gitForkService.createUpstreamPr(
+          cwd,
+          feature?.name ?? branch,
+          feature?.description ?? '',
+          branch,
+          baseBranch
+        );
+        log.info(`Upstream PR created: ${upstreamPr.url}`);
+        messages.push(`[merge] Upstream PR created: ${upstreamPr.url}`);
+
+        if (feature) {
+          await deps.featureRepository.update({
+            ...feature,
+            lifecycle: SdlcLifecycle.AwaitingUpstream,
+            pr: {
+              ...(feature.pr ?? { url: '', number: 0, status: PrStatus.Open }),
+              ...(commitHash ? { commitHash } : {}),
+              upstreamPrUrl: upstreamPr.url,
+              upstreamPrNumber: upstreamPr.number,
+              upstreamPrStatus: PrStatus.Open,
+            },
+            updatedAt: new Date(),
+          });
+          messages.push(`[merge] Feature lifecycle → AwaitingUpstream`);
+        }
+
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        await recordPhaseEnd(mergeTimingId, Date.now() - startTime, {
+          inputTokens: totalInputTokens || undefined,
+          outputTokens: totalOutputTokens || undefined,
+          exitCode: 'success',
+        });
+        messages.push(`[merge] Complete (${elapsed}s)`);
+        log.info(`Fork-and-PR merge flow complete (${elapsed}s)`);
+
+        return {
+          currentNode: 'merge',
+          messages,
+          commitHash,
+          prUrl,
+          prNumber,
+          ciStatus,
+          ciFixAttempts,
+          ciFixHistory,
+          ciFixStatus,
+          _approvalAction: null,
+          _rejectionFeedback: null,
+          _needsReexecution: false,
+        };
       }
 
       // --- Merge ---

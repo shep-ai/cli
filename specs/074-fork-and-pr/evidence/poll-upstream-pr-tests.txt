@@ -1,0 +1,14 @@
+PollUpstreamPrUseCase Unit Tests — 8/8 passing
+================================================
+
+ ✓ PollUpstreamPrUseCase > should transition feature to Maintain when upstream PR is merged
+ ✓ PollUpstreamPrUseCase > should update status to Closed but stay in AwaitingUpstream when PR is closed
+ ✓ PollUpstreamPrUseCase > should return no-op when upstream PR is still open
+ ✓ PollUpstreamPrUseCase > should return early when feature is not found
+ ✓ PollUpstreamPrUseCase > should return early when feature is not in AwaitingUpstream lifecycle
+ ✓ PollUpstreamPrUseCase > should return early when feature has no upstream PR URL
+ ✓ PollUpstreamPrUseCase > should return early when upstream PR URL cannot be parsed
+ ✓ PollUpstreamPrUseCase > should extract correct upstream repo from PR URL
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)

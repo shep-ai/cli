@@ -392,6 +392,8 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
     data.openPr != null ||
     data.ciWatchEnabled != null ||
     data.enableEvidence != null ||
+    data.forkAndPr != null ||
+    data.commitSpecs != null ||
     data.modelId;
   if (!hasSettings) return null;
 
@@ -435,7 +437,11 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
             </div>
           </div>
         ) : null}
-        {data.push != null || data.openPr != null || data.ciWatchEnabled != null ? (
+        {data.push != null ||
+        data.openPr != null ||
+        data.ciWatchEnabled != null ||
+        data.commitSpecs != null ||
+        data.forkAndPr != null ? (
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
               <GitBranch className="h-3 w-3" />
@@ -446,6 +452,12 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
               {data.openPr != null ? <SettingBadge enabled={data.openPr} label="PR" /> : null}
               {data.ciWatchEnabled != null ? (
                 <SettingBadge enabled={data.ciWatchEnabled} label="Watch" />
+              ) : null}
+              {data.commitSpecs != null ? (
+                <SettingBadge enabled={data.commitSpecs} label="Commit Specs" />
+              ) : null}
+              {data.forkAndPr != null ? (
+                <SettingBadge enabled={data.forkAndPr} label="Fork & PR" />
               ) : null}
             </div>
           </div>

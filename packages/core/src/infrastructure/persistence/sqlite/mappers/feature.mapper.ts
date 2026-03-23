@@ -40,6 +40,11 @@ export interface FeatureRow {
   // Workflow configuration (flat columns)
   push: number;
   open_pr: number;
+  fork_and_pr: number;
+  commit_specs: number;
+  ci_watch_enabled: number;
+  enable_evidence: number;
+  commit_evidence: number;
   auto_merge: number;
   allow_prd: number;
   allow_plan: number;
@@ -56,6 +61,9 @@ export interface FeatureRow {
   ci_fix_attempts: number | null;
   ci_fix_history: string | null;
   pr_mergeable: number | null;
+  upstream_pr_url: string | null;
+  upstream_pr_number: number | null;
+  upstream_pr_status: string | null;
   // Feature dependency
   parent_id: string | null;
   // Archive state
@@ -95,6 +103,11 @@ export function toDatabase(feature: Feature): FeatureRow {
     // Flatten workflow flags to individual columns
     push: feature.push ? 1 : 0,
     open_pr: feature.openPr ? 1 : 0,
+    fork_and_pr: feature.forkAndPr ? 1 : 0,
+    commit_specs: feature.commitSpecs ? 1 : 0,
+    ci_watch_enabled: feature.ciWatchEnabled ? 1 : 0,
+    enable_evidence: feature.enableEvidence ? 1 : 0,
+    commit_evidence: feature.commitEvidence ? 1 : 0,
     auto_merge: feature.approvalGates?.allowMerge ? 1 : 0,
     allow_prd: feature.approvalGates?.allowPrd ? 1 : 0,
     allow_plan: feature.approvalGates?.allowPlan ? 1 : 0,
@@ -111,6 +124,9 @@ export function toDatabase(feature: Feature): FeatureRow {
     ci_fix_attempts: feature.pr?.ciFixAttempts ?? null,
     ci_fix_history: feature.pr?.ciFixHistory ? JSON.stringify(feature.pr.ciFixHistory) : null,
     pr_mergeable: feature.pr?.mergeable !== undefined ? (feature.pr.mergeable ? 1 : 0) : null,
+    upstream_pr_url: feature.pr?.upstreamPrUrl ?? null,
+    upstream_pr_number: feature.pr?.upstreamPrNumber ?? null,
+    upstream_pr_status: feature.pr?.upstreamPrStatus ?? null,
     // Feature dependency
     parent_id: feature.parentId ?? null,
     // Archive state
@@ -156,6 +172,11 @@ export function fromDatabase(row: FeatureRow): Feature {
     // Assemble workflow flags from flat columns
     push: row.push === 1,
     openPr: row.open_pr === 1,
+    forkAndPr: row.fork_and_pr === 1,
+    commitSpecs: row.commit_specs === 1,
+    ciWatchEnabled: row.ci_watch_enabled === 1,
+    enableEvidence: row.enable_evidence === 1,
+    commitEvidence: row.commit_evidence === 1,
     approvalGates: {
       allowPrd: row.allow_prd === 1,
       allowPlan: row.allow_plan === 1,
@@ -175,6 +196,11 @@ export function fromDatabase(row: FeatureRow): Feature {
         ...(row.ci_fix_attempts != null && { ciFixAttempts: row.ci_fix_attempts }),
         ...(row.ci_fix_history != null && { ciFixHistory: JSON.parse(row.ci_fix_history) }),
         ...(row.pr_mergeable != null && { mergeable: row.pr_mergeable === 1 }),
+        ...(row.upstream_pr_url != null && { upstreamPrUrl: row.upstream_pr_url }),
+        ...(row.upstream_pr_number != null && { upstreamPrNumber: row.upstream_pr_number }),
+        ...(row.upstream_pr_status != null && {
+          upstreamPrStatus: row.upstream_pr_status as PrStatus,
+        }),
       },
     }),
     // Feature dependency

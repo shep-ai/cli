@@ -151,8 +151,11 @@ export function buildCommitPushPrPrompt(
   const steps: string[] = [];
 
   // Step 1: Commit (always)
+  const stageCmd = state.commitSpecs
+    ? '`git add -A`'
+    : '`git add -A` then `git reset -- specs/` (do NOT commit the specs/ directory)';
   steps.push(`1. Review the current changes using \`git diff\` and \`git status\`
-2. Stage all changes with \`git add -A\`
+2. Stage changes with ${stageCmd}
 3. Write a conventional commit message based on the actual diff content
    - Use the format: \`feat(<scope>): <description>\` or \`fix(<scope>): <description>\`
    - The commit message should summarize what actually changed, not be generic
@@ -204,6 +207,7 @@ ${evidenceSection}
 
 - Write a meaningful conventional commit message derived from the actual diff — do NOT use generic messages
 ${rejectionSection ? '- You MUST modify source code files to address the rejection feedback above BEFORE committing' : '- Do NOT modify any source code files — only perform git operations'}
+${!state.commitSpecs ? '- Do NOT commit the `specs/` directory — it must stay untracked. If you accidentally staged it, run `git reset -- specs/` before committing' : ''}
 - Do NOT amend existing commits
 - Do NOT run \`git pull\`, \`git rebase\`, or \`git merge\` — this is a fresh branch, push it directly
 - If there are no changes to commit, skip the commit step and report that no changes were found`;
