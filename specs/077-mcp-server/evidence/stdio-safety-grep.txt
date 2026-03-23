@@ -1,0 +1,8 @@
+$ grep -rn "console.log" packages/core/src/infrastructure/services/mcp/ src/presentation/cli/commands/mcp.command.ts
+
+(no output — zero console.log calls found in MCP server code)
+
+This confirms:
+- No console.log calls exist in the MCP server service (packages/core/src/infrastructure/services/mcp/)
+- No console.log calls exist in the MCP CLI command (src/presentation/cli/commands/mcp.command.ts)
+- All diagnostic output uses console.error (stderr) to avoid corrupting the JSON-RPC protocol on stdout

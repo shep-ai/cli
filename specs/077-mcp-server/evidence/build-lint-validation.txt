@@ -1,0 +1,14 @@
+=== Build (pnpm build) ===
+tsc -p tsconfig.build.json — SUCCESS
+tsc-alias — SUCCESS
+Build completed with zero errors.
+
+=== Lint (pnpm lint) ===
+eslint . --max-warnings 0 --cache — SUCCESS
+Zero warnings, zero errors.
+(The "Pages directory cannot be found" message is a Next.js eslint config info message, not an error.)
+
+=== MCP SDK Dependency ===
+@modelcontextprotocol/sdk v1.27.1 installed successfully
+Compatible with existing zod v4.3.6 (peer dep: ^3.25 || ^4.0)
+No peer dependency warnings during install.
