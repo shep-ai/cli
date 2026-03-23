@@ -1,27 +1,27 @@
 feature:
-  id: 067-database-management-ui
-  name: database-management-ui
+  id: '067-database-management-ui'
+  name: 'database-management-ui'
   number: 67
-  branch: feat/067-database-management-ui
-  lifecycle: research
+  branch: 'feat/067-database-management-ui'
+  lifecycle: 'research'
   createdAt: '2026-03-15T13:58:46Z'
 status:
-  phase: implementation-complete
+  phase: 'implementation-complete'
   progress:
     completed: 18
     total: 18
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-03-17T13:37:47.097Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-03-23T06:40:44.874Z'
+  lastUpdatedBy: 'feature-agent:implement'
   completedPhases:
-    - analyze
-    - requirements
-    - research
-    - plan
-    - phase-1
-    - phase-2
-    - phase-3
+    - 'analyze'
+    - 'requirements'
+    - 'research'
+    - 'plan'
+    - 'phase-1'
+    - 'phase-2'
+    - 'phase-3'
 validation:
   lastRun: null
   gatesPassed: []
@@ -31,9 +31,9 @@ tasks:
   blocked: []
   failed: []
 checkpoints:
-  - phase: feature-created
+  - phase: 'feature-created'
     completedAt: '2026-03-15T13:58:46Z'
-    completedBy: feature-agent
+    completedBy: 'feature-agent'
 errors:
   current: null
   history: []
