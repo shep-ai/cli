@@ -1,18 +1,18 @@
 
- RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-hide-fork-pr-toggle
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-hide-fork-pr-toggle[39m
 
- ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return ADMIN for admin repos 1ms
- ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return WRITE for collaborator repos 0ms
- ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return MAINTAIN for maintainer repos 0ms
- ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return READ for read-only repos 0ms
- ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return TRIAGE for triage-level repos 0ms
- ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should call execFile with correct args and cwd 1ms
- ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should throw GitHubPermissionError when gh is not installed (ENOENT) 1ms
- ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should throw GitHubPermissionError on generic exec failure 0ms
- ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should include cause in GitHubPermissionError 0ms
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts[2m > [22mGitHubRepositoryService[2m > [22mgetViewerPermission()[2m > [22mshould return ADMIN for admin repos[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts[2m > [22mGitHubRepositoryService[2m > [22mgetViewerPermission()[2m > [22mshould return WRITE for collaborator repos[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts[2m > [22mGitHubRepositoryService[2m > [22mgetViewerPermission()[2m > [22mshould return MAINTAIN for maintainer repos[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts[2m > [22mGitHubRepositoryService[2m > [22mgetViewerPermission()[2m > [22mshould return READ for read-only repos[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts[2m > [22mGitHubRepositoryService[2m > [22mgetViewerPermission()[2m > [22mshould return TRIAGE for triage-level repos[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts[2m > [22mGitHubRepositoryService[2m > [22mgetViewerPermission()[2m > [22mshould call execFile with correct args and cwd[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts[2m > [22mGitHubRepositoryService[2m > [22mgetViewerPermission()[2m > [22mshould throw GitHubPermissionError when gh is not installed (ENOENT)[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts[2m > [22mGitHubRepositoryService[2m > [22mgetViewerPermission()[2m > [22mshould throw GitHubPermissionError on generic exec failure[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts[2m > [22mGitHubRepositoryService[2m > [22mgetViewerPermission()[2m > [22mshould include cause in GitHubPermissionError[32m 0[2mms[22m[39m
 
- Test Files  1 passed (1)
-      Tests  9 passed (9)
-   Start at  23:50:05
-   Duration  107ms (transform 30ms, setup 0ms, import 50ms, tests 3ms, environment 0ms)
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 00:05:45
+[2m   Duration [22m 300ms[2m (transform 85ms, setup 0ms, import 132ms, tests 8ms, environment 0ms)[22m
 
