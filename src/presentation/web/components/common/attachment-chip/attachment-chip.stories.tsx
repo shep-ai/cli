@@ -34,6 +34,17 @@ export const ImageFileWithNotes: Story = {
   },
 };
 
+export const ImageFileWithNotesReadOnly: Story = {
+  args: {
+    name: 'wireframe.png',
+    size: 180000,
+    mimeType: 'image/png',
+    path: '/tmp/test/wireframe.png',
+    notes: 'Navigation should match this exact layout pattern.',
+    onNotesChange: undefined,
+  },
+};
+
 export const PdfFile: Story = {
   args: {
     name: 'requirements.pdf',
