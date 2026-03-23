@@ -6,7 +6,9 @@
  *
  * Business Rules:
  * - Any feature can be archived except those already Archived or Deleting
- * - Features with active (non-archived, non-deleted) children cannot be archived
+ * - Features with children CAN be archived — children visually reconnect to
+ *   the repository on the canvas but the parent-child relationship is preserved
+ *   in the database and restored when "Show Archived" is enabled
  * - The current lifecycle is preserved in previousLifecycle for unarchive restoration
  * - No git operations or agent cancellations are triggered (archive is non-destructive)
  */
@@ -43,20 +45,7 @@ export class ArchiveFeatureUseCase {
       );
     }
 
-    // 3. Check for active (non-archived, non-deleted) children
-    const children = await this.featureRepo.findByParentId(feature.id);
-    const activeChildren = children.filter(
-      (c) => c.lifecycle !== SdlcLifecycle.Archived && !c.deletedAt
-    );
-    if (activeChildren.length > 0) {
-      const names = activeChildren.map((c) => c.name).join(', ');
-      throw new Error(
-        `Cannot archive feature "${feature.name}": it has active child features (${names}). ` +
-          `Archive or delete child features first.`
-      );
-    }
-
-    // 4. Store current lifecycle and transition to Archived
+    // 3. Store current lifecycle and transition to Archived
     const updatedFeature: Feature = {
       ...feature,
       previousLifecycle: feature.lifecycle,

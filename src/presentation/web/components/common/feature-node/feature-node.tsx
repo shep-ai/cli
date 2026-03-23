@@ -6,18 +6,23 @@ import {
   Plus,
   Trash2,
   Zap,
+  ClipboardList,
   Loader2,
   Globe,
   RotateCcw,
   Play,
+  Square,
   Eye,
   Archive,
   ArchiveRestore,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ActionButton } from '@/components/common/action-button/action-button';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useDeployAction } from '@/hooks/use-deploy-action';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +42,6 @@ import {
 import type { FeatureNodeData } from './feature-node-state-config';
 import { getAgentTypeIcon } from './agent-type-icons';
 import { FeatureSessionsDropdown } from './feature-sessions-dropdown';
-import { DeploymentState } from '@shepai/core/domain/generated/output';
 
 function AgentIcon({ agentType, className }: { agentType?: string; className?: string }) {
   const IconComponent = getAgentTypeIcon(agentType);
@@ -92,6 +96,20 @@ export function FeatureNode({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const featureFlags = useFeatureFlags();
+
+  const deployTarget =
+    featureFlags.envDeploy && data.repositoryPath && data.branch
+      ? {
+          targetId: data.featureId,
+          targetType: 'feature' as const,
+          repositoryPath: data.repositoryPath,
+          branch: data.branch,
+        }
+      : null;
+  const deployAction = useDeployAction(deployTarget);
+  const isDeployActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
+  const isDeployReady = deployAction.status === 'Ready';
 
   return (
     <div className="animate-in fade-in group relative duration-300">
@@ -285,6 +303,22 @@ export function FeatureNode({
           {data.agentType ? (
             <AgentIcon agentType={data.agentType} className="h-4 w-4 shrink-0" />
           ) : null}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span data-testid="feature-node-fast-mode-badge" className="shrink-0">
+                  {data.fastMode ? (
+                    <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  ) : (
+                    <ClipboardList className="h-3.5 w-3.5 text-indigo-500" />
+                  )}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {data.fastMode ? 'Fast Mode' : 'Spec Driven'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <h3 className="min-w-0 truncate text-sm font-bold">{data.name}</h3>
         </div>
 
@@ -346,10 +380,13 @@ export function FeatureNode({
             </div>
           ) : null}
 
-          {/* Bottom row: Phase + ID ... right-side content */}
-          <div className="mt-1.5 flex min-h-[26px] items-center justify-between gap-2">
-            {/* Left: Agent icons + ID */}
-            <div className="flex items-center gap-1.5" style={{ transform: 'translateY(1px)' }}>
+          {/* Bottom row: ID | icons | run controls ... status/actions right */}
+          <div
+            className="mt-1.5 flex min-h-[26px] items-center justify-between gap-2"
+            style={{ transform: 'translateY(1px)' }}
+          >
+            {/* Left: ID + icons + deploy controls */}
+            <div className="flex min-w-0 items-center gap-1.5">
               {data.featureId ? (
                 <TooltipProvider>
                   <Tooltip>
@@ -357,7 +394,7 @@ export function FeatureNode({
                       <button
                         type="button"
                         data-testid="feature-node-id"
-                        className="nodrag text-muted-foreground/60 hover:text-muted-foreground flex cursor-pointer items-baseline gap-1 font-mono text-[10px] transition-colors active:scale-95"
+                        className="nodrag text-muted-foreground/60 hover:text-muted-foreground flex shrink-0 cursor-pointer items-baseline gap-1 font-mono text-[10px] transition-colors active:scale-95"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigator.clipboard.writeText(data.featureId);
@@ -365,7 +402,6 @@ export function FeatureNode({
                           setTimeout(() => setIdCopied(false), 1500);
                         }}
                       >
-                        <span className="text-muted-foreground/50 font-sans text-[10px]">ID</span>
                         {idCopied ? (
                           <span className="text-emerald-500">Copied!</span>
                         ) : (
@@ -377,65 +413,141 @@ export function FeatureNode({
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
-              {data.deployment ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={
-                          data.deployment.status === DeploymentState.Booting
-                            ? 'Deploying'
-                            : 'Open dev server'
-                        }
-                        data-testid="feature-node-deployment-indicator"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (
-                            data.deployment?.status === DeploymentState.Ready &&
-                            data.deployment.url
-                          ) {
-                            window.open(data.deployment.url, '_blank', 'noopener,noreferrer');
-                          }
-                        }}
-                        className={cn(
-                          'nodrag',
-                          data.deployment.status === DeploymentState.Ready && data.deployment.url
-                            ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
-                            : 'cursor-default'
-                        )}
-                      >
-                        {data.deployment.status === DeploymentState.Booting ? (
-                          <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
-                        ) : (
-                          <Globe className="h-3 w-3 text-green-600" />
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      {data.deployment.status === DeploymentState.Booting
-                        ? 'Deploying...'
-                        : (data.deployment.url ?? 'Live')}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : null}
-              {data.fastMode ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span data-testid="feature-node-fast-mode-badge">
-                        <Zap className="h-3 w-3 text-amber-500" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Fast Mode</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : null}
               {(data.worktreePath ?? data.repositoryPath) ? (
                 <FeatureSessionsDropdown
                   repositoryPath={data.worktreePath ?? data.repositoryPath}
                 />
+              ) : null}
+              {deployTarget && data.state !== 'deleting' && data.state !== 'creating' ? (
+                <>
+                  <span className="bg-border h-3 w-px shrink-0" />
+                  {isDeployReady ? (
+                    /* Ready: Globe + URL — Globe morphs to Stop on hover */
+                    <span
+                      className="group/deploy nodrag flex min-w-0 items-center gap-1.5"
+                      data-testid="feature-node-deploy-button"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Stop Dev Server"
+                              className="flex h-5 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deployAction.stop();
+                              }}
+                            >
+                              {deployAction.stopLoading ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-red-500" />
+                              ) : (
+                                <span className="relative h-3.5 w-3.5">
+                                  <Globe className="absolute inset-0 h-3.5 w-3.5 text-green-600 transition-opacity duration-200 group-hover/deploy:opacity-0 dark:text-green-400" />
+                                  <Square className="absolute inset-0 h-3.5 w-3.5 text-red-500 opacity-0 transition-opacity duration-200 group-hover/deploy:opacity-100 dark:text-red-400" />
+                                </span>
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">Stop Dev Server</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      {deployAction.url ? (
+                        <a
+                          href={deployAction.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="feature-node-deployment-indicator"
+                          className="nodrag min-w-0 truncate text-[10px] text-green-700 hover:underline dark:text-green-400"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {deployAction.url}
+                        </a>
+                      ) : null}
+                    </span>
+                  ) : isDeployActive ? (
+                    /* Booting: Stop button + "Starting…" */
+                    <span
+                      className="nodrag flex min-w-0 items-center gap-1.5"
+                      data-testid="feature-node-deploy-button"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Stop Dev Server"
+                              className="flex h-5 shrink-0 cursor-pointer items-center justify-center rounded-full text-red-500 transition-colors hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deployAction.stop();
+                              }}
+                            >
+                              {deployAction.stopLoading ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Square className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">Stop Dev Server</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <span className="text-muted-foreground animate-pulse text-[10px]">
+                        Starting…
+                      </span>
+                    </span>
+                  ) : (
+                    /* Idle / Error: Play or Retry button */
+                    <>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={cn(
+                                'nodrag flex shrink-0 items-center',
+                                !deployAction.deployError &&
+                                  '[&_button]:text-green-600 [&_button]:hover:text-green-700 dark:[&_button]:text-green-400 dark:[&_button]:hover:text-green-300'
+                              )}
+                              data-testid="feature-node-deploy-button"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ActionButton
+                                label={deployAction.deployError ? 'Retry' : 'Start Dev Server'}
+                                onClick={deployAction.deploy}
+                                loading={deployAction.deployLoading}
+                                error={false}
+                                icon={deployAction.deployError ? RotateCcw : Play}
+                                iconOnly
+                                variant="ghost"
+                                size="icon-xs"
+                              />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {deployAction.deployError ? 'Retry Dev Server' : 'Start Dev Server'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      {deployAction.deployError ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="min-w-0 truncate text-[10px] text-red-500">
+                                Failed
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-64">
+                              <p className="text-xs">{deployAction.deployError}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : null}
+                    </>
+                  )}
+                </>
               ) : null}
             </div>
 

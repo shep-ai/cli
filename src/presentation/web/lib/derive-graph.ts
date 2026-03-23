@@ -201,7 +201,12 @@ export function deriveGraph(
     } as CanvasNodeType);
 
     // Edge derivation
-    if (entry.parentNodeId) {
+    // If parentNodeId references a feature that's not visible (e.g. archived/filtered),
+    // fall through to repo→feature edge so the child reconnects to the repository.
+    if (
+      entry.parentNodeId &&
+      (featureMap.has(entry.parentNodeId) || pendingMap.has(entry.parentNodeId))
+    ) {
       // Dependency edge (parent→child feature)
       edges.push({
         id: `dep-${entry.parentNodeId}-${nodeId}`,
