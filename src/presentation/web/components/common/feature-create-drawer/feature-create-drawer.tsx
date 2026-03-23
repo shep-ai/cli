@@ -959,11 +959,11 @@ export function FeatureCreateDrawer({
               </div>
 
               {/* Git row */}
-              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
-                <span className="text-muted-foreground w-16 shrink-0 text-xs font-semibold tracking-wider">
+              <div className="border-input flex items-start gap-4 rounded-md border px-3 py-2.5">
+                <span className="text-muted-foreground w-16 shrink-0 pt-0.5 text-xs font-semibold tracking-wider">
                   GIT
                 </span>
-                <div className="flex flex-1 items-center gap-4">
+                <div className="flex flex-1 flex-wrap items-center gap-4">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex cursor-pointer items-center gap-1.5">
@@ -990,7 +990,7 @@ export function FeatureCreateDrawer({
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       {forkAndPr
-                        ? 'Implicitly enabled by fork-and-PR mode'
+                        ? 'Enabled — contributing to upstream'
                         : 'Push branch to remote after implementation.'}
                     </TooltipContent>
                   </Tooltip>
@@ -1020,7 +1020,7 @@ export function FeatureCreateDrawer({
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       {forkAndPr
-                        ? 'Implicitly enabled by fork-and-PR mode'
+                        ? 'Enabled — contributing to upstream'
                         : 'Open a pull request after pushing.'}
                     </TooltipContent>
                   </Tooltip>
@@ -1041,49 +1041,8 @@ export function FeatureCreateDrawer({
                     </TooltipTrigger>
                     <TooltipContent side="bottom">Watch CI and auto-fix after push.</TooltipContent>
                   </Tooltip>
-                </div>
-              </div>
-
-              {/* Fork row */}
-              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-muted-foreground w-16 shrink-0 cursor-default text-xs font-semibold tracking-wider">
-                      FORK
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    Fork the repository and create a PR to the upstream repo.
-                  </TooltipContent>
-                </Tooltip>
-                <div className="flex flex-1 items-center gap-4">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex cursor-pointer items-center gap-1.5">
-                        <Switch
-                          id="fork-and-pr"
-                          size="sm"
-                          checked={forkAndPr}
-                          onCheckedChange={(v) => {
-                            setForkAndPr(v);
-                            // Auto-flip commitSpecs to false when enabling fork mode
-                            if (v) setCommitSpecs(false);
-                          }}
-                          disabled={isSubmitting}
-                        />
-                        <Label
-                          htmlFor="fork-and-pr"
-                          className="flex cursor-pointer items-center gap-1 text-xs font-medium"
-                        >
-                          <GitFork className="h-3 w-3" />
-                          Fork & PR
-                        </Label>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      Contribute via fork (PR to upstream).
-                    </TooltipContent>
-                  </Tooltip>
+                  {/* Separator between standard git and repo options */}
+                  <div className="bg-border h-4 w-px shrink-0" />
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex cursor-pointer items-center gap-1.5">
@@ -1104,6 +1063,33 @@ export function FeatureCreateDrawer({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">Commit specs to repository.</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="fork-and-pr"
+                          size="sm"
+                          checked={forkAndPr}
+                          onCheckedChange={(v) => {
+                            setForkAndPr(v);
+                            // Auto-flip commitSpecs to false when enabling contribute mode
+                            if (v) setCommitSpecs(false);
+                          }}
+                          disabled={isSubmitting}
+                        />
+                        <Label
+                          htmlFor="fork-and-pr"
+                          className="flex cursor-pointer items-center gap-1 text-xs font-medium"
+                        >
+                          <GitFork className="h-3 w-3" />
+                          Fork & PR
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Contribute via fork (PR to upstream).
+                    </TooltipContent>
                   </Tooltip>
                 </div>
               </div>

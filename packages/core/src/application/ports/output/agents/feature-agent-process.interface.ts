@@ -40,6 +40,9 @@ export interface IFeatureAgentProcessService {
       openPr?: boolean;
       forkAndPr?: boolean;
       commitSpecs?: boolean;
+      ciWatchEnabled?: boolean;
+      enableEvidence?: boolean;
+      commitEvidence?: boolean;
       resumePayload?: string;
       agentType?: AgentType;
       fast?: boolean;

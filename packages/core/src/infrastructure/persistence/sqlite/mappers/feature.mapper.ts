@@ -42,6 +42,9 @@ export interface FeatureRow {
   open_pr: number;
   fork_and_pr: number;
   commit_specs: number;
+  ci_watch_enabled: number;
+  enable_evidence: number;
+  commit_evidence: number;
   auto_merge: number;
   allow_prd: number;
   allow_plan: number;
@@ -102,6 +105,9 @@ export function toDatabase(feature: Feature): FeatureRow {
     open_pr: feature.openPr ? 1 : 0,
     fork_and_pr: feature.forkAndPr ? 1 : 0,
     commit_specs: feature.commitSpecs ? 1 : 0,
+    ci_watch_enabled: feature.ciWatchEnabled ? 1 : 0,
+    enable_evidence: feature.enableEvidence ? 1 : 0,
+    commit_evidence: feature.commitEvidence ? 1 : 0,
     auto_merge: feature.approvalGates?.allowMerge ? 1 : 0,
     allow_prd: feature.approvalGates?.allowPrd ? 1 : 0,
     allow_plan: feature.approvalGates?.allowPlan ? 1 : 0,
@@ -168,6 +174,9 @@ export function fromDatabase(row: FeatureRow): Feature {
     openPr: row.open_pr === 1,
     forkAndPr: row.fork_and_pr === 1,
     commitSpecs: row.commit_specs === 1,
+    ciWatchEnabled: row.ci_watch_enabled === 1,
+    enableEvidence: row.enable_evidence === 1,
+    commitEvidence: row.commit_evidence === 1,
     approvalGates: {
       allowPrd: row.allow_prd === 1,
       allowPlan: row.allow_plan === 1,

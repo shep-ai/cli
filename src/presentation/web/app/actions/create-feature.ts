@@ -33,6 +33,16 @@ interface CreateFeatureInput {
   fast?: boolean;
   /** When true, create the feature in pending state (no agent spawned). */
   pending?: boolean;
+  /** Fork repo and create PR to upstream at merge time. */
+  forkAndPr?: boolean;
+  /** Commit specs/evidences into the repo (default: true, auto-false when forkAndPr). */
+  commitSpecs?: boolean;
+  /** Enable CI watch/fix loop after push. */
+  ciWatchEnabled?: boolean;
+  /** Enable evidence collection after implementation. */
+  enableEvidence?: boolean;
+  /** Commit evidence to PR. */
+  commitEvidence?: boolean;
   /** Optional agent type override for this feature run */
   agentType?: string;
   /** Optional model identifier for this feature run */
@@ -53,6 +63,11 @@ export async function createFeature(
     parentId,
     fast,
     pending,
+    forkAndPr,
+    commitSpecs,
+    ciWatchEnabled,
+    enableEvidence,
+    commitEvidence,
     agentType,
     model,
   } = input;
@@ -86,6 +101,11 @@ export async function createFeature(
       description,
       ...(fast ? { fast } : {}),
       ...(pending ? { pending } : {}),
+      ...(forkAndPr != null ? { forkAndPr } : {}),
+      ...(commitSpecs != null ? { commitSpecs } : {}),
+      ...(ciWatchEnabled != null ? { ciWatchEnabled } : {}),
+      ...(enableEvidence != null ? { enableEvidence } : {}),
+      ...(commitEvidence != null ? { commitEvidence } : {}),
       ...(agentType ? { agentType } : {}),
       ...(model ? { model } : {}),
     });
@@ -104,6 +124,8 @@ export async function createFeature(
           ...(parentId ? { parentId } : {}),
           ...(fast ? { fast } : {}),
           ...(pending ? { pending } : {}),
+          ...(forkAndPr != null ? { forkAndPr } : {}),
+          ...(commitSpecs != null ? { commitSpecs } : {}),
           ...(agentType ? { agentType } : {}),
           ...(model ? { model } : {}),
           ...(sessionId ? { sessionId } : {}),

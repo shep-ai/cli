@@ -29,6 +29,9 @@ function createMockFeature(overrides: Partial<Feature> = {}): Feature {
     openPr: true,
     forkAndPr: true,
     commitSpecs: false,
+    ciWatchEnabled: true,
+    enableEvidence: false,
+    commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     pr: {
       url: 'https://github.com/fork-owner/repo/pull/5',

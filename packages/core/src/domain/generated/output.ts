@@ -985,6 +985,18 @@ export type Feature = SoftDeletableEntity & {
    */
   commitSpecs: boolean;
   /**
+   * Enable CI watch/fix loop after push (default: true)
+   */
+  ciWatchEnabled: boolean;
+  /**
+   * Enable evidence collection after implementation (default: false)
+   */
+  enableEvidence: boolean;
+  /**
+   * Commit evidence to PR (default: false, requires enableEvidence)
+   */
+  commitEvidence: boolean;
+  /**
    * Approval gates configuration (embedded value object)
    */
   approvalGates: ApprovalGates;

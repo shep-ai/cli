@@ -65,6 +65,18 @@ properties:
     type: boolean
     default: true
     description: Commit specs/evidences into the repo (defaults false when forkAndPr is enabled)
+  ciWatchEnabled:
+    type: boolean
+    default: true
+    description: "Enable CI watch/fix loop after push (default: true)"
+  enableEvidence:
+    type: boolean
+    default: false
+    description: "Enable evidence collection after implementation (default: false)"
+  commitEvidence:
+    type: boolean
+    default: false
+    description: "Commit evidence to PR (default: false, requires enableEvidence)"
   approvalGates:
     $ref: ApprovalGates.yaml
     description: Approval gates configuration (embedded value object)
@@ -100,6 +112,9 @@ required:
   - openPr
   - forkAndPr
   - commitSpecs
+  - ciWatchEnabled
+  - enableEvidence
+  - commitEvidence
   - approvalGates
 allOf:
   - $ref: SoftDeletableEntity.yaml

@@ -563,13 +563,14 @@ export const Interactive: Story = {
 };
 
 /* ---------------------------------------------------------------------------
- * Fork & PR stories
+ * Contribute (Fork & PR) stories
  * ------------------------------------------------------------------------- */
 
 /**
- * Fork & PR enabled — the "Fork & PR" toggle is checked. When enabled,
- * Push and PR toggles are implicitly locked to `true` (disabled), and
- * `commitSpecs` auto-flips to `false`.
+ * Fork & PR enabled — the "Fork & PR" toggle in the GIT row is checked.
+ * When enabled, Push and PR toggles are locked to `true` (disabled with
+ * "Enabled — contributing to upstream" tooltip), and `commitSpecs`
+ * auto-flips to `false`.
  */
 export const ForkAndPrEnabled: Story = {
   render: () => <CreateDrawerTrigger label="Open (Fork & PR)" />,
@@ -584,7 +585,7 @@ export const ForkAndPrEnabled: Story = {
 };
 
 /**
- * Fork & PR with Commit Specs re-enabled — after enabling fork mode
+ * Fork & PR with Commit Specs re-enabled — after enabling contribute mode
  * (which auto-disables commitSpecs), the user overrides commitSpecs back to `true`.
  */
 export const ForkAndPrWithCommitSpecs: Story = {

@@ -63,6 +63,9 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     resumeReason: undefined,
     forkAndPr: false,
     commitSpecs: true,
+    ciWatchEnabled: true,
+    enableEvidence: false,
+    commitEvidence: false,
   } as FeatureAgentState;
 }
 

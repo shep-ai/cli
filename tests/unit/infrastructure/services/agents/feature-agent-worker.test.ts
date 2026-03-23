@@ -132,6 +132,9 @@ describe('parseWorkerArgs', () => {
       openPr: false,
       forkAndPr: false,
       commitSpecs: true,
+      ciWatchEnabled: true,
+      enableEvidence: false,
+      commitEvidence: false,
       resumePayload: undefined,
       agentType: undefined,
       fast: false,
@@ -440,6 +443,9 @@ describe('runWorker', () => {
         openPr: false,
         forkAndPr: false,
         commitSpecs: true,
+        ciWatchEnabled: true,
+        enableEvidence: false,
+        commitEvidence: false,
       },
       { configurable: { thread_id: 'thread-abc' } }
     );

@@ -249,6 +249,10 @@ export interface FeatureNodeData {
   enableEvidence?: boolean;
   /** Whether evidence is committed to the PR body */
   commitEvidence?: boolean;
+  /** Whether to fork the repo and create a PR to upstream */
+  forkAndPr?: boolean;
+  /** Whether to commit specs into the repository */
+  commitSpecs?: boolean;
   /** Whether to hide CI status badges from UI */
   hideCiStatus?: boolean;
   /** Whether the feature has an associated agent run (for log tab visibility) */

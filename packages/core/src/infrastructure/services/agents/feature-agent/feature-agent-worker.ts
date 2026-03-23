@@ -52,6 +52,9 @@ export interface WorkerArgs {
   openPr?: boolean;
   forkAndPr?: boolean;
   commitSpecs?: boolean;
+  ciWatchEnabled?: boolean;
+  enableEvidence?: boolean;
+  commitEvidence?: boolean;
   resumePayload?: string;
   agentType?: AgentType;
   fast?: boolean;
@@ -93,6 +96,9 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const openPr = args.includes('--open-pr');
   const forkAndPr = args.includes('--fork-and-pr');
   const commitSpecs = !args.includes('--no-commit-specs');
+  const ciWatchEnabled = !args.includes('--no-ci-watch');
+  const enableEvidence = args.includes('--enable-evidence');
+  const commitEvidence = args.includes('--commit-evidence');
   const fast = args.includes('--fast');
   const threadIdx = args.indexOf('--thread-id');
   const threadId =
@@ -133,6 +139,9 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     openPr,
     forkAndPr,
     commitSpecs,
+    ciWatchEnabled,
+    enableEvidence,
+    commitEvidence,
     resumePayload,
     agentType,
     fast,
@@ -369,6 +378,9 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           openPr: args.openPr ?? false,
           forkAndPr: args.forkAndPr ?? false,
           commitSpecs: args.commitSpecs ?? true,
+          ciWatchEnabled: args.ciWatchEnabled ?? true,
+          enableEvidence: args.enableEvidence ?? false,
+          commitEvidence: args.commitEvidence ?? false,
         },
         graphConfig
       );
@@ -386,6 +398,9 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           openPr: args.openPr ?? false,
           forkAndPr: args.forkAndPr ?? false,
           commitSpecs: args.commitSpecs ?? true,
+          ciWatchEnabled: args.ciWatchEnabled ?? true,
+          enableEvidence: args.enableEvidence ?? false,
+          commitEvidence: args.commitEvidence ?? false,
         },
         graphConfig
       );

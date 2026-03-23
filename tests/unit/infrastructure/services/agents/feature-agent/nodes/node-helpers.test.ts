@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
@@ -10,6 +11,7 @@ import {
   isRejectionPayload,
   buildCommitPushBlock,
   buildExecutorOptions,
+  removeSpecCommitsIfNeeded,
 } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import { initializeSettings, resetSettings } from '@/infrastructure/services/settings.service.js';
 import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
@@ -393,5 +395,132 @@ describe('buildExecutorOptions', () => {
   it('uses repositoryPath as cwd when worktreePath is empty', () => {
     const options = buildExecutorOptions(baseState as any);
     expect(options.cwd).toBe('/tmp/repo');
+  });
+});
+
+describe('removeSpecCommitsIfNeeded', () => {
+  let repoDir: string;
+  let specDir: string;
+  const noopLog = {
+    info: () => undefined,
+    error: () => undefined,
+    activate: () => undefined,
+  };
+
+  function git(cmd: string) {
+    return execSync(`git ${cmd}`, { cwd: repoDir, encoding: 'utf-8' }).trim();
+  }
+
+  beforeEach(() => {
+    repoDir = mkdtempSync(join(tmpdir(), 'spec-commit-test-'));
+    specDir = join(repoDir, 'specs', '001-test');
+    mkdirSync(specDir, { recursive: true });
+
+    // Init repo with an initial commit
+    git('init');
+    git('config user.email "test@test.com"');
+    git('config user.name "Test"');
+    writeFileSync(join(repoDir, 'README.md'), 'initial');
+    git('add README.md');
+    git('commit -m "initial"');
+  });
+
+  it('should soft-reset spec commits when commitSpecs=false', () => {
+    // Simulate agent committing a spec file
+    writeFileSync(join(specDir, 'spec.yaml'), 'name: test');
+    git('add specs/');
+    git('commit --no-verify -m "docs(specs): analyze repository"');
+
+    const commitsBefore = git('rev-list --count HEAD');
+
+    removeSpecCommitsIfNeeded(
+      {
+        commitSpecs: false,
+        worktreePath: repoDir,
+        repositoryPath: repoDir,
+        specDir,
+      } as any,
+      'analyze',
+      noopLog as any
+    );
+
+    const commitsAfter = git('rev-list --count HEAD');
+    // The spec commit should have been undone
+    expect(Number(commitsAfter)).toBe(Number(commitsBefore) - 1);
+
+    // Spec file should still exist on disk
+    const content = readFileSync(join(specDir, 'spec.yaml'), 'utf-8');
+    expect(content).toBe('name: test');
+
+    // Spec file should NOT be staged
+    const staged = git('diff --cached --name-only');
+    expect(staged).not.toContain('specs/');
+  });
+
+  it('should not modify commits when commitSpecs=true', () => {
+    writeFileSync(join(specDir, 'spec.yaml'), 'name: test');
+    git('add specs/');
+    git('commit --no-verify -m "docs(specs): analyze repository"');
+
+    const commitsBefore = git('rev-list --count HEAD');
+
+    removeSpecCommitsIfNeeded(
+      {
+        commitSpecs: true,
+        worktreePath: repoDir,
+        repositoryPath: repoDir,
+        specDir,
+      } as any,
+      'analyze',
+      noopLog as any
+    );
+
+    const commitsAfter = git('rev-list --count HEAD');
+    expect(commitsAfter).toBe(commitsBefore);
+  });
+
+  it('should not modify commits for non-spec phases', () => {
+    writeFileSync(join(specDir, 'spec.yaml'), 'name: test');
+    git('add specs/');
+    git('commit --no-verify -m "docs(specs): analyze repository"');
+
+    const commitsBefore = git('rev-list --count HEAD');
+
+    removeSpecCommitsIfNeeded(
+      {
+        commitSpecs: false,
+        worktreePath: repoDir,
+        repositoryPath: repoDir,
+        specDir,
+      } as any,
+      'implement',
+      noopLog as any
+    );
+
+    const commitsAfter = git('rev-list --count HEAD');
+    expect(commitsAfter).toBe(commitsBefore);
+  });
+
+  it('should be a no-op when agent did not commit spec files', () => {
+    // Agent only committed non-spec files
+    writeFileSync(join(repoDir, 'src.ts'), 'code');
+    git('add src.ts');
+    git('commit --no-verify -m "feat: add code"');
+
+    const commitsBefore = git('rev-list --count HEAD');
+
+    removeSpecCommitsIfNeeded(
+      {
+        commitSpecs: false,
+        worktreePath: repoDir,
+        repositoryPath: repoDir,
+        specDir,
+      } as any,
+      'analyze',
+      noopLog as any
+    );
+
+    const commitsAfter = git('rev-list --count HEAD');
+    expect(commitsAfter).toBe(commitsBefore);
   });
 });

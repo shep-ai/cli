@@ -55,7 +55,10 @@ describe('FeatureAgentAnnotation', () => {
       expect(channelNames).toContain('resumeReason');
       expect(channelNames).toContain('forkAndPr');
       expect(channelNames).toContain('commitSpecs');
-      expect(channelNames.length).toBe(29);
+      expect(channelNames).toContain('ciWatchEnabled');
+      expect(channelNames).toContain('enableEvidence');
+      expect(channelNames).toContain('commitEvidence');
+      expect(channelNames.length).toBe(32);
     });
   });
 

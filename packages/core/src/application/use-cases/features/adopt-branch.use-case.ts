@@ -119,6 +119,9 @@ export class AdoptBranchUseCase {
       openPr: hasOpenPr,
       forkAndPr: false,
       commitSpecs: true,
+      ciWatchEnabled: true,
+      enableEvidence: false,
+      commitEvidence: false,
       approvalGates: {
         allowPrd: false,
         allowPlan: false,
