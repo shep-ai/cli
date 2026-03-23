@@ -1,0 +1,33 @@
+feature:
+  id: "077-feature-archive-action"
+  name: "feature-archive-action"
+  number: 77
+  branch: "feat/077-feature-archive-action"
+  lifecycle: "research"
+  createdAt: "2026-03-23T20:06:45Z"
+status:
+  phase: "research"
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2026-03-23T20:06:45Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "fast-implement"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-23T20:06:45Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []
