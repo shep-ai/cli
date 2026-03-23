@@ -188,6 +188,8 @@ export interface FeatureCreateDrawerProps {
   currentModel?: string;
   /** Pre-fill the description textarea (e.g. from session context) */
   initialDescription?: string;
+  /** When true, user has push access — Fork & PR toggle will be hidden. */
+  canPushDirectly?: boolean;
 }
 
 export function FeatureCreateDrawer({
