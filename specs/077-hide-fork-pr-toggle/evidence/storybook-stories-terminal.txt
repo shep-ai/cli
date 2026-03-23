@@ -1,48 +1,26 @@
-=== Storybook Stories for Fork Toggle Feature (task-7) ===
+=== Storybook Stories Terminal Verification ===
 
---- Story file: feature-create-drawer.stories.tsx ---
-Location: src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx
-
---- Relevant story exports (grep) ---
+--- Story file grep: canPushDirectly prop threading ---
 95:  canPushDirectly,
 99:  canPushDirectly?: boolean;
 120:        canPushDirectly={canPushDirectly}
-569: * Contribute (Fork & PR) stories
-573: * Fork & PR enabled — the "Fork & PR" toggle in the GIT row is checked.
-579:  render: () => <CreateDrawerTrigger label="Open (Fork & PR)" />,
-582:    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fork & PR)' }));
-585:    const forkToggle = await body.findByLabelText('Fork & PR');
-591: * Fork & PR with Commit Specs re-enabled — after enabling contribute mode
-601:    const forkToggle = await body.findByLabelText('Fork & PR');
 699: * Fork & PR toggle visibility stories (canPushDirectly)
 703: * Fork & PR toggle visible — user does NOT have push access (canPushDirectly=false).
-704: * The Fork & PR toggle is rendered in the GIT row.
 706:export const ForkToggleVisible: Story = {
 707:  render: () => <CreateDrawerTrigger label="Open (Fork Toggle Visible)" canPushDirectly={false} />,
-713:    const forkToggle = await body.findByLabelText('Fork & PR');
 719: * Fork & PR toggle hidden — user HAS push access (canPushDirectly=true).
-720: * The Fork & PR toggle is not rendered in the GIT row.
 722:export const ForkToggleHidden: Story = {
 723:  render: () => <CreateDrawerTrigger label="Open (Fork Toggle Hidden)" canPushDirectly={true} />,
-731:    // Fork & PR toggle should NOT be in the DOM
-732:    const forkToggle = body.queryByLabelText('Fork & PR');
 
---- Storybook server status ---
-HTTP Status: 200
+--- Storybook index verification ---
+Story registered: drawers-feature-featurecreatedrawer--fork-and-pr-enabled
+Story registered: drawers-feature-featurecreatedrawer--fork-and-pr-with-commit-specs
+Story registered: drawers-feature-featurecreatedrawer--fork-toggle-visible
+Story registered: drawers-feature-featurecreatedrawer--fork-toggle-hidden
 
---- Storybook story list (checking stories are registered) ---
-Fork toggle stories found: 2
-  - drawers-feature-featurecreatedrawer--fork-toggle-visible
-  - drawers-feature-featurecreatedrawer--fork-toggle-hidden
+--- HTTP status for ForkToggleVisible story ---
+HTTP status: 200
+--- HTTP status for ForkToggleHidden story ---
+HTTP status: 200
 
---- ForkToggleVisible story iframe test ---
-ForkToggleVisible iframe HTTP: 200
-
---- ForkToggleHidden story iframe test ---
-ForkToggleHidden iframe HTTP: 200
-
---- Storybook build verification ---
-Storybook is running and serving both ForkToggle stories successfully.
-Visual verification confirms:
-  1. ForkToggleVisible: GIT row shows Push | PR | Watch | Commit Specs | Fork & PR
-  2. ForkToggleHidden: GIT row shows Push | PR | Watch | Commit Specs (no Fork & PR)
+=== Verification Complete ===
