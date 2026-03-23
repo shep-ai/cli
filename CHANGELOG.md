@@ -1,3 +1,10 @@
+# [1.144.0](https://github.com/shep-ai/cli/compare/v1.143.0...v1.144.0) (2026-03-23)
+
+
+### Features
+
+* **specs:** add cover image to readme ([#456](https://github.com/shep-ai/cli/issues/456)) ([9d7dbcb](https://github.com/shep-ai/cli/commit/9d7dbcbc9ae02859fa4a031b183bcab169f65321))
+
 # [1.143.0](https://github.com/shep-ai/cli/compare/v1.142.1...v1.143.0) (2026-03-23)
 
 
