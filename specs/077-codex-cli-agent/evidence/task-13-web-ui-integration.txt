@@ -1,27 +1,223 @@
-=== Task 13: Codex CLI in Web UI — Agent Settings, Icons, Model Picker ===
-
---- agent-type-icons.tsx: codex-cli references ---
-8:  | 'codex-cli'
-94:  'codex-cli': createBrandIcon('/icons/agents/openai.svg', 'Codex CLI'),
-105:  'codex-cli': 'Codex CLI',
-
---- agent-settings-section.tsx: codex-cli references ---
-24:  { value: AgentType.CodexCli, label: 'Codex CLI' },
-
---- get-all-agent-models.ts: codex-cli references ---
-21:  'codex-cli': 'Codex CLI',
-30:  'codex-cli': 1,
-
---- OpenAI icon asset ---
--rw-r--r--@ 1 arielshadkhan  staff  1354 Mar 23 23:57 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent/src/presentation/web/public/icons/agents/openai.svg
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent/src/presentation/web/public/icons/agents/openai.svg: SVG Scalable Vector Graphics image
-
---- pnpm build output (tail) ---
-
-> @shepai/cli@1.148.0 build /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent
-> pnpm build:cli
+================================================================================
+EVIDENCE: Task 13 — Codex CLI Web UI Integration
+================================================================================
+Captured: 2026-03-24
+Branch: feat/codex-cli-agent
+================================================================================
 
 
-> @shepai/cli@1.148.0 build:cli /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent
-> tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && shx mkdir -p dist/packages/core/src/infrastructure/services/tool-installer && shx rm -rf dist/packages/core/src/infrastructure/services/tool-installer/tools && shx cp -r packages/core/src/infrastructure/services/tool-installer/tools dist/packages/core/src/infrastructure/services/tool-installer/tools
+================================================================================
+FILE 1: agent-type-icons.tsx
+Path: src/presentation/web/components/common/feature-node/agent-type-icons.tsx
+Purpose: Defines the AgentTypeValue union type, icon mapping, and human-readable
+         labels used throughout the web UI for rendering agent brand icons.
+================================================================================
 
+--- AgentTypeValue union type (lines 6-13) ---
+
+  export type AgentTypeValue =
+    | 'claude-code'
+    | 'codex-cli'          // <-- codex-cli present in union type
+    | 'cursor'
+    | 'gemini-cli'
+    | 'aider'
+    | 'continue'
+    | 'dev';
+
+EVIDENCE: 'codex-cli' is included as a valid AgentTypeValue string literal.
+
+--- agentTypeIconMap (lines 92-100) ---
+
+  const agentTypeIconMap: Record<AgentTypeValue, ComponentType<IconProps>> = {
+    'claude-code': createBrandIcon('/icons/agents/claude-ai-icon.svg', 'Claude Code'),
+    'codex-cli': createBrandIcon('/icons/agents/openai.svg', 'Codex CLI'),  // <-- icon mapping
+    cursor: createBrandIcon('/icons/agents/cursor.jpeg', 'Cursor'),
+    'gemini-cli': createBrandIcon('/icons/agents/gemini-cli.jpeg', 'Gemini CLI'),
+    aider: createBrandIcon('/icons/agents/aider.png', 'Aider'),
+    continue: createBrandIcon('/icons/agents/continue.jpeg', 'Continue'),
+    dev: DevAgentIcon,
+  };
+
+EVIDENCE: 'codex-cli' maps to the OpenAI SVG brand icon at /icons/agents/openai.svg
+          with alt text 'Codex CLI'.
+
+--- agentTypeLabels (lines 103-111) ---
+
+  export const agentTypeLabels: Record<AgentTypeValue, string> = {
+    'claude-code': 'Claude Code',
+    'codex-cli': 'Codex CLI',     // <-- human-readable label
+    cursor: 'Cursor',
+    'gemini-cli': 'Gemini CLI',
+    aider: 'Aider',
+    continue: 'Continue',
+    dev: 'Demo',
+  };
+
+EVIDENCE: 'codex-cli' has the human-readable label 'Codex CLI'.
+
+
+================================================================================
+FILE 2: agent-settings-section.tsx
+Path: src/presentation/web/components/features/settings/agent-settings-section.tsx
+Purpose: Renders the "Preferred Agent" settings card in the web UI, allowing users
+         to select an agent type from a dropdown. Uses the generated AgentType enum.
+================================================================================
+
+--- AGENT_TYPE_OPTIONS array (lines 22-30) ---
+
+  const AGENT_TYPE_OPTIONS = [
+    { value: AgentType.ClaudeCode, label: 'Claude Code' },
+    { value: AgentType.CodexCli, label: 'Codex CLI' },   // <-- codex-cli dropdown option
+    { value: AgentType.Cursor, label: 'Cursor' },
+    { value: AgentType.GeminiCli, label: 'Gemini CLI' },
+    { value: AgentType.Aider, label: 'Aider' },
+    { value: AgentType.Continue, label: 'Continue' },
+    { value: AgentType.Dev, label: 'Dev' },
+  ];
+
+EVIDENCE: Codex CLI appears as a selectable agent type in the settings dropdown,
+          using the TypeSpec-generated AgentType.CodexCli enum value with the label
+          'Codex CLI'. It is positioned second in the list, after Claude Code.
+
+--- Rendering with brand icon (lines 118-130) ---
+
+  <SelectContent>
+    {AGENT_TYPE_OPTIONS.map((opt) => {
+      const Icon = getAgentTypeIcon(opt.value);
+      return (
+        <SelectItem key={opt.value} value={opt.value}>
+          <span className="flex items-center gap-2">
+            <Icon className="h-4 w-4 shrink-0" />
+            {opt.label}
+          </span>
+        </SelectItem>
+      );
+    })}
+  </SelectContent>
+
+EVIDENCE: Each agent type option is rendered with its brand icon via
+          getAgentTypeIcon(), which resolves 'codex-cli' to the OpenAI SVG icon.
+
+
+================================================================================
+FILE 3: get-all-agent-models.ts
+Path: src/presentation/web/app/actions/get-all-agent-models.ts
+Purpose: Server action that retrieves all supported agents and their models from
+         the DI container. Provides display labels and sort ordering for the UI.
+================================================================================
+
+--- AGENT_LABELS record (lines 19-25) ---
+
+  const AGENT_LABELS: Record<string, string> = {
+    'claude-code': 'Claude Code',
+    'codex-cli': 'Codex CLI',     // <-- display label for model picker
+    cursor: 'Cursor CLI',
+    'gemini-cli': 'Gemini CLI',
+    dev: 'Demo',
+  };
+
+EVIDENCE: 'codex-cli' has the display label 'Codex CLI' used in the agent model
+          picker grouped view.
+
+--- AGENT_ORDER record (lines 28-34) ---
+
+  const AGENT_ORDER: Record<string, number> = {
+    'claude-code': 0,
+    'codex-cli': 1,              // <-- sort order: second after Claude Code
+    cursor: 2,
+    'gemini-cli': 3,
+    dev: 99,
+  };
+
+EVIDENCE: 'codex-cli' has sort weight 1, placing it second in the agent model
+          groups (after Claude Code at 0, before Cursor at 2). Demo is always last
+          at weight 99.
+
+--- getAllAgentModels function (lines 36-67) ---
+
+  export async function getAllAgentModels(): Promise<AgentModelGroup[]> {
+    try {
+      const factory = resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
+      const agents = factory.getSupportedAgents();
+      return agents
+        .map((agentType) => ({
+          agentType: agentType as string,
+          label: AGENT_LABELS[agentType as string] ?? (agentType as string),
+          models: factory.getSupportedModels(agentType).map((id) => ({
+            id,
+            ...getModelMeta(id),
+          })),
+        }))
+        ...
+        .sort((a, b) => (AGENT_ORDER[a.agentType] ?? 50) - (AGENT_ORDER[b.agentType] ?? 50));
+    } catch {
+      return [];
+    }
+  }
+
+EVIDENCE: The server action dynamically queries the DI container for supported
+          agents and models. When the CodexCliAgentExecutor is registered in the
+          factory, it will appear with label 'Codex CLI' and be sorted at position 1.
+
+
+================================================================================
+FILE 4: OpenAI SVG Icon
+Path: src/presentation/web/public/icons/agents/openai.svg
+Purpose: Brand icon for the Codex CLI agent type in the web UI.
+================================================================================
+
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065
+    6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98
+    5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056
+    0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073z..."/>
+  </svg>
+
+EVIDENCE: The OpenAI SVG icon file exists at the expected path. It is a standard
+          OpenAI logo SVG with a 24x24 viewBox, using currentColor for theming.
+
+--- All icon files in public/icons/agents/ ---
+
+  aider.png
+  claude-ai-icon.svg
+  claude-code.jpeg
+  continue.jpeg
+  cursor.jpeg
+  gemini-cli.jpeg
+  openai.svg              // <-- Codex CLI brand icon
+
+EVIDENCE: openai.svg is present alongside all other agent brand icons.
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+The Codex CLI agent is fully integrated into the web UI across all three key files:
+
+1. agent-type-icons.tsx:
+   - 'codex-cli' in AgentTypeValue union type
+   - Icon mapped to /icons/agents/openai.svg with alt 'Codex CLI'
+   - Label: 'Codex CLI' in agentTypeLabels
+
+2. agent-settings-section.tsx:
+   - AgentType.CodexCli entry in AGENT_TYPE_OPTIONS dropdown
+   - Label: 'Codex CLI', positioned second in the list
+   - Rendered with OpenAI brand icon via getAgentTypeIcon()
+
+3. get-all-agent-models.ts:
+   - AGENT_LABELS: 'codex-cli' -> 'Codex CLI'
+   - AGENT_ORDER: 'codex-cli' -> 1 (second position, after Claude Code)
+   - Dynamically resolved from DI container via IAgentExecutorFactory
+
+4. openai.svg:
+   - File exists at src/presentation/web/public/icons/agents/openai.svg
+   - Standard OpenAI logo SVG, 24x24 viewBox, currentColor fill
+
+All integration points are consistent and complete. The Codex CLI agent appears
+as a first-class citizen alongside other agents in the web UI settings, icon
+system, and model picker.
+
+================================================================================
+END OF EVIDENCE
+================================================================================

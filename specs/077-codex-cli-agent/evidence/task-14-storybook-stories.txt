@@ -1,15 +1,103 @@
 === Task 14: Codex CLI Storybook Story Variants ===
+Generated: 2026-03-24
 
---- agent-type-icons.stories.tsx: codex-cli references ---
-6:  { type: 'codex-cli', label: 'Codex CLI' },
+================================================================================
+FILE 1: agent-type-icons.stories.tsx
+Path: src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx
+================================================================================
 
---- agent-settings-section.stories.tsx: CodexCli story ---
-36:export const CodexCli: Story = {
-39:      type: AgentType.CodexCli,
+The allAgentTypes array includes 'codex-cli' as a registered agent type,
+ensuring it appears in the icon gallery stories (AllIcons, SmallIcons, LargeIcons).
 
---- AgentModelPicker.stories.tsx: CodexCli story ---
-49:export const CodexCliSelected: Story = {
-51:    initialAgentType: 'codex-cli',
+Relevant code snippet (lines 4-12):
 
---- pnpm build succeeded (see task-13 evidence for full build log) ---
+  const allAgentTypes: { type: AgentTypeValue; label: string }[] = [
+    { type: 'claude-code', label: 'Claude Code' },
+    { type: 'codex-cli', label: 'Codex CLI' },
+    { type: 'cursor', label: 'Cursor' },
+    { type: 'gemini-cli', label: 'Gemini CLI' },
+    { type: 'aider', label: 'Aider' },
+    { type: 'continue', label: 'Continue' },
+    { type: 'dev', label: 'Dev (Mock)' },
+  ];
+
+Story variants that render this array:
+  - AllIcons    (size=10)
+  - SmallIcons  (size=5)
+  - LargeIcons  (size=16)
+
+Each variant renders every entry in allAgentTypes through the AgentIconGallery
+component, which calls getAgentTypeIcon(type) for each agent type including
+'codex-cli'.
+
+================================================================================
+FILE 2: agent-settings-section.stories.tsx
+Path: src/presentation/web/components/features/settings/agent-settings-section.stories.tsx
+================================================================================
+
+A dedicated CodexCli story variant is defined that renders the
+AgentSettingsSection component with AgentType.CodexCli and session auth.
+
+Relevant code snippet (lines 36-43):
+
+  export const CodexCli: Story = {
+    args: {
+      agent: {
+        type: AgentType.CodexCli,
+        authMethod: AgentAuthMethod.Session,
+      },
+    },
+  };
+
+Full list of story variants in this file:
+  - Default       (AgentType.ClaudeCode, Session auth)
+  - TokenAuth     (AgentType.GeminiCli, Token auth)
+  - CodexCli      (AgentType.CodexCli, Session auth)    <-- Codex CLI variant
+  - AiderSession  (AgentType.Aider, Session auth)
+
+================================================================================
+FILE 3: AgentModelPicker.stories.tsx
+Path: src/presentation/web/components/features/settings/AgentModelPicker/AgentModelPicker.stories.tsx
+================================================================================
+
+A dedicated CodexCliSelected story variant is defined that renders the
+AgentModelPicker component with 'codex-cli' agent type and 'gpt-5.4' model.
+
+Relevant code snippet (lines 49-55):
+
+  export const CodexCliSelected: Story = {
+    args: {
+      initialAgentType: 'codex-cli',
+      initialModel: 'gpt-5.4',
+      mode: 'settings',
+    },
+  };
+
+Full list of story variants in this file:
+  - ClaudeCodeDefault  (claude-code, claude-sonnet-4-6, settings)
+  - CursorSelected     (cursor, gpt-5.4-high, settings)
+  - GeminiCli          (gemini-cli, gemini-2.5-pro, settings)
+  - CodexCliSelected   (codex-cli, gpt-5.4, settings)   <-- Codex CLI variant
+  - DemoAgent          (dev, empty model, settings)
+  - OverrideMode       (claude-code, claude-sonnet-4-6, override)
+  - Disabled           (claude-code, claude-sonnet-4-6, settings, disabled)
+
+================================================================================
+SUMMARY
+================================================================================
+
+All three Storybook story files include Codex CLI variants:
+
+1. agent-type-icons.stories.tsx
+   - 'codex-cli' is in the allAgentTypes array, rendered by AllIcons,
+     SmallIcons, and LargeIcons story variants.
+
+2. agent-settings-section.stories.tsx
+   - CodexCli story variant renders AgentSettingsSection with
+     AgentType.CodexCli and AgentAuthMethod.Session.
+
+3. AgentModelPicker/AgentModelPicker.stories.tsx
+   - CodexCliSelected story variant renders AgentModelPicker with
+     initialAgentType='codex-cli' and initialModel='gpt-5.4'.
+
 All storybook story files compile and reference codex-cli variants correctly.

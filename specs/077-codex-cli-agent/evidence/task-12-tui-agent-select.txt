@@ -1,50 +1,114 @@
 === Task 12: Codex CLI in TUI Agent Select Prompt ===
+Source: src/presentation/tui/prompts/agent-select.prompt.ts
 
---- Searching for codex-cli references in TUI prompt ---
-32:        name: 'Codex CLI',
-33:        value: AgentType.CodexCli,
-34:        description: "OpenAI's Codex CLI terminal agent (GPT models)",
+================================================================================
+1. Relevant code showing the Codex CLI choice entry
+================================================================================
 
---- Full agent choices section ---
-    choices: [
-      {
-        name: 'Claude Code',
-        value: AgentType.ClaudeCode,
-        description: 'Anthropic Claude Code CLI',
-      },
-      {
-        name: 'Gemini CLI',
-        value: AgentType.GeminiCli,
-        description: 'Google Gemini CLI',
-      },
+From createAgentSelectConfig(), lines 32-35:
+
       {
         name: 'Codex CLI',
         value: AgentType.CodexCli,
         description: "OpenAI's Codex CLI terminal agent (GPT models)",
       },
-      {
+
+The choice is a fully enabled entry (no `disabled` property), meaning users can
+select it in the TUI agent selection prompt. It follows the same structure as
+the other enabled agents: name (display label), value (AgentType enum), and
+description (shown as helper text beneath the choice).
+
+================================================================================
+2. Uses AgentType.CodexCli as the value
+================================================================================
+
+The value field is set to `AgentType.CodexCli`, which is the TypeSpec-generated
+enum member imported from '@/domain/generated/output.js' (line 8):
+
+    import { AgentType } from '@/domain/generated/output.js';
+
+This confirms the TUI prompt is wired to the domain-layer enum value and not a
+hardcoded string, ensuring type safety and consistency with the rest of the
+agent resolution pipeline (factory, DI container, settings, etc.).
+
+================================================================================
+3. Description mentions OpenAI and GPT models
+================================================================================
+
+The description string is:
+
+    "OpenAI's Codex CLI terminal agent (GPT models)"
+
+This clearly communicates:
+  - The vendor: OpenAI
+  - The tool: Codex CLI (terminal agent)
+  - The model family: GPT models
+
+This description appears in the TUI below the "Codex CLI" choice name,
+helping users understand which provider and model family they are selecting.
+
+================================================================================
+4. Position relative to other agents (after enabled, before disabled)
+================================================================================
+
+Full choices array from createAgentSelectConfig() (lines 20-56):
+
+    choices: [
+      {                                          // Position 1 - ENABLED
+        name: 'Claude Code',
+        value: AgentType.ClaudeCode,
+        description: 'Anthropic Claude Code CLI',
+      },
+      {                                          // Position 2 - ENABLED
+        name: 'Gemini CLI',
+        value: AgentType.GeminiCli,
+        description: 'Google Gemini CLI',
+      },
+      {                                          // Position 3 - ENABLED  <-- Codex CLI
+        name: 'Codex CLI',
+        value: AgentType.CodexCli,
+        description: "OpenAI's Codex CLI terminal agent (GPT models)",
+      },
+      {                                          // Position 4 - ENABLED
         name: 'Cursor',
         value: AgentType.Cursor,
         description: 'Cursor AI coding agent',
       },
-      {
+      {                                          // Position 5 - ENABLED
         name: 'Dev (Mock)',
         value: AgentType.Dev,
         description: 'Local development mock — no agent binary required',
       },
-      {
+      {                                          // Position 6 - DISABLED
         name: 'Aider',
         value: AgentType.Aider,
         disabled: '(Coming Soon)',
       },
-      {
+      {                                          // Position 7 - DISABLED
         name: 'Continue',
         value: AgentType.Continue,
         disabled: '(Coming Soon)',
       },
     ],
-    theme: shepTheme,
-  } as const;
-}
 
---- TypeScript compilation check ---
+Analysis:
+  - Codex CLI is at position 3 in the choices array
+  - It sits among the ENABLED agents (positions 1-5), all of which have a
+    `description` field and no `disabled` property
+  - It appears AFTER Claude Code (pos 1) and Gemini CLI (pos 2)
+  - It appears BEFORE Cursor (pos 4) and Dev Mock (pos 5)
+  - The DISABLED agents (Aider, Continue) are grouped at the end (positions 6-7)
+    with `disabled: '(Coming Soon)'` and no description
+  - This ordering places Codex CLI naturally among the fully implemented and
+    selectable agents, well before the "Coming Soon" section
+
+================================================================================
+Conclusion
+================================================================================
+
+The Codex CLI agent is correctly integrated into the TUI agent select prompt:
+  - Uses the domain enum AgentType.CodexCli (type-safe, not hardcoded)
+  - Has an informative description referencing OpenAI and GPT models
+  - Is positioned as an enabled/selectable agent (position 3 of 7)
+  - Follows the same pattern as all other enabled agents in the list
+  - Is clearly separated from disabled "Coming Soon" agents at the bottom
