@@ -1,0 +1,172 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "codex-cli-agent"
+number: 77
+branch: "feat/077-codex-cli-agent"
+oneLiner: "Add OpenAI Codex CLI as a supported agent executor"
+userQuery: >
+  Add support to https://developers.openai.com/codex/cli (codex)
+summary: >
+  Integrate OpenAI's Codex CLI as a new agent executor in Shep's settings-driven agent system.
+  This involves adding a CodexCli variant to the AgentType enum in TypeSpec, implementing a
+  CodexCliExecutorService that spawns the `codex` binary in non-interactive exec mode, and
+  wiring it through the factory, DI container, and all presentation layers (TUI wizard, Web UI).
+phase: "Analysis"
+sizeEstimate: "M"
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - "TypeSpec (domain model enum extension)"
+  - "TypeScript (executor service implementation)"
+  - "Node.js child_process (subprocess spawning)"
+  - "OpenAI Codex CLI (codex exec --json)"
+  - "LangGraph (agent-agnostic graph execution)"
+  - "Next.js (web UI agent selection components)"
+  - "Inquirer.js (TUI agent selection prompt)"
+  - "Vitest (unit and integration tests)"
+  - "Storybook (UI component stories)"
+
+relatedLinks:
+  - title: "Codex CLI documentation"
+    url: "https://developers.openai.com/codex/cli"
+  - title: "Codex CLI non-interactive mode"
+    url: "https://developers.openai.com/codex/noninteractive"
+  - title: "Codex CLI command reference"
+    url: "https://developers.openai.com/codex/cli/reference"
+  - title: "Codex configuration reference"
+    url: "https://developers.openai.com/codex/config-reference"
+  - title: "Codex models"
+    url: "https://developers.openai.com/codex/models"
+  - title: "Codex CLI GitHub repository"
+    url: "https://github.com/openai/codex"
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - "Should we support Codex CLI's session resume via thread IDs, or keep it simple with stateless exec calls initially?"
+  - "Which approval policy should Shep use when spawning codex exec? --full-auto is needed for autonomous execution but --sandbox workspace-write may be safer."
+  - "Should we support CODEX_API_KEY env var for token-based auth, or only ChatGPT login (codex login) via session auth?"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Shep's agent system currently supports Claude Code, Cursor, and Gemini CLI (coming soon) as
+  AI coding agent executors. Users who prefer OpenAI's Codex CLI — a Rust-based terminal coding
+  agent that uses GPT models — have no way to use it with Shep. Adding Codex CLI as a supported
+  agent type extends Shep's multi-agent architecture to cover the OpenAI ecosystem, giving users
+  more choice in which AI tool powers their SDLC workflows.
+
+  OpenAI Codex CLI provides a non-interactive `exec` mode that is well-suited for programmatic
+  invocation: `codex exec "prompt"` streams progress to stderr and outputs the final result to
+  stdout, with `--json` for JSONL structured output. This maps cleanly to Shep's IAgentExecutor
+  interface pattern (spawn subprocess, pipe prompt, collect result).
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The codebase follows Clean Architecture with four layers:
+
+  | Layer | Path | Purpose |
+  | ----- | ---- | ------- |
+  | Domain | `packages/core/src/domain/` | TypeSpec-generated models (AgentType enum, AgentConfig) |
+  | Application | `packages/core/src/application/` | Port interfaces (IAgentExecutor, IAgentExecutorFactory) |
+  | Infrastructure | `packages/core/src/infrastructure/` | Executor implementations, factory, DI container |
+  | Presentation | `src/presentation/` | CLI commands, TUI wizards, Web UI components |
+
+  Agent executors live at `packages/core/src/infrastructure/services/agents/common/executors/`.
+  Each executor is a class implementing `IAgentExecutor` that spawns an agent CLI subprocess.
+
+  ### Architecture Patterns
+
+  **Settings-Driven Agent Resolution (MANDATORY):** No component hardcodes an agent type. All
+  resolution flows through `getSettings().agent.type` → `AgentExecutorFactory.createExecutor()` →
+  concrete executor. Nodes in LangGraph graphs receive the executor as a dependency injection
+  parameter.
+
+  **Executor Pattern:** Each agent executor:
+  1. Implements `IAgentExecutor` with `execute()`, `executeStream()`, and `supportsFeature()`
+  2. Takes a `SpawnFunction` via constructor injection for testability
+  3. Builds CLI args from `AgentExecutionOptions` (cwd, model, timeout, systemPrompt, etc.)
+  4. Pipes the prompt via stdin to avoid ENAMETOOLONG on Windows
+  5. Parses stdout for the result and extracts token usage metadata
+  6. Returns `AgentExecutionResult` with result text, sessionId, and usage stats
+
+  **Factory Pattern:** `AgentExecutorFactory` maps `AgentType` → executor class, caches instances,
+  and exposes `getSupportedAgents()`, `getCliInfo()`, and `getSupportedModels()`.
+
+  **DI Container:** `packages/core/src/infrastructure/di/container.ts` registers the factory,
+  provider, and all related services. Session repositories are registered per-agent-type.
+
+  ### Relevant Technologies
+
+  - **OpenAI Codex CLI:** Rust-based terminal agent installed via `npm i -g @openai/codex` or
+    Homebrew. Non-interactive mode: `codex exec [--json] [--full-auto] "prompt"`. Supports
+    `--model`, `--sandbox`, `--output-schema`, and `CODEX_API_KEY` env var for CI auth.
+  - **TypeSpec:** Domain enum `AgentType` at `tsp/common/enums/agent-config.tsp` compiles to
+    `packages/core/src/domain/generated/output.ts`. Adding a new variant here propagates to
+    all typed references automatically.
+  - **LangGraph:** Workflow graphs are agent-agnostic — they call `executor.execute()` without
+    knowing which agent backs it. No graph changes needed for a new executor.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/common/enums/agent-config.tsp` | High | Add `CodexCli: "codex-cli"` to AgentType enum |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated after tsp compile — new enum variant |
+  | `packages/core/src/infrastructure/services/agents/common/executors/` | High | New `codex-cli-executor.service.ts` (~400 lines) |
+  | `packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts` | High | Add case for codex-cli in createExecutor, getSupportedAgents, getCliInfo, getSupportedModels |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register stub session repository for codex-cli |
+  | `src/presentation/tui/prompts/agent-select.prompt.ts` | Medium | Add Codex CLI choice (enabled, not Coming Soon) |
+  | `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` | Medium | Add icon mapping and label for codex-cli |
+  | `src/presentation/web/components/features/settings/agent-settings-section.tsx` | Medium | Add to AGENT_TYPE_OPTIONS array |
+  | `src/presentation/web/app/actions/get-all-agent-models.ts` | Medium | Add to AGENT_LABELS and AGENT_ORDER |
+  | `public/icons/agents/` | Low | Add Codex/OpenAI brand icon asset |
+  | `src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx` | Low | Add to allAgentTypes array |
+  | `src/presentation/web/components/features/settings/agent-settings-section.stories.tsx` | Low | Add story variant for Codex CLI |
+  | `src/presentation/web/components/features/settings/AgentModelPicker/AgentModelPicker.stories.tsx` | Low | Add story for Codex CLI selection |
+  | `packages/core/src/infrastructure/services/agents/sessions/` | Low | Add stub session repository for codex-cli |
+  | Test files (unit + integration) | High | TDD: executor tests, factory tests, DI tests |
+
+  ## Dependencies
+
+  - **OpenAI Codex CLI binary** (`codex`) must be installed on the user's system
+    (`npm i -g @openai/codex` or `brew install --cask codex`)
+  - **Authentication:** Either ChatGPT login (`codex login`) for session auth, or
+    `CODEX_API_KEY` / `OPENAI_API_KEY` env var for token auth
+  - **Existing infrastructure:** Relies on SpawnFunction, IAgentExecutor interface,
+    AgentExecutorFactory pattern — all already established
+  - **No new npm dependencies required** — Codex is invoked as a subprocess, same as
+    all other agent executors
+
+  ## Implementation Strategy
+
+  The implementation follows the exact pattern established by existing executors
+  (ClaudeCodeExecutorService, GeminiCliExecutorService):
+
+  1. **TypeSpec:** Add `CodexCli: "codex-cli"` to AgentType enum, compile
+  2. **Executor:** Create `CodexCliExecutorService` implementing IAgentExecutor
+     - Command: `codex exec` with prompt piped via stdin or as positional arg
+     - Output format: `--json` for JSONL streaming, plain text for non-streaming
+     - Flags: `--full-auto`, `--sandbox workspace-write`, `--model <model>`
+     - Token auth: Set `CODEX_API_KEY` env var when authMethod is token
+     - Features: streaming, session-resume (via thread IDs), tool-scoping
+  3. **Factory:** Wire codex-cli case in switch, add to supported agents/models/CLI info
+  4. **DI:** Register stub session repository
+  5. **Presentation:** Add to TUI prompt, web UI icons/labels/options, Storybook stories
+
+  ## Size Estimate
+
+  **M** — This is a well-patterned task with clear precedent (3 existing executor
+  implementations to follow). The executor service is the main effort (~400 lines),
+  plus TypeSpec enum addition, factory wiring, DI registration, and UI updates across
+  TUI and Web. No architectural changes needed — purely additive within established
+  patterns. Estimated 2-3 days including TDD test coverage.
+
+  ---
+
+  _Analysis complete — proceed with research phase_
