@@ -31,7 +31,7 @@ import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/fea
 // Force dynamic — SSE streams must never be statically optimized or cached
 export const dynamic = 'force-dynamic';
 
-const POLL_INTERVAL_MS = 500;
+const POLL_INTERVAL_MS = 2_000;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
 interface CachedFeatureState {

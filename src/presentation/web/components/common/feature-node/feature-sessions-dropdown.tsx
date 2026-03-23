@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import {
   History,
   Copy,
@@ -8,7 +8,6 @@ import {
   Terminal,
   MessageSquare,
   Clock,
-  Loader2,
   ChevronDown,
   Sparkles,
 } from 'lucide-react';
@@ -27,6 +26,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { getAgentTypeIcon } from '@/components/common/feature-node/agent-type-icons';
+import { useSessionsContext } from '@/hooks/sessions-provider';
 
 export interface SessionSummary {
   id: string;
@@ -102,81 +102,19 @@ function stopNodeEvent(e: React.SyntheticEvent) {
 export function FeatureSessionsDropdown({
   repositoryPath,
   className,
-  includeWorktrees,
   onCreateFromSession,
 }: FeatureSessionsDropdownProps) {
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [fetched, setFetched] = useState(false);
-  const [hasActiveSessions, setHasActiveSessions] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const prevPathRef = useRef(repositoryPath);
 
-  // Reset when path changes
-  useEffect(() => {
-    if (prevPathRef.current !== repositoryPath) {
-      prevPathRef.current = repositoryPath;
-      setSessions([]);
-      setFetched(false);
-      setHasActiveSessions(false);
-      setExpanded(false);
-    }
-  }, [repositoryPath]);
+  // Read sessions from the centralized SessionsProvider context.
+  // Sessions are batch-fetched every 30s — no per-instance HTTP calls.
+  const { getSessionsForPath, hasActiveSessions: hasActiveForPath } = useSessionsContext();
+  const sessions = getSessionsForPath(repositoryPath);
+  const active = hasActiveForPath(repositoryPath);
 
-  // Fetch sessions on mount. Fast because we only scan the matching project directory.
-  // Populates count badge + active indicator, and pre-loads the dropdown.
-  useEffect(() => {
-    let cancelled = false;
-    const params = new URLSearchParams({
-      repositoryPath,
-      limit: '10',
-      ...(includeWorktrees && { includeWorktrees: 'true' }),
-    });
-    fetch(`/api/sessions?${params.toString()}`)
-      .then((res) => (res.ok ? (res.json() as Promise<{ sessions: SessionSummary[] }>) : null))
-      .then((data) => {
-        if (!cancelled && data?.sessions) {
-          setSessions(data.sessions);
-          setHasActiveSessions(data.sessions.some(isSessionActive));
-          setFetched(true);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [repositoryPath, includeWorktrees]);
-
-  // Re-fetch on dropdown open if not already loaded (e.g. path changed)
-  const doFetch = useCallback(async () => {
-    if (fetched) return;
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        repositoryPath,
-        limit: '10',
-        ...(includeWorktrees && { includeWorktrees: 'true' }),
-      });
-      const res = await fetch(`/api/sessions?${params.toString()}`);
-      if (res.ok) {
-        const data = (await res.json()) as { sessions: SessionSummary[] };
-        setSessions(data.sessions);
-        setHasActiveSessions(data.sessions.some(isSessionActive));
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setLoading(false);
-      setFetched(true);
-    }
-  }, [repositoryPath, fetched, includeWorktrees]);
-
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) void doFetch();
-    },
-    [doFetch]
-  );
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (!open) setExpanded(false);
+  }, []);
 
   const visibleSessions = expanded ? sessions : sessions.slice(0, PREVIEW_COUNT);
   const hasMore = sessions.length > PREVIEW_COUNT;
@@ -203,15 +141,13 @@ export function FeatureSessionsDropdown({
                 {sessions.length > 0 ? (
                   <span data-testid="feature-node-sessions-count">{sessions.length}</span>
                 ) : null}
-                {hasActiveSessions ? (
+                {active ? (
                   <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 ) : null}
               </button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent side="top">
-            {hasActiveSessions ? 'Sessions (active)' : 'Sessions'}
-          </TooltipContent>
+          <TooltipContent side="top">{active ? 'Sessions (active)' : 'Sessions'}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
 
@@ -228,12 +164,7 @@ export function FeatureSessionsDropdown({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {loading ? (
-          <div className="text-muted-foreground flex items-center justify-center gap-2 py-4 text-xs">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Loading...
-          </div>
-        ) : sessions.length === 0 ? (
+        {sessions.length === 0 ? (
           <div className="text-muted-foreground py-4 text-center text-xs">No sessions found</div>
         ) : (
           <>
@@ -278,7 +209,7 @@ function SessionRow({
   repositoryPath: string;
   onCreateFromSession?: (session: SessionSummary, sessionFilePath: string) => void;
 }) {
-  const active = isSessionActive(session);
+  const sessionActive = isSessionActive(session);
   const AgentIcon = getAgentTypeIcon(session.agentType);
 
   return (
@@ -287,7 +218,7 @@ function SessionRow({
         {/* Agent icon with optional active indicator */}
         <div className="relative mt-0.5 shrink-0">
           <AgentIcon className="h-4 w-4" />
-          {active ? (
+          {sessionActive ? (
             <span className="border-background absolute -right-0.5 -bottom-0.5 h-2 w-2 rounded-full border bg-emerald-500" />
           ) : null}
         </div>
@@ -311,7 +242,10 @@ function SessionRow({
             ) : null}
             {session.lastMessageAt ? (
               <span
-                className={cn('ml-auto shrink-0', active ? 'font-medium text-emerald-600' : '')}
+                className={cn(
+                  'ml-auto shrink-0',
+                  sessionActive ? 'font-medium text-emerald-600' : ''
+                )}
               >
                 {formatRelativeTime(session.lastMessageAt)}
               </span>

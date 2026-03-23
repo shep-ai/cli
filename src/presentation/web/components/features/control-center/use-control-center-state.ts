@@ -33,7 +33,7 @@ import { useGraphState, type GraphCallbacks } from '@/hooks/use-graph-state';
 import type { FeatureEntry } from '@/lib/derive-graph';
 
 const log = createLogger('[Polling]');
-const POLL_INTERVAL_MS = 3_000;
+const POLL_INTERVAL_MS = 15_000;
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -273,6 +273,8 @@ export function useControlCenterState(
     log.debug(`polling enabled (${POLL_INTERVAL_MS}ms interval)`);
 
     const timer = setInterval(async () => {
+      // Skip when tab is hidden — no point polling for a user who isn't looking.
+      if (document.hidden) return;
       // Skip fetch entirely while a mutation is in-flight — the response
       // would contain pre-mutation data that reconcile would discard anyway.
       if (isMutating()) return;

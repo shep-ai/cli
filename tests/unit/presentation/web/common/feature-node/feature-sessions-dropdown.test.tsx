@@ -92,7 +92,7 @@ vi.mock('@/components/ui/dropdown-menu', () => {
   };
 });
 
-import { FeatureSessionsDropdown } from '@/components/common/feature-node/feature-sessions-dropdown';
+const REPO_PATH = '/home/user/project';
 
 const mockSessions = [
   {
@@ -102,7 +102,7 @@ const mockSessions = [
     firstMessageAt: new Date(Date.now() - 3_600_000).toISOString(),
     lastMessageAt: new Date(Date.now() - 1_800_000).toISOString(),
     createdAt: new Date(Date.now() - 3_600_000).toISOString(),
-    projectPath: '~/workspaces/my-project',
+    projectPath: REPO_PATH,
   },
   {
     id: 'session-def',
@@ -111,7 +111,7 @@ const mockSessions = [
     firstMessageAt: new Date(Date.now() - 86_400_000).toISOString(),
     lastMessageAt: new Date(Date.now() - 82_800_000).toISOString(),
     createdAt: new Date(Date.now() - 86_400_000).toISOString(),
-    projectPath: '~/workspaces/my-project',
+    projectPath: REPO_PATH,
   },
 ];
 
@@ -123,57 +123,49 @@ const mockActiveSessions = [
     firstMessageAt: new Date(Date.now() - 120_000).toISOString(),
     lastMessageAt: new Date(Date.now() - 60_000).toISOString(), // 1 min ago — active
     createdAt: new Date(Date.now() - 120_000).toISOString(),
-    projectPath: '~/workspaces/my-project',
+    projectPath: REPO_PATH,
   },
 ];
+
+// Mock the sessions context to provide test data directly
+let mockGetSessions: (path: string) => unknown[] = () => [];
+let mockHasActive: (path: string) => boolean = () => false;
+
+vi.mock('@/hooks/sessions-provider', () => ({
+  useSessionsContext: () => ({
+    getSessionsForPath: (path: string) => mockGetSessions(path),
+    hasActiveSessions: (path: string) => mockHasActive(path),
+  }),
+  SessionsProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+import { FeatureSessionsDropdown } from '@/components/common/feature-node/feature-sessions-dropdown';
 
 describe('FeatureSessionsDropdown', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockGetSessions = () => [];
+    mockHasActive = () => false;
   });
 
   it('renders the sessions trigger button', () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ sessions: [] }) })
-    );
-    render(<FeatureSessionsDropdown repositoryPath="/home/user/project" />);
+    render(<FeatureSessionsDropdown repositoryPath={REPO_PATH} />);
     expect(screen.getByTestId('feature-node-sessions-button')).toBeDefined();
   });
 
-  it('fetches sessions on mount and shows count badge', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ sessions: mockSessions }),
-    });
-    vi.stubGlobal('fetch', fetchSpy);
+  it('shows count badge from context data', () => {
+    mockGetSessions = (path: string) => (path === REPO_PATH ? mockSessions : []);
 
-    render(<FeatureSessionsDropdown repositoryPath="/home/user/project" />);
+    render(<FeatureSessionsDropdown repositoryPath={REPO_PATH} />);
 
-    // Should fetch on mount with limit=10
-    await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('limit=10'));
-    });
-
-    // Should show session count badge
-    await waitFor(() => {
-      expect(screen.getByTestId('feature-node-sessions-count').textContent).toBe('2');
-    });
+    // Count badge should be visible immediately (no fetch needed)
+    expect(screen.getByTestId('feature-node-sessions-count').textContent).toBe('2');
   });
 
   it('displays session previews after opening', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ sessions: mockSessions }),
-      })
-    );
+    mockGetSessions = (path: string) => (path === REPO_PATH ? mockSessions : []);
 
-    render(<FeatureSessionsDropdown repositoryPath="/home/user/project" />);
-
-    // Wait for eager fetch, then open
-    await waitFor(() => expect(screen.getByTestId('feature-node-sessions-button')).toBeDefined());
+    render(<FeatureSessionsDropdown repositoryPath={REPO_PATH} />);
     await userEvent.click(screen.getByTestId('feature-node-sessions-button'));
 
     await waitFor(() => {
@@ -183,17 +175,9 @@ describe('FeatureSessionsDropdown', () => {
   });
 
   it('shows empty state when no sessions found', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ sessions: [] }),
-      })
-    );
+    mockGetSessions = () => [];
 
-    render(<FeatureSessionsDropdown repositoryPath="/home/user/project" />);
-
-    await waitFor(() => expect(screen.getByTestId('feature-node-sessions-button')).toBeDefined());
+    render(<FeatureSessionsDropdown repositoryPath={REPO_PATH} />);
     await userEvent.click(screen.getByTestId('feature-node-sessions-button'));
 
     await waitFor(() => {
@@ -202,17 +186,9 @@ describe('FeatureSessionsDropdown', () => {
   });
 
   it('displays message counts for sessions', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ sessions: mockSessions }),
-      })
-    );
+    mockGetSessions = (path: string) => (path === REPO_PATH ? mockSessions : []);
 
-    render(<FeatureSessionsDropdown repositoryPath="/home/user/project" />);
-
-    await waitFor(() => expect(screen.getByTestId('feature-node-sessions-button')).toBeDefined());
+    render(<FeatureSessionsDropdown repositoryPath={REPO_PATH} />);
     await userEvent.click(screen.getByTestId('feature-node-sessions-button'));
 
     await waitFor(() => {
@@ -221,40 +197,26 @@ describe('FeatureSessionsDropdown', () => {
     });
   });
 
-  it('shows green dot indicator on mount when a session is active (< 5 min)', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ sessions: mockActiveSessions }),
-      })
-    );
+  it('shows green dot indicator when context reports active sessions', () => {
+    mockGetSessions = (path: string) => (path === REPO_PATH ? mockActiveSessions : []);
+    mockHasActive = (path: string) => path === REPO_PATH;
 
-    render(<FeatureSessionsDropdown repositoryPath="/home/user/project" />);
+    render(<FeatureSessionsDropdown repositoryPath={REPO_PATH} />);
 
-    // The lightweight mount probe detects the active session — green dot appears
-    await waitFor(() => {
-      const button = screen.getByTestId('feature-node-sessions-button');
-      const dot = button.querySelector('.bg-emerald-500');
-      expect(dot).toBeInTheDocument();
-    });
+    const button = screen.getByTestId('feature-node-sessions-button');
+    const dot = button.querySelector('.bg-emerald-500');
+    expect(dot).toBeInTheDocument();
   });
 
-  it('does not highlight when no active sessions', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ sessions: mockSessions }), // all > 5 min old
-      })
-    );
+  it('does not highlight when no active sessions', () => {
+    mockGetSessions = (path: string) => (path === REPO_PATH ? mockSessions : []);
+    mockHasActive = () => false;
 
-    render(<FeatureSessionsDropdown repositoryPath="/home/user/project" />);
+    render(<FeatureSessionsDropdown repositoryPath={REPO_PATH} />);
 
-    await waitFor(() => {
-      const button = screen.getByTestId('feature-node-sessions-button');
-      expect(button.className).toContain('text-muted-foreground');
-      expect(button.className).not.toContain('text-emerald-600');
-    });
+    const button = screen.getByTestId('feature-node-sessions-button');
+    expect(button.className).toContain('text-muted-foreground');
+    const dot = button.querySelector('.bg-emerald-500');
+    expect(dot).toBeNull();
   });
 });
