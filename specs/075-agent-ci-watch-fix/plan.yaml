@@ -1,0 +1,109 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-ci-watch-fix
+summary: Implementation plan for replacing hardcoded CI watching with agent-based approach
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - vitest
+  - langgraph
+  - gh-cli
+  - typescript
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: Output parser and prompt
+    parallel: true
+    taskIds:
+      - task-1
+      - task-2
+  - id: phase-2
+    name: Refactor CI watch/fix loop
+    parallel: false
+    taskIds:
+      - task-3
+      - task-4
+  - id: phase-3
+    name: Verification
+    parallel: false
+    taskIds:
+      - task-5
+
+# File change tracking
+filesToCreate: []
+filesToModify:
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge-output-parser.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/ci-watch-fix-loop.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/merge.node.ci-watch.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-03-23
+
+  ## Architecture Overview
+
+  ```
+  Merge Node
+  └─ CI Watch/Fix Loop (ci-watch-fix-loop.ts)
+     ├─ BEFORE: getCiStatus() + watchCi() [hardcoded, single run]
+     │   └─ gh run watch <id> --exit-status [buggy]
+     │
+     └─ AFTER: Agent Call [follows CI/CD rules]
+         ├─ buildCiWatchPrompt() → agent watches ALL runs
+         ├─ parseCiWatchResult() → structured pass/fail
+         ├─ recordPhaseStart/End('merge:ci-watch') → timeline
+         └─ If failed:
+             ├─ getFailureLogs() → context for fix agent
+             ├─ buildCiWatchFixPrompt() → agent fixes + pushes
+             ├─ recordPhaseStart/End('merge:ci-fix') → timeline
+             └─ Loop back to watch
+  ```
+
+  ## Implementation Strategy
+
+  **Phase 1 (parallel):** Add the new prompt builder and output parser.
+  These are independent units that can be built and tested in isolation.
+
+  **Phase 2 (sequential):** Refactor the CI watch/fix loop to use agent calls
+  instead of hardcoded watchCi. Add phase timing records for each sub-phase.
+
+  **Phase 3:** Run all tests and verify the integration works end-to-end.
+
+  ## Files to Modify
+
+  | File | Change |
+  | ---- | ------ |
+  | merge-output-parser.ts | Add parseCiWatchResult function |
+  | merge-prompts.ts | Add buildCiWatchPrompt function |
+  | ci-watch-fix-loop.ts | Replace watchCi calls with agent calls + phase timing |
+  | merge.node.ci-watch.test.ts | Update tests for new agent-based flow |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  Each task defines explicit RED-GREEN-REFACTOR cycles. Tests are written before
+  implementation in every case.
+
+  - Unit tests for parseCiWatchResult (regex parsing edge cases)
+  - Unit tests for buildCiWatchPrompt (prompt content verification)
+  - Unit tests for refactored CI loop (mock agent executor)
+  - Verify phase timing records are created for sub-phases
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Agent may not follow CI rules perfectly | Prompt is explicit with exact commands to run |
+  | Agent output parsing may miss edge cases | Fallback: treat unparseable output as failure |
+  | Token cost increase from agent CI watching | gh run watch handles polling; agent overhead is ~2K tokens |
+  | Breaking existing merge flow | Existing merge tests still pass; watchCi not removed from interface |

@@ -1,0 +1,86 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-ci-watch-fix
+number: 075
+branch: feat/075-agent-ci-watch-fix
+oneLiner: replace hardcoded gh run watch with agent-based ci watching and record all ci phases in activity timeline
+userQuery: >
+  Fix the CI watch/fix loop: remove all hardcoded gh watch tools and use the agent to watch CI
+  (so it follows CI/CD rules — checks ALL runs, verifies completion, handles edge cases).
+  Also record fix/watch phases in the activity timeline. Must be GENERIC, not tied to any specific repo.
+summary: >
+  The current CI watch/fix loop uses hardcoded gh run watch --exit-status which only watches a single
+  run, exits early when any job fails, and suffers from race conditions with stale runs. Replace the
+  watchCi-based approach with agent-based CI watching where the agent follows the CI/CD rules from
+  CLAUDE.md (check ALL runs, verify ALL complete, report accurately). Record each CI watch and fix
+  attempt as a separate phase timing entry so they appear in the Activity Timeline UI.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - 074-feat-ls-tree-view
+
+technologies:
+  - vitest
+  - langgraph
+  - gh-cli
+  - typescript
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The CI watch/fix loop has three critical bugs:
+
+  1. **watchCi only watches ONE run** — uses `gh run list --limit 1` + `gh run watch <id>`,
+     but a push triggers multiple workflow runs (CI/CD + PR Check). It misses failures on other runs.
+
+  2. **gh run watch --exit-status exits early** — exits non-zero as soon as any job fails,
+     even if other jobs in the same run are still in progress. This causes getFailureLogs to
+     receive "run still in progress" errors.
+
+  3. **Race condition with stale runs** — after a fix push, getCiStatus + watchCi may pick up
+     old completed runs (because GitHub needs time to create new workflow runs), causing the loop
+     to report failure on already-fixed code.
+
+  Additionally, CI fix/watch sub-phases are invisible in the Activity Timeline UI because no
+  phase timing records are created for them.
+
+  ## Success Criteria
+
+  - [ ] Agent-based CI watching: the agent checks ALL runs for the branch, waits for ALL to complete,
+        and reports structured pass/fail status
+  - [ ] No hardcoded watchCi calls in the ci-watch-fix-loop (watchCi remains in interface for other uses)
+  - [ ] Each CI watch attempt recorded as a phase timing (merge:ci-watch, merge:ci-watch:2, etc.)
+  - [ ] Each CI fix attempt recorded as a phase timing (merge:ci-fix, merge:ci-fix:2, etc.)
+  - [ ] CI watch prompt is GENERIC — works with any git/gh repo, not tied to specific workflows
+  - [ ] Structured output parsing for CI status (CI_STATUS: PASSED / CI_STATUS: FAILED)
+  - [ ] All existing CI watch tests updated for new agent-based approach
+  - [ ] Race condition eliminated: agent verifies runs for the current HEAD commit
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | ci-watch-fix-loop.ts | High | Core logic replacement: watchCi → agent call |
+  | merge-prompts.ts | Medium | New buildCiWatchPrompt function |
+  | merge-output-parser.ts | Low | New parseCiWatchResult parser |
+  | merge.node.ts | Low | No changes needed (delegates to loop) |
+  | git-pr.service.ts | None | watchCi stays but is no longer used by loop |
+  | activity-tab.tsx | Low | Sub-phases already render; may need label mapping |
+  | phase-timing-context.ts | None | Already supports iteration suffixes |
+
+  ## Dependencies
+
+  None — uses existing phase timing infrastructure and agent executor patterns.
+
+  ## Size Estimate
+
+  **M** — Core changes in 3 files (loop, prompts, parser) + test updates
