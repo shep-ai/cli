@@ -1,0 +1,27 @@
+=== Task 13: Codex CLI in Web UI — Agent Settings, Icons, Model Picker ===
+
+--- agent-type-icons.tsx: codex-cli references ---
+8:  | 'codex-cli'
+94:  'codex-cli': createBrandIcon('/icons/agents/openai.svg', 'Codex CLI'),
+105:  'codex-cli': 'Codex CLI',
+
+--- agent-settings-section.tsx: codex-cli references ---
+24:  { value: AgentType.CodexCli, label: 'Codex CLI' },
+
+--- get-all-agent-models.ts: codex-cli references ---
+21:  'codex-cli': 'Codex CLI',
+30:  'codex-cli': 1,
+
+--- OpenAI icon asset ---
+-rw-r--r--@ 1 arielshadkhan  staff  1354 Mar 23 23:57 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent/src/presentation/web/public/icons/agents/openai.svg
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent/src/presentation/web/public/icons/agents/openai.svg: SVG Scalable Vector Graphics image
+
+--- pnpm build output (tail) ---
+
+> @shepai/cli@1.148.0 build /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent
+> pnpm build:cli
+
+
+> @shepai/cli@1.148.0 build:cli /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent
+> tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && shx mkdir -p dist/packages/core/src/infrastructure/services/tool-installer && shx rm -rf dist/packages/core/src/infrastructure/services/tool-installer/tools && shx cp -r packages/core/src/infrastructure/services/tool-installer/tools dist/packages/core/src/infrastructure/services/tool-installer/tools
+

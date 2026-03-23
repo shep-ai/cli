@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent
+
+ ✓  node  tests/unit/domain/generated/agent-type-codex-cli.test.ts > AgentType.CodexCli > should have CodexCli variant with value "codex-cli" 0ms
+ ✓  node  tests/unit/domain/generated/agent-type-codex-cli.test.ts > AgentType.CodexCli > should not break existing enum variants 0ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  00:18:46
+   Duration  97ms (transform 23ms, setup 0ms, import 29ms, tests 1ms, environment 0ms)
+

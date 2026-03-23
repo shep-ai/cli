@@ -1,0 +1,15 @@
+=== Task 14: Codex CLI Storybook Story Variants ===
+
+--- agent-type-icons.stories.tsx: codex-cli references ---
+6:  { type: 'codex-cli', label: 'Codex CLI' },
+
+--- agent-settings-section.stories.tsx: CodexCli story ---
+36:export const CodexCli: Story = {
+39:      type: AgentType.CodexCli,
+
+--- AgentModelPicker.stories.tsx: CodexCli story ---
+49:export const CodexCliSelected: Story = {
+51:    initialAgentType: 'codex-cli',
+
+--- pnpm build succeeded (see task-13 evidence for full build log) ---
+All storybook story files compile and reference codex-cli variants correctly.

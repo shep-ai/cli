@@ -1,0 +1,50 @@
+=== Task 12: Codex CLI in TUI Agent Select Prompt ===
+
+--- Searching for codex-cli references in TUI prompt ---
+32:        name: 'Codex CLI',
+33:        value: AgentType.CodexCli,
+34:        description: "OpenAI's Codex CLI terminal agent (GPT models)",
+
+--- Full agent choices section ---
+    choices: [
+      {
+        name: 'Claude Code',
+        value: AgentType.ClaudeCode,
+        description: 'Anthropic Claude Code CLI',
+      },
+      {
+        name: 'Gemini CLI',
+        value: AgentType.GeminiCli,
+        description: 'Google Gemini CLI',
+      },
+      {
+        name: 'Codex CLI',
+        value: AgentType.CodexCli,
+        description: "OpenAI's Codex CLI terminal agent (GPT models)",
+      },
+      {
+        name: 'Cursor',
+        value: AgentType.Cursor,
+        description: 'Cursor AI coding agent',
+      },
+      {
+        name: 'Dev (Mock)',
+        value: AgentType.Dev,
+        description: 'Local development mock — no agent binary required',
+      },
+      {
+        name: 'Aider',
+        value: AgentType.Aider,
+        disabled: '(Coming Soon)',
+      },
+      {
+        name: 'Continue',
+        value: AgentType.Continue,
+        disabled: '(Coming Soon)',
+      },
+    ],
+    theme: shepTheme,
+  } as const;
+}
+
+--- TypeScript compilation check ---

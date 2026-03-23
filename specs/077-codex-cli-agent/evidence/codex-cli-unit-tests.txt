@@ -3,57 +3,21 @@
 
  ✓  node  tests/unit/domain/generated/agent-type-codex-cli.test.ts > AgentType.CodexCli > should have CodexCli variant with value "codex-cli" 1ms
  ✓  node  tests/unit/domain/generated/agent-type-codex-cli.test.ts > AgentType.CodexCli > should not break existing enum variants 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > agentType > should have agentType of CodexCli 2ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should support session-resume feature 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should support streaming feature 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should support structured-output feature 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should NOT support system-prompt feature 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should NOT support tool-scoping feature 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should NOT support session-listing feature 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should spawn codex with correct base args 6ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pipe prompt via stdin, not in CLI args 3ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should parse JSONL to extract response text from agent_message events 2ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should extract thread_id from thread.started as sessionId 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should return undefined sessionId when thread.started is missing 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should handle agent_message with string content 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pass --model flag when model option is provided 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pass --cd flag when cwd option is provided 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should extract usage from turn.completed JSONL event 2ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should return undefined usage when turn.completed has no usage data 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should set CODEX_API_KEY when authConfig uses token auth 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should NOT set CODEX_API_KEY when authConfig uses session auth 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should strip CLAUDECODE from spawn environment 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should use resume syntax when resumeSession is provided 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pass prompt as positional arg for resume, not stdin 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should still use stdin for non-resume executions 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should include all base flags in resume mode 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should include install instructions on ENOENT error 2ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should reject with stderr content on non-zero exit code 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should include stderr in error message on non-zero exit 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should skip malformed JSON lines gracefully 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should apply timeout and kill subprocess 3ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should detect fatal stderr patterns on exit code 0 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should detect rate limit pattern in stderr on exit 0 2ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should NOT reject for non-fatal stderr messages with exit code 0 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pass --output-schema flag when outputSchema is provided 1ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should NOT include --output-schema flag when outputSchema is not provided 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should clean up temp schema file even on execution error 2ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield progress events for agent_message item.started 32ms
- ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create ClaudeCodeExecutor for claude-code type 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create ClaudeCodeExecutor for claude-code type 1ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create GeminiCliExecutor for gemini-cli type 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should cache gemini-cli executor instances 0ms
- ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create DevAgentExecutorService for dev type 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create DevAgentExecutorService for dev type 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should cache dev executor instances (singleton per type) 0ms
- ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should throw for aider agent type 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should throw for aider agent type 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create CursorExecutor for cursor type 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create CodexCliExecutorService for codex-cli type 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should cache codex-cli executor instances 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should pass authConfig to CodexCliExecutorService 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should return executor with correct agentType 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should cache executor instances (singleton per type) 0ms
- ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedAgents > should list supported agents 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedAgents > should list supported agents 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedAgents > should not include unsupported agents 0ms
- ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getCliInfo > should include codex-cli entry with cmd codex 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getCliInfo > should include codex-cli entry with cmd codex 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return claude-code model list 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return gemini-cli model list 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return cursor model list 0ms
@@ -61,28 +25,64 @@
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return empty array for dev agent 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return empty array for unknown agent type 0ms
  ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return synchronously (no promise) 0ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield progress events for agent_message item.updated with delta 24ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield progress events for command_execution 26ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield progress events for file_change 24ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield result event with accumulated text on turn.completed 25ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > agentType > should have agentType of CodexCli 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should support session-resume feature 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should support streaming feature 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should support structured-output feature 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should NOT support system-prompt feature 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should NOT support tool-scoping feature 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > supportsFeature > should NOT support session-listing feature 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should spawn codex with correct base args 2ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pipe prompt via stdin, not in CLI args 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should parse JSONL to extract response text from agent_message events 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should extract thread_id from thread.started as sessionId 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should return undefined sessionId when thread.started is missing 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should handle agent_message with string content 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pass --model flag when model option is provided 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pass --cd flag when cwd option is provided 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should extract usage from turn.completed JSONL event 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should return undefined usage when turn.completed has no usage data 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should set CODEX_API_KEY when authConfig uses token auth 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should NOT set CODEX_API_KEY when authConfig uses session auth 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should strip CLAUDECODE from spawn environment 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should use resume syntax when resumeSession is provided 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pass prompt as positional arg for resume, not stdin 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should still use stdin for non-resume executions 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should include all base flags in resume mode 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should include install instructions on ENOENT error 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should reject with stderr content on non-zero exit code 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should include stderr in error message on non-zero exit 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should skip malformed JSON lines gracefully 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should apply timeout and kill subprocess 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should detect fatal stderr patterns on exit code 0 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should detect rate limit pattern in stderr on exit 0 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should NOT reject for non-fatal stderr messages with exit code 0 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should pass --output-schema flag when outputSchema is provided 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should NOT include --output-schema flag when outputSchema is not provided 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > execute > should clean up temp schema file even on execution error 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield progress events for agent_message item.started 23ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield progress events for agent_message item.updated with delta 23ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield progress events for command_execution 23ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield progress events for file_change 23ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield result event with accumulated text on turn.completed 22ms
  ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield error event on turn.failed 23ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should skip unknown event types gracefully 25ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield non-JSON lines as raw progress 23ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should emit error event on non-zero exit code 25ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should emit error event on spawn error 10ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should emit error event when stderr contains fatal patterns on exit 0 22ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should include resume args in streaming mode 24ms
- ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should set CODEX_API_KEY when using token auth in streaming mode 23ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should skip unknown event types gracefully 21ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield non-JSON lines as raw progress 22ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should emit error event on non-zero exit code 24ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should emit error event on spawn error 11ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should emit error event when stderr contains fatal patterns on exit 0 25ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should include resume args in streaming mode 21ms
+ ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should set CODEX_API_KEY when using token auth in streaming mode 24ms
  ✓  node  tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts > CodexCliExecutorService > executeStream > should yield error event from error JSONL events 23ms
- ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves ListAgentSessionsUseCase after initialization 1263ms
- ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves GetAgentSessionUseCase after initialization 20ms
- ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves IAgentSessionRepository:claude-code as ClaudeCodeSessionRepository 20ms
- ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves IAgentSessionRepository:cursor as StubSessionRepository 18ms
- ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves IAgentSessionRepository:gemini-cli as StubSessionRepository 30ms
- ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves IAgentSessionRepository:codex-cli as StubSessionRepository 13ms
+ ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves ListAgentSessionsUseCase after initialization 499ms
+ ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves GetAgentSessionUseCase after initialization 6ms
+ ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves IAgentSessionRepository:claude-code as ClaudeCodeSessionRepository 6ms
+ ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves IAgentSessionRepository:cursor as StubSessionRepository 5ms
+ ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves IAgentSessionRepository:gemini-cli as StubSessionRepository 7ms
+ ✓  node  tests/unit/infrastructure/di/container-session-registrations.test.ts > session DI registrations > resolves IAgentSessionRepository:codex-cli as StubSessionRepository 5ms
 
  Test Files  4 passed (4)
       Tests  79 passed (79)
-   Start at  00:06:03
-   Duration  1.64s (transform 1.25s, setup 0ms, import 733ms, tests 1.75s, environment 0ms)
+   Start at  00:21:08
+   Duration  667ms (transform 562ms, setup 0ms, import 346ms, tests 859ms, environment 0ms)
 

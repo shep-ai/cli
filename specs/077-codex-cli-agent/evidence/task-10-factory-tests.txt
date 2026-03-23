@@ -1,0 +1,31 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent
+
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create ClaudeCodeExecutor for claude-code type 1ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create GeminiCliExecutor for gemini-cli type 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should cache gemini-cli executor instances 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create DevAgentExecutorService for dev type 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should cache dev executor instances (singleton per type) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should throw for aider agent type 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create CursorExecutor for cursor type 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should create CodexCliExecutorService for codex-cli type 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should cache codex-cli executor instances 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should pass authConfig to CodexCliExecutorService 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should return executor with correct agentType 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > createExecutor > should cache executor instances (singleton per type) 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedAgents > should list supported agents 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedAgents > should not include unsupported agents 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getCliInfo > should include codex-cli entry with cmd codex 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return claude-code model list 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return gemini-cli model list 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return cursor model list 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return codex-cli model list with 12 models 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return empty array for dev agent 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return empty array for unknown agent type 0ms
+ ✓  node  tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts > AgentExecutorFactory > getSupportedModels > should return synchronously (no promise) 0ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  00:18:57
+   Duration  154ms (transform 69ms, setup 0ms, import 86ms, tests 4ms, environment 0ms)
+

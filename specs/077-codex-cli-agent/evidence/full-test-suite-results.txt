@@ -1,20 +1,39 @@
-       ✓ fast mode resets to unchecked after submit  938ms
-       ✓ submits the form when Ctrl+Enter is pressed in the textarea  563ms
-       ✓ submits the form when Meta+Enter is pressed in the textarea  463ms
-       ✓ does not submit on plain Enter (without modifier)  491ms
-       ✓ includes sessionId in submitted payload  774ms
-       ✓ submit button is disabled when no repo selected and repositoryPath is empty  676ms
-       ✓ submit button is enabled when repo is selected via combobox  1140ms
-       ✓ submit button is enabled when repositoryPath is provided (canvas flow)  877ms
-       ✓ handleSubmit includes selectedRepoPath in payload  895ms
-       ✓ filters repositories by name when typing in search input  305ms
-       ✓ filters repositories by path when typing in search input  357ms
-       ✓ shows empty state message when no repos match search  576ms
-       ✓ shows check icon for selected repository  409ms
-       ✓ can submit feature after adding new repo via combobox  310ms
 
- Test Files  350 passed (350)
-      Tests  4806 passed (4806)
-   Start at  00:06:06
-   Duration  55.95s (transform 17.42s, setup 46.99s, import 103.19s, tests 148.01s, environment 128.24s)
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent
+
+stdout | tests/unit/commands/daemon/start-daemon.test.ts > startDaemon() > already-running path (idempotent) > does NOT spawn a new process when daemon is already alive
+
+ℹ Shep is already running at http://localhost:4050
+
+[... verbose test output truncated ...]
+
+ ✓  web  tests/unit/presentation/web/actions/pick-files.test.ts (4 tests) 22ms
+ ✓  web  tests/unit/presentation/web/api/version.test.ts (4 tests) 12ms
+ ✓  web  tests/unit/presentation/web/lib/derive-graph.test.ts (15 tests) 6ms
+ ✓  web  tests/unit/presentation/web/actions/load-settings.test.ts (3 tests) 6ms
+ ✓  web  tests/unit/presentation/web/actions/update-model.test.ts (8 tests) 8ms
+ ✓  web  tests/unit/presentation/web/actions/update-settings.test.ts (6 tests) 7ms
+ ✓  web  tests/unit/presentation/web/actions/get-deployment-status.test.ts (5 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/approve-feature.test.ts (7 tests) 8ms
+ ✓  web  tests/unit/presentation/web/actions/reject-feature.test.ts (12 tests) 19ms
+ ✓  web  tests/unit/presentation/web/actions/get-deployment-logs.test.ts (5 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/stop-deployment.test.ts (5 tests) 6ms
+ ✓  web  tests/unit/presentation/web/app/actions/import-github-repository.test.ts (9 tests) 7ms
+ ✓  web  tests/unit/presentation/web/lib/parse-log-line.test.ts (18 tests) 9ms
+ ✓  web  tests/unit/presentation/web/actions/get-workflow-defaults.test.ts (4 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/compose-user-input.test.ts (7 tests) 4ms
+ ✓  web  tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts (11 tests) 5ms
+ ✓  web  tests/unit/presentation/web/actions/features/delete-feature.test.ts (8 tests) 4ms
+ ✓  web  tests/unit/presentation/web/app/actions/list-github-repositories.test.ts (7 tests) 5ms
+ ✓  web  tests/unit/presentation/web/app/actions/get-feature-phase-timings.test.ts (8 tests) 8ms
+ ✓  web  tests/unit/presentation/web/components/common/control-center-drawer/drawer-view.test.ts (10 tests) 5ms
+ ✓  web  tests/unit/presentation/web/lib/format-duration.test.ts (9 tests) 3ms
+ ✓  web  tests/unit/presentation/web/actions/pick-folder.test.ts (4 tests) 2ms
+ ✓  web  tests/unit/presentation/web/features/control-center/derive-state.test.ts (6 tests) 2ms
+ ✓  web  tests/unit/presentation/web/lib/compare-versions.test.ts (7 tests) 2ms
+
+ Test Files  397 passed (397)
+      Tests  5352 passed (5352)
+   Start at  00:29:10
+   Duration  42.39s (transform 11.43s, setup 25.38s, import 67.10s, tests 170.83s, environment 67.17s)
 
