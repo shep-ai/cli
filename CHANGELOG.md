@@ -1,3 +1,10 @@
+# [1.143.0](https://github.com/shep-ai/cli/compare/v1.142.1...v1.143.0) (2026-03-23)
+
+
+### Features
+
+* **cli:** add hierarchical tree view to feat ls command ([#455](https://github.com/shep-ai/cli/issues/455)) ([1a3d5f5](https://github.com/shep-ai/cli/commit/1a3d5f55043c676391be33a110a7a87f8ab34f98))
+
 ## [1.142.1](https://github.com/shep-ai/cli/compare/v1.142.0...v1.142.1) (2026-03-22)
 
 
