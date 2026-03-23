@@ -1,3 +1,10 @@
+# [1.146.0](https://github.com/shep-ai/cli/compare/v1.145.0...v1.146.0) (2026-03-23)
+
+
+### Features
+
+* **domain:** add fork-and-pr workflow for upstream contributions ([#452](https://github.com/shep-ai/cli/issues/452)) ([b8a6a2c](https://github.com/shep-ai/cli/commit/b8a6a2c7646144e1f9f17faa2b8765a89d6c3048))
+
 # [1.145.0](https://github.com/shep-ai/cli/compare/v1.144.0...v1.145.0) (2026-03-23)
 
 
