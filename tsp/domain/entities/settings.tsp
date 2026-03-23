@@ -490,6 +490,9 @@ model FeatureFlags {
 
   @doc("Use the built-in React file manager instead of the native OS folder picker")
   reactFileManager: boolean = false;
+
+  @doc("Enable the Database browser page in the web UI")
+  databaseBrowser: boolean = false;
 }
 
 /**

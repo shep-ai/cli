@@ -582,6 +582,10 @@ export type FeatureFlags = {
    * Use the built-in React file manager instead of the native OS folder picker
    */
   reactFileManager: boolean;
+  /**
+   * Enable the Database browser page in the web UI
+   */
+  databaseBrowser: boolean;
 };
 
 /**

@@ -30,6 +30,10 @@ properties:
     type: boolean
     default: false
     description: Use the built-in React file manager instead of the native OS folder picker
+  databaseBrowser:
+    type: boolean
+    default: false
+    description: Enable the Database browser page in the web UI
 required:
   - skills
   - envDeploy
@@ -38,4 +42,5 @@ required:
   - adoptBranch
   - gitRebaseSync
   - reactFileManager
+  - databaseBrowser
 description: Feature flag toggles for runtime feature control

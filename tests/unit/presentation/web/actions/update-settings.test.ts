@@ -115,5 +115,6 @@ describe('updateSettingsAction server action', () => {
     expect(persisted.featureFlags.envDeploy).toBe(true);
     expect(persisted.featureFlags.debug).toBe(false);
     expect(persisted.featureFlags.adoptBranch).toBe(false);
+    expect(persisted.featureFlags.databaseBrowser).toBe(false);
   });
 });

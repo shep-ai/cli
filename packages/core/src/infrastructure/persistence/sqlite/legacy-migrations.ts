@@ -536,6 +536,19 @@ CREATE TABLE IF NOT EXISTS pr_sync_lock (
       }
     },
   },
+  {
+    version: 36,
+    name: '036-add-database-browser-flag',
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'feature_flag_database_browser')) {
+        db.exec(
+          'ALTER TABLE settings ADD COLUMN feature_flag_database_browser INTEGER NOT NULL DEFAULT 0'
+        );
+      }
+    },
+  },
 ];
 
 /**
@@ -564,8 +577,8 @@ function toRunnableMigration(def: LegacyMigrationDef): RunnableMigration<Databas
 }
 
 /**
- * All 35 legacy migrations as umzug-compatible RunnableMigration objects.
- * Ordered by version number (001–035) for deterministic execution.
+ * All 36 legacy migrations as umzug-compatible RunnableMigration objects.
+ * Ordered by version number (001–036) for deterministic execution.
  */
 export const LEGACY_MIGRATIONS: RunnableMigration<Database.Database>[] =
   MIGRATION_DEFS.map(toRunnableMigration);

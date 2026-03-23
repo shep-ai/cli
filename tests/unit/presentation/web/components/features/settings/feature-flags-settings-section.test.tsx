@@ -20,6 +20,7 @@ const defaultFlags = {
   adoptBranch: false,
   gitRebaseSync: false,
   reactFileManager: false,
+  databaseBrowser: false,
 };
 
 describe('FeatureFlagsSettingsSection', () => {
@@ -28,7 +29,7 @@ describe('FeatureFlagsSettingsSection', () => {
     mockUpdateSettingsAction.mockResolvedValue({ success: true });
   });
 
-  it('renders 6 feature flag toggles with descriptions', () => {
+  it('renders 8 feature flag toggles with descriptions', () => {
     render(<FeatureFlagsSettingsSection featureFlags={defaultFlags} />);
     expect(screen.getByTestId('switch-flag-skills')).toBeDefined();
     expect(screen.getByTestId('switch-flag-envDeploy')).toBeDefined();
@@ -37,6 +38,7 @@ describe('FeatureFlagsSettingsSection', () => {
     expect(screen.getByTestId('switch-flag-adoptBranch')).toBeDefined();
     expect(screen.getByTestId('switch-flag-gitRebaseSync')).toBeDefined();
     expect(screen.getByTestId('switch-flag-reactFileManager')).toBeDefined();
+    expect(screen.getByTestId('switch-flag-databaseBrowser')).toBeDefined();
     expect(screen.getByText('Skills')).toBeDefined();
     expect(screen.getByText('Deployments')).toBeDefined();
     expect(screen.getByText('Debug')).toBeDefined();
@@ -44,6 +46,7 @@ describe('FeatureFlagsSettingsSection', () => {
     expect(screen.getByText('Adopt Branch')).toBeDefined();
     expect(screen.getByText('Git Rebase & Sync')).toBeDefined();
     expect(screen.getByText('React File Manager')).toBeDefined();
+    expect(screen.getByText('Database Browser')).toBeDefined();
   });
 
   it('renders description text for each flag', () => {
@@ -66,6 +69,9 @@ describe('FeatureFlagsSettingsSection', () => {
       screen.getByText(
         'Use the built-in React file manager instead of the native OS folder picker. Also serves as automatic fallback when the native picker is unavailable.'
       )
+    ).toBeDefined();
+    expect(
+      screen.getByText('Enable the Database browser page for inspecting SQLite data')
     ).toBeDefined();
   });
 

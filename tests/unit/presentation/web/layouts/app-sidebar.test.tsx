@@ -46,6 +46,7 @@ const defaultFlags = {
   adoptBranch: false,
   gitRebaseSync: false,
   reactFileManager: false,
+  databaseBrowser: false,
 };
 
 function renderWithSidebar(ui: React.ReactElement) {

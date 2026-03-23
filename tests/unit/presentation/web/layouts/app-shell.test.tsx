@@ -22,6 +22,7 @@ const defaultFlags = {
   adoptBranch: false,
   gitRebaseSync: false,
   reactFileManager: false,
+  databaseBrowser: false,
 };
 
 function renderShell(children: React.ReactNode) {

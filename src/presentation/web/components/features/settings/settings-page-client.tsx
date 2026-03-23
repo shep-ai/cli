@@ -353,6 +353,7 @@ export function SettingsPageClient({
     adoptBranch: false,
     gitRebaseSync: false,
     reactFileManager: false,
+    databaseBrowser: false,
   };
 
   // Agent state

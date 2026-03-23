@@ -18,6 +18,7 @@ const FLAG_DESCRIPTIONS: Record<keyof FeatureFlags, string> = {
   gitRebaseSync: 'Enable git rebase-on-main and sync-main operations in the web UI',
   reactFileManager:
     'Use the built-in React file manager instead of the native OS folder picker. Also serves as automatic fallback when the native picker is unavailable.',
+  databaseBrowser: 'Enable the Database browser page for inspecting SQLite data',
 };
 
 const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
@@ -28,6 +29,7 @@ const FLAG_LABELS: Record<keyof FeatureFlags, string> = {
   adoptBranch: 'Adopt Branch',
   gitRebaseSync: 'Git Rebase & Sync',
   reactFileManager: 'React File Manager',
+  databaseBrowser: 'Database Browser',
 };
 
 const FLAG_KEYS: (keyof FeatureFlags)[] = [
@@ -38,6 +40,7 @@ const FLAG_KEYS: (keyof FeatureFlags)[] = [
   'adoptBranch',
   'gitRebaseSync',
   'reactFileManager',
+  'databaseBrowser',
 ];
 
 export interface FeatureFlagsSettingsSectionProps {
