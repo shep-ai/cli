@@ -8,6 +8,7 @@ import { composeUserInput } from './compose-user-input';
 interface Attachment {
   path: string;
   name: string;
+  notes?: string;
 }
 
 interface ApprovalGates {

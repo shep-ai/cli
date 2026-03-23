@@ -45,6 +45,8 @@ export interface FormAttachment {
   mimeType: string;
   path: string;
   loading?: boolean;
+  /** Optional user notes or annotations for this image */
+  notes?: string;
 }
 
 /** Minimal feature descriptor for the parent selector. */
@@ -558,6 +560,10 @@ export function FeatureCreateDrawer({
     setAttachments((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
+  const handleNotesChange = useCallback((id: string, notes: string) => {
+    setAttachments((prev) => prev.map((f) => (f.id === id ? { ...f, notes } : f)));
+  }, []);
+
   const formRef = useRef<HTMLFormElement>(null);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -718,6 +724,8 @@ export function FeatureCreateDrawer({
                         onRemove={() => handleRemoveFile(file.id)}
                         disabled={isSubmitting}
                         loading={file.loading}
+                        notes={file.notes}
+                        onNotesChange={(notes) => handleNotesChange(file.id, notes)}
                       />
                     ))}
                   </div>

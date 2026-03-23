@@ -8,6 +8,8 @@ export interface RejectAttachment {
   mimeType: string;
   path: string;
   loading?: boolean;
+  /** Optional user notes or annotations for this image */
+  notes?: string;
 }
 
 export interface DrawerActionBarProps {

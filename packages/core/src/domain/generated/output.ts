@@ -906,6 +906,10 @@ export type Attachment = {
    * Timestamp when the attachment was created
    */
   createdAt: any;
+  /**
+   * Optional user notes or annotations for this attachment
+   */
+  notes?: string;
 };
 
 /**

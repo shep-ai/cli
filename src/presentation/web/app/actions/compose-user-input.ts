@@ -1,6 +1,7 @@
 interface Attachment {
   path: string;
   name: string;
+  notes?: string;
 }
 
 export function composeUserInput(
@@ -11,6 +12,8 @@ export function composeUserInput(
     return description;
   }
 
-  const refs = attachments.map((a) => `@${a.path}`).join(' ');
+  const refs = attachments
+    .map((a) => (a.notes?.trim() ? `@${a.path} [Note: ${a.notes.trim()}]` : `@${a.path}`))
+    .join(' ');
   return `${description}\n\n${refs}`;
 }

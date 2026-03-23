@@ -276,6 +276,10 @@ export function DrawerActionBar({
     setAttachments((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
+  const handleNotesChange = useCallback((id: string, notes: string) => {
+    setAttachments((prev) => prev.map((f) => (f.id === id ? { ...f, notes } : f)));
+  }, []);
+
   const clearForm = useCallback(() => {
     setChatInput('');
     setAttachments([]);
@@ -357,6 +361,8 @@ export function DrawerActionBar({
                         onRemove={() => handleRemoveFile(file.id)}
                         disabled={disabled}
                         loading={file.loading}
+                        notes={file.notes}
+                        onNotesChange={(notes) => handleNotesChange(file.id, notes)}
                       />
                     ))}
                   </div>
