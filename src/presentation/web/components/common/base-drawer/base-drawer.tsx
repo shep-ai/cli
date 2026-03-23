@@ -157,7 +157,7 @@ function DeployBar({ deployTarget }: { deployTarget: DeployActionInput }) {
   const isDeploymentActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
 
   return (
-    <div data-testid="base-drawer-deploy-bar" className="flex items-center gap-2 px-4 pb-3">
+    <div data-testid="base-drawer-deploy-bar" className="flex items-center gap-2 px-4 pt-3 pb-3">
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>

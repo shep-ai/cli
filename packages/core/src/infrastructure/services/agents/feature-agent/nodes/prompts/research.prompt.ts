@@ -150,10 +150,14 @@ Use this YAML structure:
 - Do NOT create any other files
 - Do NOT modify any source code
 
-${buildCommitPushBlock({
-  push: state.push,
-  files: [`${state.specDir}/research.yaml`],
-  commitHint: 'docs(specs): research technical decisions and library choices',
-  skipVerification: true,
-})}`;
+${
+  state.commitSpecs
+    ? buildCommitPushBlock({
+        push: state.push,
+        files: [`${state.specDir}/research.yaml`],
+        commitHint: 'docs(specs): research technical decisions and library choices',
+        skipVerification: true,
+      })
+    : `## Git Operations\n\nDo NOT commit or push any spec files. Spec files are managed locally only.`
+}`;
 }
