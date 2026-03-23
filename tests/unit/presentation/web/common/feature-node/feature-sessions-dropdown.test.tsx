@@ -221,7 +221,7 @@ describe('FeatureSessionsDropdown', () => {
     });
   });
 
-  it('highlights the icon green on mount when a session is active (< 5 min)', async () => {
+  it('shows green dot indicator on mount when a session is active (< 5 min)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -232,10 +232,11 @@ describe('FeatureSessionsDropdown', () => {
 
     render(<FeatureSessionsDropdown repositoryPath="/home/user/project" />);
 
-    // The lightweight mount probe detects the active session
+    // The lightweight mount probe detects the active session — green dot appears
     await waitFor(() => {
       const button = screen.getByTestId('feature-node-sessions-button');
-      expect(button.className).toContain('text-emerald-600');
+      const dot = button.querySelector('.bg-emerald-500');
+      expect(dot).toBeInTheDocument();
     });
   });
 
