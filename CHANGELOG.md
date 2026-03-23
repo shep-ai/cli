@@ -1,3 +1,10 @@
+# [1.148.0](https://github.com/shep-ai/cli/compare/v1.147.0...v1.148.0) (2026-03-23)
+
+
+### Features
+
+* **specs:** add image annotation notes field and media-image-annotations spec ([#457](https://github.com/shep-ai/cli/issues/457)) ([0efd17c](https://github.com/shep-ai/cli/commit/0efd17c9878da31c93d8eab78ca69a0c5a9d1303)), closes [#074](https://github.com/shep-ai/cli/issues/074)
+
 # [1.147.0](https://github.com/shep-ai/cli/compare/v1.146.0...v1.147.0) (2026-03-23)
 
 
