@@ -1,0 +1,82 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: session-batch-polling
+summary: >
+  Centralize session fetching into a single batch endpoint with React context
+  distribution. Three phases: API, context+hook, and dropdown refactor.
+
+phases:
+  - id: phase-1
+    name: batch API endpoint
+    parallel: false
+    taskIds: [task-1, task-2]
+  - id: phase-2
+    name: sessions context and polling hook
+    parallel: false
+    taskIds: [task-3, task-4]
+  - id: phase-3
+    name: dropdown refactor and integration
+    parallel: false
+    taskIds: [task-5, task-6, task-7]
+
+filesToCreate:
+  - path: src/presentation/web/app/api/sessions-batch/route.ts
+    purpose: batch endpoint that scans sessions for multiple repo paths in one request
+  - path: src/presentation/web/hooks/use-sessions-batch.ts
+    purpose: polling hook that fetches batch sessions on 30s interval
+  - path: src/presentation/web/hooks/sessions-provider.tsx
+    purpose: React context provider wrapping the batch hook
+  - path: src/presentation/web/app/api/sessions-batch/route.test.ts
+    purpose: unit tests for the batch endpoint
+  - path: src/presentation/web/hooks/__tests__/use-sessions-batch.test.ts
+    purpose: unit tests for the polling hook
+
+filesToModify:
+  - path: src/presentation/web/components/common/feature-node/feature-sessions-dropdown.tsx
+    purpose: refactor to read from context instead of self-fetching
+  - path: src/presentation/web/components/common/feature-node/feature-sessions-dropdown.stories.tsx
+    purpose: update stories to use SessionsProvider mock
+  - path: src/presentation/web/components/features/control-center/control-center.tsx
+    purpose: wrap with SessionsProvider
+  - path: src/presentation/web/app/api/sessions/route.ts
+    purpose: extract shared scanner functions to reusable module
+
+openQuestions: []
+
+content:
+  architectureOverview: |
+    Browser                           Server
+    ┌─────────────────────┐          ┌──────────────────────────┐
+    │ SessionsProvider     │  30s     │ /api/sessions-batch      │
+    │  └─ useSessionsBatch │──GET───→│  ├─ check cache (30s TTL)│
+    │      ↓ context value │         │  ├─ scanClaudeSessions()  │
+    │  ┌────────────┐      │         │  └─ scanCursorSessions()  │
+    │  │FeatureNode │      │         └──────────────────────────┘
+    │  │ └─Dropdown │      │
+    │  │   reads ctx│      │
+    │  ├────────────┤      │
+    │  │ RepoNode   │      │
+    │  │ └─Dropdown │      │
+    │  │   reads ctx│      │
+    │  └────────────┘      │
+    └─────────────────────┘
+
+  implementationStrategy: >
+    Phase 1 builds the server-side batch endpoint by extracting shared scanner
+    functions from the existing /api/sessions route into a reusable module,
+    then creating the batch route that iterates over multiple paths.
+    Phase 2 creates the client-side React context and polling hook.
+    Phase 3 refactors FeatureSessionsDropdown to consume from context and
+    wires the provider into the control center component tree.
+
+  testingStrategy: >
+    TDD throughout. Phase 1: test batch endpoint with mocked filesystem.
+    Phase 2: test hook polling behavior with fake timers.
+    Phase 3: test dropdown renders from context data without fetching.
+
+  riskMitigation:
+    - risk: batch scan for 25+ repos takes too long
+      mitigation: server-side 30s cache means only first request per cycle does I/O
+    - risk: large response payload bloats network
+      mitigation: limit to 5 sessions per path (vs current 10), only send summary fields

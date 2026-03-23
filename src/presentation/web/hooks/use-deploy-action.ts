@@ -53,33 +53,9 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     };
   }, []);
 
-  // Fetch status on mount — recover running dev servers after page reload
-  useEffect(() => {
-    if (!input) return;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const result = await getDeploymentStatus(input.targetId);
-        if (cancelled || !mountedRef.current) return;
-        if (result && result.state !== 'Stopped') {
-          log.info(`mount recovery: "${input.targetId}" state=${result.state}, url=${result.url}`);
-          setStatus(result.state as DeploymentState);
-          setUrl(result.url);
-          startPolling(input.targetId);
-        }
-      } catch {
-        // Server container may not be available (e.g., in tests)
-        log.debug(`mount recovery failed for "${input.targetId}" — ignoring`);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // Only run on mount (input identity is stable from the caller)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input?.targetId]);
+  // Mount recovery removed — getGraphData() already enriches nodes with
+  // deployment status (get-graph-data.ts lines 180-200). No need to call
+  // a server action per node on every mount.
 
   // Cleanup on unmount
   useEffect(() => {
@@ -144,30 +120,11 @@ export function useDeployAction(input: DeployActionInput | null): DeployActionSt
     [stopPolling]
   );
 
-  // Idle poll — when no deployment is known, periodically check if one was
-  // started externally (e.g., from the drawer while the repo node is mounted).
-  const IDLE_POLL_INTERVAL = 5000;
-  useEffect(() => {
-    if (!input || status !== null) return;
-
-    const timer = setInterval(async () => {
-      if (!mountedRef.current) return;
-      try {
-        const result = await getDeploymentStatus(input.targetId);
-        if (!mountedRef.current) return;
-        if (result && result.state !== 'Stopped') {
-          log.info(`idle poll: "${input.targetId}" state=${result.state}, url=${result.url}`);
-          setStatus(result.state as DeploymentState);
-          setUrl(result.url);
-          startPolling(input.targetId);
-        }
-      } catch {
-        // ignore
-      }
-    }, IDLE_POLL_INTERVAL);
-
-    return () => clearInterval(timer);
-  }, [input, status, startPolling]);
+  // Idle poll removed — it was calling getDeploymentStatus every 5s for EVERY
+  // node on the canvas (~25 nodes = ~5 server action calls/sec). The mount
+  // recovery effect above (line 57) already checks on mount. Deployments
+  // started externally (e.g., from the drawer) should update the node via
+  // reconcile from the graph-data poll instead.
 
   const handleDeploy = useCallback(async () => {
     if (!input) {
