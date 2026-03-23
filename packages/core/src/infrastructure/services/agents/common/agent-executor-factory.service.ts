@@ -20,6 +20,7 @@ import { ClaudeCodeInteractiveExecutor } from './executors/claude-code-interacti
 import { CursorExecutorService } from './executors/cursor-executor.service.js';
 import { DevAgentExecutorService } from './executors/dev-executor.service.js';
 import { GeminiCliExecutorService } from './executors/gemini-cli-executor.service.js';
+import { CodexCliExecutorService } from './executors/codex-cli-executor.service.js';
 import type { SpawnFunction } from './types.js';
 
 /**
@@ -63,6 +64,9 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
       case 'gemini-cli':
         executor = new GeminiCliExecutorService(this.spawn, _authConfig);
         break;
+      case 'codex-cli':
+        executor = new CodexCliExecutorService(this.spawn, _authConfig);
+        break;
       default:
         throw new Error(
           `Unsupported agent type: ${agentType}. Supported: ${this.getSupportedAgents().join(', ')}`
@@ -84,6 +88,7 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
       'cursor' as AgentType,
       'dev' as AgentType,
       'gemini-cli' as AgentType,
+      'codex-cli' as AgentType,
     ];
   }
 
@@ -92,6 +97,7 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
       { agentType: 'claude-code' as AgentType, cmd: 'claude', versionArgs: ['--version'] },
       { agentType: 'gemini-cli' as AgentType, cmd: 'gemini', versionArgs: ['--version'] },
       { agentType: 'cursor' as AgentType, cmd: 'cursor', versionArgs: ['--version'] },
+      { agentType: 'codex-cli' as AgentType, cmd: 'codex', versionArgs: ['--version'] },
     ];
   }
 
@@ -110,6 +116,8 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
         return GEMINI_CLI_MODELS;
       case 'cursor':
         return CURSOR_MODELS;
+      case 'codex-cli':
+        return CODEX_CLI_MODELS;
       default:
         return [];
     }
@@ -166,4 +174,18 @@ const CURSOR_MODELS: string[] = [
   'gemini-3.1-pro',
   'composer-1.5',
   'grok-code',
+];
+const CODEX_CLI_MODELS: string[] = [
+  'gpt-5.4',
+  'gpt-5.4-mini',
+  'gpt-5.3-codex',
+  'gpt-5.3-codex-spark',
+  'gpt-5.2-codex',
+  'gpt-5.2',
+  'gpt-5.1-codex-max',
+  'gpt-5.1-codex',
+  'gpt-5.1',
+  'gpt-5-codex',
+  'gpt-5-codex-mini',
+  'gpt-5',
 ];

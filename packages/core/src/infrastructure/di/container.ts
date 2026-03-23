@@ -418,6 +418,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register(`IAgentSessionRepository:${AgentType.GeminiCli}`, {
     useFactory: () => new StubSessionRepository(AgentType.GeminiCli),
   });
+  container.register(`IAgentSessionRepository:${AgentType.CodexCli}`, {
+    useFactory: () => new StubSessionRepository(AgentType.CodexCli),
+  });
 
   container.registerSingleton(AgentSessionRepositoryRegistry);
   container.registerSingleton(ListAgentSessionsUseCase);

@@ -11,6 +11,7 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentExecutorFactory } from '@/infrastructure/services/agents/common/agent-executor-factory.service.js';
 import { DevAgentExecutorService } from '@/infrastructure/services/agents/common/executors/dev-executor.service.js';
+import { CodexCliExecutorService } from '@/infrastructure/services/agents/common/executors/codex-cli-executor.service.js';
 import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
 import { AgentType, AgentAuthMethod } from '@/domain/generated/output.js';
 import type { AgentConfig } from '@/domain/generated/output.js';
@@ -108,6 +109,43 @@ describe('AgentExecutorFactory', () => {
       expect(executor.agentType).toBe(AgentType.Cursor);
     });
 
+    it('should create CodexCliExecutorService for codex-cli type', () => {
+      const codexConfig: AgentConfig = {
+        type: AgentType.CodexCli,
+        authMethod: AgentAuthMethod.Session,
+      };
+
+      const executor = factory.createExecutor(AgentType.CodexCli, codexConfig);
+
+      expect(executor).toBeDefined();
+      expect(executor).toBeInstanceOf(CodexCliExecutorService);
+      expect(executor.agentType).toBe(AgentType.CodexCli);
+    });
+
+    it('should cache codex-cli executor instances', () => {
+      const codexConfig: AgentConfig = {
+        type: AgentType.CodexCli,
+        authMethod: AgentAuthMethod.Session,
+      };
+
+      const executor1 = factory.createExecutor(AgentType.CodexCli, codexConfig);
+      const executor2 = factory.createExecutor(AgentType.CodexCli, codexConfig);
+
+      expect(executor1).toBe(executor2);
+    });
+
+    it('should pass authConfig to CodexCliExecutorService', () => {
+      const codexConfig: AgentConfig = {
+        type: AgentType.CodexCli,
+        authMethod: AgentAuthMethod.Token,
+        token: 'test-codex-key',
+      };
+
+      const executor = factory.createExecutor(AgentType.CodexCli, codexConfig);
+
+      expect(executor).toBeInstanceOf(CodexCliExecutorService);
+    });
+
     it('should return executor with correct agentType', () => {
       const executor = factory.createExecutor(AgentType.ClaudeCode, defaultAuthConfig);
 
@@ -129,8 +167,9 @@ describe('AgentExecutorFactory', () => {
       expect(supported).toContain('claude-code');
       expect(supported).toContain('cursor');
       expect(supported).toContain('gemini-cli');
+      expect(supported).toContain('codex-cli');
       expect(supported).toContain('dev');
-      expect(supported).toHaveLength(4);
+      expect(supported).toHaveLength(5);
     });
 
     it('should not include unsupported agents', () => {
@@ -138,6 +177,17 @@ describe('AgentExecutorFactory', () => {
 
       expect(supported).not.toContain('aider');
       expect(supported).not.toContain('continue');
+    });
+  });
+
+  describe('getCliInfo', () => {
+    it('should include codex-cli entry with cmd codex', () => {
+      const cliInfos = factory.getCliInfo();
+      const codexInfo = cliInfos.find((info) => info.agentType === AgentType.CodexCli);
+
+      expect(codexInfo).toBeDefined();
+      expect(codexInfo!.cmd).toBe('codex');
+      expect(codexInfo!.versionArgs).toEqual(['--version']);
     });
   });
 
@@ -171,6 +221,26 @@ describe('AgentExecutorFactory', () => {
         'gemini-3.1-pro',
         'composer-1.5',
         'grok-code',
+      ]);
+    });
+
+    it('should return codex-cli model list with 12 models', () => {
+      const models = factory.getSupportedModels(AgentType.CodexCli);
+
+      expect(models).toHaveLength(12);
+      expect(models).toEqual([
+        'gpt-5.4',
+        'gpt-5.4-mini',
+        'gpt-5.3-codex',
+        'gpt-5.3-codex-spark',
+        'gpt-5.2-codex',
+        'gpt-5.2',
+        'gpt-5.1-codex-max',
+        'gpt-5.1-codex',
+        'gpt-5.1',
+        'gpt-5-codex',
+        'gpt-5-codex-mini',
+        'gpt-5',
       ]);
     });
 
