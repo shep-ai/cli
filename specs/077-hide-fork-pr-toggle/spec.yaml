@@ -2,29 +2,19 @@ name: "hide-fork-pr-toggle"
 number: 77
 branch: "feat/077-hide-fork-pr-toggle"
 oneLiner: "Hide Fork & PR toggle when user has push access to the repository"
-
-summary: >
-  The Fork & PR toggle in the feature create drawer should be hidden when the user
-  already has write/push access to the repository (i.e., is the owner, maintainer,
-  or collaborator with push permissions). This requires adding a permission check
-  via the GitHub CLI and conditionally rendering the toggle in the web UI.
-
+summary: "The Fork & PR toggle in the feature create drawer should be hidden when the user already has write/push access to the repository (i.e., is the owner, maintainer, or collaborator with push permissions). This requires adding a permission check via the GitHub CLI and conditionally rendering the toggle in the web UI.\n"
 phase: "Requirements"
 sizeEstimate: "S"
-
 relatedFeatures: []
-
 technologies:
   - "React (Next.js App Router)"
   - "GitHub CLI (gh)"
   - "TypeScript"
   - "Server Actions"
   - "Shadcn UI (Switch, Tooltip)"
-
 relatedLinks:
   - title: "GitHub CLI repo view JSON fields"
     url: "https://cli.github.com/manual/gh_repo_view"
-
 openQuestions:
   - question: "Where should the permission check be performed — in the existing getWorkflowDefaults server action or as a separate server action?"
     resolved: true
@@ -40,7 +30,6 @@ openQuestions:
         selected: true
     selectionRationale: "The create/page.tsx server component already fetches repos and workflow defaults. Adding one more service call here keeps the data flow simple and avoids over-abstracting a single boolean. The permission check is specific to this page context, not a reusable workflow default."
     answer: "Inline in create/page.tsx"
-
   - question: "How should the toggle behave when the repo changes in the combobox (multi-repo mode)?"
     resolved: true
     options:
@@ -55,7 +44,6 @@ openQuestions:
         selected: false
     selectionRationale: "Re-checking on repo change provides the most accurate UX. Since the user can switch repos in the combobox, the toggle visibility should reflect the permissions of the currently selected repo. A lightweight server action call on repo change is acceptable given it is a user-initiated action."
     answer: "Re-check on repo change"
-
   - question: "Should the forkAndPr state be auto-reset to false when the toggle is hidden (user has push access)?"
     resolved: true
     options:
@@ -67,95 +55,18 @@ openQuestions:
         selected: false
     selectionRationale: "Auto-resetting prevents a scenario where a user enables Fork & PR, then switches to a repo they own (hiding the toggle), and submits — unknowingly triggering a fork workflow. Consistency between visible UI and form state is more important than preserving a toggle choice across repo switches."
     answer: "Auto-reset to false"
-
   - question: "What should happen if the gh CLI permission check fails (e.g., gh not installed, not authenticated, network error)?"
     resolved: true
     options:
       - option: "Default to showing the toggle"
         description: "If permission detection fails, assume the user might not have push access and show the Fork & PR toggle. Graceful degradation — the feature works as before, just without the optimization of hiding the toggle."
-        selected: true
+        selected: false
       - option: "Default to hiding the toggle"
         description: "If permission detection fails, hide the toggle and assume push access. Risk: users without push access would lose the ability to use Fork & PR."
-        selected: false
+        selected: true
       - option: "Show error state"
         description: "Display a warning or error when permission cannot be determined. Adds UI complexity for a non-critical feature."
         selected: false
     selectionRationale: "Defaulting to visible is the safest graceful degradation. The toggle being visible when it could be hidden is a minor UX inconvenience. The toggle being hidden when the user actually needs it would block functionality. Silent fallback is preferred over error states for this non-critical optimization."
-    answer: "Default to showing the toggle"
-
-content: |
-  ## Problem Statement
-
-  The Fork & PR toggle is currently always visible in the feature create drawer's GIT section,
-  regardless of whether the user has direct push access to the repository. When a user is the
-  owner, maintainer, or has collaborator push permissions, the Fork & PR workflow is unnecessary
-  — they can push and create PRs directly. Showing it creates confusion and clutter.
-
-  The toggle should be hidden when the user has sufficient permissions to push directly.
-
-  ## Success Criteria
-
-  - [ ] Fork & PR toggle is not rendered when the user has ADMIN, MAINTAIN, or WRITE permission on the selected repository
-  - [ ] Fork & PR toggle is rendered when the user has READ or TRIAGE permission on the selected repository
-  - [ ] Fork & PR toggle is rendered when permission detection fails (graceful degradation)
-  - [ ] When the user switches repos in the combobox, toggle visibility updates to reflect the new repo's permissions
-  - [ ] forkAndPr state is auto-reset to false when the toggle becomes hidden
-  - [ ] Overview tab "Fork & PR" badge for existing features remains unchanged
-  - [ ] Storybook stories exist for both "toggle visible" (no push access) and "toggle hidden" (has push access) states
-  - [ ] Unit tests cover permission detection logic in the GitHub repository service
-  - [ ] Unit tests cover conditional rendering of the toggle in the feature create drawer
-
-  ## Functional Requirements
-
-  - **FR-1**: The system SHALL detect the current user's permission level on a GitHub repository by calling `gh repo view <repo> --json viewerPermission` via the GitHubRepositoryService
-  - **FR-2**: The system SHALL expose a `getViewerPermission(repoPath: string)` method on the IGitHubRepositoryService interface that returns the viewer's permission level (ADMIN, MAINTAIN, WRITE, TRIAGE, or READ)
-  - **FR-3**: The create drawer server component SHALL fetch the viewer's permission for the initially selected repository and pass a `canPushDirectly: boolean` prop to the client component chain
-  - **FR-4**: The FeatureCreateDrawer component SHALL hide the Fork & PR toggle block (Switch + Label + Tooltip) when `canPushDirectly` is true
-  - **FR-5**: When `canPushDirectly` becomes true (e.g., after a repo switch), the forkAndPr state SHALL be automatically reset to false to prevent stale state from being submitted
-  - **FR-6**: When the user selects a different repository in the combobox, the system SHALL re-check the viewer's permission and update `canPushDirectly` accordingly
-  - **FR-7**: The overview tab's "Fork & PR" SettingBadge for existing features SHALL remain unaffected by this change
-  - **FR-8**: When forkAndPr state is reset to false due to hiding, the dependent states (push, openPr forced-on; commitSpecs forced-off) SHALL also revert to their independent defaults
-
-  ## Non-Functional Requirements
-
-  - **NFR-1**: The permission check via `gh repo view --json viewerPermission` SHALL complete within 3 seconds under normal network conditions; the UI SHALL not block rendering while waiting (show toggle by default, then hide if permission allows)
-  - **NFR-2**: If the `gh` CLI is not available, not authenticated, or the permission check fails for any reason, the system SHALL gracefully degrade by showing the Fork & PR toggle (default to visible)
-  - **NFR-3**: The permission detection method SHALL follow the existing Clean Architecture pattern — interface in `application/ports/output`, implementation in `infrastructure/services/external`
-  - **NFR-4**: The conditional rendering SHALL not cause layout shift — the toggle area should simply not render rather than render-then-hide
-  - **NFR-5**: Storybook stories SHALL demonstrate both toggle-visible and toggle-hidden states without requiring a real gh CLI or GitHub authentication
-
-  ## Product Questions & AI Recommendations
-
-  | # | Question | AI Recommendation | Rationale |
-  | - | -------- | ----------------- | --------- |
-  | 1 | Where should the permission check be performed? | Inline in create/page.tsx | The server component already fetches repos and defaults; adding one more call keeps data flow simple without over-abstracting a single boolean |
-  | 2 | How should the toggle behave on repo change? | Re-check on repo change | Provides accurate UX; a lightweight server action call on user-initiated repo switch is acceptable |
-  | 3 | Should forkAndPr state reset when toggle is hidden? | Auto-reset to false | Prevents hidden state from leaking into form submission; consistency between visible UI and payload |
-  | 4 | What happens if permission check fails? | Default to showing the toggle | Safest graceful degradation; visible-when-unnecessary is minor, hidden-when-needed blocks functionality |
-
-  ## Affected Areas
-
-  | Area | Impact | Reasoning |
-  | ---- | ------ | --------- |
-  | `packages/core/src/application/ports/output/services/github-repository-service.interface.ts` | Low | Add `getViewerPermission(repoPath: string)` method to interface |
-  | `packages/core/src/infrastructure/services/external/github-repository.service.ts` | Medium | Implement permission detection via `gh repo view --json viewerPermission` |
-  | `src/presentation/web/app/(dashboard)/@drawer/create/page.tsx` | Low | Fetch initial permission and pass `canPushDirectly` prop |
-  | `src/presentation/web/app/actions/` | Low | Add server action for re-checking permission on repo change |
-  | `src/presentation/web/components/common/control-center-drawer/create-drawer-client.tsx` | Low | Thread `canPushDirectly` prop to FeatureCreateDrawer |
-  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | Medium | Conditionally hide Fork & PR toggle based on permission prop; add re-check logic on repo change; auto-reset forkAndPr state |
-  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx` | Low | Add story variants for toggle-visible and toggle-hidden states |
-  | Tests | Medium | Unit tests for permission detection and conditional rendering |
-
-  ## Dependencies
-
-  - **GitHub CLI (`gh`)** — must be installed and authenticated for permission detection
-  - **Existing infrastructure** — `GitHubRepositoryService` and `ExecFunction` DI token for running `gh` commands
-  - **Existing UI** — `FeatureCreateDrawer` component and its prop chain
-  - **DI container** — tsyringe container for resolving the service in server actions
-
-  ## Size Estimate
-
-  **S** — This is a focused change: one new `gh` CLI call for permission detection, one service
-  method addition, prop threading through 2-3 components, conditional rendering of a single
-  toggle block, and a server action for dynamic re-checking. The bulk of the infrastructure
-  (gh CLI integration, service patterns, component structure) already exists.
+    answer: "Default to hiding the toggle"
+content: "## Problem Statement\n\nThe Fork & PR toggle is currently always visible in the feature create drawer's GIT section,\nregardless of whether the user has direct push access to the repository. When a user is the\nowner, maintainer, or has collaborator push permissions, the Fork & PR workflow is unnecessary\n— they can push and create PRs directly. Showing it creates confusion and clutter.\n\nThe toggle should be hidden when the user has sufficient permissions to push directly.\n\n## Success Criteria\n\n- [ ] Fork & PR toggle is not rendered when the user has ADMIN, MAINTAIN, or WRITE permission on the selected repository\n- [ ] Fork & PR toggle is rendered when the user has READ or TRIAGE permission on the selected repository\n- [ ] Fork & PR toggle is rendered when permission detection fails (graceful degradation)\n- [ ] When the user switches repos in the combobox, toggle visibility updates to reflect the new repo's permissions\n- [ ] forkAndPr state is auto-reset to false when the toggle becomes hidden\n- [ ] Overview tab \"Fork & PR\" badge for existing features remains unchanged\n- [ ] Storybook stories exist for both \"toggle visible\" (no push access) and \"toggle hidden\" (has push access) states\n- [ ] Unit tests cover permission detection logic in the GitHub repository service\n- [ ] Unit tests cover conditional rendering of the toggle in the feature create drawer\n\n## Functional Requirements\n\n- **FR-1**: The system SHALL detect the current user's permission level on a GitHub repository by calling `gh repo view <repo> --json viewerPermission` via the GitHubRepositoryService\n- **FR-2**: The system SHALL expose a `getViewerPermission(repoPath: string)` method on the IGitHubRepositoryService interface that returns the viewer's permission level (ADMIN, MAINTAIN, WRITE, TRIAGE, or READ)\n- **FR-3**: The create drawer server component SHALL fetch the viewer's permission for the initially selected repository and pass a `canPushDirectly: boolean` prop to the client component chain\n- **FR-4**: The FeatureCreateDrawer component SHALL hide the Fork & PR toggle block (Switch + Label + Tooltip) when `canPushDirectly` is true\n- **FR-5**: When `canPushDirectly` becomes true (e.g., after a repo switch), the forkAndPr state SHALL be automatically reset to false to prevent stale state from being submitted\n- **FR-6**: When the user selects a different repository in the combobox, the system SHALL re-check the viewer's permission and update `canPushDirectly` accordingly\n- **FR-7**: The overview tab's \"Fork & PR\" SettingBadge for existing features SHALL remain unaffected by this change\n- **FR-8**: When forkAndPr state is reset to false due to hiding, the dependent states (push, openPr forced-on; commitSpecs forced-off) SHALL also revert to their independent defaults\n\n## Non-Functional Requirements\n\n- **NFR-1**: The permission check via `gh repo view --json viewerPermission` SHALL complete within 3 seconds under normal network conditions; the UI SHALL not block rendering while waiting (show toggle by default, then hide if permission allows)\n- **NFR-2**: If the `gh` CLI is not available, not authenticated, or the permission check fails for any reason, the system SHALL gracefully degrade by showing the Fork & PR toggle (default to visible)\n- **NFR-3**: The permission detection method SHALL follow the existing Clean Architecture pattern — interface in `application/ports/output`, implementation in `infrastructure/services/external`\n- **NFR-4**: The conditional rendering SHALL not cause layout shift — the toggle area should simply not render rather than render-then-hide\n- **NFR-5**: Storybook stories SHALL demonstrate both toggle-visible and toggle-hidden states without requiring a real gh CLI or GitHub authentication\n\n## Product Questions & AI Recommendations\n\n| # | Question | AI Recommendation | Rationale |\n| - | -------- | ----------------- | --------- |\n| 1 | Where should the permission check be performed? | Inline in create/page.tsx | The server component already fetches repos and defaults; adding one more call keeps data flow simple without over-abstracting a single boolean |\n| 2 | How should the toggle behave on repo change? | Re-check on repo change | Provides accurate UX; a lightweight server action call on user-initiated repo switch is acceptable |\n| 3 | Should forkAndPr state reset when toggle is hidden? | Auto-reset to false | Prevents hidden state from leaking into form submission; consistency between visible UI and payload |\n| 4 | What happens if permission check fails? | Default to showing the toggle | Safest graceful degradation; visible-when-unnecessary is minor, hidden-when-needed blocks functionality |\n\n## Affected Areas\n\n| Area | Impact | Reasoning |\n| ---- | ------ | --------- |\n| `packages/core/src/application/ports/output/services/github-repository-service.interface.ts` | Low | Add `getViewerPermission(repoPath: string)` method to interface |\n| `packages/core/src/infrastructure/services/external/github-repository.service.ts` | Medium | Implement permission detection via `gh repo view --json viewerPermission` |\n| `src/presentation/web/app/(dashboard)/@drawer/create/page.tsx` | Low | Fetch initial permission and pass `canPushDirectly` prop |\n| `src/presentation/web/app/actions/` | Low | Add server action for re-checking permission on repo change |\n| `src/presentation/web/components/common/control-center-drawer/create-drawer-client.tsx` | Low | Thread `canPushDirectly` prop to FeatureCreateDrawer |\n| `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | Medium | Conditionally hide Fork & PR toggle based on permission prop; add re-check logic on repo change; auto-reset forkAndPr state |\n| `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx` | Low | Add story variants for toggle-visible and toggle-hidden states |\n| Tests | Medium | Unit tests for permission detection and conditional rendering |\n\n## Dependencies\n\n- **GitHub CLI (`gh`)** — must be installed and authenticated for permission detection\n- **Existing infrastructure** — `GitHubRepositoryService` and `ExecFunction` DI token for running `gh` commands\n- **Existing UI** — `FeatureCreateDrawer` component and its prop chain\n- **DI container** — tsyringe container for resolving the service in server actions\n\n## Size Estimate\n\n**S** — This is a focused change: one new `gh` CLI call for permission detection, one service\nmethod addition, prop threading through 2-3 components, conditional rendering of a single\ntoggle block, and a server action for dynamic re-checking. The bulk of the infrastructure\n(gh CLI integration, service patterns, component structure) already exists.\n"
