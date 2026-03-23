@@ -1,0 +1,143 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: evidence-image-lightbox
+number: 77
+branch: "feat/077-evidence-image-lightbox"
+oneLiner: "Add image gallery view to evidence list with fullscreen lightbox and navigation between images"
+summary: >
+  Transform the evidence section in the merge review drawer from a flat expandable list into a
+  thumbnail gallery for images, with a fullscreen lightbox dialog that supports prev/next navigation
+  between evidence images via buttons and keyboard arrows.
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - "React 19"
+  - "Next.js 16"
+  - "Radix UI Dialog"
+  - "shadcn/ui"
+  - "Tailwind CSS v4"
+  - "Lucide React icons"
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The evidence section in the merge review drawer currently displays each evidence item as an
+  independent expandable list entry. Images render inline at a constrained `max-h-80` size with no
+  way to view them fullscreen or navigate between multiple screenshots. Users must individually
+  expand each evidence item to see its image, making it tedious to review a set of screenshots.
+
+  The feature request is to:
+  1. Display evidence images as a visual gallery (thumbnail grid)
+  2. Make each image clickable to open a fullscreen lightbox overlay
+  3. Allow navigating between images within the lightbox (prev/next)
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers:
+  - `packages/core/src/domain/` — Domain models and TypeSpec-generated types
+  - `packages/core/src/application/` — Use cases and port interfaces
+  - `packages/core/src/infrastructure/` — External concerns (DB, agents)
+  - `src/presentation/web/` — Next.js web UI (the focus for this feature)
+
+  Web UI components live under `src/presentation/web/components/`:
+  - `ui/` — Base shadcn/ui primitives (Dialog, Badge, Button, etc.)
+  - `common/` — Shared domain components (merge-review, inline-attachments, etc.)
+  - `features/` — Feature-specific composite components
+
+  Each component follows the convention:
+  ```
+  component-name/
+    component-name.tsx
+    component-name.stories.tsx
+    component-name-config.ts (optional)
+    index.ts
+  ```
+
+  ### Architecture Patterns
+
+  - **UI primitives**: shadcn/ui built on Radix UI with Tailwind CSS
+  - **Dialog pattern**: Radix `Dialog` + `DialogTrigger` + `DialogContent` with overlay
+  - **Image serving**: Evidence files served via `/api/evidence?path=` API route
+  - **Component composition**: Small, focused components with barrel exports
+  - **Mandatory Storybook**: Every component requires a `.stories.tsx` file
+
+  ### Relevant Technologies
+
+  - **Radix UI Dialog** — Already used for image previews in `InlineAttachments` and `AttachmentChip`
+  - **Tailwind CSS v4** — Design tokens via CSS variables, responsive utilities
+  - **Lucide React** — Icon library (ChevronLeft, ChevronRight, X, Download, etc.)
+  - **No external lightbox library** — The codebase builds all modals from Radix primitives
+
+  ### Existing Patterns to Build On
+
+  **InlineAttachments** (`src/presentation/web/components/common/inline-attachments/inline-attachments.tsx`)
+  already implements a single-image fullscreen dialog with:
+  - Black overlay (`bg-black/90`)
+  - Image at `max-h-[70vh]` with `object-contain`
+  - Styled close button (rounded, backdrop-blur)
+  - Download button in a bottom bar
+  - Accessible `DialogTitle` via `VisuallyHidden`
+
+  This pattern should be extended with gallery state and navigation controls.
+
+  **MergeReview EvidenceItem** (`src/presentation/web/components/common/merge-review/merge-review.tsx`)
+  is the current evidence rendering component that needs to be modified to:
+  - Show image evidence as a thumbnail gallery grid
+  - Keep non-image evidence (video, text) as expandable list items
+  - Open a lightbox when clicking any gallery thumbnail
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/merge-review/merge-review.tsx` | High | Main evidence display — EvidenceList needs gallery mode for images, EvidenceItem click opens lightbox |
+  | New: `src/presentation/web/components/common/evidence-lightbox/` | High | New lightbox component with fullscreen dialog, image display, and prev/next navigation |
+  | `src/presentation/web/components/common/merge-review/merge-review-config.ts` | Low | No changes needed — MergeReviewEvidence interface already has all required fields |
+  | `src/presentation/web/components/ui/dialog.tsx` | None | Reuse as-is — no modifications needed to the base Dialog primitive |
+
+  ## Dependencies
+
+  **Existing code dependencies (no new libraries needed):**
+  - `@radix-ui/react-dialog` — Already installed, provides Dialog primitives
+  - `lucide-react` — Already installed, provides navigation icons (ChevronLeft, ChevronRight, X, Download)
+  - Evidence API route (`/api/evidence`) — Already serves image files with proper MIME types and caching
+  - `MergeReviewEvidence` interface — Already contains `type`, `relativePath`, `description` fields needed for gallery
+
+  **No new npm dependencies required.** The lightbox can be built entirely from existing Radix Dialog primitives and Tailwind styling, consistent with how InlineAttachments already handles image previews.
+
+  ## Success Criteria
+
+  - [ ] Evidence images display as a thumbnail gallery grid in the merge review drawer
+  - [ ] Clicking a thumbnail opens a fullscreen lightbox overlay
+  - [ ] Lightbox shows the image at max viewport height with object-contain
+  - [ ] Prev/next buttons navigate between evidence images within the lightbox
+  - [ ] Arrow keys (left/right) navigate between images when lightbox is open
+  - [ ] ESC key closes the lightbox (Radix Dialog default behavior)
+  - [ ] Current image index indicator shown (e.g., \"2 / 5\")
+  - [ ] Download button available in the lightbox
+  - [ ] Non-image evidence (video, text, terminal) continues to render as expandable list items
+  - [ ] Storybook stories cover: gallery grid, lightbox open state, single image, many images
+  - [ ] Component is accessible (keyboard navigation, screen reader labels)
+
+  ## Size Estimate
+
+  **M** — This is a medium-sized feature involving:
+  - One new component (evidence-lightbox) with Dialog, navigation state, and keyboard handling
+  - Modifications to EvidenceList to separate images into a gallery grid vs. non-image list
+  - Storybook stories for the new component
+  - Follows well-established Dialog patterns already in the codebase
+  - No new dependencies, no domain model changes, no API changes
+
+  ---
+
+  _Analysis complete — proceed with research_
