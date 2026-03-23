@@ -180,6 +180,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.10)
+      '@types/which':
+        specifier: ^3.0.4
+        version: 3.0.4
       '@typespec-tools/emitter-typescript':
         specifier: ^0.3.0
         version: 0.3.0(@typespec/compiler@0.60.1)
