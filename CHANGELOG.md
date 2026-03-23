@@ -1,3 +1,11 @@
+## [1.149.1](https://github.com/shep-ai/cli/compare/v1.149.0...v1.149.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* **web:** hide branch sync section when repository has no remote ([#463](https://github.com/shep-ai/cli/issues/463)) ([908f725](https://github.com/shep-ai/cli/commit/908f7258c1c3262a2337fc6654f8739dd5a8c41d))
+* **web:** remove standalone output mode causing production warning ([#466](https://github.com/shep-ai/cli/issues/466)) ([68b5ace](https://github.com/shep-ai/cli/commit/68b5ace1ac594eb7960315dba024fbec7f0434b8))
+
 # [1.149.0](https://github.com/shep-ai/cli/compare/v1.148.0...v1.149.0) (2026-03-23)
 
 
