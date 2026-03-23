@@ -56,14 +56,7 @@ async function refreshRepoGitInfo(repo: Repository): Promise<void> {
       return;
     }
 
-    const cached = gitInfoCache.get(repo.path);
-    if (cached?.kind === 'repo' && cached.sha === headSha) {
-      // HEAD unchanged — just bump checkedAt
-      cached.checkedAt = Date.now();
-      return;
-    }
-
-    // HEAD changed — fetch branch + subject & author in parallel
+    // Fetch branch + subject & author in parallel
     const [currentBranch, logLine] = await Promise.all([
       gitCommand(repo.path, ['symbolic-ref', '--short', 'HEAD']),
       gitCommand(repo.path, ['log', '-1', `--format=%s${FIELD_SEP}%an`]),
@@ -72,7 +65,8 @@ async function refreshRepoGitInfo(repo: Repository): Promise<void> {
 
     const [commitMessage, committer] = (logLine ?? '').split(FIELD_SEP);
 
-    // Behind count
+    // Behind count — always compute, even when on the default branch,
+    // because local main can be behind origin/main.
     let behindCount: number | null = null;
     const defaultBranchRef = await gitCommand(repo.path, [
       'symbolic-ref',
@@ -81,7 +75,8 @@ async function refreshRepoGitInfo(repo: Repository): Promise<void> {
     ]);
     const defaultBranch = defaultBranchRef?.replace('origin/', '') ?? null;
 
-    if (defaultBranch && currentBranch !== defaultBranch) {
+    if (defaultBranch) {
+      // Compare current branch (or default branch itself) against origin
       const behind = await gitCommand(repo.path, [
         'rev-list',
         '--count',
@@ -89,8 +84,6 @@ async function refreshRepoGitInfo(repo: Repository): Promise<void> {
       ]);
       behindCount = behind !== null ? parseInt(behind, 10) : null;
       if (isNaN(behindCount!)) behindCount = null;
-    } else {
-      behindCount = 0;
     }
 
     gitInfoCache.set(repo.path, {
@@ -146,7 +139,12 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
   const listRepos = resolve<ListRepositoriesUseCase>('ListRepositoriesUseCase');
   const agentRunRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
 
-  const [features, repositories] = await Promise.all([listFeatures.execute(), listRepos.execute()]);
+  // Always include archived features so the client has full data for instant
+  // show/hide toggle without a server round-trip (NFR-3).
+  const [features, repositories] = await Promise.all([
+    listFeatures.execute({ includeArchived: true }),
+    listRepos.execute(),
+  ]);
 
   // Read git info from cache (zero git calls). Stale entries trigger
   // a fire-and-forget background refresh for the next poll cycle.

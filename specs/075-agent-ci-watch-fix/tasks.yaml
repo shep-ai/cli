@@ -1,0 +1,162 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-ci-watch-fix
+summary: Task breakdown for 075-agent-ci-watch-fix
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - vitest
+  - typescript
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    title: Add parseCiWatchResult output parser
+    description: >
+      Add a function to merge-output-parser.ts that extracts CI status from agent output.
+      Looks for CI_STATUS: PASSED or CI_STATUS: FAILED markers in the agent response text.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - parseCiWatchResult returns { status: 'success' } for output containing CI_STATUS: PASSED
+      - parseCiWatchResult returns { status: 'failure', summary } for CI_STATUS: FAILED — <summary>
+      - parseCiWatchResult returns { status: 'failure', summary: 'unknown' } for unparseable output
+      - Extracts run URL from agent output when present
+    tdd:
+      red:
+        - Write tests for parseCiWatchResult in merge-output-parser test file
+        - Test CI_STATUS PASSED parsing
+        - Test CI_STATUS FAILED with summary parsing
+        - Test fallback for missing/unparseable CI_STATUS
+        - Test run URL extraction
+      green:
+        - Implement parseCiWatchResult with regex matching
+      refactor:
+        - Ensure consistent return type with existing parsers
+
+  - id: task-2
+    title: Add buildCiWatchPrompt prompt builder
+    description: >
+      Add a function to merge-prompts.ts that generates the CI watching prompt.
+      Must be GENERIC — works with any git/gh repo. Instructs agent to check ALL runs,
+      wait for completion, verify, and report structured status.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Prompt includes gh run list command with --json databaseId,status,conclusion,name
+      - Prompt instructs to watch ALL in-progress runs (not just one)
+      - Prompt instructs to verify ALL runs after watching
+      - Prompt requires CI_STATUS: PASSED or CI_STATUS: FAILED output
+      - Prompt uses --interval 20 for gh run watch (per project convention)
+      - Prompt is generic — no repo-specific references
+      - Prompt includes the branch name
+    tdd:
+      red:
+        - Write tests for buildCiWatchPrompt content
+        - Test branch name inclusion
+        - Test required CI_STATUS output instruction
+        - Test --interval 20 inclusion
+        - Test --json fields inclusion
+      green:
+        - Implement buildCiWatchPrompt function
+      refactor:
+        - Clean up prompt structure
+
+  - id: task-3
+    title: Refactor ci-watch-fix-loop to use agent-based CI watching
+    description: >
+      Replace getCiStatus() + watchCi() calls with agent executor calls using
+      buildCiWatchPrompt. Parse results with parseCiWatchResult. Keep getFailureLogs
+      for providing context to fix agent. Record phase timing for each sub-phase.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - No watchCi calls remain in ci-watch-fix-loop.ts
+      - Initial CI check uses agent call with buildCiWatchPrompt
+      - Post-fix CI check uses agent call with buildCiWatchPrompt
+      - Agent output parsed with parseCiWatchResult
+      - If parseCiWatchResult returns failure, enters fix loop (existing behavior)
+      - recordPhaseStart/End called for merge:ci-watch phases
+      - recordPhaseStart/End called for merge:ci-fix phases
+      - Token usage from CI watch/fix calls accumulated in totals
+      - Rate limit handling preserved (skip CI watch on 403/rate limit)
+      - Timeout handling preserved
+    tdd:
+      red:
+        - Update merge.node.ci-watch.test.ts for agent-based flow
+        - Test initial CI watch via agent call
+        - Test CI pass on first watch (agent reports PASSED)
+        - Test CI fail → fix → pass flow
+        - Test CI fail → fix → fail → exhausted flow
+        - Test phase timing records for ci-watch and ci-fix
+        - Test token accumulation from CI agent calls
+      green:
+        - Replace getCiStatus + watchCi with agent call in initial watch
+        - Replace getCiStatus + watchCi with agent call in post-fix watch
+        - Add recordPhaseStart/End for merge:ci-watch
+        - Add recordPhaseStart/End for merge:ci-fix
+        - Accumulate usage from CI agent calls
+      refactor:
+        - Remove unused getCiStatus import if no longer needed
+        - Simplify error handling
+
+  - id: task-4
+    title: Update getCiStatus usage for initial run detection
+    description: >
+      The initial getCiStatus call (line 78) checks if any CI run exists.
+      Keep this as a lightweight check before spawning the watch agent.
+      But replace the post-fix getCiStatus call (line 182) since the agent handles everything.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - Initial getCiStatus call preserved for run-exists check
+      - Post-fix getCiStatus call removed (agent handles watch after fix)
+      - runUrl tracking simplified (agent provides URL in output)
+    tdd:
+      red:
+        - Test initial getCiStatus still called for run detection
+        - Test no getCiStatus call after fix attempt
+      green:
+        - Keep initial getCiStatus, remove post-fix getCiStatus
+      refactor:
+        - Clean up runUrl tracking
+
+  - id: task-5
+    title: Verify all tests pass and integration works
+    description: >
+      Run full test suite for affected files. Verify merge node tests, CI watch tests,
+      output parser tests, and prompt tests all pass.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - All merge.node.ci-watch.test.ts tests pass
+      - All merge.node.test.ts tests pass
+      - All merge-output-parser tests pass
+      - pnpm test:unit passes for affected files
+    tdd: null
+
+# Total effort estimate
+totalEstimate: M
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Status
+
+  - **Phase:** Implementation
+  - **Updated:** 2026-03-23
+
+  ## Task List
+
+  5 tasks across 3 phases. Phase 1 tasks are parallel (parser + prompt).
+  Phase 2 is the core refactoring. Phase 3 is verification.

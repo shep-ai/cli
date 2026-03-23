@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Edge, Viewport } from '@xyflow/react';
-import { useReactFlow } from '@xyflow/react';
+import { Panel, useReactFlow } from '@xyflow/react';
+import { Eye, EyeOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -14,6 +16,7 @@ import {
 } from '@/hooks/sidebar-features-context';
 
 import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
+import { useSelectedRepository } from '@/hooks/use-selected-repository';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
 import { useViewportPersistence } from '@/hooks/use-viewport-persistence';
@@ -37,6 +40,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const router = useRouter();
   const pathname = usePathname();
   const selectedFeatureId = useSelectedFeatureId();
+  const selectedRepository = useSelectedRepository();
   const clickSound = useSoundAction('click');
   const { guardedNavigate } = useDrawerCloseGuard();
   const { fitView } = useReactFlow();
@@ -54,12 +58,16 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     onNodesChange,
     handleConnect,
     handleAddRepository,
+    handleArchiveFeature,
     handleDeleteFeature,
     handleRetryFeature,
     handleStartFeature,
     handleStopFeature,
+    handleUnarchiveFeature,
     handleDeleteRepository,
     createFeatureNode,
+    showArchived,
+    setShowArchived,
     setCallbacks,
   } = useControlCenterState(initialNodes, initialEdges);
 
@@ -303,6 +311,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       onRetryFeature: handleRetryFeature,
       onStartFeature: handleStartFeature,
       onStopFeature: handleStopFeature,
+      onArchiveFeature: handleArchiveFeature,
+      onUnarchiveFeature: handleUnarchiveFeature,
       onRepositoryAdd: handleAddFeatureToRepo,
       onRepositoryClick: handleRepositoryClick,
       onRepositoryDelete: handleDeleteRepository,
@@ -310,10 +320,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   }, [
     setCallbacks,
     handleAddFeatureToFeature,
+    handleArchiveFeature,
     handleDeleteFeature,
     handleRetryFeature,
     handleStartFeature,
     handleStopFeature,
+    handleUnarchiveFeature,
     handleAddFeatureToRepo,
     handleRepositoryClick,
     handleDeleteRepository,
@@ -376,11 +388,32 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     );
   }, [nodes, isCreateDrawerOpen]);
 
+  const archiveToggle = (
+    <Panel position="top-right">
+      <button
+        type="button"
+        aria-label={showArchived ? 'Hide archived features' : 'Show archived features'}
+        data-testid="archive-toggle-button"
+        onClick={() => setShowArchived(!showArchived)}
+        className={cn(
+          'bg-card flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium shadow-sm transition-colors',
+          showArchived
+            ? 'border-primary/30 text-primary'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        {showArchived ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+        {showArchived ? 'Archived visible' : 'Show archived'}
+      </button>
+    </Panel>
+  );
+
   return (
     <FeaturesCanvas
       nodes={showCanvas ? displayNodes : []}
       edges={showCanvas ? edges : []}
       selectedFeatureId={selectedFeatureId}
+      selectedRepository={selectedRepository}
       defaultViewport={defaultViewport}
       onNodesChange={onNodesChange}
       onConnect={handleConnect}
@@ -389,6 +422,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       onPaneClick={handleClearDrawers}
       onMoveEnd={handleMoveEnd}
       onResetViewport={resetViewport}
+      toolbar={archiveToggle}
       emptyState={<ControlCenterEmptyState onRepositorySelect={addRepoAndFocus} />}
     />
   );

@@ -44,6 +44,11 @@ function createMockFeature(overrides: Partial<Feature> = {}): Feature {
     fast: false,
     push: true,
     openPr: true,
+    forkAndPr: false,
+    commitSpecs: true,
+    ciWatchEnabled: true,
+    enableEvidence: false,
+    commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     pr: {
       url: 'https://github.com/org/repo/pull/1',
@@ -94,6 +99,13 @@ function createMockGitPrService(): IGitPrService {
     getMergeableStatus: vi.fn().mockResolvedValue(undefined),
     revParse: vi.fn().mockResolvedValue('mock-sha'),
     localMergeSquash: vi.fn().mockResolvedValue(undefined),
+    syncMain: vi.fn().mockResolvedValue(undefined),
+    rebaseOnMain: vi.fn().mockResolvedValue(undefined),
+    getConflictedFiles: vi.fn().mockResolvedValue([]),
+    stageFiles: vi.fn().mockResolvedValue(undefined),
+    rebaseContinue: vi.fn().mockResolvedValue(undefined),
+    rebaseAbort: vi.fn().mockResolvedValue(undefined),
+    getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
   };
 }
 
@@ -176,7 +188,8 @@ describe('PrSyncWatcherService', () => {
 
       await vi.advanceTimersByTimeAsync(30_000);
       // Only 2 polls: one immediate + one after 30s (not 4 from double-start)
-      expect(featureRepo.list).toHaveBeenCalledTimes(2);
+      // Each poll calls list() twice: once for Review, once for AwaitingUpstream
+      expect(featureRepo.list).toHaveBeenCalledTimes(4);
     });
 
     it('should poll at configured interval', async () => {
@@ -185,14 +198,15 @@ describe('PrSyncWatcherService', () => {
       watcher.start();
 
       // First poll happens immediately
+      // Each poll calls list() twice: once for Review, once for AwaitingUpstream
       await vi.advanceTimersByTimeAsync(0);
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
-
-      await vi.advanceTimersByTimeAsync(30_000);
       expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       await vi.advanceTimersByTimeAsync(30_000);
-      expect(featureRepo.list).toHaveBeenCalledTimes(3);
+      expect(featureRepo.list).toHaveBeenCalledTimes(4);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(featureRepo.list).toHaveBeenCalledTimes(6);
     });
 
     it('should stop polling when stop() is called', async () => {
@@ -200,12 +214,13 @@ describe('PrSyncWatcherService', () => {
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      // Each poll calls list() twice: once for Review, once for AwaitingUpstream
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       watcher.stop();
 
       await vi.advanceTimersByTimeAsync(10000);
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
     });
 
     it('should support custom poll interval', async () => {
@@ -220,10 +235,11 @@ describe('PrSyncWatcherService', () => {
 
       customWatcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      // Each poll calls list() twice: once for Review, once for AwaitingUpstream
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       await vi.advanceTimersByTimeAsync(1000);
-      expect(featureRepo.list).toHaveBeenCalledTimes(2);
+      expect(featureRepo.list).toHaveBeenCalledTimes(4);
 
       customWatcher.stop();
     });
@@ -924,7 +940,9 @@ describe('PrSyncWatcherService', () => {
       // Should continue polling on next cycle
       vi.mocked(featureRepo.list).mockResolvedValue([]);
       await vi.advanceTimersByTimeAsync(30_000);
-      expect(featureRepo.list).toHaveBeenCalledTimes(2);
+      // First poll: 1 call (Review list rejects, AwaitingUpstream never reached)
+      // Second poll: 2 calls (Review + AwaitingUpstream both succeed)
+      expect(featureRepo.list).toHaveBeenCalledTimes(3);
 
       consoleSpy.mockRestore();
     });
@@ -1124,8 +1142,8 @@ describe('PrSyncWatcherService', () => {
       dbWatcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      // Lock acquired → poll proceeded (featureRepo.list called)
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      // Lock acquired → poll proceeded (featureRepo.list called twice: Review + AwaitingUpstream)
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
       expect(mockDb.prepare).toHaveBeenCalled();
 
       dbWatcher.stop();
@@ -1172,8 +1190,8 @@ describe('PrSyncWatcherService', () => {
       dbWatcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      // Expired lock → can acquire → poll proceeds
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      // Expired lock → can acquire → poll proceeds (Review + AwaitingUpstream)
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
 
       dbWatcher.stop();
     });
@@ -1185,7 +1203,8 @@ describe('PrSyncWatcherService', () => {
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(featureRepo.list).toHaveBeenCalledTimes(1);
+      // Each poll calls list() twice: once for Review, once for AwaitingUpstream
+      expect(featureRepo.list).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -1429,6 +1448,264 @@ describe('PrSyncWatcherService', () => {
 
       // All these should have been polled (getCiStatus called)
       expect(gitPrService.getCiStatus).toHaveBeenCalledTimes(7);
+    });
+  });
+
+  describe('AwaitingUpstream polling', () => {
+    it('should poll upstream PR status for features in AwaitingUpstream lifecycle', async () => {
+      const reviewFeatures: Feature[] = [];
+      const awaitingFeature = createMockFeature({
+        id: 'feat-upstream-1',
+        name: 'Fork Feature',
+        lifecycle: SdlcLifecycle.AwaitingUpstream,
+        forkAndPr: true,
+        agentRunId: 'run-upstream-1',
+        pr: {
+          url: 'https://github.com/fork-owner/repo/pull/5',
+          number: 5,
+          status: PrStatus.Open,
+          upstreamPrUrl: 'https://github.com/upstream-owner/repo/pull/42',
+          upstreamPrNumber: 42,
+          upstreamPrStatus: PrStatus.Open,
+        },
+      });
+
+      const mockForkService = {
+        forkRepository: vi.fn(),
+        pushToFork: vi.fn(),
+        createUpstreamPr: vi.fn(),
+        getUpstreamPrStatus: vi.fn().mockResolvedValue(PrStatus.Open),
+      };
+
+      // Return empty for Review, awaiting feature for AwaitingUpstream
+      vi.mocked(featureRepo.list).mockImplementation(async (filter) => {
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.Review) {
+          return reviewFeatures;
+        }
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.AwaitingUpstream) {
+          return [awaitingFeature];
+        }
+        return [];
+      });
+
+      const forkWatcher = new PrSyncWatcherService(
+        featureRepo,
+        agentRunRepo,
+        gitPrService,
+        notificationService,
+        30_000,
+        null,
+        mockForkService
+      );
+
+      forkWatcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(mockForkService.getUpstreamPrStatus).toHaveBeenCalledWith('upstream-owner/repo', 42);
+      // Still open — no update
+      expect(featureRepo.update).not.toHaveBeenCalled();
+
+      forkWatcher.stop();
+    });
+
+    it('should transition feature to Maintain when upstream PR is merged', async () => {
+      const awaitingFeature = createMockFeature({
+        id: 'feat-upstream-2',
+        name: 'Merged Fork Feature',
+        lifecycle: SdlcLifecycle.AwaitingUpstream,
+        forkAndPr: true,
+        agentRunId: 'run-upstream-2',
+        pr: {
+          url: 'https://github.com/fork-owner/repo/pull/5',
+          number: 5,
+          status: PrStatus.Open,
+          upstreamPrUrl: 'https://github.com/upstream-owner/repo/pull/42',
+          upstreamPrNumber: 42,
+          upstreamPrStatus: PrStatus.Open,
+        },
+      });
+
+      const mockForkService = {
+        forkRepository: vi.fn(),
+        pushToFork: vi.fn(),
+        createUpstreamPr: vi.fn(),
+        getUpstreamPrStatus: vi.fn().mockResolvedValue(PrStatus.Merged),
+      };
+
+      vi.mocked(featureRepo.list).mockImplementation(async (filter) => {
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.Review) return [];
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.AwaitingUpstream) {
+          return [awaitingFeature];
+        }
+        return [];
+      });
+
+      const forkWatcher = new PrSyncWatcherService(
+        featureRepo,
+        agentRunRepo,
+        gitPrService,
+        notificationService,
+        30_000,
+        null,
+        mockForkService
+      );
+
+      forkWatcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(featureRepo.update).toHaveBeenCalledTimes(1);
+      const updated = vi.mocked(featureRepo.update).mock.calls[0][0];
+      expect(updated.lifecycle).toBe(SdlcLifecycle.Maintain);
+      expect(updated.pr!.upstreamPrStatus).toBe(PrStatus.Merged);
+
+      // Agent run marked complete
+      expect(agentRunRepo.updateStatus).toHaveBeenCalledWith(
+        'run-upstream-2',
+        AgentRunStatus.completed
+      );
+
+      // PrMerged notification
+      const mergeEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.PrMerged
+      );
+      expect(mergeEvents).toHaveLength(1);
+      expect(mergeEvents[0]!.featureName).toBe('Merged Fork Feature');
+
+      forkWatcher.stop();
+    });
+
+    it('should update status to Closed but stay in AwaitingUpstream when PR is closed', async () => {
+      const awaitingFeature = createMockFeature({
+        id: 'feat-upstream-3',
+        name: 'Closed Fork Feature',
+        lifecycle: SdlcLifecycle.AwaitingUpstream,
+        forkAndPr: true,
+        agentRunId: 'run-upstream-3',
+        pr: {
+          url: 'https://github.com/fork-owner/repo/pull/5',
+          number: 5,
+          status: PrStatus.Open,
+          upstreamPrUrl: 'https://github.com/upstream-owner/repo/pull/42',
+          upstreamPrNumber: 42,
+          upstreamPrStatus: PrStatus.Open,
+        },
+      });
+
+      const mockForkService = {
+        forkRepository: vi.fn(),
+        pushToFork: vi.fn(),
+        createUpstreamPr: vi.fn(),
+        getUpstreamPrStatus: vi.fn().mockResolvedValue(PrStatus.Closed),
+      };
+
+      vi.mocked(featureRepo.list).mockImplementation(async (filter) => {
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.Review) return [];
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.AwaitingUpstream) {
+          return [awaitingFeature];
+        }
+        return [];
+      });
+
+      const forkWatcher = new PrSyncWatcherService(
+        featureRepo,
+        agentRunRepo,
+        gitPrService,
+        notificationService,
+        30_000,
+        null,
+        mockForkService
+      );
+
+      forkWatcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(featureRepo.update).toHaveBeenCalledTimes(1);
+      const updated = vi.mocked(featureRepo.update).mock.calls[0][0];
+      expect(updated.lifecycle).toBe(SdlcLifecycle.AwaitingUpstream); // stays
+      expect(updated.pr!.upstreamPrStatus).toBe(PrStatus.Closed);
+
+      // PrClosed notification
+      const closeEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.PrClosed
+      );
+      expect(closeEvents).toHaveLength(1);
+
+      forkWatcher.stop();
+    });
+
+    it('should skip AwaitingUpstream polling when no gitForkService is provided', async () => {
+      const awaitingFeature = createMockFeature({
+        id: 'feat-upstream-4',
+        lifecycle: SdlcLifecycle.AwaitingUpstream,
+        pr: {
+          url: 'https://github.com/fork-owner/repo/pull/5',
+          number: 5,
+          status: PrStatus.Open,
+          upstreamPrUrl: 'https://github.com/upstream-owner/repo/pull/42',
+          upstreamPrNumber: 42,
+        },
+      });
+
+      vi.mocked(featureRepo.list).mockImplementation(async (filter) => {
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.Review) return [];
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.AwaitingUpstream) {
+          return [awaitingFeature];
+        }
+        return [];
+      });
+
+      // Default watcher has no fork service
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // No update because fork service is null
+      expect(featureRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('should skip AwaitingUpstream feature with no upstream PR data', async () => {
+      const awaitingFeature = createMockFeature({
+        id: 'feat-upstream-5',
+        lifecycle: SdlcLifecycle.AwaitingUpstream,
+        pr: {
+          url: 'https://github.com/fork-owner/repo/pull/5',
+          number: 5,
+          status: PrStatus.Open,
+          // no upstreamPrUrl or upstreamPrNumber
+        },
+      });
+
+      const mockForkService = {
+        forkRepository: vi.fn(),
+        pushToFork: vi.fn(),
+        createUpstreamPr: vi.fn(),
+        getUpstreamPrStatus: vi.fn(),
+      };
+
+      vi.mocked(featureRepo.list).mockImplementation(async (filter) => {
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.Review) return [];
+        if ((filter as { lifecycle: SdlcLifecycle }).lifecycle === SdlcLifecycle.AwaitingUpstream) {
+          return [awaitingFeature];
+        }
+        return [];
+      });
+
+      const forkWatcher = new PrSyncWatcherService(
+        featureRepo,
+        agentRunRepo,
+        gitPrService,
+        notificationService,
+        30_000,
+        null,
+        mockForkService
+      );
+
+      forkWatcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(mockForkService.getUpstreamPrStatus).not.toHaveBeenCalled();
+      expect(featureRepo.update).not.toHaveBeenCalled();
+
+      forkWatcher.stop();
     });
   });
 

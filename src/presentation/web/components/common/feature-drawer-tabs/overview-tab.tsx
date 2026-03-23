@@ -29,12 +29,30 @@ import {
 } from '@/components/common/feature-node/agent-type-icons';
 import { getModelMeta } from '@/lib/model-metadata';
 import { formatDuration } from '@/lib/format-duration';
+import { BranchSyncStatus } from './branch-sync-status';
+import type { BranchSyncData } from '@/hooks/use-branch-sync-status';
 
 export interface OverviewTabProps {
   data: FeatureNodeData;
+  syncStatus?: BranchSyncData | null;
+  syncLoading?: boolean;
+  syncError?: string | null;
+  onRefreshSync?: () => void;
+  onRebaseOnMain?: () => void;
+  rebaseLoading?: boolean;
+  rebaseError?: string | null;
 }
 
-export function OverviewTab({ data }: OverviewTabProps) {
+export function OverviewTab({
+  data,
+  syncStatus,
+  syncLoading,
+  syncError,
+  onRefreshSync,
+  onRebaseOnMain,
+  rebaseLoading,
+  rebaseError,
+}: OverviewTabProps) {
   const isCompleted = data.lifecycle === 'maintain';
   return (
     <>
@@ -96,6 +114,17 @@ export function OverviewTab({ data }: OverviewTabProps) {
         </>
       ) : null}
       <FeatureDetails data={data} />
+      {onRebaseOnMain && data.branch && onRefreshSync ? (
+        <BranchSyncStatus
+          syncStatus={syncStatus ?? null}
+          syncLoading={syncLoading ?? false}
+          syncError={syncError ?? null}
+          onRefreshSync={onRefreshSync}
+          onRebaseOnMain={onRebaseOnMain}
+          rebaseLoading={rebaseLoading ?? false}
+          rebaseError={rebaseError ?? null}
+        />
+      ) : null}
       <FeatureSettings data={data} />
     </>
   );
@@ -363,6 +392,8 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
     data.openPr != null ||
     data.ciWatchEnabled != null ||
     data.enableEvidence != null ||
+    data.forkAndPr != null ||
+    data.commitSpecs != null ||
     data.modelId;
   if (!hasSettings) return null;
 
@@ -406,7 +437,11 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
             </div>
           </div>
         ) : null}
-        {data.push != null || data.openPr != null || data.ciWatchEnabled != null ? (
+        {data.push != null ||
+        data.openPr != null ||
+        data.ciWatchEnabled != null ||
+        data.commitSpecs != null ||
+        data.forkAndPr != null ? (
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground flex items-center gap-1 text-xs font-medium">
               <GitBranch className="h-3 w-3" />
@@ -417,6 +452,12 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
               {data.openPr != null ? <SettingBadge enabled={data.openPr} label="PR" /> : null}
               {data.ciWatchEnabled != null ? (
                 <SettingBadge enabled={data.ciWatchEnabled} label="Watch" />
+              ) : null}
+              {data.commitSpecs != null ? (
+                <SettingBadge enabled={data.commitSpecs} label="Commit Specs" />
+              ) : null}
+              {data.forkAndPr != null ? (
+                <SettingBadge enabled={data.forkAndPr} label="Fork & PR" />
               ) : null}
             </div>
           </div>

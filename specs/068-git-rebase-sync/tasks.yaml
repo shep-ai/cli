@@ -1,0 +1,657 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: git-rebase-sync
+summary: >
+  21 tasks across 5 phases. Starts with interface/type extensions, implements
+  git service methods, builds the conflict resolution agent service and use
+  cases, wires CLI commands and web actions, and finishes with integration tests.
+
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - tsyringe
+  - Commander.js
+  - Next.js
+  - Vitest
+  - git
+  - IAgentExecutor
+relatedLinks: []
+
+tasks:
+  # ─── Phase 1: Domain & Interface Foundation ───────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend GitPrErrorCode with REBASE_CONFLICT and SYNC_FAILED'
+    description: >
+      Add two new error codes to the GitPrErrorCode enum. These codes are
+      consumed by all subsequent tasks for error classification. Also add
+      test coverage for the new codes.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'GitPrErrorCode.REBASE_CONFLICT exists with value "REBASE_CONFLICT"'
+      - 'GitPrErrorCode.SYNC_FAILED exists with value "SYNC_FAILED"'
+      - 'Existing enum values are unchanged'
+      - 'Existing tests still pass'
+    tdd:
+      red:
+        - 'Write test asserting GitPrErrorCode.REBASE_CONFLICT === "REBASE_CONFLICT"'
+        - 'Write test asserting GitPrErrorCode.SYNC_FAILED === "SYNC_FAILED"'
+      green:
+        - 'Add REBASE_CONFLICT and SYNC_FAILED to the GitPrErrorCode enum'
+      refactor:
+        - 'Verify alphabetical ordering of enum values matches codebase convention'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Extend IGitPrService interface with new method signatures'
+    description: >
+      Add rebaseOnMain, syncMain, getConflictedFiles, stageFiles,
+      rebaseContinue, and rebaseAbort method signatures to the IGitPrService
+      interface. These are the contracts that the infrastructure layer will
+      implement.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'IGitPrService has syncMain(cwd: string, baseBranch: string): Promise<void>'
+      - 'IGitPrService has rebaseOnMain(cwd: string, featureBranch: string, baseBranch: string): Promise<void>'
+      - 'IGitPrService has getConflictedFiles(cwd: string): Promise<string[]>'
+      - 'IGitPrService has stageFiles(cwd: string, files: string[]): Promise<void>'
+      - 'IGitPrService has rebaseContinue(cwd: string): Promise<void>'
+      - 'IGitPrService has rebaseAbort(cwd: string): Promise<void>'
+      - 'Existing method signatures are unchanged'
+      - 'TypeScript compilation passes'
+    tdd:
+      red:
+        - 'Write type-level test asserting IGitPrService has the new methods with correct signatures'
+      green:
+        - 'Add all six method signatures to the IGitPrService interface'
+      refactor:
+        - 'Group new methods together with JSDoc comments explaining their purpose'
+    estimatedEffort: '20min'
+
+  # ─── Phase 2: Infrastructure — Git Service Implementation ─────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Implement syncMain on GitPrService'
+    description: >
+      Implement the syncMain method. Detects current branch via git rev-parse,
+      then uses git pull --ff-only if on the base branch, or git fetch origin
+      <base>:<base> if on a different branch. Throws SYNC_FAILED on diverged
+      main (non-fast-forward). Idempotent when already up-to-date.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'When on a feature branch, runs git fetch origin main:main'
+      - 'When on the main branch, runs git pull --ff-only origin main'
+      - 'When main is already up-to-date, succeeds silently'
+      - 'When local main has diverged, throws GitPrError with SYNC_FAILED code'
+      - 'Error message for diverged main includes actionable guidance'
+    tdd:
+      red:
+        - 'Write test: syncMain from feature branch calls git fetch origin main:main'
+        - 'Write test: syncMain from main branch calls git pull --ff-only origin main'
+        - 'Write test: syncMain when already up-to-date succeeds (no error)'
+        - 'Write test: syncMain when diverged throws GitPrError with SYNC_FAILED'
+      green:
+        - 'Implement syncMain: detect current branch via rev-parse --abbrev-ref HEAD'
+        - 'Branch on current === baseBranch for pull vs fetch'
+        - 'Catch exec errors and classify via parseGitError, mapping non-fast-forward to SYNC_FAILED'
+      refactor:
+        - 'Extract branch detection into a reusable private helper if not already available'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement rebaseOnMain on GitPrService'
+    description: >
+      Implement the rebaseOnMain method. Checks for dirty worktree via
+      hasUncommittedChanges(), checks out the feature branch, runs
+      git rebase <baseBranch>. Detects conflict state from git exit code / stderr
+      and throws REBASE_CONFLICT. On clean rebase, returns void.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Throws GIT_ERROR with guidance message if worktree is dirty'
+      - 'Checks out the feature branch before rebasing'
+      - 'Runs git rebase <baseBranch>'
+      - 'On clean rebase (no conflicts), returns void'
+      - 'On conflicts, throws GitPrError with REBASE_CONFLICT code'
+      - 'Error message for conflicts lists the conflicted files'
+    tdd:
+      red:
+        - 'Write test: dirty worktree throws GIT_ERROR'
+        - 'Write test: clean rebase succeeds (returns void)'
+        - 'Write test: conflict during rebase throws REBASE_CONFLICT'
+        - 'Write test: feature branch not found throws BRANCH_NOT_FOUND'
+      green:
+        - 'Implement dirty worktree check using existing hasUncommittedChanges()'
+        - 'Run git checkout featureBranch, then git rebase baseBranch'
+        - 'Catch exec errors, detect "CONFLICT" or exit code 1 with merge markers'
+        - 'Map to REBASE_CONFLICT or fall through to parseGitError'
+      refactor:
+        - 'Ensure error messages are consistent with existing GitPrError patterns'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Implement getConflictedFiles on GitPrService'
+    description: >
+      Implement getConflictedFiles which returns the list of files with conflict
+      markers during a rebase. Uses git diff --name-only --diff-filter=U to list
+      unmerged files.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Returns array of file paths with unmerged conflicts'
+      - 'Returns empty array when no conflicts exist'
+      - 'File paths are relative to the working directory'
+    tdd:
+      red:
+        - 'Write test: returns list of conflicted files from git diff output'
+        - 'Write test: returns empty array when no conflicts'
+      green:
+        - 'Run git diff --name-only --diff-filter=U'
+        - 'Split stdout by newlines, filter empty strings'
+      refactor:
+        - 'Normalize paths (backslash to forward slash) for cross-platform support'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Implement stageFiles, rebaseContinue, and rebaseAbort on GitPrService'
+    description: >
+      Three small helper methods: stageFiles runs git add for each file,
+      rebaseContinue runs git rebase --continue with GIT_EDITOR=true to skip
+      commit message editing, rebaseAbort runs git rebase --abort.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'stageFiles runs git add for each provided file path'
+      - 'rebaseContinue runs git rebase --continue with no-editor env'
+      - 'rebaseAbort runs git rebase --abort'
+      - 'Each method throws GitPrError on failure via parseGitError'
+    tdd:
+      red:
+        - 'Write test: stageFiles calls git add for each file'
+        - 'Write test: rebaseContinue calls git rebase --continue'
+        - 'Write test: rebaseAbort calls git rebase --abort'
+        - 'Write test: each method throws on exec failure'
+      green:
+        - 'Implement all three methods using this.execFile("git", [...])'
+        - 'Set GIT_EDITOR=true env for rebaseContinue to avoid editor'
+      refactor:
+        - 'Ensure consistent error handling with try/catch + parseGitError'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Extend parseGitError for rebase/sync error classification'
+    description: >
+      Update the private parseGitError method in GitPrService to detect
+      rebase-specific and sync-specific error patterns from git stderr and
+      classify them as REBASE_CONFLICT or SYNC_FAILED respectively.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Errors containing "CONFLICT" during rebase map to REBASE_CONFLICT'
+      - 'Errors containing "non-fast-forward" or "diverged" map to SYNC_FAILED'
+      - 'Existing error classifications are unchanged'
+    tdd:
+      red:
+        - 'Write test: error with "CONFLICT" keyword classifies as REBASE_CONFLICT'
+        - 'Write test: error with "non-fast-forward" classifies as SYNC_FAILED'
+        - 'Write test: existing error patterns still classify correctly (regression)'
+      green:
+        - 'Add pattern matching for rebase/sync keywords in parseGitError'
+      refactor:
+        - 'Ensure pattern matching order is correct (more specific patterns first)'
+    estimatedEffort: '20min'
+
+  # ─── Phase 3: Application — Use Cases & Conflict Resolution Agent ────
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Create conflict resolution prompt builder'
+    description: >
+      Create the prompt builder function for the conflict resolution agent.
+      The prompt includes: list of conflicted files with their contents,
+      feature branch name and purpose, base branch name, and clear instructions
+      to resolve all conflict markers by editing files. Follows the existing
+      prompt builder pattern from merge-prompts.ts.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'buildConflictResolutionPrompt function exported'
+      - 'Prompt includes conflicted file paths and contents'
+      - 'Prompt includes feature branch context'
+      - 'Prompt includes clear instructions for marker removal'
+      - 'Prompt warns against modifying non-conflicted files'
+    tdd:
+      red:
+        - 'Write test: prompt includes all conflicted file paths'
+        - 'Write test: prompt includes feature branch name'
+        - 'Write test: prompt includes conflict marker removal instructions'
+      green:
+        - 'Create buildConflictResolutionPrompt(params) function'
+        - 'Use template literals with markdown sections per existing pattern'
+      refactor:
+        - 'Extract shared prompt sections into constants'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create ConflictResolutionService'
+    description: >
+      Create the service that orchestrates agent-powered conflict resolution.
+      The resolve() method: reads conflicted files, invokes agent with prompt,
+      validates no remaining markers, stages resolved files and continues
+      rebase. Retries up to 3 times per commit. Handles multi-commit rebases
+      where rebaseContinue may reveal new conflicts on the next commit. Falls
+      back to rebaseAbort if retries are exhausted.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-6
+      - task-8
+    acceptanceCriteria:
+      - 'Injectable service with IAgentExecutorProvider and IGitPrService dependencies'
+      - 'resolve() orchestrates the full conflict resolution loop'
+      - 'Reads conflicted files and passes contents to agent prompt'
+      - 'Validates resolution by checking for remaining conflict markers'
+      - 'On valid resolution: stages files and runs rebase --continue'
+      - 'If rebase --continue reveals more conflicts, loops back to resolve'
+      - 'Retries agent up to 3 times per commit if markers remain'
+      - 'Aborts rebase and throws after 3 failed attempts'
+      - 'Returns void on successful complete resolution'
+    tdd:
+      red:
+        - 'Write test: agent resolves all conflicts on first try — stages and continues'
+        - 'Write test: agent leaves markers, retries, succeeds on second attempt'
+        - 'Write test: agent fails all 3 retries — aborts and throws REBASE_CONFLICT'
+        - 'Write test: multi-commit rebase — resolves first commit, then second commit conflicts'
+        - 'Write test: rebaseContinue with no more conflicts — returns successfully'
+      green:
+        - 'Create ConflictResolutionService class with @injectable()'
+        - 'Inject IAgentExecutorProvider and IGitPrService via string tokens'
+        - 'Implement resolve(cwd, featureBranch, baseBranch) method'
+        - 'Loop: getConflictedFiles → readFiles → buildPrompt → agent.execute → validate → add → continue'
+        - 'Wrap in retry counter (max 3 per commit)'
+        - 'Catch rebaseContinue conflicts to re-enter resolution loop'
+        - 'On exhaustion, call rebaseAbort and throw'
+      refactor:
+        - 'Extract marker validation into a private validateResolution method'
+        - 'Extract file reading into a private readConflictedFileContents method'
+    estimatedEffort: '1.5h'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Create SyncRepositoryMainUseCase'
+    description: >
+      Create the use case that syncs a repository's local main branch with
+      the remote. Resolves repository by ID/prefix, gets repo path, determines
+      default branch, and delegates to IGitPrService.syncMain().
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Injectable use case with IRepositoryRepository and IGitPrService dependencies'
+      - 'execute(repoId) resolves repository by ID or prefix'
+      - 'Throws if repository not found'
+      - 'Calls gitPrService.syncMain() with repo path and default branch'
+      - 'Propagates SYNC_FAILED errors to caller'
+    tdd:
+      red:
+        - 'Write test: happy path — resolves repo, calls syncMain with correct args'
+        - 'Write test: repository not found — throws descriptive error'
+        - 'Write test: syncMain failure — propagates GitPrError'
+      green:
+        - 'Create SyncRepositoryMainUseCase class with @injectable()'
+        - 'Inject IRepositoryRepository and IGitPrService via string tokens'
+        - 'Implement execute(repoId) method'
+      refactor:
+        - 'Ensure error messages match existing use case patterns'
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Create RebaseFeatureOnMainUseCase'
+    description: >
+      Create the use case that rebases a feature branch onto main with
+      auto-sync and agent-powered conflict resolution. Resolves feature,
+      determines worktree path (via IWorktreeService), syncs main, calls
+      rebaseOnMain, and on REBASE_CONFLICT delegates to
+      ConflictResolutionService.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-9
+      - task-10
+    acceptanceCriteria:
+      - 'Injectable use case with feature repo, worktree service, git service, conflict resolution service'
+      - 'execute(featureId) resolves feature by ID or prefix'
+      - 'Throws if feature not found'
+      - 'Determines cwd from worktree path if worktree exists, else repo root'
+      - 'Auto-syncs main before rebasing'
+      - 'On clean rebase, returns successfully'
+      - 'On REBASE_CONFLICT, delegates to ConflictResolutionService'
+      - 'On resolution failure, propagates abort error'
+    tdd:
+      red:
+        - 'Write test: happy path — syncs main, rebases cleanly'
+        - 'Write test: feature not found — throws error'
+        - 'Write test: worktree exists — uses worktree path as cwd'
+        - 'Write test: no worktree — uses repo root as cwd'
+        - 'Write test: rebase conflicts — delegates to conflict resolution service'
+        - 'Write test: conflict resolution fails — propagates abort error'
+        - 'Write test: sync failure — propagates SYNC_FAILED before attempting rebase'
+      green:
+        - 'Create RebaseFeatureOnMainUseCase class with @injectable()'
+        - 'Inject all dependencies via string tokens'
+        - 'Implement execute(featureId) method'
+        - 'Resolve feature, determine cwd, sync, rebase, handle conflicts'
+      refactor:
+        - 'Extract cwd resolution into a private method'
+    estimatedEffort: '1h'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Register use cases and services in DI container'
+    description: >
+      Register ConflictResolutionService, SyncRepositoryMainUseCase, and
+      RebaseFeatureOnMainUseCase in the DI container with both class registrations
+      and string-token aliases for web action resolution.
+    state: Todo
+    dependencies:
+      - task-10
+      - task-11
+    acceptanceCriteria:
+      - 'ConflictResolutionService registered as singleton with string token'
+      - 'SyncRepositoryMainUseCase registered as singleton with class + string-token alias'
+      - 'RebaseFeatureOnMainUseCase registered as singleton with class + string-token alias'
+      - 'All existing registrations unchanged'
+      - 'container.resolve() works for all new registrations'
+    tdd:
+      red:
+        - 'Write test: container resolves SyncRepositoryMainUseCase by class'
+        - 'Write test: container resolves "SyncRepositoryMainUseCase" by string token'
+        - 'Write test: container resolves RebaseFeatureOnMainUseCase by class'
+        - 'Write test: container resolves "RebaseFeatureOnMainUseCase" by string token'
+      green:
+        - 'Add registerSingleton calls for ConflictResolutionService'
+        - 'Add registerSingleton + useFactory alias for both use cases'
+      refactor:
+        - 'Verify registration ordering matches existing patterns in container.ts'
+    estimatedEffort: '20min'
+
+  # ─── Phase 4: Presentation — CLI Commands & Web Actions ──────────────
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Create CLI command: shep repo sync'
+    description: >
+      Create the sync subcommand under the repo command group. Takes a repoId
+      argument, resolves the use case from the container, wraps execution in
+      spinner, shows success/error output.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'createSyncCommand() returns a Command("sync") with repoId argument'
+      - 'Resolves SyncRepositoryMainUseCase from container'
+      - 'Shows spinner during sync operation'
+      - 'Shows success message on completion'
+      - 'Shows error message and sets process.exitCode = 1 on failure'
+    tdd:
+      red:
+        - 'Write test: command has name "sync" and accepts repoId argument'
+        - 'Write test: command description is present'
+      green:
+        - 'Create createSyncCommand() factory function in sync.command.ts'
+        - 'Implement action handler with spinner + messages pattern'
+      refactor:
+        - 'Ensure output messages are consistent with existing repo commands'
+    estimatedEffort: '25min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Register sync command in repo command group'
+    description: >
+      Import createSyncCommand and add it to the repo command group in
+      src/presentation/cli/commands/repo/index.ts.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'repo/index.ts imports createSyncCommand'
+      - '.addCommand(createSyncCommand()) is chained in the command builder'
+      - 'Running "shep repo sync" is recognized as a valid command'
+    tdd: null
+    estimatedEffort: '5min'
+
+  - id: task-15
+    phaseId: phase-4
+    title: 'Create CLI command: shep feat rebase'
+    description: >
+      Create the rebase subcommand under the feat command group. Takes a
+      featureId argument, resolves the use case from the container, wraps
+      execution in spinner with multi-phase progress output (syncing main,
+      rebasing, resolving conflicts), shows success/error output.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'createRebaseCommand() returns a Command("rebase") with featureId argument'
+      - 'Resolves RebaseFeatureOnMainUseCase from container'
+      - 'Shows spinner during rebase operation'
+      - 'Shows success message on completion'
+      - 'Shows error message with actionable guidance on failure'
+      - 'Sets process.exitCode = 1 on failure'
+    tdd:
+      red:
+        - 'Write test: command has name "rebase" and accepts featureId argument'
+        - 'Write test: command description is present'
+      green:
+        - 'Create createRebaseCommand() factory function in rebase.command.ts'
+        - 'Implement action handler with spinner + messages pattern'
+      refactor:
+        - 'Ensure output messages are consistent with existing feat commands'
+    estimatedEffort: '25min'
+
+  - id: task-16
+    phaseId: phase-4
+    title: 'Register rebase command in feat command group'
+    description: >
+      Import createRebaseCommand and add it to the feat command group in
+      src/presentation/cli/commands/feat/index.ts.
+    state: Todo
+    dependencies:
+      - task-15
+    acceptanceCriteria:
+      - 'feat/index.ts imports createRebaseCommand'
+      - '.addCommand(createRebaseCommand()) is chained in the command builder'
+      - 'Running "shep feat rebase" is recognized as a valid command'
+    tdd: null
+    estimatedEffort: '5min'
+
+  - id: task-17
+    phaseId: phase-4
+    title: 'Create web server action: syncRepository'
+    description: >
+      Create the sync-repository.ts web action following the existing pattern.
+      Resolves SyncRepositoryMainUseCase via string token, calls execute(),
+      returns discriminated union result.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'File starts with "use server" directive'
+      - 'syncRepository(repoId) exported as async function'
+      - 'Validates repoId is non-empty'
+      - 'Resolves use case via resolve<SyncRepositoryMainUseCase>("SyncRepositoryMainUseCase")'
+      - 'Returns { success: true } on success'
+      - 'Returns { success: false, error: string } on failure'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-18
+    phaseId: phase-4
+    title: 'Create web server action: rebaseFeature'
+    description: >
+      Create the rebase-feature.ts web action following the existing pattern.
+      Resolves RebaseFeatureOnMainUseCase via string token, calls execute(),
+      returns discriminated union result.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'File starts with "use server" directive'
+      - 'rebaseFeature(featureId) exported as async function'
+      - 'Validates featureId is non-empty'
+      - 'Resolves use case via resolve<RebaseFeatureOnMainUseCase>("RebaseFeatureOnMainUseCase")'
+      - 'Returns { success: true } on success'
+      - 'Returns { success: false, error: string } on failure'
+    tdd: null
+    estimatedEffort: '15min'
+
+  # ─── Phase 5: Integration Tests & Regression Verification ────────────
+
+  - id: task-19
+    phaseId: phase-5
+    title: 'Integration test: syncMain with real git repo'
+    description: >
+      Create integration tests that exercise syncMain against a real temporary
+      git repo. Tests: clean fast-forward sync, sync when already up-to-date,
+      sync when local main has diverged, sync from main branch vs feature branch.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Tests create temporary git repos with controlled state'
+      - 'Tests verify actual git operations (commits, branches) not mocks'
+      - 'Clean fast-forward sync test passes'
+      - 'Already up-to-date sync test passes'
+      - 'Diverged main sync test throws SYNC_FAILED'
+      - 'Sync from main branch uses pull (verified via branch state)'
+      - 'Sync from feature branch uses fetch (verified via branch state)'
+    tdd:
+      red:
+        - 'Write integration test scaffolding with tmp dir setup/teardown'
+        - 'Write test: setup upstream repo, clone, add upstream commits, sync from feature branch'
+        - 'Write test: setup diverged main, verify SYNC_FAILED thrown'
+      green:
+        - 'Use tmp directories with real git init, git remote add, git push/fetch'
+        - 'Instantiate real GitPrService with real execFile'
+        - 'Assert actual git state after sync operations'
+      refactor:
+        - 'Extract shared git repo setup helpers for reuse in rebase tests'
+    estimatedEffort: '1h'
+
+  - id: task-20
+    phaseId: phase-5
+    title: 'Integration test: rebaseOnMain with real git repo'
+    description: >
+      Create integration tests that exercise rebaseOnMain against a real
+      temporary git repo. Tests: clean rebase, rebase with conflicts (without
+      agent — just verifying conflict detection), dirty worktree rejection.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-19
+    acceptanceCriteria:
+      - 'Clean rebase test: feature branch rebased onto main, commit history linear'
+      - 'Conflict detection test: rebase throws REBASE_CONFLICT when files conflict'
+      - 'Dirty worktree test: throws GIT_ERROR before attempting rebase'
+      - 'After abort, worktree is clean and branch is at original state'
+    tdd:
+      red:
+        - 'Write test: create feature branch, add non-conflicting changes to main, rebase succeeds'
+        - 'Write test: create conflicting changes on both branches, rebase throws REBASE_CONFLICT'
+        - 'Write test: dirty worktree prevents rebase'
+      green:
+        - 'Use shared git repo helpers from task-19'
+        - 'Create controlled conflict scenarios (same file, different content)'
+        - 'Assert post-rebase git state (linear history, correct file contents)'
+      refactor:
+        - 'Ensure test cleanup handles mid-rebase state (abort before teardown)'
+    estimatedEffort: '1h'
+
+  - id: task-21
+    phaseId: phase-5
+    title: 'Run full test suite and verify zero regressions'
+    description: >
+      Run pnpm test:unit and pnpm test:int to verify all existing tests still
+      pass alongside the new tests. Fix any regressions found. Run pnpm validate
+      to verify lint, format, and typecheck pass.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+      - task-7
+      - task-8
+      - task-9
+      - task-10
+      - task-11
+      - task-12
+      - task-13
+      - task-14
+      - task-15
+      - task-16
+      - task-17
+      - task-18
+      - task-19
+      - task-20
+    acceptanceCriteria:
+      - 'pnpm test:unit passes with zero failures'
+      - 'pnpm test:int passes with zero failures'
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'No regressions in existing test suites'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '9h 30min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is structured in 5 phases with 21 tasks totaling approximately
+  9.5 hours of work.
+
+  Phase 1 (Foundation) establishes the type-level contracts: new error codes and interface
+  method signatures. This is the smallest phase but unlocks all subsequent work since every
+  layer depends on these types.
+
+  Phase 2 (Git Service) implements the core git operations on GitPrService: syncMain with
+  branch-aware fetch/pull, rebaseOnMain with dirty-worktree guard and conflict detection,
+  plus helper methods (getConflictedFiles, stageFiles, rebaseContinue, rebaseAbort) that the
+  conflict resolution service needs. It also extends parseGitError for the new error codes.
+
+  Phase 3 (Application) is the heaviest phase, building the conflict resolution prompt,
+  the ConflictResolutionService with its iterative agent → validate → continue loop, both
+  use cases (SyncRepositoryMainUseCase and RebaseFeatureOnMainUseCase), and DI registrations.
+  The rebase use case orchestrates the full flow: resolve feature → determine cwd → auto-sync
+  main → rebase → handle conflicts via agent.
+
+  Phase 4 (Presentation) wires up CLI commands and web actions. The CLI commands follow the
+  existing spinner + messages pattern. The web actions follow the discriminated union return
+  pattern. Both are thin presentation layers that delegate entirely to use cases.
+
+  Phase 5 (Integration & Verification) adds integration tests against real temporary git
+  repos for sync and rebase operations, then runs the full test suite to verify zero
+  regressions. Integration tests exercise actual git commands rather than mocks, providing
+  confidence that the implementation works end-to-end.

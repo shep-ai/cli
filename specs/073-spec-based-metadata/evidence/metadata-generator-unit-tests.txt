@@ -1,0 +1,33 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-spec-based-metadata
+
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > generateMetadata > should return metadata from AI response 2ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > generateMetadata > should truncate user input exceeding combined limit 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > generateMetadata > should fall back to local extraction when AI executor fails 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > generateMetadata > should fall back to local extraction when AI response missing required fields 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > generateMetadata > should include file content in prompt when user input references a file 1ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > generateMetadata > should not include file hint when no file reference in user input 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > generateMetadata > should gracefully handle missing file reference 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > resolveFileReference > should resolve SPEC.md from "Develop based on the current SPEC.md" 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > resolveFileReference > should resolve spec.md from "based on spec.md" 1ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > resolveFileReference > should resolve from "use ./requirements.yaml" 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > resolveFileReference > should resolve from "using SPEC.md" 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > resolveFileReference > should resolve from "see requirements.txt" 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > resolveFileReference > should return undefined when no file reference pattern found 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > resolveFileReference > should return undefined when referenced file does not exist 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > resolveFileReference > should return undefined when file is empty 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > resolveFileReference > should truncate large file content 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > toSlug > should convert text to kebab-case 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > toSlug > should remove special characters 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > toSlug > should handle multiple spaces 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > toSlug > should remove leading and trailing dashes 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > toSlug > should truncate to 50 characters at word boundary 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > toSlug > should handle text shorter than 50 characters 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > toSlug > should convert to lowercase 0ms
+ ✓  node  tests/unit/use-cases/features/create/metadata-generator.test.ts > MetadataGenerator > toSlug > should collapse multiple consecutive dashes 0ms
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  10:28:59
+   Duration  101ms (transform 24ms, setup 0ms, import 39ms, tests 8ms, environment 0ms)
+

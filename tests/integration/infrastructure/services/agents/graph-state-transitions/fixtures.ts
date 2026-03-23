@@ -6,6 +6,8 @@
  */
 
 export const VALID_SPEC_YAML = `name: Test Feature
+number: 1
+branch: feat/test-feature
 oneLiner: A test feature for graph state transitions
 summary: This is a test feature used in integration tests
 phase: implementation
@@ -62,6 +64,8 @@ export const VALID_TASKS_YAML = `tasks:
  * requirements).
  */
 export const SPEC_WITH_QUESTIONS_YAML = `name: Test Feature
+number: 1
+branch: feat/test-feature
 oneLiner: A test feature with questions
 summary: Test summary with open questions
 phase: implementation

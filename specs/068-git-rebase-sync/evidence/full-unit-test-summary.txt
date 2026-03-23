@@ -1,0 +1,20 @@
+       [33m[2m✓[22m[39m submit button is enabled when repo is selected via combobox [33m 1837[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repositoryPath is provided (canvas flow) [33m 403[2mms[22m[39m
+       [33m[2m✓[22m[39m handleSubmit includes selectedRepoPath in payload [33m 461[2mms[22m[39m
+       [33m[2m✓[22m[39m can submit feature after adding new repo via combobox [33m 516[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m318 passed[39m[22m[90m (318)[39m
+[2m      Tests [22m [1m[32m4082 passed[39m[22m[90m (4082)[39m
+[2m   Start at [22m 19:06:01
+[2m   Duration [22m 93.79s[2m (transform 26.35s, setup 83.24s, import 147.63s, tests 230.42s, environment 240.90s)[22m
+
+     [33m[2m✓[22m[39m should succeed when feature branch is already up-to-date with main (no-op rebase) [33m 613[2mms[22m[39m
+     [33m[2m✓[22m[39m getConflictedFiles should return conflicted file paths during a rebase conflict [33m 1043[2mms[22m[39m
+     [33m[2m✓[22m[39m stageFiles + rebaseContinue should complete rebase after manual conflict resolution [33m 1397[2mms[22m[39m
+     [33m[2m✓[22m[39m rebaseAbort should restore branch to pre-rebase state [33m 1370[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m42 passed[39m[22m[90m (42)[39m
+[2m      Tests [22m [1m[32m499 passed[39m[22m[90m (499)[39m
+[2m   Start at [22m 19:07:36
+[2m   Duration [22m 28.13s[2m (transform 3.13s, setup 0ms, import 20.87s, tests 111.01s, environment 6ms)[22m
+

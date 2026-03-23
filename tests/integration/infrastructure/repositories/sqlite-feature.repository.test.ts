@@ -36,6 +36,11 @@ describe('SQLiteFeatureRepository', () => {
     fast: false,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
+    ciWatchEnabled: true,
+    enableEvidence: false,
+    commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
@@ -336,6 +341,106 @@ describe('SQLiteFeatureRepository', () => {
 
     it('should not throw when deleting non-existent ID', async () => {
       await expect(repository.delete('non-existent')).resolves.not.toThrow();
+    });
+  });
+
+  describe('archive filtering', () => {
+    it('should exclude features with lifecycle=Archived by default', async () => {
+      await repository.create(createTestFeature({ id: 'f1' }));
+      await repository.create(
+        createTestFeature({
+          id: 'f2',
+          slug: 'archived-feat',
+          lifecycle: SdlcLifecycle.Archived,
+          previousLifecycle: SdlcLifecycle.Maintain,
+        })
+      );
+
+      const features = await repository.list();
+
+      expect(features).toHaveLength(1);
+      expect(features[0].id).toBe('f1');
+    });
+
+    it('should include Archived features when includeArchived is true', async () => {
+      await repository.create(createTestFeature({ id: 'f1' }));
+      await repository.create(
+        createTestFeature({
+          id: 'f2',
+          slug: 'archived-feat',
+          lifecycle: SdlcLifecycle.Archived,
+          previousLifecycle: SdlcLifecycle.Maintain,
+        })
+      );
+
+      const features = await repository.list({ includeArchived: true });
+
+      expect(features).toHaveLength(2);
+    });
+
+    it('should return Archived features when explicit lifecycle filter is set', async () => {
+      await repository.create(createTestFeature({ id: 'f1' }));
+      await repository.create(
+        createTestFeature({
+          id: 'f2',
+          slug: 'archived-feat',
+          lifecycle: SdlcLifecycle.Archived,
+          previousLifecycle: SdlcLifecycle.Maintain,
+        })
+      );
+
+      const features = await repository.list({ lifecycle: SdlcLifecycle.Archived });
+
+      expect(features).toHaveLength(1);
+      expect(features[0].id).toBe('f2');
+    });
+  });
+
+  describe('previousLifecycle persistence', () => {
+    it('should persist and restore previousLifecycle via create/findById', async () => {
+      const feature = createTestFeature({
+        lifecycle: SdlcLifecycle.Archived,
+        previousLifecycle: SdlcLifecycle.Maintain,
+      });
+
+      await repository.create(feature);
+      const found = await repository.findById('feat-1');
+
+      expect(found?.previousLifecycle).toBe(SdlcLifecycle.Maintain);
+    });
+
+    it('should persist previousLifecycle via update', async () => {
+      await repository.create(createTestFeature());
+
+      const updated = createTestFeature({
+        lifecycle: SdlcLifecycle.Archived,
+        previousLifecycle: SdlcLifecycle.Blocked,
+        updatedAt: new Date(),
+      });
+      await repository.update(updated);
+
+      const found = await repository.findById('feat-1');
+      expect(found?.lifecycle).toBe(SdlcLifecycle.Archived);
+      expect(found?.previousLifecycle).toBe(SdlcLifecycle.Blocked);
+    });
+
+    it('should clear previousLifecycle when set to undefined on update', async () => {
+      await repository.create(
+        createTestFeature({
+          lifecycle: SdlcLifecycle.Archived,
+          previousLifecycle: SdlcLifecycle.Maintain,
+        })
+      );
+
+      const updated = createTestFeature({
+        lifecycle: SdlcLifecycle.Maintain,
+        updatedAt: new Date(),
+      });
+      await repository.update(updated);
+
+      const found = await repository.findById('feat-1');
+      expect(found?.lifecycle).toBe(SdlcLifecycle.Maintain);
+      expect(found?.previousLifecycle).toBeUndefined();
     });
   });
 

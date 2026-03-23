@@ -1,24 +1,25 @@
 /**
  * CI Watch/Fix Loop
  *
- * After a push, watches CI status and attempts automatic fixes when CI fails.
+ * After a push, watches CI status using an agent-based approach and attempts
+ * automatic fixes when CI fails. The agent follows CI/CD best practices:
+ * checks ALL runs, waits for ALL to complete, and reports accurate status.
+ *
  * Respects configurable max attempts, timeout, and log size from settings.
  */
 
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
-import {
-  GitPrError,
-  GitPrErrorCode,
-} from '@/application/ports/output/services/git-pr-service.interface.js';
 import { CiStatus, type CiFixRecord } from '@/domain/generated/output.js';
 import type { NodeLogger } from '../node-helpers.js';
 import { retryExecute } from '../node-helpers.js';
 import type { AgentExecutionOptions } from '@/application/ports/output/agents/agent-executor.interface.js';
-import { buildCiWatchFixPrompt } from '../prompts/merge-prompts.js';
+import { buildCiWatchFixPrompt, buildCiWatchPrompt } from '../prompts/merge-prompts.js';
+import { parseCiWatchResult } from './merge-output-parser.js';
 import { extractRunId, handleCiTerminalFailure, buildCiExhaustedError } from './ci-helpers.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
+import { recordPhaseStart, recordPhaseEnd } from '../../phase-timing-context.js';
 
 export interface CiWatchFixDeps {
   executor: IAgentExecutor;
@@ -48,8 +49,79 @@ export interface CiWatchFixResult {
 }
 
 /**
- * Run the CI watch/fix loop. Watches for the initial CI result, then
- * iteratively attempts fixes up to the configured maximum.
+ * Watch CI using an agent call. The agent checks ALL runs for the branch,
+ * waits for ALL to complete, and reports structured CI_STATUS.
+ *
+ * Records a phase timing entry for the activity timeline.
+ *
+ * @returns Parsed CI status result with usage metrics
+ */
+async function watchCiViaAgent(
+  executor: IAgentExecutor,
+  branch: string,
+  options: AgentExecutionOptions,
+  timeoutMs: number,
+  log: NodeLogger
+): Promise<{
+  status: 'success' | 'failure';
+  summary?: string;
+  runUrl?: string;
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    costUsd?: number;
+    numTurns?: number;
+    durationApiMs?: number;
+  };
+  timedOut?: boolean;
+}> {
+  const watchOptions = { ...options, timeout: timeoutMs };
+  const watchPrompt = buildCiWatchPrompt(branch);
+  const watchStart = Date.now();
+  const timingId = await recordPhaseStart('merge:ci-watch', {
+    agentType: executor.agentType,
+    prompt: watchPrompt,
+  });
+
+  try {
+    const result = await retryExecute(executor, watchPrompt, watchOptions, {
+      maxAttempts: 1,
+      logger: log,
+    });
+
+    const elapsed = Date.now() - watchStart;
+    await recordPhaseEnd(timingId, elapsed, {
+      inputTokens: result.usage?.inputTokens,
+      outputTokens: result.usage?.outputTokens,
+      costUsd: result.usage?.costUsd,
+      numTurns: result.usage?.numTurns,
+      durationApiMs: result.usage?.durationApiMs,
+      exitCode: 'success',
+    });
+
+    const parsed = parseCiWatchResult(result.result);
+    return { ...parsed, usage: result.usage };
+  } catch (err) {
+    const elapsed = Date.now() - watchStart;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    await recordPhaseEnd(timingId, elapsed, {
+      exitCode: 'error',
+      errorMessage: errMsg.slice(0, 500),
+    });
+
+    // Check if this is a timeout
+    if (errMsg.includes('timed out') || errMsg.includes('timeout')) {
+      return { status: 'failure', summary: 'CI watch timed out', timedOut: true };
+    }
+
+    // For other errors, treat as indeterminate (failure)
+    return { status: 'failure', summary: `CI watch agent error: ${errMsg.slice(0, 200)}` };
+  }
+}
+
+/**
+ * Run the CI watch/fix loop. Watches for the initial CI result using an
+ * agent-based approach, then iteratively attempts fixes up to the configured maximum.
  *
  * Throws on timeout or exhausted attempts (after updating feature state).
  */
@@ -64,7 +136,6 @@ export async function runCiWatchFixLoop(
   const maxAttempts = settings.workflow?.ciMaxFixAttempts ?? 3;
   const timeoutMs = settings.workflow?.ciWatchTimeoutMs ?? 600_000;
   const logMaxChars = settings.workflow?.ciLogMaxChars ?? 50_000;
-  const pollInterval = settings.workflow?.ciWatchPollIntervalSeconds ?? 30;
 
   let ciFixAttempts = params.existingAttempts;
   const ciFixHistory: CiFixRecord[] = [];
@@ -72,7 +143,7 @@ export async function runCiWatchFixLoop(
 
   log.info(`Starting CI watch (maxAttempts=${maxAttempts}, timeout=${timeoutMs}ms)`);
 
-  // Check if any CI run exists for this branch
+  // Check if any CI run exists for this branch (lightweight check before spawning agent)
   let initialCiStatus;
   try {
     initialCiStatus = await gitPrService.getCiStatus(cwd, branch);
@@ -109,29 +180,23 @@ export async function runCiWatchFixLoop(
 
   let runUrl = initialCiStatus.runUrl;
 
-  // Initial CI watch
-  let watchResult;
-  try {
-    watchResult = await gitPrService.watchCi(cwd, branch, timeoutMs, pollInterval);
-  } catch (err) {
-    if (err instanceof GitPrError && err.code === GitPrErrorCode.CI_TIMEOUT) {
-      log.info('Initial CI watch timed out');
-      ciFixHistory.push({
-        attempt: ciFixAttempts + 1,
-        startedAt: new Date().toISOString(),
-        failureSummary: 'CI watch timed out',
-        outcome: 'timeout',
-      });
-      await handleCiTerminalFailure(feature, prUrl, prNumber, deps.featureRepository, messages);
-      throw buildCiExhaustedError(ciFixAttempts + 1, ciFixHistory, 'timeout');
-    }
-    throw err;
-  }
+  // Initial CI watch via agent
+  log.info('Watching CI via agent (checks ALL runs)');
+  const watchResult = await watchCiViaAgent(executor, branch, options, timeoutMs, log);
 
-  // Use the run URL from watchCi — it reflects the actual run watched,
-  // which may differ from the initial getCiStatus() result when multiple
-  // workflow runs exist for the same branch.
   if (watchResult.runUrl) runUrl = watchResult.runUrl;
+
+  if (watchResult.timedOut) {
+    log.info('Initial CI watch timed out');
+    ciFixHistory.push({
+      attempt: ciFixAttempts + 1,
+      startedAt: new Date().toISOString(),
+      failureSummary: 'CI watch timed out',
+      outcome: 'timeout',
+    });
+    await handleCiTerminalFailure(feature, prUrl, prNumber, deps.featureRepository, messages);
+    throw buildCiExhaustedError(ciFixAttempts + 1, ciFixHistory, 'timeout');
+  }
 
   if (watchResult.status === 'success') {
     log.info('CI passed on first watch');
@@ -147,24 +212,42 @@ export async function runCiWatchFixLoop(
       break;
     }
 
-    // Fetch failure logs
+    // Fetch failure logs for context
     const runId = extractRunId(runUrl) ?? '';
     const failureLogs = await gitPrService.getFailureLogs(cwd, runId, branch, logMaxChars);
     const startedAt = new Date().toISOString();
 
     log.info(`CI fix attempt ${ciFixAttempts + 1}/${maxAttempts} for run ${runId}`);
 
+    // Record fix phase timing
+    const fixStart = Date.now();
+    const fixTimingId = await recordPhaseStart('merge:ci-fix', {
+      agentType: executor.agentType,
+    });
+
     // Invoke fix executor — maxAttempts:1 prevents retryExecute's internal
     // retry logic from consuming CI fix attempts behind the outer loop's back.
-    // Each CI fix is a unique attempt with distinct failure logs and prompt;
-    // the outer loop already handles iteration.
     const fixPrompt = buildCiWatchFixPrompt(failureLogs, ciFixAttempts + 1, maxAttempts, branch);
     try {
-      await retryExecute(executor, fixPrompt, options, { maxAttempts: 1, logger: log });
+      const fixResult = await retryExecute(executor, fixPrompt, options, {
+        maxAttempts: 1,
+        logger: log,
+      });
+      await recordPhaseEnd(fixTimingId, Date.now() - fixStart, {
+        inputTokens: fixResult.usage?.inputTokens,
+        outputTokens: fixResult.usage?.outputTokens,
+        costUsd: fixResult.usage?.costUsd,
+        numTurns: fixResult.usage?.numTurns,
+        durationApiMs: fixResult.usage?.durationApiMs,
+        exitCode: 'success',
+      });
     } catch (execErr) {
       // If the fix executor fails, count it as a failed attempt and continue
-      // the loop rather than killing the entire CI fix process.
       const execMsg = execErr instanceof Error ? execErr.message : String(execErr);
+      await recordPhaseEnd(fixTimingId, Date.now() - fixStart, {
+        exitCode: 'error',
+        errorMessage: execMsg.slice(0, 500),
+      });
       log.info(`CI fix executor failed on attempt ${ciFixAttempts + 1}: ${execMsg}`);
       ciFixAttempts++;
       ciFixHistory.push({
@@ -178,43 +261,23 @@ export async function runCiWatchFixLoop(
     }
     ciFixAttempts++;
 
-    // Get updated run URL (new run triggered by push in fix)
-    const updatedCiStatus = await gitPrService.getCiStatus(cwd, branch);
-    if (updatedCiStatus.runUrl) runUrl = updatedCiStatus.runUrl;
+    // Watch CI after fix via agent (agent checks ALL runs for updated branch)
+    log.info('Watching CI after fix via agent');
+    const fixWatchResult = await watchCiViaAgent(executor, branch, options, timeoutMs, log);
 
-    // Watch CI after fix
-    let fixWatchResult;
-    try {
-      fixWatchResult = await gitPrService.watchCi(cwd, branch, timeoutMs, pollInterval);
-    } catch (err) {
-      if (err instanceof GitPrError && err.code === GitPrErrorCode.CI_TIMEOUT) {
-        log.info(`CI watch timed out during fix attempt ${ciFixAttempts}`);
-        ciFixHistory.push({
-          attempt: ciFixAttempts,
-          startedAt,
-          failureSummary: failureLogs.slice(0, 500),
-          outcome: 'timeout',
-        });
-        ciFixStatus = 'timeout';
-        break;
-      }
-      // For non-timeout watchCi errors (e.g. GIT_ERROR), treat as a failed
-      // attempt and continue the loop instead of killing it.
-      const watchMsg = err instanceof Error ? err.message : String(err);
-      log.info(`CI watch failed during fix attempt ${ciFixAttempts}: ${watchMsg}`);
+    if (fixWatchResult.runUrl) runUrl = fixWatchResult.runUrl;
+
+    if (fixWatchResult.timedOut) {
+      log.info(`CI watch timed out during fix attempt ${ciFixAttempts}`);
       ciFixHistory.push({
         attempt: ciFixAttempts,
         startedAt,
         failureSummary: failureLogs.slice(0, 500),
-        outcome: 'failed',
+        outcome: 'timeout',
       });
-      messages.push(`[merge] CI fix attempt ${ciFixAttempts}/${maxAttempts} — watch failed`);
-      continue;
+      ciFixStatus = 'timeout';
+      break;
     }
-
-    // Update runUrl to the run that was actually watched (avoids mismatch
-    // when multiple workflow runs exist for the same branch).
-    if (fixWatchResult.runUrl) runUrl = fixWatchResult.runUrl;
 
     const outcome = fixWatchResult.status === 'success' ? 'fixed' : 'failed';
     ciFixHistory.push({

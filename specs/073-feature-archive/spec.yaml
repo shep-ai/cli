@@ -1,0 +1,111 @@
+name: "feature-archive"
+number: 73
+branch: "feat/073-feature-archive"
+oneLiner: "Allow users to archive features to hide them from the canvas without deleting them"
+userQuery: "Right now, all features are visible on the canvas, which really clutters the view. I'd love to be able to 'archive' a feature to hide it without having to delete it entirely.\n"
+summary: "Add an archive capability for features so users can hide completed or inactive features from the canvas without permanently deleting them. This involves adding an Archived lifecycle state, updating the repository filter layer, and providing archive/unarchive controls in both the web UI (context menu, toolbar toggle) and CLI (feat archive/unarchive commands, feat ls --show-archived flag).\n"
+phase: "Requirements"
+sizeEstimate: "M"
+relatedFeatures: []
+technologies:
+  - "TypeSpec (domain model, SdlcLifecycle enum)"
+  - "SQLite (feature persistence, filtering)"
+  - "React Flow / @xyflow/react (canvas rendering)"
+  - "Next.js server actions (archive/unarchive mutations)"
+  - "SSE / agent-events (real-time canvas updates)"
+  - "Commander.js (CLI commands)"
+  - "Storybook (component stories)"
+relatedLinks:
+  - title: "GitHub Issue #435 - Add archive option for features"
+    url: "https://github.com/shep-ai/cli/issues/435"
+openQuestions:
+  - question: "Which lifecycle states should be eligible for archiving?"
+    resolved: true
+    options:
+      - option: "Any state"
+        description: "Allow archiving from any lifecycle state. Maximum flexibility but risks archiving features mid-work (e.g., during Implementation or Review), which could confuse users or leave orphaned agent runs."
+        selected: false
+      - option: "Terminal and idle states only (Maintain, Pending, Blocked)"
+        description: "Only allow archiving features that are not actively progressing through the SDLC. Maintain is the primary use case (completed features). Pending and Blocked are idle. This prevents archiving features with active agent work."
+        selected: true
+      - option: "Maintain only"
+        description: "Strictest option — only completed features can be archived. Simple but limits the ability to archive stalled or deferred features that clutter the canvas."
+        selected: false
+    selectionRationale: "Terminal and idle states (Maintain, Pending, Blocked) cover the primary use case (completed features cluttering the canvas) while also allowing users to archive deferred or blocked features. Excluding active states (Analyze through Review) prevents archiving features with in-progress agent work, which could cause confusion about orphaned runs."
+    answer: "Terminal and idle states only (Maintain, Pending, Blocked)"
+  - question: "What should happen to child features when a parent is archived?"
+    resolved: true
+    options:
+      - option: "Block archiving if active children exist"
+        description: "Refuse to archive a parent feature if any non-archived child features exist. Forces the user to archive or complete children first. Simple and predictable, prevents orphaned children on the canvas."
+        selected: true
+      - option: "Cascade archive to all children"
+        description: "Automatically archive all child features when archiving the parent. Efficient for bulk cleanup but risks hiding features the user still cares about. Harder to undo (must unarchive parent + children separately)."
+        selected: false
+      - option: "Allow archiving parent regardless of children"
+        description: "Archive the parent and leave children visible on the canvas. Children would show a broken dependency edge (parent node gone). Could confuse users seeing orphaned children."
+        selected: false
+    selectionRationale: "Blocking archiving when active children exist is the safest default. It prevents orphaned children on the canvas and avoids the complexity of cascade operations. The user gets a clear error message telling them which children need attention first. This matches the mental model that parent features gate their children."
+    answer: "Block archiving if active children exist"
+  - question: "Should unarchive restore the previous lifecycle state or reset to a fixed state?"
+    resolved: true
+    options:
+      - option: "Restore previous lifecycle state"
+        description: "Store the pre-archive lifecycle in a new field (e.g., previousLifecycle) and restore it on unarchive. Provides the best UX since the feature returns exactly where it was. Requires an additional database column."
+        selected: true
+      - option: "Reset to Maintain"
+        description: "Always unarchive to Maintain state regardless of what state the feature was in before archiving. Simple implementation (no extra column) but loses context. Features archived from Pending or Blocked would incorrectly appear as completed."
+        selected: false
+      - option: "Reset to Pending"
+        description: "Always unarchive to Pending state. Treats unarchived features as needing re-evaluation. Loses the original state context and forces unnecessary re-triage for completed features."
+        selected: false
+    selectionRationale: "Restoring the previous lifecycle state provides the most intuitive UX. A feature archived from Maintain should return as Maintain; one archived from Blocked should return as Blocked. The cost is one additional column (previous_lifecycle TEXT) which is trivial given the existing schema pattern. This also preserves the unblock gate semantics — an unarchived Maintain feature can still gate children correctly."
+    answer: "Restore previous lifecycle state"
+  - question: "Where should the archive toggle appear in the web UI?"
+    resolved: true
+    options:
+      - option: "Toolbar toggle button inside the canvas"
+        description: "Add a toggle button (e.g., eye icon) to the existing toolbar area inside the ReactFlow canvas. Consistent with the existing toolbar prop pattern on FeaturesCanvas. Always visible and easy to discover."
+        selected: false
+      - option: "Filter dropdown in the dashboard header"
+        description: "Add a filter dropdown outside the canvas in the dashboard header area. Separates filtering concerns from the canvas but adds complexity to a different component hierarchy. Less discoverable."
+        selected: false
+      - option: "Both toolbar and header"
+        description: "Provide the toggle in both locations. More discoverable but adds maintenance burden and potential state sync issues between two filter controls."
+        selected: true
+    selectionRationale: "The FeaturesCanvas already accepts a toolbar prop for injecting controls into the ReactFlow canvas. A toolbar toggle button follows the existing pattern, is always visible when looking at the canvas, and is the most discoverable location. The eye/eye-off icon pattern is a well-understood UI convention for show/hide toggles."
+    answer: "Both toolbar and header"
+  - question: "Should the archive action require confirmation in the web UI?"
+    resolved: true
+    options:
+      - option: "No confirmation needed"
+        description: "Archive immediately on click. Archiving is non-destructive and easily reversible (unarchive), so a confirmation dialog adds unnecessary friction. The feature is just hidden, not deleted."
+        selected: false
+      - option: "Confirmation dialog required"
+        description: "Show a confirmation dialog before archiving, similar to the delete flow. Adds safety but creates friction for a non-destructive, easily reversible action."
+        selected: true
+    selectionRationale: "Unlike deletion, archiving is fully non-destructive and trivially reversible via unarchive. No data is lost or modified beyond the lifecycle state. Adding a confirmation dialog would create unnecessary friction for what should be a lightweight declutter action. The delete flow needs confirmation because it triggers branch cleanup and data removal — archive does none of that."
+    answer: "Confirmation dialog required"
+  - question: "How should archived features appear when the show-archived toggle is enabled?"
+    resolved: true
+    options:
+      - option: "Dimmed/faded with an archived badge"
+        description: "Render archived features with reduced opacity (e.g., 50%) and an ARCHIVED badge. Clearly distinguishes them from active features while keeping them visible. Follows the visual pattern used for Deleting state (gray, muted)."
+        selected: true
+      - option: "Normal appearance with archived badge only"
+        description: "Render archived features exactly like normal features but with an ARCHIVED badge label. Less visually distinct — users may not immediately notice which features are archived vs active."
+        selected: false
+    selectionRationale: "Dimmed/faded rendering with an ARCHIVED badge makes archived features immediately distinguishable from active ones when the toggle is on. This follows the existing pattern where Deleting features use muted gray styling. The visual hierarchy clearly communicates that these features are in a dormant state while still allowing interaction (unarchive)."
+    answer: "Dimmed/faded with an archived badge"
+content: "## Problem Statement\n\nAll features are always visible on the web UI canvas, regardless of their lifecycle state.\nAs users create more features over time, the canvas becomes cluttered with completed\n(Maintain) or inactive features that no longer need active attention. There is currently\nno way to hide a feature from the canvas without deleting it entirely — which permanently\nremoves the feature's conversation history, plan, artifacts, and triggers git branch cleanup.\n\nUsers need a lightweight way to \"archive\" features to declutter the canvas while preserving\nall data for future reference. The archive action must be non-destructive, easily reversible,\nand available from both the web UI and CLI.\n\n## Success Criteria\n\n- [ ] New `Archived` lifecycle state added to SdlcLifecycle enum via TypeSpec\n- [ ] Generated TypeScript types include `Archived` after `pnpm tsp:compile`\n- [ ] Features in Maintain, Pending, or Blocked states can be archived via web UI\n- [ ] Features in Maintain, Pending, or Blocked states can be archived via CLI (`shep feat archive <id>`)\n- [ ] Archiving a feature with active (non-archived) children is rejected with a clear error\n- [ ] Archived features are hidden from the canvas by default\n- [ ] Archived features are hidden from `shep feat ls` by default\n- [ ] Toolbar toggle in the web UI canvas shows/hides archived features\n- [ ] Archived features appear dimmed with an ARCHIVED badge when shown\n- [ ] CLI flag `--show-archived` on `shep feat ls` includes archived features\n- [ ] Features can be unarchived via web UI context menu (restores previous lifecycle state)\n- [ ] Features can be unarchived via CLI (`shep feat unarchive <id>`)\n- [ ] Previous lifecycle state is stored and restored on unarchive\n- [ ] Archived features retain all data (messages, plan, artifacts, git branches)\n- [ ] No git branch cleanup or PR operations are triggered by archiving\n- [ ] Archive/unarchive state changes propagate via SSE for real-time canvas updates\n- [ ] Storybook stories for all new/modified UI components\n- [ ] Unit tests for ArchiveFeatureUseCase and UnarchiveFeatureUseCase\n- [ ] Unit tests for repository filtering of archived features\n- [ ] Integration tests for CLI archive/unarchive commands\n\n## Functional Requirements\n\n- **FR-1**: Add an `Archived` value to the `SdlcLifecycle` enum in TypeSpec (`tsp/common/enums/lifecycle.tsp`). Regenerate TypeScript types via `pnpm tsp:compile`.\n\n- **FR-2**: Add a `previousLifecycle` field to the Feature entity (TypeSpec model) to store the lifecycle state prior to archiving. This field is nullable and only populated when the feature is in the Archived state.\n\n- **FR-3**: Create an `ArchiveFeatureUseCase` that transitions a feature's lifecycle to `Archived`, storing the current lifecycle in `previousLifecycle`. The use case must validate that the feature is in an archivable state (Maintain, Pending, or Blocked) and that no active (non-archived) child features exist.\n\n- **FR-4**: Create an `UnarchiveFeatureUseCase` that restores a feature's lifecycle from `Archived` to its `previousLifecycle` value, then clears `previousLifecycle`.\n\n- **FR-5**: Add `includeArchived` boolean to `FeatureListFilters`. Default: `false`. When `false`, the repository `list()` method must exclude features with `lifecycle = 'Archived'`.\n\n- **FR-6**: Update `SQLiteFeatureRepository.list()` to exclude Archived features by default (when `includeArchived` is not `true`), following the same pattern as `includeDeleted`.\n\n- **FR-7**: Add a database migration to add the `previous_lifecycle` column to the features table (TEXT, nullable).\n\n- **FR-8**: Create `archive-feature` and `unarchive-feature` Next.js server actions following the existing pattern (resolve use case from DI, return `{ feature?, error? }`).\n\n- **FR-9**: Add archive/unarchive controls to the feature node in the web UI. Archive button appears on hover for features in archivable states (Maintain, Pending, Blocked). Unarchive button appears for features in Archived state (when show-archived toggle is on). No confirmation dialog required for either action.\n\n- **FR-10**: Add a toolbar toggle button inside the FeaturesCanvas (using the existing `toolbar` prop pattern) that controls whether archived features are included in the graph. Default: hidden. The toggle persists during the session but resets on page reload.\n\n- **FR-11**: When the show-archived toggle is enabled, archived features render with reduced opacity and an \"ARCHIVED\" badge. Add `archived` to `FeatureNodeState` with gray/muted styling similar to `deleting`.\n\n- **FR-12**: Add `shep feat archive <id>` CLI command. Resolves the feature by ID prefix, validates archivable state, and executes `ArchiveFeatureUseCase`. Supports `--force` flag to skip confirmation.\n\n- **FR-13**: Add `shep feat unarchive <id>` CLI command. Resolves the feature by ID prefix and executes `UnarchiveFeatureUseCase`.\n\n- **FR-14**: Add `--show-archived` flag to `shep feat ls` command. When present, includes archived features in the output. Archived features display with a distinct status indicator (e.g., muted \"Archived\" label).\n\n- **FR-15**: Update the SSE event route (`agent-events/route.ts`) to handle the `Archived` lifecycle state in the `LIFECYCLE_TO_NODE` mapping, so archive/unarchive transitions propagate to the canvas in real-time.\n\n- **FR-16**: Update `deriveGraph` to respect the archived filter state, excluding archived features from nodes and edges when the toggle is off.\n\n- **FR-17**: Update lifecycle gates (`lifecycle-gates.ts`) to exclude `Archived` from `POST_IMPLEMENTATION` gate. Archived features should not count as satisfying parent completion gates for child feature unblocking.\n\n## Non-Functional Requirements\n\n- **NFR-1**: Archive and unarchive operations must complete within 100ms (single database update, no git operations or external API calls).\n\n- **NFR-2**: The repository `list()` filtering must not require a separate database query for archived features — the exclusion must be part of the existing WHERE clause to avoid N+1 performance issues.\n\n- **NFR-3**: The toolbar toggle state must update the canvas immediately (client-side filtering) without requiring a server round-trip when toggling between show/hide archived.\n\n- **NFR-4**: All new UI components (toolbar toggle, archive button, archived badge) must have colocated Storybook stories with both archived-visible and archived-hidden states demonstrated.\n\n- **NFR-5**: The archive feature must not affect existing soft-delete behavior. Archived features are NOT soft-deleted — they retain `deletedAt = null` and remain fully queryable when the archive filter is disabled.\n\n- **NFR-6**: The `previousLifecycle` field must not be exposed or editable through any public API beyond the archive/unarchive use cases. It is an internal implementation detail for state restoration.\n\n- **NFR-7**: CLI commands must follow existing patterns — DI container resolution, consistent error formatting, and exit codes (0 for success, 1 for errors).\n\n## Product Questions & AI Recommendations\n\n| # | Question | AI Recommendation | Rationale |\n| - | -------- | ----------------- | --------- |\n| 1 | Which lifecycle states should be eligible for archiving? | Terminal and idle states only (Maintain, Pending, Blocked) | Covers the primary use case while preventing archiving of features with active agent work |\n| 2 | What should happen to child features when a parent is archived? | Block archiving if active children exist | Prevents orphaned children on the canvas; user must handle children first |\n| 3 | Should unarchive restore the previous lifecycle state? | Yes, store and restore previous lifecycle | Best UX — features return exactly where they were; trivial schema addition |\n| 4 | Where should the archive toggle appear in the web UI? | Toolbar toggle button inside the canvas | Follows existing toolbar prop pattern on FeaturesCanvas; most discoverable |\n| 5 | Should the archive action require confirmation? | No confirmation needed | Archive is non-destructive and trivially reversible; no data loss or git operations |\n| 6 | How should archived features appear when shown? | Dimmed/faded with an ARCHIVED badge | Clear visual distinction from active features; follows muted styling pattern |\n\n## Affected Areas\n\n| Area | Impact | Reasoning |\n| ---- | ------ | --------- |\n| `tsp/common/enums/lifecycle.tsp` | High | Add `Archived` to SdlcLifecycle enum |\n| `tsp/` (Feature model) | Medium | Add `previousLifecycle` field to Feature |\n| `packages/core/src/domain/generated/output.ts` | High | Regenerated from TypeSpec changes |\n| `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts` | Medium | Add `includeArchived` to FeatureListFilters |\n| `packages/core/src/infrastructure/repositories/sqlite-feature.repository.ts` | Medium | Update list() queries to exclude Archived by default |\n| `packages/core/src/infrastructure/database/migrations/` | Medium | New migration for previous_lifecycle column |\n| `packages/core/src/application/use-cases/features/` | Medium | New ArchiveFeatureUseCase and UnarchiveFeatureUseCase |\n| `packages/core/src/domain/lifecycle-gates.ts` | Low | Exclude Archived from POST_IMPLEMENTATION gate |\n| `src/presentation/cli/commands/feat/` | Medium | New `archive` and `unarchive` subcommands, `--show-archived` flag on ls |\n| `src/presentation/web/app/actions/` | Medium | New archive-feature and unarchive-feature server actions |\n| `src/presentation/web/components/common/feature-node/` | Medium | Archive/unarchive buttons, archived visual state, ARCHIVED badge |\n| `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Low | Add `archived` state config with muted styling |\n| `src/presentation/web/components/features/features-canvas/` | Medium | Toolbar toggle for showing/hiding archived features |\n| `src/presentation/web/hooks/use-graph-state.ts` | Low | Handle archived state in domain maps |\n| `src/presentation/web/lib/derive-graph.ts` | Medium | Filter archived features from derived graph |\n| `src/presentation/web/app/(dashboard)/get-graph-data.ts` | Low | Pass archive filter through to use case |\n| `src/presentation/web/app/api/agent-events/route.ts` | Low | Add Archived to LIFECYCLE_TO_NODE mapping |\n| `src/presentation/cli/commands/feat/ls.command.ts` | Low | Add --show-archived flag, display archived status |\n| `tests/` | High | Unit tests for use cases, repository, CLI; component stories |\n\n## Dependencies\n\n- **Existing soft-delete infrastructure** — The archive pattern follows the same\n  filtering approach (exclude by default, include with flag) but uses lifecycle state\n  rather than deletedAt timestamp, since archived features are NOT deleted.\n- **TypeSpec compiler** — Must regenerate domain types after adding Archived enum value\n  and previousLifecycle field.\n- **Feature lifecycle context** — The lifecycle-context.ts and lifecycle-gates.ts files\n  need awareness of Archived state to prevent invalid transitions and exclude from gates.\n- **SSE event system** — Archive/unarchive state changes must propagate via SSE for\n  real-time canvas updates.\n- **Database migrations** — New migration for the previous_lifecycle column must run\n  before any archive operations.\n- **Feature parent-child relationships** — ArchiveFeatureUseCase must check for active\n  children via IFeatureRepository.findByParentId().\n\n## Size Estimate\n\n**M** — This feature touches multiple layers (domain, application, infrastructure,\npresentation) but follows well-established patterns in the codebase. The soft-delete\ninfrastructure provides a clear blueprint for archive filtering. Most changes are\nadditive (new enum value, new field, new use cases, new CLI commands, new UI controls)\nrather than refactoring existing code. The previousLifecycle field adds one migration\nand one column. The main implementation risk is ensuring consistent filtering across\nall query paths (repository list, SSE polling, graph derivation).\n\n---\n\n_Requirements complete — proceed with research_\n"
+rejectionFeedback:
+  - iteration: 1
+    message: "rebase on main and solve conflicts. add video evidence that the feature is working"
+    phase: "merge"
+    timestamp: "2026-03-22T07:56:43.074Z"
+  - iteration: 2
+    message: "the archive button and the system controls override each other"
+    phase: "merge"
+    timestamp: "2026-03-22T09:03:33.200Z"
+    attachments:
+      - "/Users/arielshadkhan/.shep/attachments/pending-771047eb-6fd4-409e-9617-192f325f67bf/image-7e5f350e.png"

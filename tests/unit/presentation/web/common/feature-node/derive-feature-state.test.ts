@@ -30,6 +30,11 @@ function createMinimalFeature(overrides: Partial<Feature> = {}): Feature {
     fast: false,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
+    ciWatchEnabled: true,
+    enableEvidence: false,
+    commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -62,6 +67,17 @@ describe('deriveNodeState', () => {
   it('returns deleting for Deleting lifecycle without agent run', () => {
     const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Deleting });
     expect(deriveNodeState(feature)).toBe('deleting');
+  });
+
+  it('returns archived for Archived lifecycle without agent run', () => {
+    const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Archived });
+    expect(deriveNodeState(feature)).toBe('archived');
+  });
+
+  it('returns archived for Archived lifecycle even with a running agent run', () => {
+    const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Archived });
+    const run = createMinimalAgentRun({ status: AgentRunStatus.running });
+    expect(deriveNodeState(feature, run)).toBe('archived');
   });
 
   it('returns pending for Pending lifecycle (after Deleting, before Blocked)', () => {
@@ -403,5 +419,15 @@ describe('mapPhaseNameToLifecycle', () => {
 describe('sdlcLifecycleMap', () => {
   it('maps Pending to pending', () => {
     expect(sdlcLifecycleMap['Pending']).toBe('pending');
+  });
+
+  it('maps Archived to maintain (closest phase)', () => {
+    expect(sdlcLifecycleMap['Archived']).toBe('maintain');
+  });
+});
+
+describe('mapPhaseNameToLifecycle (archived)', () => {
+  it('maps "archived" to maintain', () => {
+    expect(mapPhaseNameToLifecycle('archived')).toBe('maintain');
   });
 });

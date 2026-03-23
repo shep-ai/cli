@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseCommitHash,
   parsePrUrl,
+  parseCiWatchResult,
 } from '../../../../../../../packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge-output-parser.js';
 
 describe('merge-output-parser', () => {
@@ -71,6 +72,59 @@ describe('merge-output-parser', () => {
         url: 'https://github.com/shep-ai/cli/pull/88',
         number: 88,
       });
+    });
+  });
+
+  describe('parseCiWatchResult', () => {
+    it('should return success for CI_STATUS: PASSED', () => {
+      const output = 'All runs completed.\nCI_STATUS: PASSED\nDone.';
+      const result = parseCiWatchResult(output);
+      expect(result.status).toBe('success');
+    });
+
+    it('should return failure with summary for CI_STATUS: FAILED', () => {
+      const output = 'Run 123 failed.\nCI_STATUS: FAILED — Unit Tests failed with 3 errors\nDone.';
+      const result = parseCiWatchResult(output);
+      expect(result.status).toBe('failure');
+      expect(result.summary).toBe('Unit Tests failed with 3 errors');
+    });
+
+    it('should return failure with unknown summary for unparseable output', () => {
+      const output = 'Agent did something but no status marker';
+      const result = parseCiWatchResult(output);
+      expect(result.status).toBe('failure');
+      expect(result.summary).toBe('CI status could not be determined from agent output');
+    });
+
+    it('should extract run URL from output', () => {
+      const output = 'Watching https://github.com/org/repo/actions/runs/12345\nCI_STATUS: PASSED';
+      const result = parseCiWatchResult(output);
+      expect(result.status).toBe('success');
+      expect(result.runUrl).toBe('https://github.com/org/repo/actions/runs/12345');
+    });
+
+    it('should handle PASSED with extra whitespace', () => {
+      const output = 'CI_STATUS:   PASSED  ';
+      const result = parseCiWatchResult(output);
+      expect(result.status).toBe('success');
+    });
+
+    it('should handle FAILED without summary after dash', () => {
+      const output = 'CI_STATUS: FAILED';
+      const result = parseCiWatchResult(output);
+      expect(result.status).toBe('failure');
+      expect(result.summary).toBe('CI failed (no details provided)');
+    });
+
+    it('should return failure for empty string', () => {
+      const result = parseCiWatchResult('');
+      expect(result.status).toBe('failure');
+    });
+
+    it('should extract the last CI_STATUS if multiple appear', () => {
+      const output = 'CI_STATUS: FAILED — first check\nRetrying...\nCI_STATUS: PASSED';
+      const result = parseCiWatchResult(output);
+      expect(result.status).toBe('success');
     });
   });
 });

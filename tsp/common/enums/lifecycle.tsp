@@ -104,4 +104,23 @@ enum SdlcLifecycle {
    */
   @doc("Feature is being deleted — cleanup in progress before soft-delete")
   Deleting,
+
+  /**
+   * Upstream PR submitted state. The feature's code has been pushed to a fork
+   * and a PR has been created to the upstream repo. Shep polls the upstream PR
+   * status and auto-transitions to Maintain when merged.
+   * Only reachable when forkAndPr=true.
+   */
+  @doc("Upstream PR submitted — waiting for external merge on upstream repo")
+  AwaitingUpstream,
+
+  /**
+   * Archived state. The feature is hidden from the canvas and default listings
+   * but retains all data (messages, plan, artifacts, git branches). Only features
+   * in terminal or idle states (Maintain, Pending, Blocked) can be archived.
+   * The previous lifecycle state is stored in previousLifecycle for restoration
+   * on unarchive.
+   */
+  @doc("Feature is archived — hidden from canvas and listings but fully preserved")
+  Archived,
 }

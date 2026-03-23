@@ -25,6 +25,7 @@ import type { IPhaseTimingRepository } from '@/application/ports/output/agents/p
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type { IGitForkService } from '@/application/ports/output/services/git-fork-service.interface.js';
 import { setVersionEnvVars } from '@/infrastructure/services/version.service.js';
 import { resolveWebDir } from '@/infrastructure/services/web-server.service.js';
 import {
@@ -91,6 +92,7 @@ Examples:
 
         // Start PR sync watcher to detect PR/CI status transitions on GitHub
         const gitPrService = container.resolve<IGitPrService>('IGitPrService');
+        const gitForkService = container.resolve<IGitForkService>('IGitForkService');
         const db = getExistingConnection();
         initializePrSyncWatcher(
           featureRepo,
@@ -98,7 +100,8 @@ Examples:
           gitPrService,
           notificationService,
           undefined,
-          db
+          db,
+          gitForkService
         );
         getPrSyncWatcher().start();
 

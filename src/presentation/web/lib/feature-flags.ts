@@ -18,6 +18,7 @@ export interface FeatureFlagsState {
   debug: boolean;
   githubImport: boolean;
   adoptBranch: boolean;
+  gitRebaseSync: boolean;
   reactFileManager: boolean;
   coastsDevServer: boolean;
 }
@@ -33,6 +34,7 @@ export function getFeatureFlags(): FeatureFlagsState {
           debug: flags.debug,
           githubImport: flags.githubImport,
           adoptBranch: flags.adoptBranch,
+          gitRebaseSync: flags.gitRebaseSync,
           reactFileManager: flags.reactFileManager,
           coastsDevServer: flags.coastsDevServer,
         };
@@ -51,6 +53,7 @@ export function getFeatureFlags(): FeatureFlagsState {
     debug: false,
     githubImport: false,
     adoptBranch: false,
+    gitRebaseSync: false,
     reactFileManager: isEnabled(process.env.NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER),
     coastsDevServer: isEnabled(process.env.NEXT_PUBLIC_FLAG_COASTS_DEV_SERVER),
   };
@@ -75,6 +78,9 @@ export const featureFlags = {
   },
   get adoptBranch() {
     return getFeatureFlags().adoptBranch;
+  },
+  get gitRebaseSync() {
+    return getFeatureFlags().gitRebaseSync;
   },
   get reactFileManager() {
     return getFeatureFlags().reactFileManager;

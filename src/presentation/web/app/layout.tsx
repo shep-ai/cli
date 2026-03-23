@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import '@xyflow/react/dist/base.css';
 import '@cubone/react-file-manager/dist/style.css';
 import './globals.css';
@@ -30,33 +31,27 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const sidebarOpen = cookieStore.get('shep-sidebar-open')?.value === 'true';
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Theme init script — uses only hardcoded string literals, no user input */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  const theme = localStorage.getItem('shep-theme');
-                  const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  if (theme === 'dark' || (theme === 'system' && systemDark) || (!theme && systemDark)) {
-                    document.documentElement.classList.add('dark');
-                  }
-                } catch (e) {}
-              })();
-            `,
+            __html: `(function(){try{var d=document.documentElement,t=localStorage.getItem('shep-theme'),s=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(t==='system'&&s)||(!t&&s)){d.classList.add('dark')}}catch(e){}})();`,
           }}
         />
       </head>
       <body className="min-h-screen antialiased">
         <FeatureFlagsProvider flags={getFeatureFlags()}>
-          <AppShell>{children}</AppShell>
+          <AppShell sidebarOpen={sidebarOpen}>{children}</AppShell>
         </FeatureFlagsProvider>
         <Toaster position="bottom-center" />
       </body>

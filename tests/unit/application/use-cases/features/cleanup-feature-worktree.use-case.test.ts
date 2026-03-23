@@ -32,6 +32,11 @@ function createMockFeature(overrides?: Partial<Feature>): Feature {
     fast: false,
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
+    ciWatchEnabled: true,
+    enableEvidence: false,
+    commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -96,6 +101,13 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
       revParse: vi.fn(),
       localMergeSquash: vi.fn().mockResolvedValue(undefined),
+      syncMain: vi.fn().mockResolvedValue(undefined),
+      rebaseOnMain: vi.fn().mockResolvedValue(undefined),
+      getConflictedFiles: vi.fn().mockResolvedValue([]),
+      stageFiles: vi.fn().mockResolvedValue(undefined),
+      rebaseContinue: vi.fn().mockResolvedValue(undefined),
+      rebaseAbort: vi.fn().mockResolvedValue(undefined),
+      getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(

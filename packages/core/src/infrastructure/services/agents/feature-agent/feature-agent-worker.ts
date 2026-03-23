@@ -24,6 +24,7 @@ import type { IAgentExecutorProvider } from '@/application/ports/output/agents/a
 import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type { IGitForkService } from '@/application/ports/output/services/git-fork-service.interface.js';
 import { AgentRunStatus, SdlcLifecycle, type AgentType } from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
@@ -49,6 +50,11 @@ export interface WorkerArgs {
   resumeFromInterrupt?: boolean;
   push?: boolean;
   openPr?: boolean;
+  forkAndPr?: boolean;
+  commitSpecs?: boolean;
+  ciWatchEnabled?: boolean;
+  enableEvidence?: boolean;
+  commitEvidence?: boolean;
   resumePayload?: string;
   agentType?: AgentType;
   fast?: boolean;
@@ -88,6 +94,11 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const resumeFromInterrupt = args.includes('--resume-from-interrupt');
   const push = args.includes('--push');
   const openPr = args.includes('--open-pr');
+  const forkAndPr = args.includes('--fork-and-pr');
+  const commitSpecs = !args.includes('--no-commit-specs');
+  const ciWatchEnabled = !args.includes('--no-ci-watch');
+  const enableEvidence = args.includes('--enable-evidence');
+  const commitEvidence = args.includes('--commit-evidence');
   const fast = args.includes('--fast');
   const threadIdx = args.indexOf('--thread-id');
   const threadId =
@@ -126,6 +137,11 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     resumeFromInterrupt,
     push,
     openPr,
+    forkAndPr,
+    commitSpecs,
+    ciWatchEnabled,
+    enableEvidence,
+    commitEvidence,
     resumePayload,
     agentType,
     fast,
@@ -191,6 +207,8 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
     ...(args.resumeFromInterrupt ? ['--resume-from-interrupt'] : []),
     ...(args.push ? ['--push'] : []),
     ...(args.openPr ? ['--open-pr'] : []),
+    ...(args.forkAndPr ? ['--fork-and-pr'] : []),
+    ...(args.commitSpecs === false ? ['--no-commit-specs'] : []),
     ...(args.resumePayload ? ['--resume-payload', args.resumePayload] : []),
     ...(args.agentType ? ['--agent-type', args.agentType] : []),
     ...(args.fast ? ['--fast'] : []),
@@ -250,6 +268,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       ) => gitPrService.localMergeSquash(cwd, featureBranch, baseBranch, commitMessage, hasRemote),
       featureRepository,
       gitPrService,
+      gitForkService: container.resolve<IGitForkService>('IGitForkService'),
       cleanupFeatureWorktreeUseCase,
     },
   };
@@ -357,6 +376,11 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           ...(args.resumeReason ? { resumeReason: args.resumeReason } : {}),
           push: args.push ?? false,
           openPr: args.openPr ?? false,
+          forkAndPr: args.forkAndPr ?? false,
+          commitSpecs: args.commitSpecs ?? true,
+          ciWatchEnabled: args.ciWatchEnabled ?? true,
+          enableEvidence: args.enableEvidence ?? false,
+          commitEvidence: args.commitEvidence ?? false,
         },
         graphConfig
       );
@@ -372,6 +396,11 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           ...(args.model ? { model: args.model } : {}),
           push: args.push ?? false,
           openPr: args.openPr ?? false,
+          forkAndPr: args.forkAndPr ?? false,
+          commitSpecs: args.commitSpecs ?? true,
+          ciWatchEnabled: args.ciWatchEnabled ?? true,
+          enableEvidence: args.enableEvidence ?? false,
+          commitEvidence: args.commitEvidence ?? false,
         },
         graphConfig
       );

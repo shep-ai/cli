@@ -101,4 +101,19 @@ rejectionFeedback:
     const prompt = buildRequirementsPrompt(createState());
     expect(prompt).toContain('exactly ONE option');
   });
+
+  it('should include commit block when commitSpecs=true', () => {
+    mockReadSpecFile.mockReturnValue('name: test\n');
+    const prompt = buildRequirementsPrompt(createState({ commitSpecs: true }));
+    expect(prompt).toContain('Commit Your Work');
+    expect(prompt).toContain('git add');
+  });
+
+  it('should exclude commit block when commitSpecs=false', () => {
+    mockReadSpecFile.mockReturnValue('name: test\n');
+    const prompt = buildRequirementsPrompt(createState({ commitSpecs: false }));
+    expect(prompt).not.toContain('Commit Your Work');
+    expect(prompt).not.toContain('git add');
+    expect(prompt).toContain('Do NOT commit or push any spec files');
+  });
 });

@@ -138,6 +138,13 @@ export class DeploymentService implements IDeploymentService {
   recoverAll(): void {
     if (!this.db) return;
 
+    // Child dev servers spawned by DeploymentService share the same global DB.
+    // Skip recovery to avoid killing processes owned by the parent instance.
+    if (process.env.SHEP_SKIP_RECOVERY) {
+      log.info('SHEP_SKIP_RECOVERY set — skipping dev server recovery');
+      return;
+    }
+
     let rows: DevServerRow[];
     try {
       const stmt = this.db.prepare('SELECT * FROM dev_servers');
@@ -182,21 +189,19 @@ export class DeploymentService implements IDeploymentService {
       }
 
       if (alive) {
-        // Strategy 2: Process alive but stuck in Booting — can't re-attach stdout
-        // Kill the orphan so we can re-spawn with proper listeners
+        // Strategy 2: Process alive but stuck in Booting — leave it running.
+        // We can't re-attach stdout so we can't detect when it becomes Ready,
+        // but killing it would be destructive (another process on the same
+        // shared DB may have just spawned it). The user can restart manually.
         log.info(
-          `Orphan "${row.target_id}" (pid=${row.pid}) stuck in ${row.state} — killing to re-spawn`
+          `Orphan "${row.target_id}" (pid=${row.pid}) stuck in ${row.state} — leaving alive (cannot re-attach)`
         );
-        try {
-          this.deps.kill(row.pid, 'SIGKILL');
-        } catch {
-          // already dead
-        }
-      } else {
-        log.info(`Dev server "${row.target_id}" (pid=${row.pid}) is dead — will re-spawn`);
+        this.dbDelete(row.target_id);
+        continue;
       }
 
-      // Strategy 2 & 3: Re-spawn if target directory still has a package.json
+      // Strategy 3: Dead process — re-spawn if target directory still exists
+      log.info(`Dev server "${row.target_id}" (pid=${row.pid}) is dead — will re-spawn`);
       this.dbDelete(row.target_id);
 
       if (!existsSync(join(row.target_path, 'package.json'))) {
@@ -272,6 +277,9 @@ export class DeploymentService implements IDeploymentService {
       // stdout/stderr — we don't need it because taskkill /F /T handles tree kill.
       ...(IS_WINDOWS ? { windowsHide: true } : { detached: true }),
       stdio: ['ignore', 'pipe', 'pipe'] as const,
+      // Prevent child shep instances (e.g. worktree dev servers) from running
+      // recoverAll() on the shared ~/.shep/data DB and killing our processes.
+      env: { ...process.env, SHEP_SKIP_RECOVERY: '1' },
     });
 
     if (!child.pid) {
@@ -295,7 +303,10 @@ export class DeploymentService implements IDeploymentService {
     };
 
     this.deployments.set(targetId, entry);
-    this.dbUpsert(entry);
+    // NOTE: Do NOT write to DB during Booting. The spawned process may be
+    // another shep instance sharing ~/.shep/data — its recoverAll() would
+    // find this Booting entry, see its own PID as alive, and SIGKILL itself.
+    // We persist to DB only when the state transitions to Ready (URL detected).
 
     // Attach stdout/stderr listeners for port detection
     this.attachOutputListener(entry, 'stdout');
@@ -309,16 +320,29 @@ export class DeploymentService implements IDeploymentService {
       this.dbDelete(targetId);
     });
 
-    // Clean up on process exit
-    (child as ChildProcess).on('exit', (code, signal) => {
+    // Use 'close' instead of 'exit' — 'close' fires after stdio streams are
+    // fully consumed, so entry.logs will contain all captured output.
+    (child as ChildProcess).on('close', (code, signal) => {
       const wasBooting = entry.state === DeploymentState.Booting;
       log.info(
-        `Process exited for "${targetId}" (pid=${entry.pid}) — code=${code}, signal=${signal}, wasBooting=${wasBooting}`
+        `Process closed for "${targetId}" (pid=${entry.pid}) — code=${code}, signal=${signal}, wasBooting=${wasBooting}`
       );
       if (wasBooting) {
         log.warn(
-          'Process exited while still in Booting state — dev server likely crashed on startup. Check stderr output above.'
+          `Process exited while still in Booting state — dev server likely crashed on startup (code=${code}, signal=${signal}).`
         );
+        const allLogs = entry.logs.getAll();
+        const stdoutLines = allLogs.filter((l) => l.stream === 'stdout');
+        const stderrLines = allLogs.filter((l) => l.stream === 'stderr');
+        if (stdoutLines.length > 0) {
+          log.warn(`[${targetId}] stdout:\n${stdoutLines.map((l) => l.line).join('\n')}`);
+        }
+        if (stderrLines.length > 0) {
+          log.warn(`[${targetId}] stderr:\n${stderrLines.map((l) => l.line).join('\n')}`);
+        }
+        if (allLogs.length === 0) {
+          log.warn(`[${targetId}] No output captured from the process.`);
+        }
       }
       this.deployments.delete(targetId);
       this.dbDelete(targetId);
@@ -583,7 +607,7 @@ export class DeploymentService implements IDeploymentService {
             log.info(`[${entry.targetId}] Port detected — url="${url}" (from ${stream})`);
             entry.state = DeploymentState.Ready;
             entry.url = url;
-            this.dbUpdateState(entry.targetId, entry.state, entry.url);
+            this.dbUpsert(entry);
           }
         }
       }
@@ -599,7 +623,7 @@ export class DeploymentService implements IDeploymentService {
             log.info(`[${entry.targetId}] Port detected in flushed buffer — url="${url}"`);
             entry.state = DeploymentState.Ready;
             entry.url = url;
-            this.dbUpdateState(entry.targetId, entry.state, entry.url);
+            this.dbUpsert(entry);
           }
         }
         entry[bufferKey] = '';

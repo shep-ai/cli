@@ -57,6 +57,26 @@ properties:
     type: boolean
     default: false
     description: "Create PR after implementation (default: false)"
+  forkAndPr:
+    type: boolean
+    default: false
+    description: "Fork repo and create PR to upstream at merge time (default: false)"
+  commitSpecs:
+    type: boolean
+    default: true
+    description: Commit specs/evidences into the repo (defaults false when forkAndPr is enabled)
+  ciWatchEnabled:
+    type: boolean
+    default: true
+    description: "Enable CI watch/fix loop after push (default: true)"
+  enableEvidence:
+    type: boolean
+    default: false
+    description: "Enable evidence collection after implementation (default: false)"
+  commitEvidence:
+    type: boolean
+    default: false
+    description: "Commit evidence to PR (default: false, requires enableEvidence)"
   approvalGates:
     $ref: ApprovalGates.yaml
     description: Approval gates configuration (embedded value object)
@@ -69,6 +89,9 @@ properties:
   parentId:
     $ref: UUID.yaml
     description: Parent feature ID for dependency tracking (optional)
+  previousLifecycle:
+    $ref: SdlcLifecycle.yaml
+    description: Lifecycle state prior to archiving, used to restore on unarchive (only set when lifecycle is Archived)
   attachments:
     type: array
     items:
@@ -87,6 +110,11 @@ required:
   - fast
   - push
   - openPr
+  - forkAndPr
+  - commitSpecs
+  - ciWatchEnabled
+  - enableEvidence
+  - commitEvidence
   - approvalGates
 allOf:
   - $ref: SoftDeletableEntity.yaml

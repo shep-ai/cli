@@ -226,10 +226,14 @@ You MUST write TWO files:
 - Do NOT modify any source code
 - Do NOT start implementing — planning only
 
-${buildCommitPushBlock({
-  push: state.push,
-  files: [`${state.specDir}/plan.yaml`, `${state.specDir}/tasks.yaml`],
-  commitHint: 'docs(specs): create implementation plan and task breakdown',
-  skipVerification: true,
-})}`;
+${
+  state.commitSpecs
+    ? buildCommitPushBlock({
+        push: state.push,
+        files: [`${state.specDir}/plan.yaml`, `${state.specDir}/tasks.yaml`],
+        commitHint: 'docs(specs): create implementation plan and task breakdown',
+        skipVerification: true,
+      })
+    : `## Git Operations\n\nDo NOT commit or push any spec files. Spec files are managed locally only.`
+}`;
 }

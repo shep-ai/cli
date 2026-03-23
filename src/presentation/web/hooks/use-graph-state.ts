@@ -136,7 +136,8 @@ function mapsEqual<T extends { data: unknown; parentNodeId?: string }>(
 
 export function useGraphState(
   initialNodes: CanvasNodeType[],
-  initialEdges: Edge[]
+  initialEdges: Edge[],
+  showArchived = false
 ): UseGraphStateReturn {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: parse only on mount (like useState initializer)
   const init = useMemo(() => parseMaps(initialNodes, initialEdges), []);
@@ -184,6 +185,8 @@ export function useGraphState(
       onRepositoryDelete: (repositoryId) => callbacksRef.current.onRepositoryDelete?.(repositoryId),
       onRetryFeature: (featureId) => callbacksRef.current.onRetryFeature?.(featureId),
       onStartFeature: (featureId) => callbacksRef.current.onStartFeature?.(featureId),
+      onArchiveFeature: (featureId) => callbacksRef.current.onArchiveFeature?.(featureId),
+      onUnarchiveFeature: (featureId) => callbacksRef.current.onUnarchiveFeature?.(featureId),
     }),
     []
   );
@@ -194,10 +197,23 @@ export function useGraphState(
   const repoMapRef = useRef(repoMap);
   repoMapRef.current = repoMap;
 
+  // Filter archived features from the Map when the toggle is off.
+  // This gives instant toggle response (no server round-trip) per NFR-3.
+  const visibleFeatureMap = useMemo(() => {
+    if (showArchived) return featureMap;
+    const filtered = new Map<string, FeatureEntry>();
+    for (const [id, entry] of featureMap) {
+      if ((entry.data.state as string) !== 'archived') {
+        filtered.set(id, entry);
+      }
+    }
+    return filtered.size === featureMap.size ? featureMap : filtered;
+  }, [featureMap, showArchived]);
+
   // Derive graph from domain Maps (runs on every Map change, but dagre only on topology change)
   const derived = useMemo(
-    () => deriveGraph(featureMap, repoMap, pendingMap, stableCallbacks),
-    [featureMap, repoMap, pendingMap, stableCallbacks]
+    () => deriveGraph(visibleFeatureMap, repoMap, pendingMap, stableCallbacks),
+    [visibleFeatureMap, repoMap, pendingMap, stableCallbacks]
   );
 
   // Cache dagre layout positions — only re-run when node set or edge connections change

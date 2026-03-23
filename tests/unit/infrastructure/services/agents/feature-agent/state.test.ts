@@ -27,13 +27,14 @@ describe('FeatureAgentAnnotation', () => {
       expect(FeatureAgentAnnotation.spec).toBeDefined();
     });
 
-    it('should have all 23 channels (including 3 new CI fix loop channels)', () => {
+    it('should have all 29 channels', () => {
       const channelNames = Object.keys(FeatureAgentAnnotation.spec);
       // Original: featureId, repositoryPath, specDir, worktreePath, currentNode, error,
       //           approvalGates, messages, validationRetries, lastValidationTarget, lastValidationErrors
       // Merge:    prUrl, prNumber, commitHash, ciStatus, push, openPr
       // Approval: _approvalAction, _rejectionFeedback, _needsReexecution
       // CI fix:   ciFixAttempts, ciFixHistory, ciFixStatus
+      // Fork:     forkAndPr, commitSpecs
       expect(channelNames).toContain('prUrl');
       expect(channelNames).toContain('prNumber');
       expect(channelNames).toContain('commitHash');
@@ -52,7 +53,12 @@ describe('FeatureAgentAnnotation', () => {
       expect(channelNames).toContain('evidence');
       expect(channelNames).toContain('evidenceRetries');
       expect(channelNames).toContain('resumeReason');
-      expect(channelNames.length).toBe(27);
+      expect(channelNames).toContain('forkAndPr');
+      expect(channelNames).toContain('commitSpecs');
+      expect(channelNames).toContain('ciWatchEnabled');
+      expect(channelNames).toContain('enableEvidence');
+      expect(channelNames).toContain('commitEvidence');
+      expect(channelNames.length).toBe(32);
     });
   });
 

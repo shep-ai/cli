@@ -65,7 +65,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         onboarding_complete,
         approval_gate_allow_prd, approval_gate_allow_plan,
         approval_gate_allow_merge, approval_gate_push_on_impl_complete,
-        feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_github_import, feature_flag_adopt_branch,
+        feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_github_import, feature_flag_adopt_branch, feature_flag_git_rebase_sync,
         feature_flag_react_file_manager, feature_flag_coasts_dev_server,
         workflow_enable_evidence, workflow_commit_evidence,
         hide_ci_status
@@ -91,7 +91,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @onboarding_complete,
         @approval_gate_allow_prd, @approval_gate_allow_plan,
         @approval_gate_allow_merge, @approval_gate_push_on_impl_complete,
-        @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug, @feature_flag_github_import, @feature_flag_adopt_branch,
+        @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug, @feature_flag_github_import, @feature_flag_adopt_branch, @feature_flag_git_rebase_sync,
         @feature_flag_react_file_manager, @feature_flag_coasts_dev_server,
         @workflow_enable_evidence, @workflow_commit_evidence,
         @hide_ci_status
@@ -195,6 +195,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         feature_flag_debug = @feature_flag_debug,
         feature_flag_github_import = @feature_flag_github_import,
         feature_flag_adopt_branch = @feature_flag_adopt_branch,
+        feature_flag_git_rebase_sync = @feature_flag_git_rebase_sync,
         feature_flag_react_file_manager = @feature_flag_react_file_manager,
         feature_flag_coasts_dev_server = @feature_flag_coasts_dev_server,
         workflow_enable_evidence = @workflow_enable_evidence,

@@ -1,3 +1,108 @@
+# [1.146.0](https://github.com/shep-ai/cli/compare/v1.145.0...v1.146.0) (2026-03-23)
+
+
+### Features
+
+* **domain:** add fork-and-pr workflow for upstream contributions ([#452](https://github.com/shep-ai/cli/issues/452)) ([b8a6a2c](https://github.com/shep-ai/cli/commit/b8a6a2c7646144e1f9f17faa2b8765a89d6c3048))
+
+# [1.145.0](https://github.com/shep-ai/cli/compare/v1.144.0...v1.145.0) (2026-03-23)
+
+
+### Features
+
+* **agents:** replace hardcoded ci watch with agent-based watching ([#458](https://github.com/shep-ai/cli/issues/458)) ([01dac3d](https://github.com/shep-ai/cli/commit/01dac3df02c3d5757ee1a08cb592eb0b009c06c8))
+
+# [1.144.0](https://github.com/shep-ai/cli/compare/v1.143.0...v1.144.0) (2026-03-23)
+
+
+### Features
+
+* **specs:** add cover image to readme ([#456](https://github.com/shep-ai/cli/issues/456)) ([9d7dbcb](https://github.com/shep-ai/cli/commit/9d7dbcbc9ae02859fa4a031b183bcab169f65321))
+
+# [1.143.0](https://github.com/shep-ai/cli/compare/v1.142.1...v1.143.0) (2026-03-23)
+
+
+### Features
+
+* **cli:** add hierarchical tree view to feat ls command ([#455](https://github.com/shep-ai/cli/issues/455)) ([1a3d5f5](https://github.com/shep-ai/cli/commit/1a3d5f55043c676391be33a110a7a87f8ab34f98))
+
+## [1.142.1](https://github.com/shep-ai/cli/compare/v1.142.0...v1.142.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* **web:** restore feature-specific session filtering by worktree path ([#453](https://github.com/shep-ai/cli/issues/453)) ([04d35b1](https://github.com/shep-ai/cli/commit/04d35b133d5b135b9af9c3f39221fd28fa73de70))
+
+# [1.142.0](https://github.com/shep-ai/cli/compare/v1.141.0...v1.142.0) (2026-03-22)
+
+
+### Features
+
+* **web:** compact log viewer, canvas ux improvements, and sidebar persistence fix ([#451](https://github.com/shep-ai/cli/issues/451)) ([362a595](https://github.com/shep-ai/cli/commit/362a5954d2bf120ad53f604963497aa5de6d9bd0))
+
+# [1.141.0](https://github.com/shep-ai/cli/compare/v1.140.0...v1.141.0) (2026-03-22)
+
+
+### Features
+
+* **config:** add release-aware commit type selection rules ([#450](https://github.com/shep-ai/cli/issues/450)) ([401643b](https://github.com/shep-ai/cli/commit/401643b1444341ccfbe14bca0c272c76e7e403fb))
+
+# [1.140.0](https://github.com/shep-ai/cli/compare/v1.139.1...v1.140.0) (2026-03-22)
+
+
+### Features
+
+* **web:** polish dark mode theme and ui refinements ([#448](https://github.com/shep-ai/cli/issues/448)) ([e8a67d2](https://github.com/shep-ai/cli/commit/e8a67d22ae6afb50e471ec8276c1a2f4735608c0))
+
+## [1.139.1](https://github.com/shep-ai/cli/compare/v1.139.0...v1.139.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* **deployment:** prevent spawned dev servers from killing parent processes ([#446](https://github.com/shep-ai/cli/issues/446)) ([2cdb464](https://github.com/shep-ai/cli/commit/2cdb464570eea582c8d1efdbf2aae0f098d4cd71))
+
+# [1.139.0](https://github.com/shep-ai/cli/compare/v1.138.0...v1.139.0) (2026-03-22)
+
+
+### Features
+
+* **web:** redesign action-required feature nodes ([#445](https://github.com/shep-ai/cli/issues/445)) ([bb4fe7b](https://github.com/shep-ai/cli/commit/bb4fe7b0ba827ce3f7f9cd12bf77275571401cd5))
+
+# [1.138.0](https://github.com/shep-ai/cli/compare/v1.137.0...v1.138.0) (2026-03-22)
+
+
+### Features
+
+* **domain:** add feature archive and unarchive capability ([#440](https://github.com/shep-ai/cli/issues/440)) ([a664222](https://github.com/shep-ai/cli/commit/a66422280beb7a00284bb1a2dcfd74a87c711742))
+
+# [1.137.0](https://github.com/shep-ai/cli/compare/v1.136.1...v1.137.0) (2026-03-22)
+
+
+### Features
+
+* **domain:** add git rebase-on-main with agent-powered conflict resolution and sync-main ([#396](https://github.com/shep-ai/cli/issues/396)) ([d4cfb72](https://github.com/shep-ai/cli/commit/d4cfb7254d715e198487b1844f1bdb19dfa84a50))
+
+## [1.136.1](https://github.com/shep-ai/cli/compare/v1.136.0...v1.136.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* **domain:** resolve file references in feature metadata generation ([#444](https://github.com/shep-ai/cli/issues/444)) ([5b87fdc](https://github.com/shep-ai/cli/commit/5b87fdcff4ca52f40be96f22583d39bba8242c21))
+
+# [1.136.0](https://github.com/shep-ai/cli/compare/v1.135.3...v1.136.0) (2026-03-21)
+
+
+### Features
+
+* **web:** redesign feature node cards with phase badges ([#425](https://github.com/shep-ai/cli/issues/425)) ([ba0d570](https://github.com/shep-ai/cli/commit/ba0d5701d36072de58b045fc6ccafc99781988a5))
+
+## [1.135.3](https://github.com/shep-ai/cli/compare/v1.135.2...v1.135.3) (2026-03-21)
+
+
+### Bug Fixes
+
+* **agents:** persist evidence manifest in dedicated evidence node ([#442](https://github.com/shep-ai/cli/issues/442)) ([47d8843](https://github.com/shep-ai/cli/commit/47d884319e6320224bfa06c90fc16598dac8a392))
+
 ## [1.135.2](https://github.com/shep-ai/cli/compare/v1.135.1...v1.135.2) (2026-03-19)
 
 

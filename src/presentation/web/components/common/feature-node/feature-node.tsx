@@ -4,30 +4,40 @@ import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import {
   Plus,
-  FileText,
-  Wrench,
-  GitMerge,
   Trash2,
   Zap,
   Loader2,
   Globe,
   RotateCcw,
   Play,
+  Eye,
+  Archive,
+  ArchiveRestore,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
 import {
   featureNodeStateConfig,
-  lifecycleDisplayLabels,
   lifecycleRunningVerbs,
+  lifecyclePhaseBadge,
 } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
-import { getAgentTypeIcon, agentTypeLabels, type AgentTypeValue } from './agent-type-icons';
-import { getModelMeta } from '@/lib/model-metadata';
-import { DeploymentState } from '@shepai/core/domain/generated/output';
+import { getAgentTypeIcon } from './agent-type-icons';
 import { FeatureSessionsDropdown } from './feature-sessions-dropdown';
+import { DeploymentState } from '@shepai/core/domain/generated/output';
 
 function AgentIcon({ agentType, className }: { agentType?: string; className?: string }) {
   const IconComponent = getAgentTypeIcon(agentType);
@@ -36,27 +46,15 @@ function AgentIcon({ agentType, className }: { agentType?: string; className?: s
 
 function getBadgeIcon(data: FeatureNodeData): LucideIcon {
   const config = featureNodeStateConfig[data.state];
-  if (data.state === 'action-required') {
-    if (data.lifecycle === 'requirements') return FileText;
-    if (data.lifecycle === 'implementation') return Wrench;
-    if (data.lifecycle === 'review') return GitMerge;
-  }
   return config.icon;
 }
 
-/** Returns override badge classes for action-required based on lifecycle phase. */
-function getActionRequiredBadgeClasses(data: FeatureNodeData): {
-  badgeClass: string;
-  badgeBgClass: string;
-} | null {
-  if (data.state !== 'action-required') return null;
-  if (data.lifecycle === 'implementation') {
-    return { badgeClass: 'text-indigo-700', badgeBgClass: 'bg-indigo-50' };
-  }
-  if (data.lifecycle === 'review') {
-    return { badgeClass: 'text-emerald-700', badgeBgClass: 'bg-emerald-50' };
-  }
-  return null; // requirements stays amber (default)
+/** Short, friendly label for each action-required gate. */
+function getActionRequiredLabel(data: FeatureNodeData): string {
+  if (data.lifecycle === 'requirements') return 'Review Requirements';
+  if (data.lifecycle === 'implementation') return 'Review Technical Plan';
+  if (data.lifecycle === 'review') return 'Review Changes';
+  return 'Review';
 }
 
 function getBadgeText(data: FeatureNodeData): string {
@@ -73,10 +71,7 @@ function getBadgeText(data: FeatureNodeData): string {
     case 'pending':
       return 'Pending';
     case 'action-required':
-      if (data.lifecycle === 'requirements') return 'Review Product Requirements';
-      if (data.lifecycle === 'implementation') return 'Review Technical Planning';
-      if (data.lifecycle === 'review') return 'Review Merge Request';
-      return config.label;
+      return getActionRequiredLabel(data);
     case 'error':
       return data.errorMessage ?? 'Something went wrong';
     default:
@@ -95,6 +90,8 @@ export function FeatureNode({
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
   return (
     <div className="animate-in fade-in group relative duration-300">
@@ -108,13 +105,40 @@ export function FeatureNode({
         />
       ) : null}
 
-      {/* Delete button — visible on hover, positioned to the left (hidden when deleting) */}
-      {data.onDelete && data.featureId && data.state !== 'deleting' ? (
-        <>
-          <div
-            className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
+      {/* Action buttons — centered as a group to the left of the node.
+          Tooltip side convention: left-side buttons use side="left", right-side buttons use side="right". */}
+      <div
+        className="absolute top-0 bottom-0 -left-14 flex items-center justify-center pr-3 pl-4 opacity-0 transition-opacity group-hover:opacity-100"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-col items-center gap-2">
+          {/* Archive button */}
+          {data.onArchive &&
+          data.featureId &&
+          data.state !== 'deleting' &&
+          data.state !== 'archived' ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Archive feature"
+                    data-testid="feature-node-archive-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setArchiveConfirmOpen(true);
+                    }}
+                    className="bg-card text-muted-foreground flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors hover:border-gray-500 hover:text-gray-600"
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Archive feature</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+
+          {/* Delete button */}
+          {data.onDelete && data.featureId && data.state !== 'deleting' ? (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -130,152 +154,145 @@ export function FeatureNode({
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Delete feature</TooltipContent>
+                <TooltipContent side="left">Delete feature</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          </div>
+          ) : null}
 
-          <DeleteFeatureDialog
-            open={confirmOpen}
-            onOpenChange={setConfirmOpen}
-            onConfirm={(cleanup, cascadeDelete, closePr) => {
-              setConfirmOpen(false);
-              data.onDelete?.(data.featureId, cleanup, cascadeDelete, closePr);
-            }}
-            isDeleting={false}
-            featureName={data.name ?? 'this feature'}
-            featureId={data.featureId}
-            hasChildren={data.hasChildren}
-            hasOpenPr={!!data.pr && data.pr.status === 'Open'}
-          />
-        </>
+          {/* Unarchive button */}
+          {data.onUnarchive && data.featureId && data.state === 'archived' ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Unarchive feature"
+                    data-testid="feature-node-unarchive-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      data.onUnarchive?.(data.featureId);
+                    }}
+                    className="bg-card text-muted-foreground hover:border-primary hover:text-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                  >
+                    <ArchiveRestore className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Unarchive feature</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Delete confirmation dialog */}
+      {data.onDelete && data.featureId && data.state !== 'deleting' ? (
+        <DeleteFeatureDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          onConfirm={(cleanup, cascadeDelete, closePr) => {
+            setConfirmOpen(false);
+            data.onDelete?.(data.featureId, cleanup, cascadeDelete, closePr);
+          }}
+          isDeleting={false}
+          featureName={data.name ?? 'this feature'}
+          featureId={data.featureId}
+          hasChildren={data.hasChildren}
+          hasOpenPr={!!data.pr && data.pr.status === 'Open'}
+        />
+      ) : null}
+
+      {/* Archive confirmation dialog */}
+      {data.onArchive &&
+      data.featureId &&
+      data.state !== 'deleting' &&
+      data.state !== 'archived' ? (
+        <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+          <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Archive feature?</AlertDialogTitle>
+              <AlertDialogDescription>
+                <strong>{data.name}</strong> will be hidden from the canvas. You can unarchive it
+                later to restore it.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setArchiveConfirmOpen(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setArchiveConfirmOpen(false);
+                  data.onArchive?.(data.featureId);
+                }}
+              >
+                Archive
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       ) : null}
 
       <div
         data-testid="feature-node-card"
         aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
-          'bg-card flex min-h-35 w-72 cursor-pointer flex-col rounded-lg border p-3 shadow-sm',
-          selected && 'ring-primary ring-2',
-          data.state === 'deleting' && 'opacity-60'
+          'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm transition-[border-color] duration-200 dark:bg-neutral-800/80',
+          data.state === 'action-required' &&
+            'border-l-[3px] border-l-rose-400 dark:border-l-amber-500',
+          data.state === 'action-required' &&
+            selected &&
+            'border-t-rose-400 border-r-rose-400 border-b-rose-400 dark:border-t-amber-500 dark:border-r-amber-500 dark:border-b-amber-500',
+          selected &&
+            data.state !== 'action-required' &&
+            'border-blue-400 dark:border-amber-500/60',
+          data.state === 'deleting' && 'opacity-60',
+          data.state === 'archived' && 'opacity-50'
         )}
       >
-        {/* Top row: lifecycle label + inline icons (deployment, fast mode, agent) */}
-        <div className="flex items-center justify-between">
-          <span
-            data-testid="feature-node-lifecycle-label"
-            className={cn('text-[10px] font-semibold tracking-wider')}
-          >
-            {data.state === 'blocked'
-              ? 'BLOCKED'
-              : data.state === 'pending'
-                ? 'PENDING'
-                : lifecycleDisplayLabels[data.lifecycle]}
-          </span>
-          <div className="flex items-center gap-0.5">
-            {data.deployment ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={
-                        data.deployment.status === DeploymentState.Booting
-                          ? 'Deploying'
-                          : 'Open dev server'
-                      }
-                      data-testid="feature-node-deployment-indicator"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (
-                          data.deployment?.status === DeploymentState.Ready &&
-                          data.deployment.url
-                        ) {
-                          window.open(data.deployment.url, '_blank', 'noopener,noreferrer');
-                        }
-                      }}
-                      className={cn(
-                        'nodrag -mt-1 p-1',
-                        data.deployment.status === DeploymentState.Ready && data.deployment.url
-                          ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
-                          : 'cursor-default'
-                      )}
-                    >
-                      {data.deployment.status === DeploymentState.Booting ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
-                      ) : (
-                        <Globe className="h-3.5 w-3.5 text-green-600" />
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {data.deployment.status === DeploymentState.Booting
-                      ? 'Deploying...'
-                      : (data.deployment.url ?? 'Live')}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : null}
-            {data.fastMode ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span data-testid="feature-node-fast-mode-badge" className="-mt-1 p-1">
-                      <Zap className="h-3.5 w-3.5 text-amber-500" />
+        {/* Phase dot + label — absolute top-right corner (hidden during creation) */}
+        {data.state !== 'creating' ? (
+          <div className="absolute top-3 right-4">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    data-testid="feature-node-phase-badge"
+                    className="flex items-center gap-1.5"
+                  >
+                    <span className="text-muted-foreground text-[10px]">
+                      {lifecyclePhaseBadge[data.lifecycle].tooltip}
                     </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Fast Mode</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : null}
-            {data.agentType ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={
-                        agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType
-                      }
-                      data-testid="feature-node-agent-badge"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        data.onSettings?.();
-                      }}
+                    <span
                       className={cn(
-                        'nodrag -mt-1 -mr-1 p-1',
-                        data.onSettings
-                          ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
-                          : 'cursor-default'
+                        'h-1.5 w-1.5 -translate-y-px rounded-full',
+                        lifecyclePhaseBadge[data.lifecycle].dot
                       )}
-                    >
-                      <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <span className="font-medium">
-                      {agentTypeLabels[data.agentType as AgentTypeValue] ?? data.agentType}
-                    </span>
-                    {data.modelId ? (
-                      <span className="ml-1 opacity-70">
-                        · {getModelMeta(data.modelId).displayName || data.modelId}
-                      </span>
-                    ) : null}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : null}
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-56">
+                  <p className="font-semibold">{lifecyclePhaseBadge[data.lifecycle].tooltip}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+                    {lifecyclePhaseBadge[data.lifecycle].description}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-        </div>
+        ) : null}
 
-        {/* Name */}
-        <h3 className="mt-1 truncate text-sm font-bold">{data.name}</h3>
+        {/* Agent icon + Name */}
+        <div className="flex items-center gap-1.5 pr-24">
+          {data.agentType ? (
+            <AgentIcon agentType={data.agentType} className="h-4 w-4 shrink-0" />
+          ) : null}
+          <h3 className="min-w-0 truncate text-sm font-bold">{data.name}</h3>
+        </div>
 
         {/* Description */}
         {data.description ? (
           <p
             data-testid="feature-node-description"
-            className="text-muted-foreground mt-0.5 truncate text-xs"
+            className="text-muted-foreground mt-1 line-clamp-2 text-xs"
           >
             {data.description}
           </p>
@@ -283,62 +300,13 @@ export function FeatureNode({
 
         {/* Bottom section — pushed to bottom for consistent card height */}
         <div className="mt-auto pt-2">
-          {data.state === 'deleting' ? (
+          {/* Feature ID — always visible, truncated, copiable */}
+          {/* Progress bar (if applicable) */}
+          {config.showProgressBar ? (
             <>
-              {/* Deleting status: trash icon + "Deleting..." text */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <Trash2 className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                <span className="text-muted-foreground">Deleting…</span>
-              </div>
-
-              {/* Indeterminate progress bar */}
-              <div
-                data-testid="feature-node-progress-bar"
-                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
-              >
-                <div className="motion-safe:animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
-              </div>
-            </>
-          ) : data.state === 'creating' ? (
-            <>
-              {/* Creating status: loader icon + "Creating..." text */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                <span className="text-muted-foreground">{getBadgeText(data)}</span>
-              </div>
-
-              {/* Indeterminate progress bar */}
-              <div
-                data-testid="feature-node-progress-bar"
-                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
-              >
-                <div className="motion-safe:animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
-              </div>
-            </>
-          ) : data.state === 'running' ? (
-            <>
-              {/* Running status: agent icon + verb */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5 shrink-0" />
-                <span className="text-muted-foreground">{getBadgeText(data)}</span>
-              </div>
-
-              {/* Indeterminate progress bar */}
-              <div
-                data-testid="feature-node-progress-bar"
-                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
-              >
-                <div className="animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
-              </div>
-            </>
-          ) : config.showProgressBar ? (
-            <>
-              {/* Bottom row: progress percentage */}
               <div className="text-muted-foreground flex items-center justify-end text-[10px]">
                 <span>{data.progress}%</span>
               </div>
-
-              {/* Determinate progress bar */}
               <div
                 data-testid="feature-node-progress-bar"
                 className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
@@ -349,70 +317,213 @@ export function FeatureNode({
                 />
               </div>
             </>
-          ) : (
-            <>
-              {/* featureId row + sessions button */}
-              <div className="text-muted-foreground flex items-center justify-between text-[10px]">
-                <span>{data.featureId}</span>
-                {(data.worktreePath ?? data.repositoryPath) ? (
-                  <FeatureSessionsDropdown
-                    repositoryPath={data.worktreePath ?? data.repositoryPath}
-                  />
-                ) : null}
-              </div>
+          ) : null}
 
-              {/* State badge */}
-              <div className="mt-1.5 flex items-center gap-1.5">
-                <div
-                  data-testid="feature-node-badge"
-                  className={(() => {
-                    const override = getActionRequiredBadgeClasses(data);
-                    return cn(
-                      'flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                      override?.badgeBgClass ?? config.badgeBgClass,
-                      override?.badgeClass ?? config.badgeClass
-                    );
-                  })()}
-                >
-                  {(() => {
-                    const BadgeIcon = getBadgeIcon(data);
-                    return <BadgeIcon className="h-3.5 w-3.5 shrink-0" />;
-                  })()}
-                  <span className="truncate">{getBadgeText(data)}</span>
-                </div>
-                {data.state === 'error' && data.onRetry ? (
-                  <button
-                    type="button"
-                    aria-label="Retry feature"
-                    data-testid="feature-node-retry-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      data.onRetry!(data.featureId);
-                    }}
-                    className="nodrag flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-200"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                    Retry
-                  </button>
-                ) : null}
-                {data.state === 'pending' && data.onStart ? (
-                  <button
-                    type="button"
-                    aria-label="Start feature"
-                    data-testid="feature-node-start-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      data.onStart!(data.featureId);
-                    }}
-                    className="nodrag flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200"
-                  >
-                    <Play className="h-3 w-3" />
-                    Start
-                  </button>
-                ) : null}
+          {/* Status text for blocked / error / pending (above bottom row) */}
+          {!config.showProgressBar &&
+          ![
+            'deleting',
+            'creating',
+            'running',
+            'done',
+            'action-required',
+            'pending',
+            'blocked',
+          ].includes(data.state) ? (
+            <div
+              data-testid="feature-node-badge"
+              className="relative flex min-w-0 items-center gap-1.5 text-xs"
+            >
+              {(() => {
+                const BadgeIcon = getBadgeIcon(data);
+                return <BadgeIcon className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)} />;
+              })()}
+              <span
+                className={cn('translate-y-px truncate text-[11px] font-medium', config.badgeClass)}
+              >
+                {getBadgeText(data)}
+              </span>
+            </div>
+          ) : null}
+
+          {/* Bottom row: Phase + ID ... right-side content */}
+          <div className="mt-1.5 flex min-h-[26px] items-center justify-between gap-2">
+            {/* Left: Agent icons + ID */}
+            <div className="flex items-center gap-1.5" style={{ transform: 'translateY(1px)' }}>
+              {data.featureId ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        data-testid="feature-node-id"
+                        className="nodrag text-muted-foreground/60 hover:text-muted-foreground flex cursor-pointer items-baseline gap-1 font-mono text-[10px] transition-colors active:scale-95"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(data.featureId);
+                          setIdCopied(true);
+                          setTimeout(() => setIdCopied(false), 1500);
+                        }}
+                      >
+                        <span className="text-muted-foreground/50 font-sans text-[10px]">ID</span>
+                        {idCopied ? (
+                          <span className="text-emerald-500">Copied!</span>
+                        ) : (
+                          data.featureId.slice(0, 6)
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Click to copy: {data.featureId}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+              {data.deployment ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={
+                          data.deployment.status === DeploymentState.Booting
+                            ? 'Deploying'
+                            : 'Open dev server'
+                        }
+                        data-testid="feature-node-deployment-indicator"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (
+                            data.deployment?.status === DeploymentState.Ready &&
+                            data.deployment.url
+                          ) {
+                            window.open(data.deployment.url, '_blank', 'noopener,noreferrer');
+                          }
+                        }}
+                        className={cn(
+                          'nodrag',
+                          data.deployment.status === DeploymentState.Ready && data.deployment.url
+                            ? 'cursor-pointer opacity-80 transition-opacity hover:opacity-100'
+                            : 'cursor-default'
+                        )}
+                      >
+                        {data.deployment.status === DeploymentState.Booting ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                        ) : (
+                          <Globe className="h-3 w-3 text-green-600" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {data.deployment.status === DeploymentState.Booting
+                        ? 'Deploying...'
+                        : (data.deployment.url ?? 'Live')}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+              {data.fastMode ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span data-testid="feature-node-fast-mode-badge">
+                        <Zap className="h-3 w-3 text-amber-500" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Fast Mode</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+              {(data.worktreePath ?? data.repositoryPath) ? (
+                <FeatureSessionsDropdown
+                  repositoryPath={data.worktreePath ?? data.repositoryPath}
+                />
+              ) : null}
+            </div>
+
+            {/* Right: in-progress status or action buttons */}
+            {data.state === 'deleting' ? (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gray-400" />
+                <span className="text-muted-foreground">Deleting…</span>
               </div>
-            </>
-          )}
+            ) : data.state === 'creating' ? (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin text-teal-600 dark:text-teal-400" />
+                <span className="font-medium text-teal-600 dark:text-teal-400">
+                  {getBadgeText(data)}
+                </span>
+              </div>
+            ) : data.state === 'running' ? (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin text-teal-600 dark:text-teal-400" />
+                <span className="font-medium text-teal-600 dark:text-teal-400">
+                  {getBadgeText(data)}
+                </span>
+              </div>
+            ) : data.state === 'action-required' ? (
+              <Button
+                variant="default"
+                size="xs"
+                aria-label={getActionRequiredLabel(data)}
+                data-testid="feature-node-approve-button"
+                // eslint-disable-next-line @typescript-eslint/no-empty-function -- click bubbles to card's onNodeClick
+                onClick={() => {}}
+                className="nodrag dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90 cursor-pointer bg-neutral-900 text-[11px] text-white hover:bg-neutral-800"
+              >
+                <Eye className="h-3 w-3" />
+                {getActionRequiredLabel(data)}
+              </Button>
+            ) : data.state === 'error' && data.onRetry ? (
+              <Button
+                variant="outline"
+                size="xs"
+                aria-label="Retry"
+                data-testid="feature-node-retry-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRetry!(data.featureId);
+                }}
+                className="nodrag cursor-pointer text-[11px] font-medium"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Retry
+              </Button>
+            ) : data.state === 'blocked' ? (
+              <div className="flex items-center gap-1.5 text-xs" data-testid="feature-node-badge">
+                {(() => {
+                  const BadgeIcon = getBadgeIcon(data);
+                  return <BadgeIcon className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)} />;
+                })()}
+                <span className={cn('truncate text-[11px] font-medium', config.badgeClass)}>
+                  {getBadgeText(data)}
+                </span>
+              </div>
+            ) : data.state === 'done' ? (
+              <div className="flex items-center gap-1.5 text-xs" data-testid="feature-node-badge">
+                {(() => {
+                  const BadgeIcon = getBadgeIcon(data);
+                  return <BadgeIcon className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)} />;
+                })()}
+                <span className={cn('text-[11px] font-medium', config.badgeClass)}>
+                  {getBadgeText(data)}
+                </span>
+              </div>
+            ) : data.state === 'pending' && data.onStart ? (
+              <Button
+                variant="outline"
+                size="xs"
+                aria-label="Start"
+                data-testid="feature-node-start-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onStart!(data.featureId);
+                }}
+                className="nodrag cursor-pointer text-[11px] font-medium"
+              >
+                <Play className="h-3 w-3" />
+                Start
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -424,18 +535,25 @@ export function FeatureNode({
           className="h-0! w-0! border-0! bg-transparent!"
           style={{ top: 70 }}
         >
-          <button
-            type="button"
-            aria-label="Add"
-            data-testid="feature-node-action-button"
-            onClick={(e) => {
-              e.stopPropagation();
-              data.onAction?.();
-            }}
-            className="nodrag absolute top-1/2 left-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-blue-500 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-600"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Add feature"
+                  data-testid="feature-node-action-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    data.onAction?.();
+                  }}
+                  className="nodrag absolute top-1/2 left-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-blue-500 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-600"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Add feature</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </Handle>
       ) : data.showHandles ? (
         <Handle

@@ -19,6 +19,8 @@ export interface AgentAuthStatus {
   label: string;
   /** CLI binary name (e.g. "claude", "gemini") */
   binaryName: string | null;
+  /** Shell command to install the tool (e.g. "npm install -g @anthropic-ai/claude-code") */
+  installCommand: string | null;
   /** Instructions to authenticate if not authenticated */
   authCommand: string | null;
 }
@@ -129,6 +131,7 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
       authenticated: false,
       label: 'Unknown',
       binaryName: null,
+      installCommand: null,
       authCommand: null,
     };
   }
@@ -145,17 +148,20 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
       authenticated: true,
       label,
       binaryName: null,
+      installCommand: null,
       authCommand: null,
     };
   }
 
-  // Check if tool is installed
+  // Check if tool is installed (also grab install command from metadata)
   let installed = false;
+  let installCommand: string | null = null;
   try {
     const useCase = resolve<ListToolsUseCase>('ListToolsUseCase');
     const tools = await useCase.execute();
     const tool = tools.find((t) => t.id === toolId);
     installed = tool?.status.status === 'available';
+    installCommand = tool?.installCommand ?? null;
   } catch {
     installed = false;
   }
@@ -167,6 +173,7 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
       authenticated: false,
       label,
       binaryName,
+      installCommand,
       authCommand: binaryName ? `Install ${label} first` : null,
     };
   }
@@ -181,6 +188,7 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
       authenticated: false,
       label,
       binaryName,
+      installCommand,
       authCommand: binaryName,
     };
   }
@@ -197,6 +205,7 @@ export async function checkAgentAuth(): Promise<AgentAuthStatus> {
     authenticated,
     label,
     binaryName,
+    installCommand,
     authCommand: authenticated ? null : binaryName,
   };
 }

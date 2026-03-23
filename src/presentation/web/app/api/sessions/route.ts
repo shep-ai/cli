@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readdir, stat } from 'node:fs/promises';
@@ -40,35 +41,78 @@ function cursorEncodePath(p: string): string {
 
 // ── Claude Code session scanner ───────────────────────────────────────
 
-async function scanClaudeSessions(repositoryPath: string, limit: number): Promise<SessionResult[]> {
-  const dirName = claudeEncodePath(repositoryPath);
-  const projectDir = join(homedir(), '.claude', 'projects', dirName);
-
-  let files: string[];
+/**
+ * Collect .jsonl session files from a single Claude project directory.
+ */
+async function collectJsonlFiles(
+  projectDir: string
+): Promise<{ name: string; filePath: string; mtime: number }[]> {
+  let entries: string[];
   try {
-    const entries = await readdir(projectDir);
-    files = entries.filter((e) => e.endsWith('.jsonl'));
+    entries = await readdir(projectDir);
   } catch {
     return [];
   }
-
-  // Stat all files for mtime sorting
+  const jsonlFiles = entries.filter((e) => e.endsWith('.jsonl'));
   const fileInfos = await Promise.allSettled(
-    files.map(async (name) => {
+    jsonlFiles.map(async (name) => {
       const filePath = join(projectDir, name);
       const s = await stat(filePath);
       return { name, filePath, mtime: s.mtime.getTime() };
     })
   );
-
-  const valid = fileInfos
+  return fileInfos
     .filter(
       (r): r is PromiseFulfilledResult<{ name: string; filePath: string; mtime: number }> =>
         r.status === 'fulfilled'
     )
-    .map((r) => r.value)
-    .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, limit);
+    .map((r) => r.value);
+}
+
+async function scanClaudeSessions(
+  repositoryPath: string,
+  limit: number,
+  includeWorktrees = false
+): Promise<SessionResult[]> {
+  const dirName = claudeEncodePath(repositoryPath);
+  const projectsRoot = join(homedir(), '.claude', 'projects');
+
+  // Collect files from the exact directory
+  const primaryDir = join(projectsRoot, dirName);
+  let allFiles = await collectJsonlFiles(primaryDir);
+
+  // When includeWorktrees is set, also scan:
+  // 1. Directories whose name starts with the encoded repo path (git worktrees, .worktrees)
+  // 2. Shep worktree directories (~/.shep/repos/<hash>/wt/*) which use a hash of the repo path
+  if (includeWorktrees) {
+    try {
+      const allDirs = await readdir(projectsRoot);
+
+      // Match git-style worktrees (same prefix as repo path)
+      const prefixMatches = allDirs.filter((d) => d !== dirName && d.startsWith(dirName));
+
+      // Match shep worktrees: compute repo hash → find dirs starting with encoded shep path
+      const normalizedRepoPath = repositoryPath.replace(/\\/g, '/');
+      const repoHash = createHash('sha256').update(normalizedRepoPath).digest('hex').slice(0, 16);
+      const shepHome = join(homedir(), '.shep').replace(/\\/g, '/');
+      const shepWorktreePrefix = claudeEncodePath(join(shepHome, 'repos', repoHash));
+      const shepMatches = allDirs.filter(
+        (d) => d.startsWith(shepWorktreePrefix) && !prefixMatches.includes(d) && d !== dirName
+      );
+
+      const worktreeDirs = [...prefixMatches, ...shepMatches];
+      const worktreeResults = await Promise.all(
+        worktreeDirs.map((d) => collectJsonlFiles(join(projectsRoot, d)))
+      );
+      for (const files of worktreeResults) {
+        allFiles = allFiles.concat(files);
+      }
+    } catch {
+      // projectsRoot doesn't exist — no sessions at all
+    }
+  }
+
+  const valid = allFiles.sort((a, b) => b.mtime - a.mtime).slice(0, limit);
 
   // Parse each file
   const results = await Promise.allSettled(
@@ -317,6 +361,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const repositoryPath = url.searchParams.get('repositoryPath');
   const limit = parseInt(url.searchParams.get('limit') ?? '10', 10);
+  const includeWorktrees = url.searchParams.get('includeWorktrees') === 'true';
 
   if (!repositoryPath?.trim()) {
     return NextResponse.json({ error: 'repositoryPath is required' }, { status: 400 });
@@ -325,7 +370,7 @@ export async function GET(request: Request) {
   try {
     // Scan all providers in parallel
     const [claudeSessions, cursorSessions] = await Promise.all([
-      scanClaudeSessions(repositoryPath, limit),
+      scanClaudeSessions(repositoryPath, limit, includeWorktrees),
       scanCursorSessions(repositoryPath, limit),
     ]);
 

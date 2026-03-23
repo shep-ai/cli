@@ -7,6 +7,7 @@ const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
   usePathname: () => currentPathname,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/hooks/agent-events-provider', () => ({
@@ -21,6 +22,7 @@ const mockFitView = vi.fn();
 
 vi.mock('@xyflow/react', () => ({
   useReactFlow: () => ({ fitView: mockFitView }),
+  Panel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock('@/app/actions/add-repository', () => ({

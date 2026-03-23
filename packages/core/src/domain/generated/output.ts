@@ -575,6 +575,10 @@ export type FeatureFlags = {
    */
   adoptBranch: boolean;
   /**
+   * Enable git rebase-on-main and sync-main operations in the web UI
+   */
+  gitRebaseSync: boolean;
+  /**
    * Use the built-in React file manager instead of the native OS folder picker
    */
   reactFileManager: boolean;
@@ -774,6 +778,8 @@ export enum SdlcLifecycle {
   Blocked = 'Blocked',
   Pending = 'Pending',
   Deleting = 'Deleting',
+  AwaitingUpstream = 'AwaitingUpstream',
+  Archived = 'Archived',
 }
 
 /**
@@ -862,6 +868,18 @@ export type PullRequest = {
    * Whether the PR can be merged (false = merge conflicts)
    */
   mergeable?: boolean;
+  /**
+   * URL of the PR created on the upstream repo (fork-and-PR flow only)
+   */
+  upstreamPrUrl?: string;
+  /**
+   * PR number on the upstream repo
+   */
+  upstreamPrNumber?: number;
+  /**
+   * Status of the upstream PR
+   */
+  upstreamPrStatus?: PrStatus;
 };
 
 /**
@@ -963,6 +981,26 @@ export type Feature = SoftDeletableEntity & {
    */
   openPr: boolean;
   /**
+   * Fork repo and create PR to upstream at merge time (default: false)
+   */
+  forkAndPr: boolean;
+  /**
+   * Commit specs/evidences into the repo (defaults false when forkAndPr is enabled)
+   */
+  commitSpecs: boolean;
+  /**
+   * Enable CI watch/fix loop after push (default: true)
+   */
+  ciWatchEnabled: boolean;
+  /**
+   * Enable evidence collection after implementation (default: false)
+   */
+  enableEvidence: boolean;
+  /**
+   * Commit evidence to PR (default: false, requires enableEvidence)
+   */
+  commitEvidence: boolean;
+  /**
    * Approval gates configuration (embedded value object)
    */
   approvalGates: ApprovalGates;
@@ -978,6 +1016,10 @@ export type Feature = SoftDeletableEntity & {
    * Parent feature ID for dependency tracking (optional)
    */
   parentId?: UUID;
+  /**
+   * Lifecycle state prior to archiving, used to restore on unarchive (only set when lifecycle is Archived)
+   */
+  previousLifecycle?: SdlcLifecycle;
   /**
    * Files attached by the user when creating or messaging this feature
    */

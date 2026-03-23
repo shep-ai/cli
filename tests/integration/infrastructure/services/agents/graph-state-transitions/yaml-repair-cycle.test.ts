@@ -76,6 +76,8 @@ oneLiner: broken`;
   it('should invoke repair node and call executor with repair prompt', async () => {
     // Write malformed YAML to spec directory
     const malformedSpecYaml = `name: Test Feature with 'unescaped quotes'
+number: 1
+branch: "feat/test-feature"
 oneLiner: "broken"
 summary: "broken"
 phase: "implementation"
@@ -181,6 +183,8 @@ openQuestions: [
 
     // Now simulate repair by writing fixed YAML
     const fixedSpecYaml = `name: "${originalName}"
+number: 1
+branch: "feat/test-feature"
 oneLiner: "Test feature that's now properly quoted"
 summary: "Summary with \\"quotes\\""
 phase: "implementation"

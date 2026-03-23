@@ -20,13 +20,21 @@ vi.mock('@xyflow/react', () => ({
 // Mock the useRepositoryActions hook
 const mockOpenInIde = vi.fn();
 const mockOpenInShell = vi.fn();
+const mockOpenFolder = vi.fn();
+const mockSyncMain = vi.fn();
 let mockHookReturn = {
   openInIde: mockOpenInIde,
   openInShell: mockOpenInShell,
+  openFolder: mockOpenFolder,
+  syncMain: mockSyncMain,
   ideLoading: false,
   shellLoading: false,
+  folderLoading: false,
+  syncLoading: false,
   ideError: null as string | null,
   shellError: null as string | null,
+  folderError: null as string | null,
+  syncError: null as string | null,
 };
 
 vi.mock('@/components/common/repository-node/use-repository-actions', () => ({
@@ -130,15 +138,23 @@ describe('RepositoryNode', () => {
   beforeEach(() => {
     mockOpenInIde.mockReset();
     mockOpenInShell.mockReset();
+    mockOpenFolder.mockReset();
+    mockSyncMain.mockReset();
     mockDeploy.mockReset();
     mockStop.mockReset();
     mockHookReturn = {
       openInIde: mockOpenInIde,
       openInShell: mockOpenInShell,
+      openFolder: mockOpenFolder,
+      syncMain: mockSyncMain,
       ideLoading: false,
       shellLoading: false,
+      folderLoading: false,
+      syncLoading: false,
       ideError: null,
       shellError: null,
+      folderError: null,
+      syncError: null,
     };
     mockDeployHookReturn = {
       deploy: mockDeploy,

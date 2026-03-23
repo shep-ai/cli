@@ -19,8 +19,8 @@ export const SOUND_ACTION_MAP = {
   'toggle-off': { sound: 'toggle_off', volume: 0.3 },
   click: { sound: 'tap_01', volume: 0.3 },
   cancel: { sound: 'transition_down', volume: 0.3 },
-  expand: { sound: 'swipe', volume: 0.3 },
-  collapse: { sound: 'swipe', volume: 0.3 },
+  expand: { sound: 'tap_01', volume: 0.2 },
+  collapse: { sound: 'tap_01', volume: 0.2 },
   'menu-open': { sound: 'select', volume: 0.3 },
   copy: { sound: 'select', volume: 0.3 },
 

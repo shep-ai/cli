@@ -12,8 +12,8 @@ import {
 } from '@/application/ports/output/services/git-pr-service.interface';
 
 describe('GitPrErrorCode', () => {
-  it('should define all 9 error codes', () => {
-    expect(Object.keys(GitPrErrorCode)).toHaveLength(9);
+  it('should define all 11 error codes', () => {
+    expect(Object.keys(GitPrErrorCode)).toHaveLength(11);
   });
 
   it.each([
@@ -26,6 +26,8 @@ describe('GitPrErrorCode', () => {
     'GIT_ERROR',
     'MERGE_FAILED',
     'PR_NOT_FOUND',
+    'REBASE_CONFLICT',
+    'SYNC_FAILED',
   ] as const)('should have %s error code', (code) => {
     expect(GitPrErrorCode[code]).toBe(code);
   });
@@ -166,6 +168,25 @@ describe('IGitPrService', () => {
       localMergeSquash: async () => {
         /* noop */
       },
+      syncMain: async () => {
+        /* noop */
+      },
+      rebaseOnMain: async () => {
+        /* noop */
+      },
+      getConflictedFiles: async () => [],
+      stageFiles: async () => {
+        /* noop */
+      },
+      rebaseContinue: async () => {
+        /* noop */
+      },
+      rebaseAbort: async () => {
+        /* noop */
+      },
+      getBranchSyncStatus: async () => {
+        return { ahead: 0, behind: 0 };
+      },
     };
 
     // Verify all methods exist
@@ -190,9 +211,16 @@ describe('IGitPrService', () => {
       'getFailureLogs',
       'getMergeableStatus',
       'localMergeSquash',
+      'syncMain',
+      'rebaseOnMain',
+      'getConflictedFiles',
+      'stageFiles',
+      'rebaseContinue',
+      'rebaseAbort',
+      'getBranchSyncStatus',
     ];
 
-    expect(methodNames).toHaveLength(20);
+    expect(methodNames).toHaveLength(27);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

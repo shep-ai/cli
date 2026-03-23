@@ -151,8 +151,11 @@ export function buildCommitPushPrPrompt(
   const steps: string[] = [];
 
   // Step 1: Commit (always)
+  const stageCmd = state.commitSpecs
+    ? '`git add -A`'
+    : '`git add -A` then `git reset -- specs/` (do NOT commit the specs/ directory)';
   steps.push(`1. Review the current changes using \`git diff\` and \`git status\`
-2. Stage all changes with \`git add -A\`
+2. Stage changes with ${stageCmd}
 3. Write a conventional commit message based on the actual diff content
    - Use the format: \`feat(<scope>): <description>\` or \`fix(<scope>): <description>\`
    - The commit message should summarize what actually changed, not be generic
@@ -204,6 +207,7 @@ ${evidenceSection}
 
 - Write a meaningful conventional commit message derived from the actual diff — do NOT use generic messages
 ${rejectionSection ? '- You MUST modify source code files to address the rejection feedback above BEFORE committing' : '- Do NOT modify any source code files — only perform git operations'}
+${!state.commitSpecs ? '- Do NOT commit the `specs/` directory — it must stay untracked. If you accidentally staged it, run `git reset -- specs/` before committing' : ''}
 - Do NOT amend existing commits
 - Do NOT run \`git pull\`, \`git rebase\`, or \`git merge\` — this is a fresh branch, push it directly
 - If there are no changes to commit, skip the commit step and report that no changes were found`;
@@ -251,4 +255,68 @@ ${failureLogs}
 - The commit message MUST start with \`fix(ci): attempt ${attemptNumber}/${maxAttempts} — \`
 - Do NOT create a new branch — push directly to \`${branch}\`
 - If the failure is unclear, make your best diagnosis and explain your reasoning in the commit message`;
+}
+
+/**
+ * Build a prompt for the CI watch agent call.
+ *
+ * Instructs the agent to check ALL CI runs for a branch, wait for all
+ * to complete, verify every run passed, and report structured status.
+ * Generic — works with any git/gh repo, not tied to specific workflows.
+ *
+ * @param branch - Feature branch name to watch CI for
+ */
+export function buildCiWatchPrompt(branch: string): string {
+  return `You are checking CI status for branch \`${branch}\`.
+
+## Instructions
+
+Follow these steps EXACTLY:
+
+### Step 1: List all CI runs for the branch
+
+\`\`\`
+gh run list --branch ${branch} --json databaseId,status,conclusion,name
+\`\`\`
+
+This shows ALL workflow runs. A single push can trigger MULTIPLE runs (e.g., CI/CD + PR validation).
+You MUST check every run, not just one.
+
+### Step 2: Watch all in-progress runs
+
+For EACH run with \`status\` that is NOT \`completed\`, watch it:
+
+\`\`\`
+gh run watch <databaseId> --interval 20
+\`\`\`
+
+Wait for each in-progress run to finish before proceeding.
+
+### Step 3: Verify all runs after watching
+
+After all runs complete, run the list command again to confirm:
+
+\`\`\`
+gh run list --branch ${branch} --json databaseId,status,conclusion,name
+\`\`\`
+
+Check that EVERY run shows \`status: completed\`. Do NOT trust \`gh run watch\` exit status alone.
+
+### Step 4: Report status
+
+After verifying all runs are complete, report EXACTLY ONE of these lines:
+
+- If every run has \`conclusion: success\`:
+  \`CI_STATUS: PASSED\`
+
+- If any run has a non-success conclusion:
+  \`CI_STATUS: FAILED — <brief summary of which runs failed and why>\`
+
+## Constraints
+
+- NEVER claim CI passed until EVERY run shows \`completed\` + \`success\`
+- NEVER watch a single run and assume it is the only one
+- If \`gh run list\` returns no runs, wait 10 seconds and retry up to 3 times
+- If rate-limited (403 error), report: \`CI_STATUS: PASSED\` (skip check gracefully)
+- Print the URL of the failing run if CI fails`;
 }

@@ -4,7 +4,12 @@ import {
   fromDatabase,
   type FeatureRow,
 } from '@/infrastructure/persistence/sqlite/mappers/feature.mapper.js';
-import { PrStatus, type Feature, type Attachment } from '@/domain/generated/output.js';
+import {
+  PrStatus,
+  SdlcLifecycle,
+  type Feature,
+  type Attachment,
+} from '@/domain/generated/output.js';
 
 const sampleAttachment: Attachment = {
   id: 'att-001',
@@ -29,6 +34,11 @@ function createTestFeature(overrides: Partial<Feature> = {}): Feature {
     relatedArtifacts: [],
     push: false,
     openPr: false,
+    forkAndPr: false,
+    commitSpecs: true,
+    ciWatchEnabled: true,
+    enableEvidence: false,
+    commitEvidence: false,
     fast: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date('2026-03-08T10:00:00Z'),
@@ -54,6 +64,11 @@ function createTestRow(overrides: Partial<FeatureRow> = {}): FeatureRow {
     spec_path: null,
     push: 0,
     open_pr: 0,
+    fork_and_pr: 0,
+    commit_specs: 1,
+    ci_watch_enabled: 1,
+    enable_evidence: 0,
+    commit_evidence: 0,
     auto_merge: 0,
     allow_prd: 0,
     allow_plan: 0,
@@ -63,12 +78,16 @@ function createTestRow(overrides: Partial<FeatureRow> = {}): FeatureRow {
     pr_url: null,
     pr_number: null,
     pr_status: null,
+    upstream_pr_url: null,
+    upstream_pr_number: null,
+    upstream_pr_status: null,
     commit_hash: null,
     ci_status: null,
     ci_fix_attempts: null,
     ci_fix_history: null,
     pr_mergeable: null,
     parent_id: null,
+    previous_lifecycle: null,
     fast: 0,
     attachments: '[]',
     deleted_at: null,
@@ -161,6 +180,39 @@ describe('Feature Mapper — soft delete', () => {
       const row = createTestRow({ deleted_at: null });
       const feature = fromDatabase(row);
       expect(feature.deletedAt).toBeUndefined();
+    });
+  });
+});
+
+describe('Feature Mapper — previous lifecycle', () => {
+  describe('toDatabase()', () => {
+    it('maps previousLifecycle to previous_lifecycle column', () => {
+      const feature = createTestFeature({
+        lifecycle: SdlcLifecycle.Archived,
+        previousLifecycle: SdlcLifecycle.Maintain,
+      });
+      const row = toDatabase(feature);
+      expect(row.previous_lifecycle).toBe('Maintain');
+    });
+
+    it('maps undefined previousLifecycle to null', () => {
+      const feature = createTestFeature();
+      const row = toDatabase(feature);
+      expect(row.previous_lifecycle).toBeNull();
+    });
+  });
+
+  describe('fromDatabase()', () => {
+    it('maps non-null previous_lifecycle to previousLifecycle', () => {
+      const row = createTestRow({ previous_lifecycle: 'Maintain' });
+      const feature = fromDatabase(row);
+      expect(feature.previousLifecycle).toBe(SdlcLifecycle.Maintain);
+    });
+
+    it('omits previousLifecycle when previous_lifecycle is null', () => {
+      const row = createTestRow({ previous_lifecycle: null });
+      const feature = fromDatabase(row);
+      expect(feature.previousLifecycle).toBeUndefined();
     });
   });
 });

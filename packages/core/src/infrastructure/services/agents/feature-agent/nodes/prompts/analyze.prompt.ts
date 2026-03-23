@@ -40,9 +40,9 @@ Write your analysis to: ${state.specDir}/spec.yaml
 
 You MUST write the COMPLETE file (not a partial update). Preserve the existing name/number/branch fields and update everything else. Use this YAML structure:
 
-  name: (keep existing)
-  number: (keep existing)
-  branch: (keep existing)
+  name: (keep existing — string)
+  number: (keep existing — MUST be a bare integer, e.g. 2, NOT "002" or "2")
+  branch: (keep existing — string)
   oneLiner: (concise one-line description of the feature)
   summary: >
     (2-3 sentence summary of what this feature involves based on your analysis)
@@ -111,10 +111,14 @@ You MUST write the COMPLETE file (not a partial update). Preserve the existing n
 - Do NOT start implementing the feature
 - Keep your analysis thorough but concise
 
-${buildCommitPushBlock({
-  push: state.push,
-  files: [`${state.specDir}/spec.yaml`],
-  commitHint: 'docs(specs): analyze repository and define spec',
-  skipVerification: true,
-})}`;
+${
+  state.commitSpecs
+    ? buildCommitPushBlock({
+        push: state.push,
+        files: [`${state.specDir}/spec.yaml`],
+        commitHint: 'docs(specs): analyze repository and define spec',
+        skipVerification: true,
+      })
+    : `## Git Operations\n\nDo NOT commit or push any spec files. Spec files are managed locally only.`
+}`;
 }

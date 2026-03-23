@@ -563,6 +563,47 @@ export const Interactive: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Contribute (Fork & PR) stories
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Fork & PR enabled — the "Fork & PR" toggle in the GIT row is checked.
+ * When enabled, Push and PR toggles are locked to `true` (disabled with
+ * "Enabled — contributing to upstream" tooltip), and `commitSpecs`
+ * auto-flips to `false`.
+ */
+export const ForkAndPrEnabled: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Fork & PR)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fork & PR)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const forkToggle = await body.findByLabelText('Fork & PR');
+    await userEvent.click(forkToggle);
+  },
+};
+
+/**
+ * Fork & PR with Commit Specs re-enabled — after enabling contribute mode
+ * (which auto-disables commitSpecs), the user overrides commitSpecs back to `true`.
+ */
+export const ForkAndPrWithCommitSpecs: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Fork + Specs)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fork + Specs)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const forkToggle = await body.findByLabelText('Fork & PR');
+    await userEvent.click(forkToggle);
+
+    const specsToggle = body.getByLabelText('Commit Specs');
+    await userEvent.click(specsToggle);
+  },
+};
+
+/* ---------------------------------------------------------------------------
  * Repository selector stories
  * ------------------------------------------------------------------------- */
 

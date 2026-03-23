@@ -13,4 +13,6 @@ enum:
   - Blocked
   - Pending
   - Deleting
+  - AwaitingUpstream
+  - Archived
 description: Software Development Lifecycle stages for feature progression

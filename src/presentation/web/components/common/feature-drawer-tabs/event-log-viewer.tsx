@@ -71,16 +71,22 @@ function LogLineRow({ line }: { line: ParsedLogLine }) {
 
 function Timestamp({ value }: { value: string | null }) {
   if (!value) return null;
-  const time = value.replace(/^.*T/, '').replace('Z', '');
+  // Show only MM:SS — compact, hours rarely change in a session
+  const full = value.replace(/^.*T/, '').replace('Z', '');
+  const parts = full.split(':');
+  const compact = parts.length >= 3 ? `${parts[1]}:${parts[2].split('.')[0]}` : full;
   return (
-    <span className="text-muted-foreground/60 w-20 shrink-0 font-mono text-[10px]">{time}</span>
+    <span className="text-muted-foreground/60 w-11 shrink-0 font-mono text-[10px]">{compact}</span>
   );
 }
 
 function PhaseBadge({ phase }: { phase: string | null }) {
-  if (!phase) return null;
+  if (!phase) return <span className="w-20 shrink-0" />;
   return (
-    <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-medium">
+    <span
+      className="bg-muted text-muted-foreground w-20 shrink-0 truncate rounded px-1.5 py-0.5 font-mono text-[10px] font-medium"
+      title={phase}
+    >
       {phase}
     </span>
   );
@@ -106,7 +112,9 @@ function ToolCallRow({ line }: { line: ParsedLogLine }) {
           {toolName}
         </span>
         {detail ? (
-          <span className="text-muted-foreground min-w-0 truncate font-mono text-xs">{detail}</span>
+          <span className="text-muted-foreground min-w-0 font-mono text-xs break-all">
+            {detail}
+          </span>
         ) : null}
       </div>
     </div>
@@ -132,13 +140,12 @@ function getToolDetail(toolName: string, args: string): string | null {
     if (toolName === 'Glob' && parsed.pattern) return parsed.pattern;
     if (toolName === 'Grep' && parsed.pattern) return parsed.pattern;
     if (toolName === 'Bash' && parsed.command) {
-      const cmd = parsed.command as string;
-      return cmd.length > 80 ? `${cmd.slice(0, 80)}...` : cmd;
+      return parsed.command as string;
     }
     if (toolName === 'Task' && parsed.description) return parsed.description;
   } catch {
     // Not JSON — show truncated raw args
-    if (args.length > 0) return args.length > 80 ? `${args.slice(0, 80)}...` : args;
+    if (args.length > 0) return args;
   }
   return null;
 }
@@ -197,9 +204,10 @@ function WorkerRow({ line }: { line: ParsedLogLine }) {
   return (
     <div className="hover:bg-muted/50 flex items-start gap-2 bg-zinc-50 px-3 py-1.5 transition-colors dark:bg-zinc-900/50">
       <Timestamp value={line.timestamp} />
+      <PhaseBadge phase={line.phase} />
       <div className="flex min-w-0 flex-1 items-start gap-1.5">
         <Server className="mt-0.5 h-3 w-3 shrink-0 text-zinc-500" />
-        <span className="text-muted-foreground text-xs font-medium">{line.message}</span>
+        <span className="text-muted-foreground text-xs font-medium break-all">{line.message}</span>
       </div>
     </div>
   );
@@ -210,7 +218,7 @@ function InfoRow({ line }: { line: ParsedLogLine }) {
     <div className="hover:bg-muted/50 flex items-start gap-2 px-3 py-1.5 transition-colors">
       <Timestamp value={line.timestamp} />
       <PhaseBadge phase={line.phase} />
-      <span className="text-muted-foreground min-w-0 text-xs">{line.message}</span>
+      <span className="text-muted-foreground min-w-0 text-xs break-all">{line.message}</span>
     </div>
   );
 }

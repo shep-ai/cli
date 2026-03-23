@@ -14,6 +14,16 @@ export interface CreateFeatureInput {
   description?: string;
   /** When true, skip SDLC phases and implement directly from the user prompt. */
   fast?: boolean;
+  /** Fork repo and create PR to upstream at merge time (default: false). */
+  forkAndPr?: boolean;
+  /** Commit specs/evidences into the repo (default: true, auto-false when forkAndPr). */
+  commitSpecs?: boolean;
+  /** Enable CI watch/fix loop after push (default: true). */
+  ciWatchEnabled?: boolean;
+  /** Enable evidence collection after implementation (default: false). */
+  enableEvidence?: boolean;
+  /** Commit evidence to PR (default: false, requires enableEvidence). */
+  commitEvidence?: boolean;
   /** When true, create feature in Pending state — fully initialized but agent not spawned. */
   pending?: boolean;
   /** Optional agent type override (overrides settings.agent.type). */

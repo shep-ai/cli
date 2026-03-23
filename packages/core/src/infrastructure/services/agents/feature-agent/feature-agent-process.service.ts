@@ -44,6 +44,11 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
       resumeFromInterrupt?: boolean;
       push?: boolean;
       openPr?: boolean;
+      forkAndPr?: boolean;
+      commitSpecs?: boolean;
+      ciWatchEnabled?: boolean;
+      enableEvidence?: boolean;
+      commitEvidence?: boolean;
       resumePayload?: string;
       agentType?: AgentType;
       fast?: boolean;
@@ -83,6 +88,21 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     }
     if (options?.openPr) {
       args.push('--open-pr');
+    }
+    if (options?.forkAndPr) {
+      args.push('--fork-and-pr');
+    }
+    if (options?.commitSpecs === false) {
+      args.push('--no-commit-specs');
+    }
+    if (options?.ciWatchEnabled === false) {
+      args.push('--no-ci-watch');
+    }
+    if (options?.enableEvidence) {
+      args.push('--enable-evidence');
+    }
+    if (options?.commitEvidence) {
+      args.push('--commit-evidence');
     }
     if (options?.resumePayload) {
       args.push('--resume-payload', options.resumePayload);

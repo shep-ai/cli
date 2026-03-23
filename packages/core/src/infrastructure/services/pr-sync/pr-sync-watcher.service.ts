@@ -2,7 +2,8 @@
  * PR Sync Watcher Service
  *
  * Polls GitHub PR status and CI status for features in the Review lifecycle
- * stage, updating feature records and emitting notifications when transitions
+ * stage, and upstream PR status for features in the AwaitingUpstream stage,
+ * updating feature records and emitting notifications when transitions
  * are detected. Follows the NotificationWatcherService polling pattern.
  *
  * Maintains in-memory tracking of last-known PR and CI status per feature
@@ -27,6 +28,7 @@ import type {
   PrStatusInfo,
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface.js';
+import type { IGitForkService } from '../../../application/ports/output/services/git-fork-service.interface.js';
 import type Database from 'better-sqlite3';
 
 const DEFAULT_POLL_INTERVAL_MS = 30_000;
@@ -53,6 +55,7 @@ export class PrSyncWatcherService {
   private readonly agentRunRepo: IAgentRunRepository;
   private readonly gitPrService: IGitPrService;
   private readonly notificationService: INotificationService;
+  private readonly gitForkService: IGitForkService | null;
   private readonly pollIntervalMs: number;
   private readonly trackedFeatures = new Map<string, PrWatcherState>();
   private readonly skippedRepos = new Set<string>();
@@ -68,12 +71,14 @@ export class PrSyncWatcherService {
     gitPrService: IGitPrService,
     notificationService: INotificationService,
     pollIntervalMs: number = DEFAULT_POLL_INTERVAL_MS,
-    db: Database.Database | null = null
+    db: Database.Database | null = null,
+    gitForkService: IGitForkService | null = null
   ) {
     this.featureRepo = featureRepo;
     this.agentRunRepo = agentRunRepo;
     this.gitPrService = gitPrService;
     this.notificationService = notificationService;
+    this.gitForkService = gitForkService;
     this.pollIntervalMs = pollIntervalMs;
     this.db = db;
     this.processId = `${process.pid}-${Date.now()}`;
@@ -143,31 +148,37 @@ export class PrSyncWatcherService {
 
       this.pollCycle++;
 
-      const allFeatures = await this.featureRepo.list({ lifecycle: SdlcLifecycle.Review });
+      const allReviewFeatures = await this.featureRepo.list({ lifecycle: SdlcLifecycle.Review });
 
       // Include features with a valid repositoryPath (with or without PR data)
-      const features = allFeatures.filter((f) => f.repositoryPath);
+      const reviewFeatures = allReviewFeatures.filter((f) => f.repositoryPath);
 
-      if (features.length === 0) {
-        this.trackedFeatures.clear();
-        return;
-      }
-
-      // Group features by repositoryPath for batch queries
+      // Group Review features by repositoryPath for batch queries
       const byRepo = new Map<string, Feature[]>();
-      for (const feature of features) {
+      for (const feature of reviewFeatures) {
         const group = byRepo.get(feature.repositoryPath) ?? [];
         group.push(feature);
         byRepo.set(feature.repositoryPath, group);
       }
 
-      // Process each repository
+      // Process each repository (Review features)
       for (const [repoPath, repoFeatures] of byRepo) {
         await this.processRepository(repoPath, repoFeatures);
       }
 
-      // Prune features no longer in Review
-      const currentFeatureIds = new Set(features.map((f) => f.id));
+      // Process AwaitingUpstream features (poll upstream PR status individually)
+      const awaitingFeatures = await this.featureRepo.list({
+        lifecycle: SdlcLifecycle.AwaitingUpstream,
+      });
+      for (const feature of awaitingFeatures) {
+        await this.processAwaitingUpstreamFeature(feature);
+      }
+
+      // Prune features no longer in Review or AwaitingUpstream
+      const currentFeatureIds = new Set([
+        ...reviewFeatures.map((f) => f.id),
+        ...awaitingFeatures.map((f) => f.id),
+      ]);
       for (const trackedId of this.trackedFeatures.keys()) {
         if (!currentFeatureIds.has(trackedId)) {
           this.trackedFeatures.delete(trackedId);
@@ -445,6 +456,110 @@ export class PrSyncWatcherService {
     }
   }
 
+  /**
+   * Extract upstream repo (owner/name) from an upstream PR URL.
+   * Expected format: https://github.com/owner/repo/pull/123
+   */
+  private extractUpstreamRepo(upstreamPrUrl: string): string | null {
+    const match = upstreamPrUrl.match(/github\.com\/([^/]+\/[^/]+)\/pull\//);
+    return match?.[1] ?? null;
+  }
+
+  /**
+   * Poll upstream PR status for a feature in AwaitingUpstream lifecycle.
+   * If the upstream PR is merged, transition to Maintain.
+   * If the upstream PR is closed, update upstreamPrStatus to Closed.
+   */
+  private async processAwaitingUpstreamFeature(feature: Feature): Promise<void> {
+    if (!this.gitForkService) return;
+    if (!feature.pr?.upstreamPrUrl || !feature.pr?.upstreamPrNumber) return;
+
+    // Check exponential backoff — skip features that haven't changed recently
+    if (!this.shouldPollFeature(feature.id)) {
+      return;
+    }
+
+    const upstreamRepo = this.extractUpstreamRepo(feature.pr.upstreamPrUrl);
+    if (!upstreamRepo) {
+      // eslint-disable-next-line no-console
+      console.warn(`${TAG} Could not extract upstream repo from URL: ${feature.pr.upstreamPrUrl}`);
+      return;
+    }
+
+    let upstreamStatus: PrStatus;
+    try {
+      upstreamStatus = await this.gitForkService.getUpstreamPrStatus(
+        upstreamRepo,
+        feature.pr.upstreamPrNumber
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      // eslint-disable-next-line no-console
+      console.warn(
+        `${TAG} getUpstreamPrStatus failed for "${feature.name}" (${upstreamRepo}#${feature.pr.upstreamPrNumber}): ${msg}`
+      );
+      return;
+    }
+
+    // Initialize tracking if needed
+    const prevState = this.trackedFeatures.get(feature.id);
+    if (!prevState) {
+      this.trackedFeatures.set(feature.id, {
+        prStatus: feature.pr.upstreamPrStatus ?? PrStatus.Open,
+        ciStatus: undefined,
+        mergeable: undefined,
+        featureName: feature.name,
+        unchangedCycles: 0,
+      });
+    }
+
+    const tracked = this.trackedFeatures.get(feature.id)!;
+    const previousStatus = tracked.prStatus;
+
+    if (upstreamStatus === previousStatus) {
+      tracked.unchangedCycles++;
+      return;
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `${TAG} Upstream PR #${feature.pr.upstreamPrNumber} status changed: ${previousStatus} -> ${upstreamStatus} for "${feature.name}"`
+    );
+
+    tracked.prStatus = upstreamStatus;
+    tracked.unchangedCycles = 0;
+
+    if (upstreamStatus === PrStatus.Merged) {
+      feature.lifecycle = SdlcLifecycle.Maintain;
+      feature.pr = { ...feature.pr, upstreamPrStatus: PrStatus.Merged };
+      feature.updatedAt = new Date();
+      await this.featureRepo.update(feature);
+      await this.completeAgentRun(feature);
+
+      this.emitNotification(
+        NotificationEventType.PrMerged,
+        feature.id,
+        feature.agentRunId ?? '',
+        feature.name,
+        `Upstream PR #${feature.pr.upstreamPrNumber} merged for ${feature.name}`,
+        NotificationSeverity.Success
+      );
+    } else if (upstreamStatus === PrStatus.Closed) {
+      feature.pr = { ...feature.pr, upstreamPrStatus: PrStatus.Closed };
+      feature.updatedAt = new Date();
+      await this.featureRepo.update(feature);
+
+      this.emitNotification(
+        NotificationEventType.PrClosed,
+        feature.id,
+        feature.agentRunId ?? '',
+        feature.name,
+        `Upstream PR #${feature.pr.upstreamPrNumber} closed for ${feature.name}`,
+        NotificationSeverity.Warning
+      );
+    }
+  }
+
   /** Mark associated agent run as completed so the UI reflects "done" state. */
   private async completeAgentRun(feature: Feature): Promise<void> {
     if (!feature.agentRunId) return;
@@ -495,7 +610,8 @@ export function initializePrSyncWatcher(
   gitPrService: IGitPrService,
   notificationService: INotificationService,
   pollIntervalMs?: number,
-  db?: Database.Database | null
+  db?: Database.Database | null,
+  gitForkService?: IGitForkService | null
 ): void {
   if (watcherInstance !== null) {
     throw new Error('PR sync watcher already initialized. Cannot re-initialize.');
@@ -507,7 +623,8 @@ export function initializePrSyncWatcher(
     gitPrService,
     notificationService,
     pollIntervalMs,
-    db ?? null
+    db ?? null,
+    gitForkService ?? null
   );
 }
 

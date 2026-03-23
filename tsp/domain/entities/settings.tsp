@@ -485,6 +485,9 @@ model FeatureFlags {
   @doc("Enable adopt branch feature to import existing branches as tracked features")
   adoptBranch: boolean = false;
 
+  @doc("Enable git rebase-on-main and sync-main operations in the web UI")
+  gitRebaseSync: boolean = false;
+
   @doc("Use the built-in React file manager instead of the native OS folder picker")
   reactFileManager: boolean = false;
 

@@ -40,6 +40,8 @@ import type { IToolInstallerService } from '../../application/ports/output/servi
 import { ToolInstallerServiceImpl } from '../services/tool-installer/tool-installer.service.js';
 import type { IGitPrService } from '../../application/ports/output/services/git-pr-service.interface.js';
 import { GitPrService } from '../services/git/git-pr.service.js';
+import type { IGitForkService } from '../../application/ports/output/services/git-fork-service.interface.js';
+import { GitForkService } from '../services/git/git-fork.service.js';
 import type { IIdeLauncherService } from '../../application/ports/output/services/ide-launcher-service.interface.js';
 import { JsonDrivenIdeLauncherService } from '../services/ide-launchers/json-driven-ide-launcher.service.js';
 import type { IDaemonService } from '../../application/ports/output/services/daemon-service.interface.js';
@@ -120,7 +122,13 @@ import { ListGitHubRepositoriesUseCase } from '../../application/use-cases/repos
 import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 import { CleanupFeatureWorktreeUseCase } from '../../application/use-cases/features/cleanup-feature-worktree.use-case.js';
+import { ArchiveFeatureUseCase } from '../../application/use-cases/features/archive-feature.use-case.js';
+import { UnarchiveFeatureUseCase } from '../../application/use-cases/features/unarchive-feature.use-case.js';
 import { UpgradeCliUseCase } from '../../application/use-cases/upgrade/upgrade-cli.use-case.js';
+import { SyncRepositoryMainUseCase } from '../../application/use-cases/repositories/sync-repository-main.use-case.js';
+import { RebaseFeatureOnMainUseCase } from '../../application/use-cases/features/rebase-feature-on-main.use-case.js';
+import { GetBranchSyncStatusUseCase } from '../../application/use-cases/features/get-branch-sync-status.use-case.js';
+import { ConflictResolutionService } from '../services/agents/conflict-resolution/conflict-resolution.service.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -221,6 +229,7 @@ export async function initializeContainer(): Promise<typeof container> {
     ToolInstallerServiceImpl
   );
   container.registerSingleton<IGitPrService>('IGitPrService', GitPrService);
+  container.registerSingleton<IGitForkService>('IGitForkService', GitForkService);
   container.registerSingleton<IGitHubRepositoryService>(
     'IGitHubRepositoryService',
     GitHubRepositoryService
@@ -386,7 +395,16 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(CheckAndUnblockFeaturesUseCase);
   container.registerSingleton(UpdateFeatureLifecycleUseCase);
   container.registerSingleton(CleanupFeatureWorktreeUseCase);
+  container.registerSingleton(ArchiveFeatureUseCase);
+  container.registerSingleton(UnarchiveFeatureUseCase);
   container.registerSingleton(UpgradeCliUseCase);
+  container.registerSingleton(ConflictResolutionService);
+  container.register('ConflictResolutionService', {
+    useFactory: (c) => c.resolve(ConflictResolutionService),
+  });
+  container.registerSingleton(SyncRepositoryMainUseCase);
+  container.registerSingleton(RebaseFeatureOnMainUseCase);
+  container.registerSingleton(GetBranchSyncStatusUseCase);
 
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
@@ -486,8 +504,23 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('CleanupFeatureWorktreeUseCase', {
     useFactory: (c) => c.resolve(CleanupFeatureWorktreeUseCase),
   });
+  container.register('ArchiveFeatureUseCase', {
+    useFactory: (c) => c.resolve(ArchiveFeatureUseCase),
+  });
+  container.register('UnarchiveFeatureUseCase', {
+    useFactory: (c) => c.resolve(UnarchiveFeatureUseCase),
+  });
   container.register('UpgradeCliUseCase', {
     useFactory: (c) => c.resolve(UpgradeCliUseCase),
+  });
+  container.register('SyncRepositoryMainUseCase', {
+    useFactory: (c) => c.resolve(SyncRepositoryMainUseCase),
+  });
+  container.register('RebaseFeatureOnMainUseCase', {
+    useFactory: (c) => c.resolve(RebaseFeatureOnMainUseCase),
+  });
+  container.register('GetBranchSyncStatusUseCase', {
+    useFactory: (c) => c.resolve(GetBranchSyncStatusUseCase),
   });
 
   _initialized = true;

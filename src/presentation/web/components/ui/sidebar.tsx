@@ -34,6 +34,8 @@ interface SidebarContextProps {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
+  /** Whether transitions should be enabled (false until first user toggle). */
+  animated: boolean;
 }
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
@@ -45,17 +47,6 @@ function useSidebar() {
   }
 
   return context;
-}
-
-function readSidebarState(fallback: boolean): boolean {
-  try {
-    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-    if (stored === 'true') return true;
-    if (stored === 'false') return false;
-    return fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 function SidebarProvider({
@@ -73,21 +64,13 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
+  const [animated, setAnimated] = React.useState(false);
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  // Initialize with defaultOpen to match SSR — localStorage is read after hydration.
+  // defaultOpen comes from server-side cookie reading, so SSR and client agree.
   const [_open, _setOpen] = React.useState(defaultOpen);
   const open = openProp ?? _open;
-
-  // After hydration, sync state from localStorage to avoid SSR mismatch.
-  React.useEffect(() => {
-    if (openProp !== undefined) return; // controlled mode — skip
-    const stored = readSidebarState(defaultOpen);
-    if (stored !== defaultOpen) {
-      _setOpen(stored);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -98,9 +81,11 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
-      // Persist sidebar state to localStorage.
+      // Persist sidebar state to localStorage and a cookie (so the server can
+      // read it on the next request and render the correct initial state).
       try {
         localStorage.setItem(SIDEBAR_STORAGE_KEY, String(openState));
+        document.cookie = `${SIDEBAR_STORAGE_KEY}=${openState}; path=/; max-age=31536000; SameSite=Lax`;
       } catch {
         // Silently ignore storage errors (e.g. quota exceeded, private browsing).
       }
@@ -110,8 +95,24 @@ function SidebarProvider({
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
+    setAnimated(true);
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
   }, [isMobile, setOpen, setOpenMobile]);
+
+  // Seed cookie from localStorage for existing users who have localStorage
+  // but no cookie yet (one-time migration).
+  React.useEffect(() => {
+    try {
+      if (!document.cookie.includes(SIDEBAR_STORAGE_KEY)) {
+        const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+        if (stored != null) {
+          document.cookie = `${SIDEBAR_STORAGE_KEY}=${stored}; path=/; max-age=31536000; SameSite=Lax`;
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -139,8 +140,9 @@ function SidebarProvider({
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      animated,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, animated]
   );
 
   return (
@@ -180,7 +182,7 @@ function Sidebar({
   variant?: 'sidebar' | 'floating' | 'inset';
   collapsible?: 'offcanvas' | 'icon' | 'none';
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const { isMobile, state, openMobile, setOpenMobile, animated } = useSidebar();
 
   if (collapsible === 'none') {
     return (
@@ -235,7 +237,8 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          'relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear',
+          'relative w-(--sidebar-width) bg-transparent',
+          animated && 'transition-[width] duration-200 ease-linear',
           'group-data-[collapsible=offcanvas]:w-0',
           'group-data-[side=right]:rotate-180',
           variant === 'floating' || variant === 'inset'
@@ -246,7 +249,8 @@ function Sidebar({
       <div
         data-slot="sidebar-container"
         className={cn(
-          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex',
+          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) md:flex',
+          animated && 'transition-[left,right,width] duration-200 ease-linear',
           side === 'left'
             ? 'left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]'
             : 'right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]',

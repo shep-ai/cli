@@ -172,6 +172,11 @@ export class CreateFeatureUseCase {
       fast: input.fast ?? false,
       push: input.push ?? false,
       openPr: input.openPr ?? false,
+      forkAndPr: input.forkAndPr ?? false,
+      commitSpecs: input.commitSpecs ?? true,
+      ciWatchEnabled: input.ciWatchEnabled ?? true,
+      enableEvidence: input.enableEvidence ?? false,
+      commitEvidence: input.commitEvidence ?? false,
       approvalGates: input.approvalGates ?? {
         allowPrd: false,
         allowPlan: false,
@@ -228,7 +233,8 @@ export class CreateFeatureUseCase {
 
     const metadata = await this.metadataGenerator.generateMetadata(
       input.userInput,
-      input.agentType as AgentType | undefined
+      input.agentType as AgentType | undefined,
+      effectiveRepoPath
     );
     const originalSlug = metadata.slug;
 
@@ -339,6 +345,11 @@ export class CreateFeatureUseCase {
           threadId: agentRun?.threadId ?? randomUUID(),
           push: input.push ?? false,
           openPr: input.openPr ?? false,
+          forkAndPr: input.forkAndPr ?? false,
+          commitSpecs: input.commitSpecs ?? true,
+          ciWatchEnabled: input.ciWatchEnabled ?? true,
+          enableEvidence: input.enableEvidence ?? false,
+          commitEvidence: input.commitEvidence ?? false,
           ...(input.fast ? { fast: true } : {}),
           ...(input.agentType ? { agentType: input.agentType as AgentType } : {}),
           ...(input.model ? { model: input.model } : {}),

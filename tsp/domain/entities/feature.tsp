@@ -379,6 +379,21 @@ model Feature extends SoftDeletableEntity {
   @doc("Create PR after implementation (default: false)")
   openPr: boolean = false;
 
+  @doc("Fork repo and create PR to upstream at merge time (default: false)")
+  forkAndPr: boolean = false;
+
+  @doc("Commit specs/evidences into the repo (defaults false when forkAndPr is enabled)")
+  commitSpecs: boolean = true;
+
+  @doc("Enable CI watch/fix loop after push (default: true)")
+  ciWatchEnabled: boolean = true;
+
+  @doc("Enable evidence collection after implementation (default: false)")
+  enableEvidence: boolean = false;
+
+  @doc("Commit evidence to PR (default: false, requires enableEvidence)")
+  commitEvidence: boolean = false;
+
   @doc("Approval gates configuration (embedded value object)")
   approvalGates: ApprovalGates;
 
@@ -403,6 +418,11 @@ model Feature extends SoftDeletableEntity {
    */
   @doc("Parent feature ID for dependency tracking (optional)")
   parentId?: UUID;
+
+  // ── Archive State ──────────────────────────────────────────
+
+  @doc("Lifecycle state prior to archiving, used to restore on unarchive (only set when lifecycle is Archived)")
+  previousLifecycle?: SdlcLifecycle;
 
   // ── User Attachments ─────────────────────────────────────
 

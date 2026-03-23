@@ -6,15 +6,16 @@
  */
 
 import yaml from 'js-yaml';
-import { readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { join, dirname, relative } from 'node:path';
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type {
   IAgentExecutor,
   AgentExecutionOptions,
   AgentExecutionResult,
 } from '@/application/ports/output/agents/agent-executor.interface.js';
-import type { ApprovalGates } from '@/domain/generated/output.js';
+import type { ApprovalGates, Evidence } from '@/domain/generated/output.js';
 import { hasSettings, getSettings } from '@/infrastructure/services/settings.service.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
@@ -455,6 +456,51 @@ Before proceeding with this phase:
 `;
 }
 
+/** Spec-only phases whose commits should be removed when commitSpecs=false. */
+const SPEC_PHASE_NODES = new Set(['analyze', 'requirements', 'research', 'plan']);
+
+/**
+ * Safety net: remove spec-file commits the agent made despite being told not to.
+ *
+ * When commitSpecs=false and the agent ignored the "do NOT commit" instruction,
+ * this function finds the most recent commit that touches the spec directory and
+ * soft-resets it so the files remain on disk (for local use) but are not committed.
+ */
+export function removeSpecCommitsIfNeeded(
+  state: FeatureAgentState,
+  nodeName: string,
+  log: NodeLogger
+): void {
+  if (state.commitSpecs) return;
+  if (!SPEC_PHASE_NODES.has(nodeName)) return;
+
+  const cwd = state.worktreePath || state.repositoryPath;
+  const specRelDir = relative(cwd, state.specDir).replaceAll('\\', '/');
+
+  try {
+    // Check if HEAD commit touches spec files
+    const filesInHead = execSync(`git diff --name-only HEAD~1 HEAD -- "${specRelDir}"`, {
+      cwd,
+      encoding: 'utf-8',
+      windowsHide: true,
+    }).trim();
+
+    if (!filesInHead) return;
+
+    log.info(
+      `commitSpecs=false but agent committed spec files: ${filesInHead.split('\n').join(', ')}. Soft-resetting to undo.`
+    );
+
+    // Soft-reset the last commit so spec files are unstaged but kept on disk
+    execSync('git reset --soft HEAD~1', { cwd, windowsHide: true });
+    // Unstage the spec files (keep them as untracked/modified on disk)
+    execSync(`git reset HEAD -- "${specRelDir}"`, { cwd, windowsHide: true });
+  } catch {
+    // If git commands fail (e.g., no prior commit, detached HEAD), log and continue
+    log.info('Failed to check/remove spec commits — continuing');
+  }
+}
+
 /**
  * Execute a node with consistent logging and error handling.
  *
@@ -552,6 +598,9 @@ export function executeNode(
         exitCode: 'success',
       });
 
+      // Safety net: undo spec commits if commitSpecs=false
+      removeSpecCommitsIfNeeded(state, nodeName, log);
+
       // Mark phase complete BEFORE interrupting so that on resume the
       // node detects the work is already done and returns early.
       markPhaseComplete(state.specDir, nodeName, log);
@@ -600,4 +649,27 @@ export function executeNode(
       throw new Error(`[${nodeName}] ${message}`);
     }
   };
+}
+
+/**
+ * Save evidence manifest to the shep home evidence folder so the
+ * merge review UI can read it without accessing graph state.
+ */
+export function saveEvidenceManifest(
+  state: FeatureAgentState,
+  evidence: Evidence[],
+  log: ReturnType<typeof createNodeLogger>
+): void {
+  if (evidence.length === 0) return;
+  try {
+    const cwd = state.worktreePath || state.repositoryPath;
+    const repoHashDir = dirname(dirname(cwd));
+    const evidenceDir = join(repoHashDir, 'evidence', state.featureId);
+    mkdirSync(evidenceDir, { recursive: true });
+    writeFileSync(join(evidenceDir, 'manifest.json'), JSON.stringify(evidence, null, 2), 'utf-8');
+    log.info(`Saved evidence manifest to ${evidenceDir}/manifest.json`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error(`Failed to save evidence manifest: ${msg}`);
+  }
 }

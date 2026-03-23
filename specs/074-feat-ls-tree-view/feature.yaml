@@ -1,0 +1,33 @@
+feature:
+  id: "074-feat-ls-tree-view"
+  name: "feat-ls-tree-view"
+  number: 74
+  branch: "feat/074-feat-ls-tree-view"
+  lifecycle: "research"
+  createdAt: "2026-03-22T18:52:22Z"
+status:
+  phase: "research"
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2026-03-22T18:52:22Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "fast-implement"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-22T18:52:22Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []

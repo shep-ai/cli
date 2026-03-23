@@ -214,8 +214,8 @@ describe('DeploymentService — log accumulation', () => {
       mockChild.stdout.emit('data', Buffer.from('some output\n'));
 
       service.stopAll();
-      // After stopAll + exit event, deployment is removed
-      mockChild.emit('exit', null, 'SIGKILL');
+      // After stopAll + close event, deployment is removed
+      mockChild.emit('close', null, 'SIGKILL');
 
       expect(service.getLogs('feat-1')).toBeNull();
     });
@@ -224,7 +224,7 @@ describe('DeploymentService — log accumulation', () => {
       service.start('feat-1', '/project');
       mockChild.stdout.emit('data', Buffer.from('some output\n'));
 
-      mockChild.emit('exit', 1, null);
+      mockChild.emit('close', 1, null);
 
       expect(service.getLogs('feat-1')).toBeNull();
     });

@@ -77,6 +77,7 @@ describe('AddRepositoryButton', () => {
       adoptBranch: false,
       reactFileManager: false,
       coastsDevServer: false,
+      gitRebaseSync: false,
     });
   });
 
@@ -173,6 +174,7 @@ describe('AddRepositoryButton', () => {
         adoptBranch: false,
         reactFileManager: false,
         coastsDevServer: false,
+        gitRebaseSync: false,
       });
     });
 
@@ -302,6 +304,7 @@ describe('AddRepositoryButton', () => {
         adoptBranch: false,
         reactFileManager: true,
         coastsDevServer: false,
+        gitRebaseSync: false,
       });
     });
 
@@ -373,6 +376,7 @@ describe('AddRepositoryButton', () => {
         adoptBranch: false,
         reactFileManager: true,
         coastsDevServer: false,
+        gitRebaseSync: false,
       });
       const user = userEvent.setup();
       render(<AddRepositoryButton />);

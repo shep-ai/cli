@@ -33,6 +33,7 @@ import {
   readSpecFile,
   retryExecute,
   buildExecutorOptions,
+  saveEvidenceManifest,
 } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
@@ -216,6 +217,7 @@ export function createEvidenceNode(executor: IAgentExecutor) {
       }
     }
 
+    saveEvidenceManifest(state, allEvidence, log);
     markPhaseComplete(state.specDir, 'evidence', log);
 
     allMessages.unshift(

@@ -1,0 +1,603 @@
+name: "feature-archive"
+summary: >
+  18 tasks across 6 phases. Covers domain model changes (TypeSpec enum + field), database
+  migration, repository filtering, two use cases with TDD, CLI commands, server actions,
+  web UI state management, visual components, SSE integration, and Storybook stories.
+
+relatedFeatures: []
+technologies: []
+
+relatedLinks:
+  - title: "GitHub Issue #435 - Add archive option for features"
+    url: "https://github.com/shep-ai/cli/issues/435"
+
+tasks:
+  # ═══════════════════════════════════════════════════════════════════
+  # Phase 1: Domain & Infrastructure Foundation
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Add Archived enum value and previousLifecycle field to TypeSpec"
+    description: >
+      Add Archived to SdlcLifecycle enum in lifecycle.tsp and add optional previousLifecycle
+      field (type SdlcLifecycle) to Feature model in feature.tsp. Run pnpm tsp:compile to
+      regenerate output.ts. Verify the generated types include the new enum value and field.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "SdlcLifecycle enum in lifecycle.tsp includes Archived with appropriate doc annotation"
+      - "Feature model in feature.tsp has previousLifecycle?: SdlcLifecycle optional field"
+      - "pnpm tsp:compile succeeds without errors"
+      - "Generated output.ts includes SdlcLifecycle.Archived and Feature.previousLifecycle"
+    tdd:
+      red:
+        - "Verify that SdlcLifecycle.Archived does not exist in current generated output (baseline)"
+      green:
+        - "Add Archived enum value to lifecycle.tsp with doc annotation"
+        - "Add previousLifecycle optional field to feature.tsp"
+        - "Run pnpm tsp:compile to regenerate output.ts"
+      refactor:
+        - "Verify doc annotations are consistent with existing enum value style"
+    estimatedEffort: "20min"
+
+  - id: "task-2"
+    phaseId: "phase-1"
+    title: "Create database migration for previous_lifecycle column"
+    description: >
+      Create migration 044-add-previous-lifecycle.ts that adds a nullable TEXT column
+      previous_lifecycle to the features table. Follow the idempotent pattern from migration
+      040+ (check table_info before ALTER TABLE). The column stores the lifecycle state
+      prior to archiving for restoration on unarchive.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "Migration file exists at 044-add-previous-lifecycle.ts"
+      - "Uses idempotent pattern (check table_info before ALTER TABLE)"
+      - "Adds previous_lifecycle TEXT column (nullable, no default)"
+      - "down() is a no-op function"
+      - "Migration runs without errors"
+    tdd:
+      red:
+        - "Write test that migration adds previous_lifecycle column to features table"
+      green:
+        - "Create 044-add-previous-lifecycle.ts following the pattern from 040-add-repository-remote-url.ts"
+        - "Implement idempotent up() with table_info check"
+      refactor:
+        - "Ensure naming consistency with existing migrations"
+    estimatedEffort: "15min"
+
+  - id: "task-3"
+    phaseId: "phase-1"
+    title: "Update feature mapper with previous_lifecycle field"
+    description: >
+      Add previous_lifecycle to FeatureRow interface and update toDatabase() and fromDatabase()
+      functions to map between Feature.previousLifecycle and the database column. Follow the
+      existing pattern for optional fields (null when undefined, spread when non-null).
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "FeatureRow interface includes previous_lifecycle: string | null"
+      - "toDatabase() maps feature.previousLifecycle to previous_lifecycle (null when undefined)"
+      - "fromDatabase() maps previous_lifecycle to previousLifecycle using spread pattern"
+      - "Existing mapper tests still pass"
+    tdd:
+      red:
+        - "Write test that toDatabase maps previousLifecycle to previous_lifecycle column"
+        - "Write test that fromDatabase maps previous_lifecycle back to previousLifecycle"
+        - "Write test that null previous_lifecycle results in no previousLifecycle property"
+      green:
+        - "Add previous_lifecycle to FeatureRow interface"
+        - "Add previousLifecycle mapping to toDatabase()"
+        - "Add previous_lifecycle mapping to fromDatabase() using spread pattern"
+      refactor:
+        - "Verify consistency with other optional field mappings (e.g., spec_path, worktree_path)"
+    estimatedEffort: "20min"
+
+  - id: "task-4"
+    phaseId: "phase-1"
+    title: "Add includeArchived filter to repository interface and SQLite implementation"
+    description: >
+      Add includeArchived?: boolean to FeatureListFilters interface. Update
+      SQLiteFeatureRepository.list() to exclude features with lifecycle = Archived by default
+      (when includeArchived is falsy), following the exact pattern of includeDeleted.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+      - "task-2"
+      - "task-3"
+    acceptanceCriteria:
+      - "FeatureListFilters has includeArchived?: boolean with doc comment"
+      - "list() excludes Archived features by default"
+      - "list({ includeArchived: true }) includes Archived features"
+      - "Filtering is via SQL WHERE clause, not JS post-filter (NFR-2)"
+    tdd:
+      red:
+        - "Write test that list() excludes features with lifecycle=Archived by default"
+        - "Write test that list({ includeArchived: true }) includes Archived features"
+        - "Write test that list({ lifecycle: SdlcLifecycle.Archived }) still returns Archived features (explicit lifecycle filter overrides exclusion)"
+      green:
+        - "Add includeArchived to FeatureListFilters in feature-repository.interface.ts"
+        - "Add WHERE clause condition in sqlite-feature.repository.ts list() method"
+      refactor:
+        - "Ensure the condition is placed consistently with includeDeleted (both at the top of conditions array)"
+    estimatedEffort: "30min"
+
+  - id: "task-5"
+    phaseId: "phase-1"
+    title: "Update SQLite repository update() to persist previous_lifecycle"
+    description: >
+      Add previous_lifecycle to the UPDATE statement in SQLiteFeatureRepository.update() so
+      the previousLifecycle field is persisted when archiving/unarchiving features.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "UPDATE statement includes previous_lifecycle = @previous_lifecycle"
+      - "Updating a feature with previousLifecycle set persists the value"
+      - "Updating a feature without previousLifecycle sets column to null"
+    tdd:
+      red:
+        - "Write test that updating a feature with previousLifecycle persists the value and can be read back"
+      green:
+        - "Add previous_lifecycle to the UPDATE SET clause in sqlite-feature.repository.ts"
+      refactor:
+        - "Verify column order in UPDATE is consistent with FeatureRow field order"
+    estimatedEffort: "15min"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Phase 2: Application Layer — Use Cases & DI
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-6"
+    phaseId: "phase-2"
+    title: "Create ArchiveFeatureUseCase"
+    description: >
+      Create ArchiveFeatureUseCase following the DeleteFeatureUseCase pattern. Validates that
+      the feature is in an archivable state (Maintain, Pending, Blocked), checks for active
+      (non-archived, non-deleted) children, stores current lifecycle in previousLifecycle,
+      and transitions to Archived.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+      - "task-5"
+    acceptanceCriteria:
+      - "Use case is @injectable() with @inject('IFeatureRepository')"
+      - "Resolves feature by findById ?? findByIdPrefix"
+      - "Throws if feature not found"
+      - "Throws if lifecycle is not Maintain, Pending, or Blocked"
+      - "Throws if feature has active (non-archived, non-deleted) children"
+      - "Sets previousLifecycle to current lifecycle"
+      - "Sets lifecycle to Archived"
+      - "Updates updatedAt timestamp"
+      - "Returns the updated feature"
+    tdd:
+      red:
+        - "Write test: throws when feature not found"
+        - "Write test: throws when lifecycle is Started (not archivable)"
+        - "Write test: throws when lifecycle is Implementation (not archivable)"
+        - "Write test: throws when feature has active children"
+        - "Write test: succeeds for Maintain lifecycle, stores previousLifecycle"
+        - "Write test: succeeds for Pending lifecycle"
+        - "Write test: succeeds for Blocked lifecycle"
+        - "Write test: allows archiving when all children are also archived"
+      green:
+        - "Create archive-feature.use-case.ts with @injectable decorator"
+        - "Implement execute() with state validation, child check, and lifecycle transition"
+      refactor:
+        - "Extract ARCHIVABLE_STATES constant for readability"
+    estimatedEffort: "45min"
+
+  - id: "task-7"
+    phaseId: "phase-2"
+    title: "Create UnarchiveFeatureUseCase"
+    description: >
+      Create UnarchiveFeatureUseCase that restores a feature from Archived to its
+      previousLifecycle value. Validates the feature is Archived and has a non-null
+      previousLifecycle.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+      - "task-5"
+    acceptanceCriteria:
+      - "Use case is @injectable() with @inject('IFeatureRepository')"
+      - "Resolves feature by findById ?? findByIdPrefix"
+      - "Throws if feature not found"
+      - "Throws if lifecycle is not Archived"
+      - "Throws if previousLifecycle is null/undefined"
+      - "Sets lifecycle to previousLifecycle value"
+      - "Clears previousLifecycle (sets to undefined)"
+      - "Updates updatedAt timestamp"
+      - "Returns the updated feature"
+    tdd:
+      red:
+        - "Write test: throws when feature not found"
+        - "Write test: throws when lifecycle is not Archived"
+        - "Write test: throws when previousLifecycle is null"
+        - "Write test: restores Maintain lifecycle and clears previousLifecycle"
+        - "Write test: restores Pending lifecycle"
+        - "Write test: restores Blocked lifecycle"
+      green:
+        - "Create unarchive-feature.use-case.ts with @injectable decorator"
+        - "Implement execute() with validation and lifecycle restoration"
+      refactor:
+        - "Ensure error messages are descriptive and match the style of other use cases"
+    estimatedEffort: "30min"
+
+  - id: "task-8"
+    phaseId: "phase-2"
+    title: "Register use cases in DI container"
+    description: >
+      Register ArchiveFeatureUseCase and UnarchiveFeatureUseCase in container.ts as singletons
+      with string-token aliases for web route resolution.
+    state: "Todo"
+    dependencies:
+      - "task-6"
+      - "task-7"
+    acceptanceCriteria:
+      - "Both use cases imported in container.ts"
+      - "container.registerSingleton() called for each"
+      - "String-token aliases registered (ArchiveFeatureUseCase, UnarchiveFeatureUseCase)"
+      - "Container initializes without errors"
+    tdd:
+      red:
+        - "Write test that container.resolve('ArchiveFeatureUseCase') returns an instance"
+        - "Write test that container.resolve('UnarchiveFeatureUseCase') returns an instance"
+      green:
+        - "Add import statements for both use cases"
+        - "Add registerSingleton() calls in the use cases section"
+        - "Add string-token alias registrations in the web routes section"
+      refactor:
+        - "Ensure import order matches existing alphabetical/grouped convention"
+    estimatedEffort: "15min"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Phase 3: CLI Commands
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-9"
+    phaseId: "phase-3"
+    title: "Create feat archive CLI command"
+    description: >
+      Create archive.command.ts following the del.command.ts pattern. Takes a feature ID
+      argument, resolves ArchiveFeatureUseCase from DI, executes with confirmation prompt
+      (skip with --force flag), and displays success/error messages.
+    state: "Todo"
+    dependencies:
+      - "task-8"
+    acceptanceCriteria:
+      - "Command registered as feat archive <id>"
+      - "Supports --force / -f flag to skip confirmation"
+      - "Shows confirmation prompt by default (using @inquirer/prompts)"
+      - "Resolves ArchiveFeatureUseCase from container"
+      - "Displays success message with feature name"
+      - "Displays error message and exits with code 1 on failure"
+    tdd:
+      red:
+        - "Write integration test that archive command resolves and executes for a Maintain feature"
+        - "Write integration test that archive command rejects non-archivable feature"
+      green:
+        - "Create archive.command.ts with Commander subcommand"
+        - "Implement confirmation prompt and --force flag"
+        - "Wire up ArchiveFeatureUseCase execution"
+      refactor:
+        - "Extract shared command patterns if duplication with del.command.ts is significant"
+    estimatedEffort: "30min"
+
+  - id: "task-10"
+    phaseId: "phase-3"
+    title: "Create feat unarchive CLI command"
+    description: >
+      Create unarchive.command.ts following the same pattern. Takes a feature ID, resolves
+      UnarchiveFeatureUseCase from DI, executes, and displays success/error. No confirmation
+      needed (unarchive is always safe).
+    state: "Todo"
+    dependencies:
+      - "task-8"
+    acceptanceCriteria:
+      - "Command registered as feat unarchive <id>"
+      - "No confirmation prompt (unarchive is non-destructive)"
+      - "Resolves UnarchiveFeatureUseCase from container"
+      - "Displays success message with feature name and restored lifecycle"
+      - "Displays error message and exits with code 1 on failure"
+    tdd:
+      red:
+        - "Write integration test that unarchive command restores an archived feature"
+        - "Write integration test that unarchive command fails for non-archived feature"
+      green:
+        - "Create unarchive.command.ts with Commander subcommand"
+        - "Wire up UnarchiveFeatureUseCase execution"
+      refactor:
+        - "Ensure success message includes the restored lifecycle state for clarity"
+    estimatedEffort: "20min"
+
+  - id: "task-11"
+    phaseId: "phase-3"
+    title: "Add --show-archived flag to feat ls and register new commands"
+    description: >
+      Add --show-archived flag to ls.command.ts that passes includeArchived: true to
+      ListFeaturesUseCase. Archived features display with a muted status indicator. Register
+      archive and unarchive commands in feat/index.ts.
+    state: "Todo"
+    dependencies:
+      - "task-9"
+      - "task-10"
+    acceptanceCriteria:
+      - "--show-archived flag added to feat ls"
+      - "Archived features excluded from default listing"
+      - "Archived features included when --show-archived is passed"
+      - "Archived features display with muted/distinct styling in the list"
+      - "archive and unarchive commands registered in feat/index.ts"
+    tdd:
+      red:
+        - "Write test that feat ls excludes Archived features by default"
+        - "Write test that feat ls --show-archived includes Archived features"
+      green:
+        - "Add --show-archived option to ls.command.ts"
+        - "Pass includeArchived to ListFeaturesUseCase filters"
+        - "Add archived status formatting in the list display"
+        - "Register archive and unarchive commands in feat/index.ts"
+      refactor:
+        - "Ensure the archived display style is consistent with other muted states"
+    estimatedEffort: "30min"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Phase 4: Web UI — Server Actions & State Management
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-12"
+    phaseId: "phase-4"
+    title: "Create archive-feature and unarchive-feature server actions"
+    description: >
+      Create server actions following the delete-feature.ts pattern. Each action resolves its
+      use case from the server container via string token, executes, and returns
+      { feature?, error? }.
+    state: "Todo"
+    dependencies:
+      - "task-8"
+    acceptanceCriteria:
+      - "archive-feature.ts exports archiveFeature(featureId: string)"
+      - "unarchive-feature.ts exports unarchiveFeature(featureId: string)"
+      - "Both use 'use server' directive"
+      - "Both resolve use cases via resolve<T>('UseCaseName')"
+      - "Both return { feature?, error? } pattern"
+      - "Both validate featureId is non-empty"
+    tdd:
+      red:
+        - "Write test that archiveFeature returns error for empty ID"
+        - "Write test that unarchiveFeature returns error for empty ID"
+      green:
+        - "Create archive-feature.ts following delete-feature.ts pattern"
+        - "Create unarchive-feature.ts following the same pattern"
+      refactor:
+        - "Ensure error messages match the style of existing server actions"
+    estimatedEffort: "20min"
+
+  - id: "task-13"
+    phaseId: "phase-4"
+    title: "Update get-graph-data to always include archived features"
+    description: >
+      Modify get-graph-data.ts to pass includeArchived: true when calling ListFeaturesUseCase,
+      so the client always has the full feature set for client-side filtering (NFR-3).
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "ListFeaturesUseCase called with includeArchived: true in get-graph-data.ts"
+      - "Archived features are present in the returned feature data"
+    tdd:
+      red:
+        - "Write test that get-graph-data includes archived features in the response"
+      green:
+        - "Add includeArchived: true to the ListFeaturesUseCase filters in get-graph-data.ts"
+      refactor:
+        - "Add a comment explaining why archived features are always fetched (NFR-3 instant toggle)"
+    estimatedEffort: "10min"
+
+  - id: "task-14"
+    phaseId: "phase-4"
+    title: "Add showArchived toggle and archive handlers to use-control-center-state"
+    description: >
+      Add showArchived boolean state (default false) to use-control-center-state. Add
+      handleArchiveFeature and handleUnarchiveFeature callback handlers that call the
+      server actions and update the feature map. Pass showArchived through to use-graph-state
+      for deriveGraph filtering.
+    state: "Todo"
+    dependencies:
+      - "task-12"
+      - "task-13"
+    acceptanceCriteria:
+      - "showArchived state with useState (default false, resets on page reload per FR-10)"
+      - "setShowArchived setter exposed for toolbar toggle"
+      - "handleArchiveFeature calls archiveFeature server action and updates featureMap"
+      - "handleUnarchiveFeature calls unarchiveFeature server action and updates featureMap"
+      - "showArchived passed to use-graph-state or deriveGraph"
+      - "Toast notifications for success/error on archive/unarchive"
+    tdd:
+      red:
+        - "Write test that showArchived defaults to false"
+        - "Write test that handleArchiveFeature calls server action and updates state"
+        - "Write test that handleUnarchiveFeature calls server action and updates state"
+      green:
+        - "Add showArchived state to use-control-center-state"
+        - "Implement handleArchiveFeature and handleUnarchiveFeature"
+        - "Pass showArchived to the graph derivation pipeline"
+      refactor:
+        - "Ensure toast messages are consistent with existing action feedback patterns"
+    estimatedEffort: "45min"
+
+  - id: "task-15"
+    phaseId: "phase-4"
+    title: "Update deriveGraph to filter archived features"
+    description: >
+      Add a showArchived parameter to deriveGraph (or filter the featureMap before calling it).
+      When showArchived is false, exclude features with lifecycle = Archived from nodes and
+      edges. Update use-graph-state to pass the filter through.
+    state: "Todo"
+    dependencies:
+      - "task-14"
+    acceptanceCriteria:
+      - "deriveGraph respects the archived filter — excludes Archived features when toggle is off"
+      - "Archived features included in graph when toggle is on"
+      - "Dependency edges to/from archived features are excluded when hidden"
+      - "Toggle change immediately re-renders the canvas (no server round-trip)"
+    tdd:
+      red:
+        - "Write test that deriveGraph excludes archived features from nodes when showArchived is false"
+        - "Write test that deriveGraph excludes edges involving archived features when showArchived is false"
+        - "Write test that deriveGraph includes archived features when showArchived is true"
+      green:
+        - "Add showArchived parameter to deriveGraph or filter featureMap upstream"
+        - "Update use-graph-state to pass showArchived to the graph derivation"
+      refactor:
+        - "Ensure filtering happens before node/edge generation for efficiency"
+    estimatedEffort: "30min"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Phase 5: Web UI — Visual Components & Canvas Integration
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-16"
+    phaseId: "phase-5"
+    title: "Add archived FeatureNodeState and update derive-feature-state"
+    description: >
+      Add 'archived' to the FeatureNodeState union type, add config to featureNodeStateConfig
+      with Archive icon and gray-500 muted styling, and update deriveNodeState to return
+      'archived' when lifecycle is Archived. Update sdlcLifecycleMap and phaseNameToLifecycle
+      for Archived. Update SSE LIFECYCLE_TO_NODE mapping.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "'archived' added to FeatureNodeState union type"
+      - "featureNodeStateConfig has archived entry with Archive icon, gray-500 border, muted styling"
+      - "deriveNodeState returns 'archived' when feature.lifecycle === SdlcLifecycle.Archived"
+      - "sdlcLifecycleMap maps Archived to 'maintain' (closest phase)"
+      - "phaseNameToLifecycle maps 'archived' to 'maintain'"
+      - "LIFECYCLE_TO_NODE in route.ts maps SdlcLifecycle.Archived to 'archived'"
+    tdd:
+      red:
+        - "Write test that deriveNodeState returns 'archived' for Archived lifecycle"
+        - "Write test that deriveNodeState prioritizes Archived over agent run status"
+      green:
+        - "Add 'archived' to FeatureNodeState type"
+        - "Add archived config to featureNodeStateConfig"
+        - "Add Archived check at top of deriveNodeState (before agent run checks)"
+        - "Add mappings to sdlcLifecycleMap, phaseNameToLifecycle, and LIFECYCLE_TO_NODE"
+      refactor:
+        - "Verify archived config styling is visually distinct from deleting and blocked states"
+    estimatedEffort: "30min"
+
+  - id: "task-17"
+    phaseId: "phase-5"
+    title: "Add archive/unarchive controls to feature node and toolbar toggle"
+    description: >
+      Add onArchive and onUnarchive callbacks to FeatureNodeData. Show archive button on hover
+      for features in archivable states (Maintain, Pending, Blocked). Show unarchive button for
+      archived features. Add a toolbar toggle button (eye/eye-off icon) for the showArchived
+      state. Wire callbacks from use-control-center-state through to the components. Add
+      confirmation dialog for archive action.
+    state: "Todo"
+    dependencies:
+      - "task-14"
+      - "task-15"
+      - "task-16"
+    acceptanceCriteria:
+      - "Archive button appears on hover for Maintain, Pending, Blocked features"
+      - "Unarchive button appears on hover for Archived features (when shown)"
+      - "Archive button triggers confirmation dialog before calling handleArchiveFeature"
+      - "Toolbar toggle button controls showArchived state"
+      - "Toggle uses Eye/EyeOff icon pattern"
+      - "Callbacks wired correctly through deriveGraph"
+      - "Archived features render with reduced opacity and ARCHIVED badge"
+    tdd:
+      red:
+        - "Write component test that archive button renders for Maintain state"
+        - "Write component test that archive button does not render for Running state"
+        - "Write component test that unarchive button renders for Archived state"
+        - "Write component test that confirmation dialog appears on archive click"
+        - "Write component test that toolbar toggle toggles showArchived"
+      green:
+        - "Add onArchive/onUnarchive to FeatureNodeData and GraphCallbacks"
+        - "Implement archive/unarchive hover buttons in feature node component"
+        - "Implement confirmation dialog for archive action"
+        - "Implement toolbar toggle component with Eye/EyeOff icon"
+        - "Wire callbacks through deriveGraph"
+      refactor:
+        - "Ensure button placement and styling is consistent with existing hover actions (delete, retry)"
+    estimatedEffort: "1h"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Phase 6: Storybook Stories & Integration Polish
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-18"
+    phaseId: "phase-6"
+    title: "Create Storybook stories for archived components"
+    description: >
+      Create colocated .stories.tsx files for all new/modified components: feature node in
+      archived state (dimmed + badge), archive/unarchive hover buttons, toolbar toggle in
+      both on/off states, and confirmation dialog. Run full test suite and build to verify
+      no regressions.
+    state: "Todo"
+    dependencies:
+      - "task-17"
+    acceptanceCriteria:
+      - "Story for feature node in archived state (dimmed styling, ARCHIVED badge)"
+      - "Story for feature node with archive button visible (Maintain state hover)"
+      - "Story for feature node with unarchive button visible (Archived state hover)"
+      - "Story for toolbar toggle in show-archived-off state"
+      - "Story for toolbar toggle in show-archived-on state"
+      - "Story for archive confirmation dialog"
+      - "All existing stories still render without errors"
+      - "pnpm test passes"
+      - "pnpm build succeeds"
+    tdd:
+      red:
+        - "Run pnpm test to establish baseline"
+      green:
+        - "Create feature-node archived state story"
+        - "Create archive/unarchive button stories"
+        - "Create toolbar toggle stories"
+        - "Create confirmation dialog story"
+      refactor:
+        - "Run pnpm test and pnpm build:release to verify no regressions"
+        - "Fix any lint or typecheck issues"
+    estimatedEffort: "45min"
+
+totalEstimate: "8h"
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation spans 18 tasks across 6 phases, following strict dependency order
+  from domain foundation through presentation layer.
+
+  **Phase 1 (Domain & Infrastructure)** establishes the TypeSpec model changes, database
+  migration, mapper updates, and repository filtering — the foundation every other layer
+  depends on. The TypeSpec changes produce the Archived enum value and previousLifecycle
+  field in generated types, while the migration and mapper enable persistence.
+
+  **Phase 2 (Use Cases & DI)** builds the core business logic: ArchiveFeatureUseCase
+  validates state eligibility and child dependencies before transitioning to Archived,
+  while UnarchiveFeatureUseCase restores the previous lifecycle state. Both are registered
+  in the DI container with singleton and string-token patterns.
+
+  **Phase 3 (CLI)** adds user-facing commands (feat archive, feat unarchive) and the
+  --show-archived flag on feat ls, providing a fast verification path for the use cases
+  before tackling the more complex web UI.
+
+  **Phase 4 (Web Server Actions & State)** creates the server action bridge, wires up
+  the showArchived toggle state in use-control-center-state, and integrates client-side
+  filtering into the deriveGraph pipeline for instant toggle response.
+
+  **Phase 5 (Web Visual Components)** adds the archived node state config (icon, muted
+  styling, badge), updates state derivation, adds archive/unarchive controls to feature
+  nodes, and integrates the toolbar toggle. Also updates the SSE mapping.
+
+  **Phase 6 (Stories & Polish)** completes the feature with Storybook stories for all
+  new components and a full test/build verification pass.

@@ -1,0 +1,5 @@
+export async function unarchiveFeature(
+  _featureId: string
+): Promise<{ feature?: unknown; error?: string }> {
+  return { feature: { id: _featureId } };
+}

@@ -55,8 +55,8 @@ test.describe('Feature node clickability — drawer opens after feature creation
       .first();
     const firstNodeName = await firstNodeHeading.textContent();
 
-    // Step 1: Open the create-feature drawer by navigating to /create
-    await page.goto('/create');
+    // Step 1: Open the create-feature drawer by navigating to /create with repo selected
+    await page.goto('/create?repo=/test/repo');
 
     // Wait for the create drawer heading
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({

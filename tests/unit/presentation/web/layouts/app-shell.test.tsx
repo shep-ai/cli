@@ -20,6 +20,7 @@ const defaultFlags = {
   debug: false,
   githubImport: false,
   adoptBranch: false,
+  gitRebaseSync: false,
   reactFileManager: false,
   coastsDevServer: false,
 };
@@ -75,9 +76,10 @@ describe('AppShell', () => {
     expect(screen.queryByText('Shep')).not.toBeInTheDocument();
   });
 
-  it('renders ThemeToggle in header actions', () => {
-    renderShell(<div>Content</div>);
-    expect(screen.getByLabelText(/switch to .* mode/i)).toBeInTheDocument();
+  it('renders Settings link in sidebar footer', () => {
+    const { container } = renderShell(<div>Content</div>);
+    const settingsLink = container.querySelector('a[href="/settings"]');
+    expect(settingsLink).toBeInTheDocument();
   });
 
   it('marks Control Center as active for / pathname', () => {
