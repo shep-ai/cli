@@ -193,9 +193,7 @@ export function FeatureSessionsDropdown({
                 data-testid="feature-node-sessions-button"
                 className={cn(
                   'nodrag relative flex h-5 cursor-pointer items-center gap-0.5 rounded px-0.5 text-[10px] transition-colors',
-                  hasActiveSessions
-                    ? 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+                  'text-muted-foreground hover:text-foreground hover:bg-muted',
                   className
                 )}
                 onClick={stopNodeEvent}

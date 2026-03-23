@@ -115,7 +115,7 @@ describe('ArchiveFeatureUseCase', () => {
     await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow(/cannot archive/i);
   });
 
-  it('should throw when feature has active children', async () => {
+  it('should succeed when feature has active children', async () => {
     const feature = createMockFeature({ lifecycle: SdlcLifecycle.Maintain });
     const activeChild = createMockFeature({
       id: 'child-001',
@@ -125,10 +125,11 @@ describe('ArchiveFeatureUseCase', () => {
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
     mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([activeChild]);
 
-    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow(/active child/i);
+    const result = await useCase.execute('feat-123-full-uuid');
+    expect(result.lifecycle).toBe(SdlcLifecycle.Archived);
   });
 
-  it('should include child names in the active children error', async () => {
+  it('should preserve children relationships when archiving parent', async () => {
     const feature = createMockFeature({ lifecycle: SdlcLifecycle.Maintain });
     const child1 = createMockFeature({
       id: 'c1',
@@ -143,7 +144,10 @@ describe('ArchiveFeatureUseCase', () => {
     mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
     mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([child1, child2]);
 
-    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow('Login Feature');
+    const result = await useCase.execute('feat-123-full-uuid');
+    expect(result.lifecycle).toBe(SdlcLifecycle.Archived);
+    // Children's parentId should NOT be modified — only one update call for the parent
+    expect(mockFeatureRepo.update).toHaveBeenCalledTimes(1);
   });
 
   it('should succeed for Maintain lifecycle, storing previousLifecycle', async () => {
