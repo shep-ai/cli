@@ -1,8 +1,7 @@
-$ shep --help
-
 Usage: shep [options] [command]
 
-Autonomous AI Native SDLC Platform - Automate the development cycle from idea to deploy
+Autonomous AI Native SDLC Platform - Automate the development cycle from idea to
+deploy
 
 Options:
   -v, --version               Display version number
@@ -24,5 +23,6 @@ Commands:
   mcp [options]               Start the MCP server for AI agent integration
   start [options]             Start the Shep web UI as a background daemon
   stop                        Stop the running Shep web UI daemon
-  restart [options]           Gracefully restart the Shep web UI daemon
+  restart [options]           Gracefully restart the Shep web UI daemon (starts
+                              it if not running)
   status [options]            Show the status of the Shep web UI daemon

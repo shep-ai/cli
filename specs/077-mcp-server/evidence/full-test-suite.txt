@@ -1,33 +1,13 @@
-=== Unit Tests (pnpm test:unit) ===
-Test Files:  355 passed (355)
-Tests:       4824 passed (4824)
-Duration:    28.26s
+=== Full Test Suite Results ===
 
-=== Integration Tests (pnpm test:int) ===
-Test Files:  48 passed (48)
-Tests:       569 passed (569)
-Duration:    20.92s
+--- Unit Tests ---
+Test Files: 355 passed (355)
+Tests:      4824 passed (4824)
+Duration:   40.49s
 
-=== TOTAL ===
-Test Files:  403 passed (403)
-Tests:       5393 passed (5393)
-Zero failures across the entire test suite.
+--- Integration Tests ---
+Test Files: 48 passed (48)
+Tests:      569 passed (569)
+Duration:   37.61s
 
-=== MCP-Specific Tests ===
-Unit tests (7 files, 75 tests):
-  - mcp-server.service.test.ts (7 tests) — server lifecycle, metadata, tool registration
-  - mcp-server-di.test.ts (3 tests) — DI container registration, lazy factory
-  - feature-tools.test.ts (19 tests) — list/show/create/start feature tools
-  - agent-tools.test.ts (16 tests) — run/show/list/stop agent tools
-  - repo-tools.test.ts (4 tests) — list repositories tool
-  - settings-tools.test.ts (7 tests) — get/update settings tools
-  - mcp.command.test.ts (19 tests) — CLI command structure, help text, execution, shutdown, stdio safety
-
-Integration tests (1 file, 23 tests):
-  - mcp-round-trip.test.ts — full protocol round-trip via InMemoryTransport + MCP Client
-    - initialize returns server metadata
-    - tools/list returns all 11 tools with schemas
-    - tools/call success paths (8 tools exercised)
-    - tools/call error paths (use case errors, not-found, non-Error throws)
-    - tools/call input validation (missing required fields rejected)
-    - server lifecycle (resilience after errors, sequential calls)
+=== TOTAL: 5393 tests passing across 403 test files with zero failures ===
