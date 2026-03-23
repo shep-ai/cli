@@ -11,15 +11,21 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type DependencyContainer from 'tsyringe/dist/typings/types/dependency-container.js';
+import { registerAllTools } from './tools/index.js';
 
 export class McpServerService {
   public readonly server: McpServer;
 
-  constructor(version: string) {
+  constructor(version: string, container?: DependencyContainer) {
     this.server = new McpServer({
       name: 'shep',
       version,
     });
+
+    if (container) {
+      registerAllTools(this.server, container);
+    }
   }
 
   /**
