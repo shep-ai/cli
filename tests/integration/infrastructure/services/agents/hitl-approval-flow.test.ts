@@ -99,6 +99,8 @@ describe('HITL Approval Flow (Graph-level)', () => {
       join(specDir, 'spec.yaml'),
       `${[
         'name: Test Feature',
+        'number: 1',
+        'branch: feat/test-feature',
         'oneLiner: A test feature for HITL e2e',
         'summary: This is a test feature used in integration tests',
         'phase: implementation',
@@ -369,6 +371,8 @@ describe('HITL Approval Flow (Graph-level)', () => {
           join(specDir, 'spec.yaml'),
           `${[
             'name: Fixed Spec',
+            'number: 1',
+            'branch: feat/test-feature',
             'oneLiner: A repaired spec',
             'summary: This spec was repaired by the repair node',
             'phase: implementation',
@@ -410,6 +414,8 @@ describe('HITL Approval Flow (Graph-level)', () => {
       join(specDir, 'spec.yaml'),
       `${[
         'name: Test Feature',
+        'number: 1',
+        'branch: feat/test-feature',
         'oneLiner: A test feature for HITL e2e',
         'summary: This is a test feature used in integration tests',
         'phase: implementation',

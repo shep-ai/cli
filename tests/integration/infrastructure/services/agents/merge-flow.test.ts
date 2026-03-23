@@ -484,6 +484,8 @@ function writeValidSpecFiles(specDir: string) {
     join(specDir, 'spec.yaml'),
     `${[
       'name: Merge Flow Test Feature',
+      'number: 1',
+      'branch: feat/merge-test',
       'oneLiner: A test feature for merge flow integration tests',
       'summary: This feature tests the merge flow with various configurations',
       'phase: implementation',
