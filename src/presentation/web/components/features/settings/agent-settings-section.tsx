@@ -21,6 +21,7 @@ import type { AgentConfig } from '@shepai/core/domain/generated/output';
 
 const AGENT_TYPE_OPTIONS = [
   { value: AgentType.ClaudeCode, label: 'Claude Code' },
+  { value: AgentType.CodexCli, label: 'Codex CLI' },
   { value: AgentType.Cursor, label: 'Cursor' },
   { value: AgentType.GeminiCli, label: 'Gemini CLI' },
   { value: AgentType.Aider, label: 'Aider' },

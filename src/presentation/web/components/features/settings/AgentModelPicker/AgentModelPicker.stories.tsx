@@ -46,6 +46,14 @@ export const GeminiCli: Story = {
   },
 };
 
+export const CodexCliSelected: Story = {
+  args: {
+    initialAgentType: 'codex-cli',
+    initialModel: 'gpt-5.4',
+    mode: 'settings',
+  },
+};
+
 export const DemoAgent: Story = {
   args: {
     initialAgentType: 'dev',
