@@ -21,6 +21,9 @@ properties:
     type: string
     format: date-time
     description: Timestamp when the attachment was created
+  notes:
+    type: string
+    description: Optional user notes or annotations for this attachment
 required:
   - id
   - name
