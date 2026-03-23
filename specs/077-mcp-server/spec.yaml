@@ -1,0 +1,196 @@
+name: mcp-server
+number: 77
+branch: "feat/077-mcp-server"
+oneLiner: "Expose shep capabilities as an MCP server for AI agent integration"
+userQuery: >
+  Add MCP support, make shep expose MCP
+summary: >
+  Add an MCP (Model Context Protocol) server to shep so that external AI agents
+  (Claude Desktop, Cursor, VS Code Copilot, etc.) can discover and invoke shep
+  capabilities as MCP tools. The server will expose core use cases — feature
+  management, agent runs, repository operations, and settings — over stdio and
+  streamable HTTP transports using the official @modelcontextprotocol/sdk.
+phase: Analysis
+sizeEstimate: L
+
+relatedFeatures: []
+
+technologies:
+  - "@modelcontextprotocol/sdk (v1.x — official MCP TypeScript SDK)"
+  - "zod (already a project dependency — used for MCP tool input schemas)"
+  - "tsyringe (existing DI container — for resolving use cases in tool handlers)"
+  - "commander (existing CLI framework — new `shep mcp` command)"
+  - "TypeSpec (domain model definitions for any new MCP-related types)"
+
+relatedLinks:
+  - title: "MCP TypeScript SDK — npm"
+    url: "https://www.npmjs.com/package/@modelcontextprotocol/sdk"
+  - title: "MCP specification — transports"
+    url: "https://modelcontextprotocol.io/specification/2025-03-26/basic/transports"
+  - title: "Build an MCP server — official tutorial"
+    url: "https://modelcontextprotocol.io/docs/develop/build-server"
+  - title: "MCP TypeScript SDK — GitHub"
+    url: "https://github.com/modelcontextprotocol/typescript-sdk"
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  Shep is an autonomous AI-native SDLC platform with rich capabilities for
+  managing features, running AI agents, tracking repositories, and configuring
+  settings. Today these capabilities are only accessible via the CLI, TUI, and
+  web UI. External AI agents (Claude Desktop, Cursor, VS Code Copilot, Windsurf,
+  etc.) cannot programmatically discover or invoke shep's functionality.
+
+  MCP (Model Context Protocol) is the emerging standard for AI agents to discover
+  and call tools exposed by external systems. By running shep as an MCP server,
+  any MCP-compatible client can list features, start agent runs, manage repos,
+  and more — without custom integration code.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The monorepo follows Clean Architecture with four layers:
+
+  ```
+  packages/core/src/
+  ├── domain/           Core business logic, TypeSpec-generated models
+  ├── application/      Use cases + output port interfaces
+  ├── infrastructure/   Concrete implementations, DI container, services
+  └── (presentation/)   → lives at src/presentation/ (CLI, TUI, Web)
+  ```
+
+  Key directories for this feature:
+  - `packages/core/src/application/use-cases/` — Business logic to expose as MCP tools
+  - `packages/core/src/application/ports/output/` — Interface definitions
+  - `packages/core/src/infrastructure/di/container.ts` — DI registration (~700 lines)
+  - `packages/core/src/infrastructure/services/` — Service implementations
+  - `src/presentation/cli/` — CLI entry point and command registration
+  - `src/presentation/cli/commands/` — Commander command definitions
+  - `tsp/` — TypeSpec domain model definitions
+
+  ### Architecture Patterns
+
+  1. **Clean Architecture** — Dependencies point inward. Presentation depends on
+     Application, which depends on Domain. Infrastructure implements interfaces
+     defined in Application.
+
+  2. **DI with tsyringe** — All services and repositories registered in a
+     centralized container (`container.ts`). Resolution by string token
+     (e.g., `'IFeatureRepository'`).
+
+  3. **Use Case pattern** — Each business operation is a class with an
+     `execute()` method. These are the natural candidates for MCP tool handlers:
+     - `features/` — create, list, show, start, archive, delete features
+     - `agents/` — run agent, list runs, show run, stop run
+     - `repositories/` — add, list, delete, sync repos
+     - `settings/` — load, update settings
+     - `tools/` — list, install, validate tools
+
+  4. **Subprocess executor model** — Agents are spawned as child processes
+     communicating over stdio with JSON-line protocol. The MCP server itself
+     will be a new kind of server (not an agent executor).
+
+  5. **Daemon/serve pattern** — The `_serve` command starts the web server as a
+     detached daemon. The MCP server can follow a similar pattern for the
+     streamable HTTP transport, or run in foreground for stdio.
+
+  6. **Web API routes** — Next.js API routes under `src/presentation/web/app/api/`
+     already expose many use cases over HTTP. The MCP server is a parallel
+     presentation adapter — same use cases, different protocol.
+
+  ### Relevant Technologies
+
+  - **@modelcontextprotocol/sdk v1.x** — Official MCP server SDK. Provides
+    `McpServer` class, `StdioServerTransport`, and streamable HTTP transport.
+    Uses zod for input schema definitions.
+
+  - **zod v4.x** — Already a project dependency (`^4.3.6`). Used by the MCP SDK
+    for tool input schema validation.
+
+  - **commander** — CLI framework. New `shep mcp` command will launch the server.
+
+  - **tsyringe** — DI container. MCP tool handlers will resolve use cases from
+    the same container used by CLI and web.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/` | High | New MCP server service implementation |
+  | `packages/core/src/application/ports/output/services/` | High | New IMcpServerService interface |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register MCP server service |
+  | `src/presentation/cli/commands/` | Medium | New `shep mcp` command (stdio + HTTP modes) |
+  | `src/presentation/cli/index.ts` | Low | Register the new mcp command |
+  | `package.json` | Low | Add @modelcontextprotocol/sdk dependency |
+  | `tsp/` | Low | Possibly add MCP-related enums if needed |
+  | `tests/unit/` | High | Unit tests for MCP service, tool handlers, command |
+  | `tests/integration/` | Medium | Integration tests for MCP tool execution |
+
+  ## Implementation Approach
+
+  The MCP server is a **new presentation adapter** — a thin layer that maps
+  MCP tool calls to existing use cases. It follows the same pattern as the
+  web API routes: resolve use cases from the DI container and delegate.
+
+  ### Key Components
+
+  1. **IMcpServerService** — Application port interface for the MCP server
+     lifecycle (start/stop), following the IWebServerService pattern.
+
+  2. **McpServerService** — Infrastructure implementation using
+     `@modelcontextprotocol/sdk`. Registers tools that map to use cases.
+
+  3. **MCP Tool Definitions** — Each tool maps 1:1 to a use case:
+     - `list_features` → ListFeaturesUseCase
+     - `show_feature` → ShowFeatureUseCase
+     - `create_feature` → CreateFeatureUseCase
+     - `start_feature` → StartFeatureUseCase
+     - `run_agent` → RunAgentUseCase
+     - `list_agent_runs` → ListAgentRunsUseCase
+     - `list_repositories` → ListRepositoriesUseCase
+     - `add_repository` → AddRepositoryUseCase
+     - `get_settings` → LoadSettingsUseCase
+     - `update_settings` → UpdateSettingsUseCase
+     (and more as appropriate)
+
+  4. **`shep mcp` CLI command** — Launches the MCP server:
+     - Default: stdio transport (for Claude Desktop / IDE integrations)
+     - `--http` flag: streamable HTTP transport on a configurable port
+     - The stdio mode runs in foreground (stdin/stdout owned by MCP protocol)
+     - The HTTP mode can optionally run alongside the web UI daemon
+
+  5. **Transport support**:
+     - **stdio** (primary) — For local IDE integrations. The client spawns
+       `shep mcp` as a child process.
+     - **Streamable HTTP** (secondary) — For remote or multi-client access.
+       Runs on a separate port from the web UI.
+
+  ## Dependencies
+
+  - **@modelcontextprotocol/sdk** — New npm dependency (v1.x stable)
+  - **zod** — Already present (`^4.3.6`), used by MCP SDK for tool schemas
+  - **Existing use cases** — Feature, agent, repo, settings, tools use cases
+  - **DI container** — Must be initialized before MCP server starts (same
+    bootstrap pattern as CLI and web server)
+
+  ## Size Estimate
+
+  **L** — This is a multi-day effort involving:
+  - New infrastructure service (MCP server with tool registration)
+  - New application port interface
+  - New CLI command with two transport modes
+  - 10-15+ MCP tool definitions mapping to existing use cases
+  - Comprehensive unit tests for each tool handler
+  - Integration tests for MCP protocol round-trips
+  - DI container updates
+  - Documentation updates
+
+  The core architecture is straightforward (thin adapter over existing use cases),
+  but the breadth of tools to expose and test makes this an L-sized feature.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
