@@ -4,6 +4,7 @@
 import { X, Loader2Icon, DownloadIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { VisuallyHidden } from 'radix-ui';
 import {
   formatFileSize,
@@ -19,6 +20,10 @@ export interface AttachmentChipProps {
   onRemove: () => void;
   loading?: boolean;
   disabled?: boolean;
+  /** Optional notes attached to this image */
+  notes?: string;
+  /** Callback when user edits notes in the preview modal */
+  onNotesChange?: (notes: string) => void;
 }
 
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.bmp']);
@@ -46,6 +51,8 @@ export function AttachmentChip({
   onRemove,
   loading = false,
   disabled = false,
+  notes,
+  onNotesChange,
 }: AttachmentChipProps) {
   const ext = getExtension(name);
   const Icon = getFileIcon(ext);
@@ -94,19 +101,33 @@ export function AttachmentChip({
               className="h-auto max-h-[70vh] w-full object-contain"
             />
           </div>
-          <div className="bg-background flex items-center gap-3 px-4 py-3">
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-sm font-medium">{name}</span>
-              <span className="text-muted-foreground text-xs">{formatFileSize(size)}</span>
+          <div className="bg-background flex flex-col gap-2 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-sm font-medium">{name}</span>
+                <span className="text-muted-foreground text-xs">{formatFileSize(size)}</span>
+              </div>
+              <a
+                href={previewUrl(path, mimeType)}
+                download={name}
+                className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer rounded p-1.5 transition-colors"
+                aria-label={`Download ${name}`}
+              >
+                <DownloadIcon className="h-4 w-4" />
+              </a>
             </div>
-            <a
-              href={previewUrl(path, mimeType)}
-              download={name}
-              className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer rounded p-1.5 transition-colors"
-              aria-label={`Download ${name}`}
-            >
-              <DownloadIcon className="h-4 w-4" />
-            </a>
+            {onNotesChange ? (
+              <Textarea
+                placeholder="Add notes about this image…"
+                value={notes ?? ''}
+                onChange={(e) => onNotesChange(e.target.value)}
+                rows={2}
+                className="resize-none text-sm"
+                aria-label="Image notes"
+              />
+            ) : notes ? (
+              <p className="text-muted-foreground text-sm">{notes}</p>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

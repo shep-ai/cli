@@ -8,6 +8,7 @@ const meta: Meta<typeof AttachmentChip> = {
   tags: ['autodocs'],
   args: {
     onRemove: fn(),
+    onNotesChange: fn(),
   },
 };
 
@@ -20,6 +21,16 @@ export const ImageFile: Story = {
     size: 150000,
     mimeType: 'image/png',
     path: '/tmp/test/screenshot.png',
+  },
+};
+
+export const ImageFileWithNotes: Story = {
+  args: {
+    name: 'dashboard.png',
+    size: 250000,
+    mimeType: 'image/png',
+    path: '/tmp/test/dashboard.png',
+    notes: 'This shows the main dashboard layout with the sidebar collapsed.',
   },
 };
 

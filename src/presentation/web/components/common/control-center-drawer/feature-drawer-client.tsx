@@ -283,7 +283,16 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       setIsRejecting(true);
       try {
         const attachmentPaths = attachments.map((a) => a.path).filter(Boolean);
-        const result = await rejectFeature(featureNode.featureId, feedback, attachmentPaths);
+        const notedAttachments = attachments.filter((a) => a.notes?.trim());
+        const feedbackWithNotes =
+          notedAttachments.length > 0
+            ? `${feedback}\n\nImage notes:\n${notedAttachments.map((a) => `- @${a.path}: ${a.notes!.trim()}`).join('\n')}`
+            : feedback;
+        const result = await rejectFeature(
+          featureNode.featureId,
+          feedbackWithNotes,
+          attachmentPaths
+        );
         if (!result.rejected) {
           toast.error(result.error ?? `Failed to reject ${label.toLowerCase()}`);
           return;

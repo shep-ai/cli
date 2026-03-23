@@ -23,4 +23,30 @@ describe('composeUserInput()', () => {
     ]);
     expect(result).toBe('desc\n\n@a.png @b.pdf');
   });
+
+  it('appends [Note: ...] after path when notes are present', () => {
+    const result = composeUserInput('desc', [
+      { path: 'a.png', name: 'a.png', notes: 'main dashboard screenshot' },
+    ]);
+    expect(result).toBe('desc\n\n@a.png [Note: main dashboard screenshot]');
+  });
+
+  it('omits [Note: ...] when notes are empty or whitespace-only', () => {
+    const result = composeUserInput('desc', [
+      { path: 'a.png', name: 'a.png', notes: '   ' },
+      { path: 'b.png', name: 'b.png', notes: '' },
+      { path: 'c.png', name: 'c.png' },
+    ]);
+    expect(result).toBe('desc\n\n@a.png @b.png @c.png');
+  });
+
+  it('mixes annotated and plain attachments', () => {
+    const result = composeUserInput('feature request', [
+      { path: '/tmp/ui.png', name: 'ui.png', notes: 'shows the new layout' },
+      { path: '/tmp/spec.pdf', name: 'spec.pdf' },
+    ]);
+    expect(result).toBe(
+      'feature request\n\n@/tmp/ui.png [Note: shows the new layout] @/tmp/spec.pdf'
+    );
+  });
 });

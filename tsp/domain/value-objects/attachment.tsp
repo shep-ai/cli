@@ -19,4 +19,7 @@ model Attachment {
 
   @doc("Timestamp when the attachment was created")
   createdAt: utcDateTime;
+
+  @doc("Optional user notes or annotations for this attachment")
+  notes?: string;
 }
