@@ -126,12 +126,9 @@ describe('AppSidebar', () => {
     expect(handleFeatureClick).toHaveBeenCalledWith('feat-auth-001');
   });
 
-  it('renders Settings icon button in footer linking to /settings', () => {
-    const { container } = renderWithSidebar(
-      <AppSidebar features={mockFeatures} featureFlags={defaultFlags} />
-    );
+  it('renders Settings nav item in header linking to /settings', () => {
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
-    const settingsLink = container.querySelector('a[href="/settings"]');
-    expect(settingsLink).toBeInTheDocument();
+    expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 });
