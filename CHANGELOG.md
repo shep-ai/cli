@@ -1,3 +1,11 @@
+# [1.149.0](https://github.com/shep-ai/cli/compare/v1.148.0...v1.149.0) (2026-03-23)
+
+
+### Features
+
+* **web:** centralize session fetching and eliminate request flood ([#462](https://github.com/shep-ai/cli/issues/462)) ([5af41fc](https://github.com/shep-ai/cli/commit/5af41fc88299700a3270fd0837eeebf1c666eed9))
+* **web:** reorganize sidebar layout - settings to nav, toggles reordered ([#461](https://github.com/shep-ai/cli/issues/461)) ([9543070](https://github.com/shep-ai/cli/commit/954307006e3bcc959de6081373495c0d6329d877))
+
 # [1.148.0](https://github.com/shep-ai/cli/compare/v1.147.0...v1.148.0) (2026-03-23)
 
 
