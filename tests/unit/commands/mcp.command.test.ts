@@ -7,6 +7,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { Command } from 'commander';
 
 const { mockMcpServerService, mockFactory } = vi.hoisted(() => {
@@ -209,6 +211,67 @@ describe('mcp command', () => {
       // stop() should only be called once even though handler was invoked twice
       expect(mockMcpServerService.stop).toHaveBeenCalledTimes(1);
       mockExit.mockRestore();
+    });
+  });
+
+  describe('stdio safety', () => {
+    it('MCP server source files contain no console.log calls', () => {
+      const mcpDir = join(__dirname, '../../../packages/core/src/infrastructure/services/mcp');
+      const mcpCommandFile = join(
+        __dirname,
+        '../../../src/presentation/cli/commands/mcp.command.ts'
+      );
+
+      // Recursively find all .ts files in the MCP service directory
+      function findTsFiles(dir: string): string[] {
+        const files: string[] = [];
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          const fullPath = join(dir, entry.name);
+          if (entry.isDirectory()) {
+            files.push(...findTsFiles(fullPath));
+          } else if (entry.name.endsWith('.ts')) {
+            files.push(fullPath);
+          }
+        }
+        return files;
+      }
+
+      const allFiles = [...findTsFiles(mcpDir), mcpCommandFile];
+      const violations: string[] = [];
+
+      for (const file of allFiles) {
+        const content = readFileSync(file, 'utf-8');
+        // Match console.log but not console.error (which is fine for stderr)
+        if (/console\.log\s*\(/.test(content)) {
+          violations.push(file);
+        }
+      }
+
+      expect(violations).toEqual([]);
+    });
+
+    it('MCP server command does not write to stdout during startup', async () => {
+      const stdoutWriteSpy = vi.spyOn(process.stdout, 'write');
+
+      const cmd = createMcpCommand();
+      await cmd.parseAsync([], { from: 'user' });
+
+      // Filter out any calls that are from the MCP protocol itself (which is expected)
+      // We're checking that no diagnostic/log output goes to stdout
+      const nonProtocolWrites = stdoutWriteSpy.mock.calls.filter(([data]) => {
+        const str = typeof data === 'string' ? data : data.toString();
+        // MCP protocol messages are JSON-RPC — allow those
+        try {
+          const parsed = JSON.parse(str);
+          if (parsed.jsonrpc === '2.0') return false;
+        } catch {
+          // Not JSON — this would be a violation
+        }
+        return true;
+      });
+
+      expect(nonProtocolWrites).toHaveLength(0);
+      stdoutWriteSpy.mockRestore();
     });
   });
 
