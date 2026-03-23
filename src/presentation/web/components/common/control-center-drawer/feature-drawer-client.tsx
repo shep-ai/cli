@@ -154,6 +154,18 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   // ── Archive state ─────────────────────────────────────────────────────
   const [isArchiving, setIsArchiving] = useState(false);
 
+  // Reset archive loading spinner when the feature state or feature ID
+  // changes (e.g. state flips to 'archived' / 'done' after the server
+  // action, or the user navigates to a different feature drawer).
+  const archiveResetKey = `${featureNode?.featureId}:${featureNode?.state}`;
+  const prevArchiveResetKeyRef = useRef(archiveResetKey);
+  useEffect(() => {
+    if (archiveResetKey !== prevArchiveResetKeyRef.current) {
+      prevArchiveResetKeyRef.current = archiveResetKey;
+      setIsArchiving(false);
+    }
+  }, [archiveResetKey]);
+
   // ── Shared reject state ────────────────────────────────────────────────
   const [isRejecting, setIsRejecting] = useState(false);
   const isRejectingRef = useRef(false);
