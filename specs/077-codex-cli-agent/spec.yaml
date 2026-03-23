@@ -1,23 +1,12 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: "codex-cli-agent"
 number: 77
 branch: "feat/077-codex-cli-agent"
 oneLiner: "Add OpenAI Codex CLI as a supported agent executor"
-userQuery: >
-  Add support to https://developers.openai.com/codex/cli (codex)
-summary: >
-  Integrate OpenAI's Codex CLI as a new agent executor in Shep's settings-driven agent system.
-  This involves adding a CodexCli variant to the AgentType enum in TypeSpec, implementing a
-  CodexCliExecutorService that spawns the `codex` binary in non-interactive exec mode, and
-  wiring it through the factory, DI container, and all presentation layers (TUI wizard, Web UI).
+userQuery: "Add support to https://developers.openai.com/codex/cli (codex)\n"
+summary: "Integrate OpenAI's Codex CLI as a new agent executor in Shep's settings-driven agent system. This involves adding a CodexCli variant to the AgentType enum in TypeSpec, implementing a CodexCliExecutorService that spawns the `codex` binary in non-interactive exec mode, and wiring it through the factory, DI container, and all presentation layers (TUI wizard, Web UI).\n"
 phase: "Requirements"
 sizeEstimate: "M"
-
-# Relationships
 relatedFeatures: []
-
 technologies:
   - "TypeSpec (domain model enum extension)"
   - "TypeScript (executor service implementation)"
@@ -28,7 +17,6 @@ technologies:
   - "Inquirer.js (TUI agent selection prompt)"
   - "Vitest (unit and integration tests)"
   - "Storybook (UI component stories)"
-
 relatedLinks:
   - title: "Codex CLI documentation"
     url: "https://developers.openai.com/codex/cli"
@@ -42,24 +30,21 @@ relatedLinks:
     url: "https://developers.openai.com/codex/models"
   - title: "Codex CLI GitHub repository"
     url: "https://github.com/openai/codex"
-
-# Open questions (must be resolved before implementation)
 openQuestions:
   - question: "Which sandbox mode should the executor use by default when spawning codex exec?"
     resolved: true
     options:
       - option: "full-auto flag"
         description: "Use --full-auto which sets workspace-write sandbox and on-request approvals. This is the simplest single flag and matches how Shep already bypasses permissions for Claude Code (--dangerously-skip-permissions). Codex still restricts to workspace writes only."
-        selected: true
+        selected: false
       - option: "Explicit workspace-write sandbox"
         description: "Use --sandbox workspace-write explicitly without --full-auto. More granular but functionally equivalent for non-interactive use. Requires separately setting approval mode."
         selected: false
       - option: "danger-full-access sandbox"
         description: "Maximum permissions with --sandbox danger-full-access. Only appropriate for isolated CI environments. Too permissive as a default for local development."
-        selected: false
+        selected: true
     selectionRationale: "--full-auto is recommended because it provides workspace-write permissions with automatic approval in a single flag, mirroring how other executors bypass interactive confirmation gates. It keeps the executor non-interactive without granting unrestricted filesystem access."
-    answer: "full-auto flag"
-
+    answer: "danger-full-access sandbox"
   - question: "How should the executor pass the prompt to codex exec?"
     resolved: true
     options:
@@ -74,7 +59,6 @@ openQuestions:
         selected: false
     selectionRationale: "Stdin pipe is the established pattern for Claude Code and Gemini CLI executors. It avoids Windows ENAMETOOLONG limits (~32KB), eliminates shell escaping concerns, and keeps the implementation consistent with the codebase convention."
     answer: "Stdin pipe"
-
   - question: "Which Codex CLI models should be included in the initial supported models list?"
     resolved: true
     options:
@@ -89,7 +73,6 @@ openQuestions:
         selected: false
     selectionRationale: "All documented models should be included because Codex CLI supports arbitrary model selection via --model, and users may have access to specific models through their OpenAI plans. The factory's getSupportedModels() is informational, not restrictive — the executor passes whatever model the user configures."
     answer: "All documented models"
-
   - question: "Should the executor support session resume via codex exec resume?"
     resolved: true
     options:
@@ -101,22 +84,20 @@ openQuestions:
         selected: false
     selectionRationale: "Session resume should be supported because Shep's SDLC workflows are inherently multi-phase (requirements -> research -> plan -> implement). The Claude Code executor already uses session resume extensively, and Codex CLI's exec resume subcommand provides clean thread continuation. The thread_id from JSON output maps directly to the existing sessionId field in AgentExecutionResult."
     answer: "Yes, support session resume"
-
   - question: "What authentication method should the executor prioritize for CI/programmatic use?"
     resolved: true
     options:
       - option: "CODEX_API_KEY environment variable"
         description: "Set CODEX_API_KEY env var when spawning the subprocess, matching the pattern used by Gemini CLI (GEMINI_API_KEY). Standard OpenAI convention. Works in CI without interactive login."
-        selected: true
+        selected: false
       - option: "OPENAI_API_KEY environment variable"
         description: "Use OPENAI_API_KEY as the env var name. More generic but may conflict with other OpenAI tools in the same environment."
         selected: false
       - option: "Rely on codex login session auth"
         description: "Do not inject any env var; rely on the user having run codex login previously. Simpler executor code but breaks in CI and fresh environments."
-        selected: false
+        selected: true
     selectionRationale: "CODEX_API_KEY is recommended because it is the Codex-specific env var documented by OpenAI, avoids conflicts with other tools using OPENAI_API_KEY, and follows the same pattern as the Gemini CLI executor (which injects GEMINI_API_KEY). When auth method is 'session', no env var is set and Codex falls back to its saved credentials."
-    answer: "CODEX_API_KEY environment variable"
-
+    answer: "Rely on codex login session auth"
   - question: "Should the executor use --json for all invocations or only for streaming?"
     resolved: true
     options:
@@ -128,7 +109,6 @@ openQuestions:
         selected: false
     selectionRationale: "Always using --json is recommended because the JSONL event stream provides thread_id (needed for session resume), structured event types (needed for progress tracking), and consistent parsing across both execute() and executeStream(). Plain text mode loses critical metadata. All existing executors use structured JSON output for the same reasons."
     answer: "Always use --json"
-
   - question: "What icon should represent Codex CLI in the web UI?"
     resolved: true
     options:
@@ -140,201 +120,4 @@ openQuestions:
         selected: false
     selectionRationale: "The OpenAI brand icon is recommended because Codex CLI is an OpenAI product and does not have a distinct brand mark. This follows the pattern where Claude Code uses the Anthropic/Claude icon and Gemini CLI uses the Google Gemini icon — each agent uses its parent company's brand."
     answer: "OpenAI brand icon"
-
-content: |
-  ## Problem Statement
-
-  Shep's agent system currently supports Claude Code, Cursor, and Gemini CLI as AI coding agent
-  executors. Users who prefer OpenAI's Codex CLI — a Rust-based terminal coding agent powered by
-  GPT models — have no way to use it with Shep. Adding Codex CLI as a supported agent type
-  extends Shep's multi-agent architecture to cover the OpenAI ecosystem, giving users more
-  choice in which AI tool powers their SDLC workflows.
-
-  OpenAI Codex CLI provides a non-interactive `codex exec` mode that outputs JSONL-structured
-  events to stdout and streams progress to stderr. It supports session resume via thread IDs,
-  structured output via JSON Schema, and multiple sandbox modes. This maps cleanly to Shep's
-  IAgentExecutor interface pattern (spawn subprocess, pipe prompt, collect result).
-
-  ## Success Criteria
-
-  - [ ] SC-1: `codex-cli` appears in the AgentType enum after TypeSpec compilation
-  - [ ] SC-2: Selecting Codex CLI in settings and running a feature workflow executes prompts via the `codex exec` binary
-  - [ ] SC-3: Streaming mode (`executeStream()`) yields real-time progress events from Codex JSONL output
-  - [ ] SC-4: Session resume works across multi-phase SDLC workflows using Codex thread IDs
-  - [ ] SC-5: Token auth via CODEX_API_KEY env var works for CI/headless environments
-  - [ ] SC-6: Codex CLI is selectable in both TUI agent wizard and Web UI settings dropdown
-  - [ ] SC-7: Web UI displays the OpenAI brand icon and "Codex CLI" label for the agent type
-  - [ ] SC-8: All unit tests pass with >90% coverage on the executor service
-  - [ ] SC-9: Factory correctly creates, caches, and returns CodexCliExecutorService instances
-  - [ ] SC-10: All Storybook stories render correctly for Codex CLI variants
-  - [ ] SC-11: `pnpm validate` passes with zero errors after all changes
-  - [ ] SC-12: Existing agent executors continue to work without regression
-
-  ## Functional Requirements
-
-  - **FR-1: TypeSpec enum extension** — Add `CodexCli: "codex-cli"` variant to the AgentType
-    enum in `tsp/common/enums/agent-config.tsp`. Run `pnpm tsp:compile` to regenerate the
-    domain output. All downstream typed references must compile without error.
-
-  - **FR-2: Executor service implementation** — Create `CodexCliExecutorService` implementing
-    `IAgentExecutor` at `packages/core/src/infrastructure/services/agents/common/executors/`.
-    The executor must:
-    - Accept `SpawnFunction` via constructor injection
-    - Spawn `codex exec` with `--json` and `--full-auto` flags
-    - Pipe the prompt via stdin to avoid argument length limits
-    - Parse JSONL stdout events to extract the final result text
-    - Extract `thread_id` from `thread.started` events for session resume
-    - Return `AgentExecutionResult` with result text, sessionId, and usage metadata
-    - Support `--model <model>` flag from `options.model`
-    - Support `--skip-git-repo-check` when appropriate
-    - Set working directory via `--cd <path>` or spawn cwd option
-
-  - **FR-3: Streaming execution** — Implement `executeStream()` as an async generator that:
-    - Spawns `codex exec --json` and reads stdout line-by-line
-    - Yields `AgentExecutionStreamEvent` objects with type `progress` for intermediate events
-    - Yields a final event with type `result` containing the complete response
-    - Yields type `error` events when stderr contains fatal errors or exit code is non-zero
-    - Handles partial JSON lines across chunk boundaries
-
-  - **FR-4: Session resume** — When `options.resumeSession` is provided:
-    - Use `codex exec resume <sessionId>` subcommand syntax
-    - Pass the thread ID from a previous execution's `sessionId` field
-    - Report `session-resume` as a supported feature via `supportsFeature()`
-
-  - **FR-5: Authentication** — When the agent config auth method is `token`:
-    - Inject `CODEX_API_KEY` environment variable into the spawned process env
-    - Read the token value from `authConfig.token` (same pattern as Gemini CLI)
-    - When auth method is `session`, do not inject any env var (Codex uses saved credentials)
-
-  - **FR-6: Factory integration** — Update `AgentExecutorFactory`:
-    - Add `codex-cli` case to `createExecutor()` switch statement
-    - Pass `spawn` function and `authConfig` to the executor constructor
-    - Add `codex-cli` to `getSupportedAgents()` return array
-    - Add CLI info entry: `{ agentType: 'codex-cli', cmd: 'codex', versionArgs: ['--version'] }`
-    - Add `getSupportedModels('codex-cli')` returning the full model list
-
-  - **FR-7: DI container registration** — Register a stub session repository for `codex-cli`
-    in the DI container, following the pattern of existing agent session repositories.
-
-  - **FR-8: TUI agent selection** — Add a Codex CLI choice to the TUI agent select prompt:
-    - Name: "Codex CLI"
-    - Value: `AgentType.CodexCli`
-    - Description: "OpenAI's Codex CLI terminal agent (GPT models)"
-    - Status: Enabled (not "Coming Soon")
-
-  - **FR-9: Web UI agent settings** — Add Codex CLI to the web settings panel:
-    - Add entry to `AGENT_TYPE_OPTIONS` array with value and label
-    - Ensure auth method dropdown works (Session and Token options)
-    - Token auth should render the API key input field
-
-  - **FR-10: Web UI agent icons** — Add Codex CLI to the icon system:
-    - Add `'codex-cli'` to the `AgentTypeValue` union type
-    - Add icon mapping using an OpenAI brand SVG at `/public/icons/agents/`
-    - Add label: `'codex-cli': 'Codex CLI'`
-
-  - **FR-11: Agent model picker** — Add Codex CLI models to the model picker:
-    - Add to `AGENT_LABELS` with display name "Codex CLI"
-    - Add to `AGENT_ORDER` for consistent ordering in the UI
-    - Models list populated from factory's `getSupportedModels()`
-
-  - **FR-12: Storybook stories** — Add Codex CLI variants to all affected story files:
-    - Agent type icons stories
-    - Agent settings section stories
-    - Agent model picker stories
-
-  - **FR-13: Feature support declaration** — The executor must report supported features via
-    `supportsFeature()`:
-    - `session-resume`: Supported (via codex exec resume)
-    - `streaming`: Supported (via --json JSONL output)
-    - `tool-scoping`: Not supported initially
-    - `structured-output`: Supported (via --output-schema)
-    - `system-prompt`: Not supported (Codex CLI does not have an append-system-prompt flag)
-    - `session-listing`: Not supported initially
-
-  ## Non-Functional Requirements
-
-  - **NFR-1: Cross-platform compatibility** — The executor must work on macOS, Linux, and
-    Windows. Use `windowsHide: true` on Windows. Never use `shell: true` for spawning (Codex
-    CLI is a native binary). Handle Windows-specific process termination via `taskkill /F /T`.
-
-  - **NFR-2: Testability** — Constructor injection of `SpawnFunction` must enable full unit
-    testing without a real Codex CLI binary. All subprocess interactions must be mockable.
-    Target >90% line coverage on the executor service.
-
-  - **NFR-3: Error resilience** — The executor must handle: non-zero exit codes, malformed
-    JSON output, empty stdout, stderr-only error messages, process timeout (via `options.timeout`),
-    and missing `codex` binary (clear error message with install instructions). Check stderr
-    for fatal patterns even when exit code is 0 (API rate limits, auth failures).
-
-  - **NFR-4: Performance** — Executor overhead (arg building, JSON parsing) must add <10ms
-    to each invocation. The streaming implementation must not buffer the entire response
-    before yielding events.
-
-  - **NFR-5: Security** — Never log or expose API keys in debug output. Strip sensitive
-    environment variables from log messages. Do not pass `--dangerously-bypass-approvals-and-sandbox`
-    under any circumstances.
-
-  - **NFR-6: Consistency** — Follow the exact patterns established by ClaudeCodeExecutorService
-    and GeminiCliExecutorService: same constructor signature, same logging conventions, same
-    error message formatting, same silent-mode behavior. The new executor must feel like a
-    natural extension of the existing codebase.
-
-  - **NFR-7: Maintainability** — Keep the executor as a single file under 500 lines. Reuse
-    existing utility functions (stream event logging, process spawning helpers) where available.
-    Document non-obvious Codex CLI behavioral quirks with inline comments.
-
-  - **NFR-8: Graceful degradation** — When Codex CLI is not installed, the validator service
-    must detect this and surface a clear message. The agent must still appear in selection UIs
-    but show an appropriate status when the binary is missing.
-
-  ## Product Questions & AI Recommendations
-
-  | # | Question | AI Recommendation | Rationale |
-  | - | -------- | ----------------- | --------- |
-  | 1 | Which sandbox mode should the executor use by default? | --full-auto flag | Provides workspace-write permissions with auto-approval in a single flag, mirroring other executors' permission-bypass patterns |
-  | 2 | How should the executor pass the prompt to codex exec? | Stdin pipe | Avoids Windows ENAMETOOLONG limits, eliminates escaping issues, consistent with Claude Code and Gemini CLI executors |
-  | 3 | Which models should be in the initial supported list? | All documented models (11 total) | getSupportedModels() is informational; users may have access to any model via their OpenAI plan |
-  | 4 | Should the executor support session resume? | Yes | Multi-phase SDLC workflows require context continuity; Codex thread IDs map to existing sessionId field |
-  | 5 | What auth env var should the executor use? | CODEX_API_KEY | Codex-specific, avoids conflicts with OPENAI_API_KEY, follows Gemini CLI executor pattern |
-  | 6 | Should --json be used for all invocations? | Yes, always | Provides thread_id for session resume and structured metadata in all cases |
-  | 7 | What icon for the web UI? | OpenAI brand icon | Codex CLI is an OpenAI product; follows pattern where agents use parent brand icons |
-
-  ## Affected Areas
-
-  | Area | Impact | Reasoning |
-  | ---- | ------ | --------- |
-  | `tsp/common/enums/agent-config.tsp` | High | Add `CodexCli: "codex-cli"` to AgentType enum |
-  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated after tsp compile — new enum variant |
-  | `packages/core/src/infrastructure/services/agents/common/executors/` | High | New `codex-cli-executor.service.ts` (~400 lines) |
-  | `packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts` | High | Add case for codex-cli in createExecutor, getSupportedAgents, getCliInfo, getSupportedModels |
-  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register stub session repository for codex-cli |
-  | `src/presentation/tui/prompts/agent-select.prompt.ts` | Medium | Add Codex CLI choice (enabled, not Coming Soon) |
-  | `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` | Medium | Add icon mapping and label for codex-cli |
-  | `src/presentation/web/components/features/settings/agent-settings-section.tsx` | Medium | Add to AGENT_TYPE_OPTIONS array |
-  | `src/presentation/web/app/actions/get-all-agent-models.ts` | Medium | Add to AGENT_LABELS and AGENT_ORDER |
-  | `public/icons/agents/` | Low | Add OpenAI brand icon asset |
-  | `src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx` | Low | Add to allAgentTypes array |
-  | `src/presentation/web/components/features/settings/agent-settings-section.stories.tsx` | Low | Add story variant for Codex CLI |
-  | `src/presentation/web/components/features/settings/AgentModelPicker/AgentModelPicker.stories.tsx` | Low | Add story for Codex CLI selection |
-  | `packages/core/src/infrastructure/services/agents/sessions/` | Low | Add stub session repository for codex-cli |
-  | Test files (unit + integration) | High | TDD: executor tests, factory tests, DI tests |
-
-  ## Dependencies
-
-  - **OpenAI Codex CLI binary** (`codex`) must be installed on the user's system
-    (`npm i -g @openai/codex` or `brew install codex`)
-  - **Authentication:** Either ChatGPT login (`codex login`) for session auth, or
-    `CODEX_API_KEY` env var for token auth in CI
-  - **Existing infrastructure:** Relies on SpawnFunction, IAgentExecutor interface,
-    AgentExecutorFactory pattern — all already established
-  - **No new npm dependencies required** — Codex is invoked as a subprocess, same as
-    all other agent executors
-  - **OpenAI brand icon asset** — An SVG or image file for the web UI
-
-  ## Size Estimate
-
-  **M** — This is a well-patterned task with clear precedent (3 existing executor
-  implementations to follow). The executor service is the main effort (~400 lines),
-  plus TypeSpec enum addition, factory wiring, DI registration, and UI updates across
-  TUI and Web. No architectural changes needed — purely additive within established
-  patterns.
+content: "## Problem Statement\n\nShep's agent system currently supports Claude Code, Cursor, and Gemini CLI as AI coding agent\nexecutors. Users who prefer OpenAI's Codex CLI — a Rust-based terminal coding agent powered by\nGPT models — have no way to use it with Shep. Adding Codex CLI as a supported agent type\nextends Shep's multi-agent architecture to cover the OpenAI ecosystem, giving users more\nchoice in which AI tool powers their SDLC workflows.\n\nOpenAI Codex CLI provides a non-interactive `codex exec` mode that outputs JSONL-structured\nevents to stdout and streams progress to stderr. It supports session resume via thread IDs,\nstructured output via JSON Schema, and multiple sandbox modes. This maps cleanly to Shep's\nIAgentExecutor interface pattern (spawn subprocess, pipe prompt, collect result).\n\n## Success Criteria\n\n- [ ] SC-1: `codex-cli` appears in the AgentType enum after TypeSpec compilation\n- [ ] SC-2: Selecting Codex CLI in settings and running a feature workflow executes prompts via the `codex exec` binary\n- [ ] SC-3: Streaming mode (`executeStream()`) yields real-time progress events from Codex JSONL output\n- [ ] SC-4: Session resume works across multi-phase SDLC workflows using Codex thread IDs\n- [ ] SC-5: Token auth via CODEX_API_KEY env var works for CI/headless environments\n- [ ] SC-6: Codex CLI is selectable in both TUI agent wizard and Web UI settings dropdown\n- [ ] SC-7: Web UI displays the OpenAI brand icon and \"Codex CLI\" label for the agent type\n- [ ] SC-8: All unit tests pass with >90% coverage on the executor service\n- [ ] SC-9: Factory correctly creates, caches, and returns CodexCliExecutorService instances\n- [ ] SC-10: All Storybook stories render correctly for Codex CLI variants\n- [ ] SC-11: `pnpm validate` passes with zero errors after all changes\n- [ ] SC-12: Existing agent executors continue to work without regression\n\n## Functional Requirements\n\n- **FR-1: TypeSpec enum extension** — Add `CodexCli: \"codex-cli\"` variant to the AgentType\n  enum in `tsp/common/enums/agent-config.tsp`. Run `pnpm tsp:compile` to regenerate the\n  domain output. All downstream typed references must compile without error.\n\n- **FR-2: Executor service implementation** — Create `CodexCliExecutorService` implementing\n  `IAgentExecutor` at `packages/core/src/infrastructure/services/agents/common/executors/`.\n  The executor must:\n  - Accept `SpawnFunction` via constructor injection\n  - Spawn `codex exec` with `--json` and `--full-auto` flags\n  - Pipe the prompt via stdin to avoid argument length limits\n  - Parse JSONL stdout events to extract the final result text\n  - Extract `thread_id` from `thread.started` events for session resume\n  - Return `AgentExecutionResult` with result text, sessionId, and usage metadata\n  - Support `--model <model>` flag from `options.model`\n  - Support `--skip-git-repo-check` when appropriate\n  - Set working directory via `--cd <path>` or spawn cwd option\n\n- **FR-3: Streaming execution** — Implement `executeStream()` as an async generator that:\n  - Spawns `codex exec --json` and reads stdout line-by-line\n  - Yields `AgentExecutionStreamEvent` objects with type `progress` for intermediate events\n  - Yields a final event with type `result` containing the complete response\n  - Yields type `error` events when stderr contains fatal errors or exit code is non-zero\n  - Handles partial JSON lines across chunk boundaries\n\n- **FR-4: Session resume** — When `options.resumeSession` is provided:\n  - Use `codex exec resume <sessionId>` subcommand syntax\n  - Pass the thread ID from a previous execution's `sessionId` field\n  - Report `session-resume` as a supported feature via `supportsFeature()`\n\n- **FR-5: Authentication** — When the agent config auth method is `token`:\n  - Inject `CODEX_API_KEY` environment variable into the spawned process env\n  - Read the token value from `authConfig.token` (same pattern as Gemini CLI)\n  - When auth method is `session`, do not inject any env var (Codex uses saved credentials)\n\n- **FR-6: Factory integration** — Update `AgentExecutorFactory`:\n  - Add `codex-cli` case to `createExecutor()` switch statement\n  - Pass `spawn` function and `authConfig` to the executor constructor\n  - Add `codex-cli` to `getSupportedAgents()` return array\n  - Add CLI info entry: `{ agentType: 'codex-cli', cmd: 'codex', versionArgs: ['--version'] }`\n  - Add `getSupportedModels('codex-cli')` returning the full model list\n\n- **FR-7: DI container registration** — Register a stub session repository for `codex-cli`\n  in the DI container, following the pattern of existing agent session repositories.\n\n- **FR-8: TUI agent selection** — Add a Codex CLI choice to the TUI agent select prompt:\n  - Name: \"Codex CLI\"\n  - Value: `AgentType.CodexCli`\n  - Description: \"OpenAI's Codex CLI terminal agent (GPT models)\"\n  - Status: Enabled (not \"Coming Soon\")\n\n- **FR-9: Web UI agent settings** — Add Codex CLI to the web settings panel:\n  - Add entry to `AGENT_TYPE_OPTIONS` array with value and label\n  - Ensure auth method dropdown works (Session and Token options)\n  - Token auth should render the API key input field\n\n- **FR-10: Web UI agent icons** — Add Codex CLI to the icon system:\n  - Add `'codex-cli'` to the `AgentTypeValue` union type\n  - Add icon mapping using an OpenAI brand SVG at `/public/icons/agents/`\n  - Add label: `'codex-cli': 'Codex CLI'`\n\n- **FR-11: Agent model picker** — Add Codex CLI models to the model picker:\n  - Add to `AGENT_LABELS` with display name \"Codex CLI\"\n  - Add to `AGENT_ORDER` for consistent ordering in the UI\n  - Models list populated from factory's `getSupportedModels()`\n\n- **FR-12: Storybook stories** — Add Codex CLI variants to all affected story files:\n  - Agent type icons stories\n  - Agent settings section stories\n  - Agent model picker stories\n\n- **FR-13: Feature support declaration** — The executor must report supported features via\n  `supportsFeature()`:\n  - `session-resume`: Supported (via codex exec resume)\n  - `streaming`: Supported (via --json JSONL output)\n  - `tool-scoping`: Not supported initially\n  - `structured-output`: Supported (via --output-schema)\n  - `system-prompt`: Not supported (Codex CLI does not have an append-system-prompt flag)\n  - `session-listing`: Not supported initially\n\n## Non-Functional Requirements\n\n- **NFR-1: Cross-platform compatibility** — The executor must work on macOS, Linux, and\n  Windows. Use `windowsHide: true` on Windows. Never use `shell: true` for spawning (Codex\n  CLI is a native binary). Handle Windows-specific process termination via `taskkill /F /T`.\n\n- **NFR-2: Testability** — Constructor injection of `SpawnFunction` must enable full unit\n  testing without a real Codex CLI binary. All subprocess interactions must be mockable.\n  Target >90% line coverage on the executor service.\n\n- **NFR-3: Error resilience** — The executor must handle: non-zero exit codes, malformed\n  JSON output, empty stdout, stderr-only error messages, process timeout (via `options.timeout`),\n  and missing `codex` binary (clear error message with install instructions). Check stderr\n  for fatal patterns even when exit code is 0 (API rate limits, auth failures).\n\n- **NFR-4: Performance** — Executor overhead (arg building, JSON parsing) must add <10ms\n  to each invocation. The streaming implementation must not buffer the entire response\n  before yielding events.\n\n- **NFR-5: Security** — Never log or expose API keys in debug output. Strip sensitive\n  environment variables from log messages. Do not pass `--dangerously-bypass-approvals-and-sandbox`\n  under any circumstances.\n\n- **NFR-6: Consistency** — Follow the exact patterns established by ClaudeCodeExecutorService\n  and GeminiCliExecutorService: same constructor signature, same logging conventions, same\n  error message formatting, same silent-mode behavior. The new executor must feel like a\n  natural extension of the existing codebase.\n\n- **NFR-7: Maintainability** — Keep the executor as a single file under 500 lines. Reuse\n  existing utility functions (stream event logging, process spawning helpers) where available.\n  Document non-obvious Codex CLI behavioral quirks with inline comments.\n\n- **NFR-8: Graceful degradation** — When Codex CLI is not installed, the validator service\n  must detect this and surface a clear message. The agent must still appear in selection UIs\n  but show an appropriate status when the binary is missing.\n\n## Product Questions & AI Recommendations\n\n| # | Question | AI Recommendation | Rationale |\n| - | -------- | ----------------- | --------- |\n| 1 | Which sandbox mode should the executor use by default? | --full-auto flag | Provides workspace-write permissions with auto-approval in a single flag, mirroring other executors' permission-bypass patterns |\n| 2 | How should the executor pass the prompt to codex exec? | Stdin pipe | Avoids Windows ENAMETOOLONG limits, eliminates escaping issues, consistent with Claude Code and Gemini CLI executors |\n| 3 | Which models should be in the initial supported list? | All documented models (11 total) | getSupportedModels() is informational; users may have access to any model via their OpenAI plan |\n| 4 | Should the executor support session resume? | Yes | Multi-phase SDLC workflows require context continuity; Codex thread IDs map to existing sessionId field |\n| 5 | What auth env var should the executor use? | CODEX_API_KEY | Codex-specific, avoids conflicts with OPENAI_API_KEY, follows Gemini CLI executor pattern |\n| 6 | Should --json be used for all invocations? | Yes, always | Provides thread_id for session resume and structured metadata in all cases |\n| 7 | What icon for the web UI? | OpenAI brand icon | Codex CLI is an OpenAI product; follows pattern where agents use parent brand icons |\n\n## Affected Areas\n\n| Area | Impact | Reasoning |\n| ---- | ------ | --------- |\n| `tsp/common/enums/agent-config.tsp` | High | Add `CodexCli: \"codex-cli\"` to AgentType enum |\n| `packages/core/src/domain/generated/output.ts` | High | Auto-generated after tsp compile — new enum variant |\n| `packages/core/src/infrastructure/services/agents/common/executors/` | High | New `codex-cli-executor.service.ts` (~400 lines) |\n| `packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts` | High | Add case for codex-cli in createExecutor, getSupportedAgents, getCliInfo, getSupportedModels |\n| `packages/core/src/infrastructure/di/container.ts` | Medium | Register stub session repository for codex-cli |\n| `src/presentation/tui/prompts/agent-select.prompt.ts` | Medium | Add Codex CLI choice (enabled, not Coming Soon) |\n| `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` | Medium | Add icon mapping and label for codex-cli |\n| `src/presentation/web/components/features/settings/agent-settings-section.tsx` | Medium | Add to AGENT_TYPE_OPTIONS array |\n| `src/presentation/web/app/actions/get-all-agent-models.ts` | Medium | Add to AGENT_LABELS and AGENT_ORDER |\n| `public/icons/agents/` | Low | Add OpenAI brand icon asset |\n| `src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx` | Low | Add to allAgentTypes array |\n| `src/presentation/web/components/features/settings/agent-settings-section.stories.tsx` | Low | Add story variant for Codex CLI |\n| `src/presentation/web/components/features/settings/AgentModelPicker/AgentModelPicker.stories.tsx` | Low | Add story for Codex CLI selection |\n| `packages/core/src/infrastructure/services/agents/sessions/` | Low | Add stub session repository for codex-cli |\n| Test files (unit + integration) | High | TDD: executor tests, factory tests, DI tests |\n\n## Dependencies\n\n- **OpenAI Codex CLI binary** (`codex`) must be installed on the user's system\n  (`npm i -g @openai/codex` or `brew install codex`)\n- **Authentication:** Either ChatGPT login (`codex login`) for session auth, or\n  `CODEX_API_KEY` env var for token auth in CI\n- **Existing infrastructure:** Relies on SpawnFunction, IAgentExecutor interface,\n  AgentExecutorFactory pattern — all already established\n- **No new npm dependencies required** — Codex is invoked as a subprocess, same as\n  all other agent executors\n- **OpenAI brand icon asset** — An SVG or image file for the web UI\n\n## Size Estimate\n\n**M** — This is a well-patterned task with clear precedent (3 existing executor\nimplementations to follow). The executor service is the main effort (~400 lines),\nplus TypeSpec enum addition, factory wiring, DI registration, and UI updates across\nTUI and Web. No architectural changes needed — purely additive within established\npatterns.\n"
