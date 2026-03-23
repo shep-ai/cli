@@ -1,7 +1,8 @@
 /**
  * Feature Tools Unit Tests
  *
- * Tests for the list_features MCP tool registration and handler.
+ * Tests for feature-related MCP tools: list_features, show_feature,
+ * create_feature, and start_feature.
  * Uses InMemoryTransport + MCP Client for protocol-accurate testing.
  */
 
@@ -18,11 +19,32 @@ const mockListFeaturesUseCase = {
   execute: vi.fn(),
 };
 
+const mockShowFeatureUseCase = {
+  execute: vi.fn(),
+};
+
+const mockCreateFeatureUseCase = {
+  execute: vi.fn(),
+};
+
+const mockStartFeatureUseCase = {
+  execute: vi.fn(),
+};
+
 const mockContainer = {
   resolve: vi.fn().mockImplementation((token: unknown) => {
     const tokenName = typeof token === 'function' ? (token as { name: string }).name : token;
     if (tokenName === 'ListFeaturesUseCase') {
       return mockListFeaturesUseCase;
+    }
+    if (tokenName === 'ShowFeatureUseCase') {
+      return mockShowFeatureUseCase;
+    }
+    if (tokenName === 'CreateFeatureUseCase') {
+      return mockCreateFeatureUseCase;
+    }
+    if (tokenName === 'StartFeatureUseCase') {
+      return mockStartFeatureUseCase;
     }
     throw new Error(`Unknown token: ${String(token)}`);
   }),
@@ -111,6 +133,202 @@ describe('Feature Tools', () => {
       const textContent = result.content as { type: string; text: string }[];
       expect(textContent[0].type).toBe('text');
       expect(textContent[0].text).toContain('Database connection failed');
+    });
+  });
+
+  describe('show_feature handler', () => {
+    it('registers show_feature tool', async () => {
+      const { tools } = await client.listTools();
+      const toolNames = tools.map((t) => t.name);
+      expect(toolNames).toContain('show_feature');
+    });
+
+    it('calls ShowFeatureUseCase with featureId', async () => {
+      const mockFeature: Partial<Feature> = { id: 'abc-123', name: 'Test Feature' };
+      mockShowFeatureUseCase.execute.mockResolvedValue(mockFeature);
+
+      await client.callTool({ name: 'show_feature', arguments: { featureId: 'abc-123' } });
+
+      expect(mockShowFeatureUseCase.execute).toHaveBeenCalledWith('abc-123');
+    });
+
+    it('returns feature data as JSON text content', async () => {
+      const mockFeature: Partial<Feature> = { id: 'abc-123', name: 'Test Feature' };
+      mockShowFeatureUseCase.execute.mockResolvedValue(mockFeature);
+
+      const result = await client.callTool({
+        name: 'show_feature',
+        arguments: { featureId: 'abc-123' },
+      });
+
+      const textContent = result.content as { type: string; text: string }[];
+      expect(textContent[0].type).toBe('text');
+      const parsed = JSON.parse(textContent[0].text);
+      expect(parsed.id).toBe('abc-123');
+      expect(parsed.name).toBe('Test Feature');
+    });
+
+    it('returns error when feature not found', async () => {
+      mockShowFeatureUseCase.execute.mockRejectedValue(
+        new Error('Feature not found: "nonexistent"')
+      );
+
+      const result = await client.callTool({
+        name: 'show_feature',
+        arguments: { featureId: 'nonexistent' },
+      });
+
+      expect(result.isError).toBe(true);
+      const textContent = result.content as { type: string; text: string }[];
+      expect(textContent[0].text).toContain('Feature not found');
+    });
+  });
+
+  describe('create_feature handler', () => {
+    it('registers create_feature tool', async () => {
+      const { tools } = await client.listTools();
+      const toolNames = tools.map((t) => t.name);
+      expect(toolNames).toContain('create_feature');
+    });
+
+    it('calls CreateFeatureUseCase with userInput and repositoryPath', async () => {
+      const mockResult = {
+        feature: { id: 'new-feat', name: 'New Feature' },
+      };
+      mockCreateFeatureUseCase.execute.mockResolvedValue(mockResult);
+
+      await client.callTool({
+        name: 'create_feature',
+        arguments: {
+          userInput: 'Add dark mode support',
+          repositoryPath: '/path/to/repo',
+        },
+      });
+
+      expect(mockCreateFeatureUseCase.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userInput: 'Add dark mode support',
+          repositoryPath: '/path/to/repo',
+        })
+      );
+    });
+
+    it('passes optional name and description to use case', async () => {
+      const mockResult = {
+        feature: { id: 'new-feat', name: 'Dark Mode' },
+      };
+      mockCreateFeatureUseCase.execute.mockResolvedValue(mockResult);
+
+      await client.callTool({
+        name: 'create_feature',
+        arguments: {
+          userInput: 'Add dark mode support',
+          repositoryPath: '/path/to/repo',
+          name: 'Dark Mode',
+          description: 'Toggle between light and dark themes',
+        },
+      });
+
+      expect(mockCreateFeatureUseCase.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userInput: 'Add dark mode support',
+          repositoryPath: '/path/to/repo',
+          name: 'Dark Mode',
+          description: 'Toggle between light and dark themes',
+        })
+      );
+    });
+
+    it('returns created feature as JSON text content', async () => {
+      const mockResult = {
+        feature: { id: 'new-feat', name: 'New Feature' },
+      };
+      mockCreateFeatureUseCase.execute.mockResolvedValue(mockResult);
+
+      const result = await client.callTool({
+        name: 'create_feature',
+        arguments: {
+          userInput: 'Add dark mode',
+          repositoryPath: '/path/to/repo',
+        },
+      });
+
+      const textContent = result.content as { type: string; text: string }[];
+      expect(textContent[0].type).toBe('text');
+      const parsed = JSON.parse(textContent[0].text);
+      expect(parsed.feature.id).toBe('new-feat');
+    });
+
+    it('returns error when creation fails', async () => {
+      mockCreateFeatureUseCase.execute.mockRejectedValue(new Error('Repository not found'));
+
+      const result = await client.callTool({
+        name: 'create_feature',
+        arguments: {
+          userInput: 'Add dark mode',
+          repositoryPath: '/nonexistent',
+        },
+      });
+
+      expect(result.isError).toBe(true);
+      const textContent = result.content as { type: string; text: string }[];
+      expect(textContent[0].text).toContain('Repository not found');
+    });
+  });
+
+  describe('start_feature handler', () => {
+    it('registers start_feature tool', async () => {
+      const { tools } = await client.listTools();
+      const toolNames = tools.map((t) => t.name);
+      expect(toolNames).toContain('start_feature');
+    });
+
+    it('calls StartFeatureUseCase with featureId', async () => {
+      const mockResult = {
+        feature: { id: 'feat-1', name: 'Test' },
+        agentRun: { id: 'run-abc' },
+      };
+      mockStartFeatureUseCase.execute.mockResolvedValue(mockResult);
+
+      await client.callTool({
+        name: 'start_feature',
+        arguments: { featureId: 'feat-1' },
+      });
+
+      expect(mockStartFeatureUseCase.execute).toHaveBeenCalledWith('feat-1');
+    });
+
+    it('returns result with run ID as JSON text content', async () => {
+      const mockResult = {
+        feature: { id: 'feat-1', name: 'Test' },
+        agentRun: { id: 'run-abc' },
+      };
+      mockStartFeatureUseCase.execute.mockResolvedValue(mockResult);
+
+      const result = await client.callTool({
+        name: 'start_feature',
+        arguments: { featureId: 'feat-1' },
+      });
+
+      const textContent = result.content as { type: string; text: string }[];
+      expect(textContent[0].type).toBe('text');
+      const parsed = JSON.parse(textContent[0].text);
+      expect(parsed.agentRun.id).toBe('run-abc');
+    });
+
+    it('returns error when feature cannot be started', async () => {
+      mockStartFeatureUseCase.execute.mockRejectedValue(
+        new Error('Feature is not in Pending state')
+      );
+
+      const result = await client.callTool({
+        name: 'start_feature',
+        arguments: { featureId: 'feat-1' },
+      });
+
+      expect(result.isError).toBe(true);
+      const textContent = result.content as { type: string; text: string }[];
+      expect(textContent[0].text).toContain('Feature is not in Pending state');
     });
   });
 });
