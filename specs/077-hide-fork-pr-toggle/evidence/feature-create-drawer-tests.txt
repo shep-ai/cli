@@ -1,0 +1,98 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-hide-fork-pr-toggle
+
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > rendering > renders the drawer header when open 98ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > rendering > does not render a feature name input 33ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > rendering > renders description textarea with updated label 33ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > rendering > renders attach files button 48ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > rendering > renders cancel and submit buttons 47ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > form input > accepts text in the description field 207ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > validation > disables submit button when description is empty 26ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > validation > enables submit button when description has content 121ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > validation > disables submit button when description is only whitespace 56ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > submission > calls onSubmit with payload containing description (no name field) 175ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > submission > includes attachments array with file objects 154ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > submission > sends approvalGates with only PRD checked 147ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > submission > sends all-true approvalGates when all checkboxes are checked 299ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > submission > sends all-false approvalGates when no checkboxes are checked 185ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > switch reset on close > resets all switches to unchecked after close and reopen 81ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > submitting state > disables description textarea when isSubmitting 16ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > submitting state > disables add files button when isSubmitting 26ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > submitting state > shows "Creating..." on submit button when isSubmitting 26ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > submitting state > disables cancel button when isSubmitting 24ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > auto-approve switches > renders "APPROVE" section title 16ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > auto-approve switches > renders 3 approval switches and an All toggle button 22ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > auto-approve switches > all switches are unchecked by default 20ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > auto-approve switches > all switches are disabled when isSubmitting=true 22ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > auto-approve switches > clicking PRD switch toggles it on 42ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > auto-approve All toggle button > clicking All button selects all switches when none are selected 42ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > auto-approve All toggle button > clicking All button selects all when some are selected 111ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > auto-approve All toggle button > clicking All button deselects all when all are selected 118ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > auto-approve All toggle button > submits correct approvalGates after All toggle 587ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > close behavior > calls onClose when cancel button is clicked 84ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > close behavior > calls onClose when close (X) button is clicked 72ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > close behavior > clears all form fields after submit without unmounting 1046ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > close behavior > clears form data on submit so next open starts fresh 401ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > attachments (native file picker) > calls pickFiles and displays attachment chip 417ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > attachments (native file picker) > displays file size 236ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > attachments (native file picker) > supports multiple file selections across multiple picks 223ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > attachments (native file picker) > removes attachment when remove button is clicked 444ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > attachments (native file picker) > shows multiple attachment chips 282ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > attachments (native file picker) > does not add files when user cancels the picker 302ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > attachments (native file picker) > does not add duplicate files when the same file is picked again 589ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > attachments (native file picker) > handles pickFiles error gracefully 127ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > sound effects > plays create sound on form submit 841ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > fast mode toggle > renders fast mode switch with label 228ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > fast mode toggle > fast mode is unchecked by default 88ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > fast mode toggle > toggling fast mode checkbox updates form state 379ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > fast mode toggle > submitting with fast mode on includes fast=true in payload 887ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > fast mode toggle > submitting with fast mode off includes fast=false in payload 1181ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > fast mode toggle > fast mode checkbox has accessible label 181ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > fast mode toggle > fast mode checkbox is disabled when isSubmitting 171ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > fast mode toggle > fast mode resets to unchecked after submit 1121ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > keyboard shortcut (Ctrl/Cmd+Enter) > submits the form when Ctrl+Enter is pressed in the textarea 1106ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > keyboard shortcut (Ctrl/Cmd+Enter) > submits the form when Meta+Enter is pressed in the textarea 1004ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > keyboard shortcut (Ctrl/Cmd+Enter) > does not submit when description is empty and Ctrl+Enter is pressed 162ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > keyboard shortcut (Ctrl/Cmd+Enter) > does not submit when isSubmitting and Ctrl+Enter is pressed 96ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > keyboard shortcut (Ctrl/Cmd+Enter) > does not submit on plain Enter (without modifier) 468ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > drag-drop and paste uploads > shows attachment chip after dropping a valid file 221ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > drag-drop and paste uploads > shows inline error for files exceeding 10 MB without calling upload API 82ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > drag-drop and paste uploads > shows inline error for disallowed file extensions 136ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > drag-drop and paste uploads > applies drag-over class on dragenter and removes it on dragleave 211ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > drag-drop and paste uploads > shows attachment chip after pasting an image from clipboard 264ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > drag-drop and paste uploads > includes sessionId in the upload request 246ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > drag-drop and paste uploads > includes sessionId in submitted payload 677ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > shows repository combobox when repositoryPath is empty and repositories provided 136ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > does not show repository combobox when repositoryPath matches an active repo 119ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > shows repository combobox when repositoryPath does not match any active repo 134ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > shows read-only repo label when repositoryPath is provided 64ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > submit button is disabled when no repo selected and repositoryPath is empty 653ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > submit button is enabled when repo is selected via combobox 627ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > submit button is enabled when repositoryPath is provided (canvas flow) 622ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > handleSubmit includes selectedRepoPath in payload 754ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > renders REPOSITORY label in combobox section 72ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > filters repositories by name when typing in search input 289ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > filters repositories by path when typing in search input 547ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > shows empty state message when no repos match search 541ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > shows check icon for selected repository 426ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > shows repo selector with add option when repositoryPath is empty and repositories is empty 102ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > renders "Add new repository..." item in the combobox dropdown 226ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > renders "Add new repository..." item even with zero repos 243ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > clicking "Add new repository..." opens folder picker and adds repo 451ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > does nothing when folder picker is cancelled 306ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > shows inline error when addRepository server action fails 251ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > repository selector > can submit feature after adding new repo via combobox 1076ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > canPushDirectly — Fork & PR toggle visibility > renders Fork & PR toggle when canPushDirectly is false 153ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > canPushDirectly — Fork & PR toggle visibility > does not render Fork & PR toggle when canPushDirectly is true 131ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > canPushDirectly — Fork & PR toggle visibility > renders Fork & PR toggle when canPushDirectly is undefined (backwards compat) 96ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > canPushDirectly — Fork & PR toggle visibility > resets forkAndPr state to false when canPushDirectly changes from false to true 1129ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > canPushDirectly — Fork & PR toggle visibility > reverts push and openPr to defaults when canPushDirectly becomes true 445ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > canPushDirectly — Fork & PR toggle visibility > reverts commitSpecs to default (true) when canPushDirectly becomes true 334ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > canPushDirectly — Fork & PR toggle visibility > calls getViewerPermission on repo change and updates toggle visibility 821ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx > FeatureCreateDrawer > canPushDirectly — Fork & PR toggle visibility > excludes forkAndPr from submission payload when canPush is true 815ms
+
+ Test Files  1 passed (1)
+      Tests  89 passed (89)
+   Start at  23:50:15
+   Duration  29.18s (transform 220ms, setup 81ms, import 447ms, tests 28.33s, environment 262ms)
+

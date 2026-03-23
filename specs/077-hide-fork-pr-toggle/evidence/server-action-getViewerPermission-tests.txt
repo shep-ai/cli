@@ -1,0 +1,17 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-hide-fork-pr-toggle
+
+ ✓  web  tests/unit/presentation/web/actions/get-viewer-permission.test.ts > getViewerPermission server action > returns canPushDirectly=true for ADMIN permission 1ms
+ ✓  web  tests/unit/presentation/web/actions/get-viewer-permission.test.ts > getViewerPermission server action > returns canPushDirectly=true for MAINTAIN permission 0ms
+ ✓  web  tests/unit/presentation/web/actions/get-viewer-permission.test.ts > getViewerPermission server action > returns canPushDirectly=true for WRITE permission 0ms
+ ✓  web  tests/unit/presentation/web/actions/get-viewer-permission.test.ts > getViewerPermission server action > returns canPushDirectly=false for READ permission 0ms
+ ✓  web  tests/unit/presentation/web/actions/get-viewer-permission.test.ts > getViewerPermission server action > returns canPushDirectly=false for TRIAGE permission 0ms
+ ✓  web  tests/unit/presentation/web/actions/get-viewer-permission.test.ts > getViewerPermission server action > returns canPushDirectly=false when service throws 0ms
+ ✓  web  tests/unit/presentation/web/actions/get-viewer-permission.test.ts > getViewerPermission server action > resolves IGitHubRepositoryService from DI container 0ms
+ ✓  web  tests/unit/presentation/web/actions/get-viewer-permission.test.ts > getViewerPermission server action > passes repoPath to service.getViewerPermission 0ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  23:50:12
+   Duration  158ms (transform 25ms, setup 85ms, import 16ms, tests 3ms, environment 0ms)
+

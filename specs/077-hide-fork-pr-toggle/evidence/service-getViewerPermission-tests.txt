@@ -1,0 +1,18 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-hide-fork-pr-toggle
+
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return ADMIN for admin repos 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return WRITE for collaborator repos 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return MAINTAIN for maintainer repos 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return READ for read-only repos 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should return TRIAGE for triage-level repos 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should call execFile with correct args and cwd 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should throw GitHubPermissionError when gh is not installed (ENOENT) 1ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should throw GitHubPermissionError on generic exec failure 0ms
+ ✓  node  tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts > GitHubRepositoryService > getViewerPermission() > should include cause in GitHubPermissionError 0ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  23:50:05
+   Duration  107ms (transform 30ms, setup 0ms, import 50ms, tests 3ms, environment 0ms)
+
