@@ -428,7 +428,8 @@ describe('MergeReview', () => {
       };
       render(<MergeReview {...props} readOnly />);
 
-      expect(screen.getByText('Homepage screenshot')).toBeInTheDocument();
+      // Image evidence now renders as a thumbnail with alt text
+      expect(screen.getByAltText('Homepage screenshot')).toBeInTheDocument();
     });
 
     it('still renders file diffs when readOnly is true', () => {
