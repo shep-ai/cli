@@ -6,6 +6,8 @@ import {
 
 const validAnalyzeSpec = {
   name: 'test-feature',
+  number: 2,
+  branch: 'feat/002-test-feature',
   oneLiner: 'A test feature',
   summary: 'This is a test feature for validation',
   phase: 'Analysis',
@@ -63,6 +65,33 @@ describe('validateSpecAnalyze', () => {
   it('passes when openQuestions is not present', () => {
     const result = validateSpecAnalyze(validAnalyzeSpec);
     expect(result.valid).toBe(true);
+  });
+
+  it('fails when number is a string instead of integer', () => {
+    const result = validateSpecAnalyze({ ...validAnalyzeSpec, number: '002' });
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain('number');
+    expect(result.errors[0]).toContain('integer');
+  });
+
+  it('fails when number is a float', () => {
+    const result = validateSpecAnalyze({ ...validAnalyzeSpec, number: 2.5 });
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain('number');
+  });
+
+  it('fails when number is missing', () => {
+    const { number: _, ...data } = validAnalyzeSpec;
+    const result = validateSpecAnalyze(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Missing required integer field 'number'");
+  });
+
+  it('fails when branch is missing', () => {
+    const { branch: _, ...data } = validAnalyzeSpec;
+    const result = validateSpecAnalyze(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("Missing required string field 'branch'");
   });
 
   it('fails when openQuestions contains structured objects', () => {

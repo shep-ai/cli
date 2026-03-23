@@ -934,13 +934,13 @@ export function FeatureCreateDrawer({
                           size="sm"
                           checked={commitEvidence}
                           onCheckedChange={setCommitEvidence}
-                          disabled={isSubmitting || !enableEvidence || !openPr}
+                          disabled={isSubmitting || !enableEvidence || (!openPr && !forkAndPr)}
                         />
                         <Label
                           htmlFor="commit-evidence"
                           className={cn(
                             'cursor-pointer text-xs font-medium',
-                            (!enableEvidence || !openPr) && 'opacity-50'
+                            (!enableEvidence || (!openPr && !forkAndPr)) && 'opacity-50'
                           )}
                         >
                           Add to PR
@@ -948,7 +948,7 @@ export function FeatureCreateDrawer({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      {!openPr
+                      {!openPr && !forkAndPr
                         ? 'Requires PR to be enabled'
                         : !enableEvidence
                           ? 'Requires evidence collection to be enabled'

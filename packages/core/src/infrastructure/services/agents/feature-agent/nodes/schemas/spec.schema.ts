@@ -1,4 +1,9 @@
-import { requireString, requireNonEmptyArray, type ValidationResult } from './validation.js';
+import {
+  requireString,
+  requireInteger,
+  requireNonEmptyArray,
+  type ValidationResult,
+} from './validation.js';
 
 const VALID_SIZE_ESTIMATES = ['S', 'M', 'L', 'XL'];
 
@@ -9,6 +14,8 @@ function validateBaseSpec(data: unknown, errors: string[]): data is Record<strin
   }
   const d = data as Record<string, unknown>;
   requireString(d, 'name', errors);
+  requireInteger(d, 'number', errors);
+  requireString(d, 'branch', errors);
   requireString(d, 'oneLiner', errors);
   requireString(d, 'summary', errors);
   requireString(d, 'phase', errors);

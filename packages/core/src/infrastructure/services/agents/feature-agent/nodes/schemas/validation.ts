@@ -19,6 +19,22 @@ export function requireString(
   }
 }
 
+export function requireInteger(
+  data: Record<string, unknown>,
+  field: string,
+  errors: string[],
+  prefix = ''
+): void {
+  const val = data[field];
+  if (val === undefined || val === null) {
+    errors.push(`Missing required integer field '${prefix}${field}'`);
+  } else if (typeof val !== 'number' || !Number.isInteger(val)) {
+    errors.push(
+      `Field '${prefix}${field}' must be an integer, got ${typeof val === 'number' ? val : typeof val}`
+    );
+  }
+}
+
 export function requireNonEmptyArray(
   data: Record<string, unknown>,
   field: string,

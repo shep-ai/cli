@@ -96,9 +96,9 @@ Update the file at: ${state.specDir}/spec.yaml
 
 Write the COMPLETE file. Preserve name/number/branch/technologies from analysis and update:
 
-  name: (keep)
-  number: (keep)
-  branch: (keep)
+  name: (keep — string)
+  number: (keep — MUST be a bare integer, e.g. 2, NOT "002" or "2")
+  branch: (keep — string)
   oneLiner: (keep or refine)
   summary: >
     (keep or refine based on requirements)
@@ -197,10 +197,14 @@ Write the COMPLETE file. Preserve name/number/branch/technologies from analysis 
 - Do NOT create any other files
 - Do NOT modify any source code
 
-${buildCommitPushBlock({
-  push: state.push,
-  files: [`${state.specDir}/spec.yaml`],
-  commitHint: 'docs(specs): define requirements and product questions',
-  skipVerification: true,
-})}`;
+${
+  state.commitSpecs
+    ? buildCommitPushBlock({
+        push: state.push,
+        files: [`${state.specDir}/spec.yaml`],
+        commitHint: 'docs(specs): define requirements and product questions',
+        skipVerification: true,
+      })
+    : `## Git Operations\n\nDo NOT commit or push any spec files. Spec files are managed locally only.`
+}`;
 }
