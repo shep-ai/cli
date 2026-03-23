@@ -1,3 +1,10 @@
+# [1.145.0](https://github.com/shep-ai/cli/compare/v1.144.0...v1.145.0) (2026-03-23)
+
+
+### Features
+
+* **agents:** replace hardcoded ci watch with agent-based watching ([#458](https://github.com/shep-ai/cli/issues/458)) ([01dac3d](https://github.com/shep-ai/cli/commit/01dac3df02c3d5757ee1a08cb592eb0b009c06c8))
+
 # [1.144.0](https://github.com/shep-ai/cli/compare/v1.143.0...v1.144.0) (2026-03-23)
 
 
