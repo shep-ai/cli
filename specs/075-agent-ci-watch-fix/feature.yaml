@@ -3,18 +3,20 @@ feature:
   name: 'agent-ci-watch-fix'
   number: 75
   branch: 'feat/075-agent-ci-watch-fix'
-  lifecycle: 'implementation'
+  lifecycle: 'complete'
   createdAt: '2026-03-23T14:30:00Z'
 
 status:
-  phase: 'ready-to-implement'
+  phase: 'complete'
   progress:
-    completed: 0
+    completed: 5
     total: 5
-    percentage: 0
+    percentage: 100
   currentTask: null
-  lastUpdated: '2026-03-23T14:30:00Z'
-  lastUpdatedBy: 'shep-kit:new-feature-fast'
+  lastUpdated: '2026-03-23T18:00:00Z'
+  lastUpdatedBy: 'shep-kit:merged'
+
+mergedAt: '2026-03-23T18:00:00Z'
 
 validation:
   lastRun: null
@@ -36,6 +38,9 @@ checkpoints:
   - phase: 'plan-complete'
     completedAt: '2026-03-23T14:30:00Z'
     completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'feature-merged'
+    completedAt: '2026-03-23T18:00:00Z'
+    completedBy: 'shep-kit:merged'
 
 errors:
   current: null
