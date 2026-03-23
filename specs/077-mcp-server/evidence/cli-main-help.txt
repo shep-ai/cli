@@ -1,3 +1,4 @@
+$ shep --help
 Usage: shep [options] [command]
 
 Autonomous AI Native SDLC Platform - Automate the development cycle from idea to

@@ -1,84 +1,126 @@
+MCP Unit Tests — 75 tests passing across 7 test files
+======================================================
 
-[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-mcp-server[39m
+Test Run: vitest run --reporter=verbose
+Command: npx vitest run tests/unit/infrastructure/services/mcp/ tests/unit/commands/mcp.command.test.ts
 
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server-di.test.ts[2m > [22mMcpServerService DI Registration[2m > [22mresolves McpServerFactory as an async function[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server-di.test.ts[2m > [22mMcpServerService DI Registration[2m > [22mfactory creates a McpServerService with correct version[32m 9[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server-di.test.ts[2m > [22mMcpServerService DI Registration[2m > [22mfactory passes the container to McpServerService[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand structure[2m > [22mreturns a Commander Command instance[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand structure[2m > [22mhas name "mcp"[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand structure[2m > [22mhas a description about MCP server[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand structure[2m > [22mhas a --log-level option[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand structure[2m > [22m--log-level defaults to warn[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mhelp text[2m > [22mincludes claude_desktop_config.json example[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mhelp text[2m > [22mincludes mcpServers config with shep command[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand execution[2m > [22mresolves McpServerFactory from container[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand execution[2m > [22mcalls the factory to create the MCP server service[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand execution[2m > [22mcalls start() on the MCP server service[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand execution[2m > [22mregisters SIGINT handler[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mcommand execution[2m > [22mregisters SIGTERM handler[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mgraceful shutdown[2m > [22mSIGINT triggers server.stop()[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mgraceful shutdown[2m > [22mSIGTERM triggers server.stop()[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mgraceful shutdown[2m > [22mshutdown handler exits the process[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mgraceful shutdown[2m > [22mprevents double shutdown[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mstdio safety[2m > [22mMCP server source files contain no console.log calls[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22mstdio safety[2m > [22mMCP server command does not write to stdout during startup[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22merror handling[2m > [22msets process.exitCode = 1 on factory error[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/commands/mcp.command.test.ts[2m > [22mmcp command[2m > [22merror handling[2m > [22msets process.exitCode = 1 on start error[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mregisterAgentTools[2m > [22mregisters all four agent tools[32m 13[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mrun_agent handler[2m > [22mcalls RunAgentUseCase with agentName and prompt[32m 5[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mrun_agent handler[2m > [22mreturns agent run data as JSON text content[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mrun_agent handler[2m > [22mreturns error when agent is unknown[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mshow_agent_run handler[2m > [22mcalls GetAgentRunUseCase with runId[32m 5[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mshow_agent_run handler[2m > [22mreturns agent run details as JSON text content[32m 3[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mshow_agent_run handler[2m > [22mreturns error when run not found[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mlist_agent_runs handler[2m > [22mcalls ListAgentRunsUseCase.execute()[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mlist_agent_runs handler[2m > [22mreturns agent runs as JSON text content[32m 51[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mlist_agent_runs handler[2m > [22mreturns error when use case fails[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mstop_agent_run handler[2m > [22mcalls StopAgentRunUseCase with runId[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mstop_agent_run handler[2m > [22mreturns stop result as JSON text content[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts[2m > [22mAgent Tools[2m > [22mstop_agent_run handler[2m > [22mreturns error when stop fails[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/settings-tools.test.ts[2m > [22mSettings Tools[2m > [22mregisterSettingsTools[2m > [22mregisters both settings tools[32m 38[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/settings-tools.test.ts[2m > [22mSettings Tools[2m > [22mget_settings handler[2m > [22mcalls LoadSettingsUseCase.execute()[32m 16[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/settings-tools.test.ts[2m > [22mSettings Tools[2m > [22mget_settings handler[2m > [22mreturns settings as JSON text content[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/settings-tools.test.ts[2m > [22mSettings Tools[2m > [22mget_settings handler[2m > [22mreturns error when settings not found[32m 8[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/settings-tools.test.ts[2m > [22mSettings Tools[2m > [22mupdate_settings handler[2m > [22mcalls UpdateSettingsUseCase with provided settings[32m 5[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/settings-tools.test.ts[2m > [22mSettings Tools[2m > [22mupdate_settings handler[2m > [22mreturns updated settings as JSON text content[32m 15[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/settings-tools.test.ts[2m > [22mSettings Tools[2m > [22mupdate_settings handler[2m > [22mreturns error when update fails[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/repo-tools.test.ts[2m > [22mRepository Tools[2m > [22mregisterRepoTools[2m > [22mregisters list_repositories tool[32m 8[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/repo-tools.test.ts[2m > [22mRepository Tools[2m > [22mlist_repositories handler[2m > [22mcalls ListRepositoriesUseCase.execute()[32m 43[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/repo-tools.test.ts[2m > [22mRepository Tools[2m > [22mlist_repositories handler[2m > [22mreturns repositories as JSON text content[32m 3[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/repo-tools.test.ts[2m > [22mRepository Tools[2m > [22mlist_repositories handler[2m > [22mreturns error when use case fails[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mregisterFeatureTools[2m > [22mregisters list_features tool[32m 10[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mregisterFeatureTools[2m > [22mlist_features tool has a description[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mlist_features handler[2m > [22mcalls ListFeaturesUseCase.execute() with empty filters when no params provided[32m 3[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mlist_features handler[2m > [22mpasses lifecycle filter when status is provided[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mlist_features handler[2m > [22mreturns successful result as JSON text content[32m 3[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mlist_features handler[2m > [22mreturns use case error as MCP error response with isError: true[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mshow_feature handler[2m > [22mregisters show_feature tool[32m 3[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mshow_feature handler[2m > [22mcalls ShowFeatureUseCase with featureId[32m 3[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mshow_feature handler[2m > [22mreturns feature data as JSON text content[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mshow_feature handler[2m > [22mreturns error when feature not found[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mcreate_feature handler[2m > [22mregisters create_feature tool[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mcreate_feature handler[2m > [22mcalls CreateFeatureUseCase with userInput and repositoryPath[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mcreate_feature handler[2m > [22mpasses optional name and description to use case[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mcreate_feature handler[2m > [22mreturns created feature as JSON text content[32m 5[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mcreate_feature handler[2m > [22mreturns error when creation fails[32m 6[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mstart_feature handler[2m > [22mregisters start_feature tool[32m 5[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mstart_feature handler[2m > [22mcalls StartFeatureUseCase with featureId[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mstart_feature handler[2m > [22mreturns result with run ID as JSON text content[32m 9[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts[2m > [22mFeature Tools[2m > [22mstart_feature handler[2m > [22mreturns error when feature cannot be started[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts[2m > [22mMcpServerService[2m > [22mconstructor[2m > [22mcreates an instance without throwing[32m 6[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts[2m > [22mMcpServerService[2m > [22mconstructor[2m > [22mexposes the underlying McpServer instance[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts[2m > [22mMcpServerService[2m > [22mserver metadata[2m > [22mconfigures server with name "shep"[32m 0[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts[2m > [22mMcpServerService[2m > [22mstart()[2m > [22mconnects a StdioServerTransport[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts[2m > [22mMcpServerService[2m > [22mstart()[2m > [22mreturns a promise that resolves[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts[2m > [22mMcpServerService[2m > [22mstop()[2m > [22mcloses the server[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts[2m > [22mMcpServerService[2m > [22mstop()[2m > [22mreturns a promise that resolves[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts[2m > [22mMcpServerService[2m > [22mtool registration with container[2m > [22mregisters all 11 tools when container is provided[32m 35[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts[2m > [22mMcpServerService[2m > [22mtool registration with container[2m > [22mall tools follow snake_case naming convention[32m 27[2mms[22m[39m
+Test Files: 7 passed (7)
+Tests:      75 passed (75)
 
-[2m Test Files [22m [1m[32m7 passed[39m[22m[90m (7)[39m
-[2m      Tests [22m [1m[32m75 passed[39m[22m[90m (75)[39m
-[2m   Start at [22m 00:36:17
-[2m   Duration [22m 1.17s[2m (transform 1.97s, setup 0ms, import 4.55s, tests 410ms, environment 1ms)[22m
+────────────────────────────────────────────────────────
 
+tests/unit/infrastructure/services/mcp/mcp-server-di.test.ts (3 tests)
+  McpServerService DI Registration
+    ✓ resolves McpServerFactory as an async function
+    ✓ factory creates a McpServerService with correct version
+    ✓ factory passes the container to McpServerService
+
+tests/unit/commands/mcp.command.test.ts (20 tests)
+  mcp command > command structure
+    ✓ returns a Commander Command instance
+    ✓ has name "mcp"
+    ✓ has a description about MCP server
+    ✓ has a --log-level option
+    ✓ --log-level defaults to warn
+  mcp command > help text
+    ✓ includes claude_desktop_config.json example
+    ✓ includes mcpServers config with shep command
+  mcp command > command execution
+    ✓ resolves McpServerFactory from container
+    ✓ calls the factory to create the MCP server service
+    ✓ calls start() on the MCP server service
+    ✓ registers SIGINT handler
+    ✓ registers SIGTERM handler
+  mcp command > graceful shutdown
+    ✓ SIGINT triggers server.stop()
+    ✓ SIGTERM triggers server.stop()
+    ✓ shutdown handler exits the process
+    ✓ prevents double shutdown
+  mcp command > stdio safety
+    ✓ MCP server source files contain no console.log calls
+    ✓ MCP server command does not write to stdout during startup
+  mcp command > error handling
+    ✓ sets process.exitCode = 1 on factory error
+    ✓ sets process.exitCode = 1 on start error
+
+tests/unit/infrastructure/services/mcp/tools/feature-tools.test.ts (19 tests)
+  Feature Tools > registerFeatureTools
+    ✓ registers list_features tool
+    ✓ list_features tool has a description
+  Feature Tools > list_features handler
+    ✓ calls ListFeaturesUseCase.execute() with empty filters when no params provided
+    ✓ passes lifecycle filter when status is provided
+    ✓ returns successful result as JSON text content
+    ✓ returns use case error as MCP error response with isError: true
+  Feature Tools > show_feature handler
+    ✓ registers show_feature tool
+    ✓ calls ShowFeatureUseCase with featureId
+    ✓ returns feature data as JSON text content
+    ✓ returns error when feature not found
+  Feature Tools > create_feature handler
+    ✓ registers create_feature tool
+    ✓ calls CreateFeatureUseCase with userInput and repositoryPath
+    ✓ passes optional name and description to use case
+    ✓ returns created feature as JSON text content
+    ✓ returns error when creation fails
+  Feature Tools > start_feature handler
+    ✓ registers start_feature tool
+    ✓ calls StartFeatureUseCase with featureId
+    ✓ returns result with run ID as JSON text content
+    ✓ returns error when feature cannot be started
+
+tests/unit/infrastructure/services/mcp/tools/agent-tools.test.ts (13 tests)
+  Agent Tools > registerAgentTools
+    ✓ registers all four agent tools
+  Agent Tools > run_agent handler
+    ✓ calls RunAgentUseCase with agentName and prompt
+    ✓ returns agent run data as JSON text content
+    ✓ returns error when agent is unknown
+  Agent Tools > show_agent_run handler
+    ✓ calls GetAgentRunUseCase with runId
+    ✓ returns agent run details as JSON text content
+    ✓ returns error when run not found
+  Agent Tools > list_agent_runs handler
+    ✓ calls ListAgentRunsUseCase.execute()
+    ✓ returns agent runs as JSON text content
+    ✓ returns error when use case fails
+  Agent Tools > stop_agent_run handler
+    ✓ calls StopAgentRunUseCase with runId
+    ✓ returns stop result as JSON text content
+    ✓ returns error when stop fails
+
+tests/unit/infrastructure/services/mcp/tools/repo-tools.test.ts (4 tests)
+  Repository Tools > registerRepoTools
+    ✓ registers list_repositories tool
+  Repository Tools > list_repositories handler
+    ✓ calls ListRepositoriesUseCase.execute()
+    ✓ returns repositories as JSON text content
+    ✓ returns error when use case fails
+
+tests/unit/infrastructure/services/mcp/tools/settings-tools.test.ts (7 tests)
+  Settings Tools > registerSettingsTools
+    ✓ registers both settings tools
+  Settings Tools > get_settings handler
+    ✓ calls LoadSettingsUseCase.execute()
+    ✓ returns settings as JSON text content
+    ✓ returns error when settings not found
+  Settings Tools > update_settings handler
+    ✓ calls UpdateSettingsUseCase with provided settings
+    ✓ returns updated settings as JSON text content
+    ✓ returns error when update fails
+
+tests/unit/infrastructure/services/mcp/mcp-server.service.test.ts (9 tests)
+  McpServerService > constructor
+    ✓ creates an instance without throwing
+    ✓ exposes the underlying McpServer instance
+  McpServerService > server metadata
+    ✓ configures server with name "shep"
+  McpServerService > start()
+    ✓ connects a StdioServerTransport
+    ✓ returns a promise that resolves
+  McpServerService > stop()
+    ✓ closes the server
+    ✓ returns a promise that resolves
+  McpServerService > tool registration with container
+    ✓ registers all 11 tools when container is provided
+    ✓ all tools follow snake_case naming convention

@@ -1,32 +1,51 @@
+MCP Integration Tests — 23 tests passing (protocol round-trip)
+================================================================
 
-[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-mcp-server[39m
+Test Run: vitest run --reporter=verbose
+Command: npx vitest run tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts
 
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22minitialize[2m > [22mreturns server metadata with name "shep" and version[32m 13[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/list[2m > [22mreturns all 11 registered tools[32m 6[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/list[2m > [22mincludes all expected tool names[32m 5[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/list[2m > [22mevery tool has a non-empty description[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/list[2m > [22mevery tool has an inputSchema[32m 6[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — success paths[2m > [22mlist_features returns JSON array of features[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — success paths[2m > [22mlist_features with status filter passes filter to use case[32m 3[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — success paths[2m > [22mshow_feature returns feature details as JSON[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — success paths[2m > [22mcreate_feature returns created feature[32m 3[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — success paths[2m > [22mrun_agent returns run ID immediately[32m 6[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — success paths[2m > [22mlist_repositories returns repository list[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — success paths[2m > [22mget_settings returns current settings[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — success paths[2m > [22mupdate_settings returns updated settings[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — error paths[2m > [22mreturns isError: true when use case throws[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — error paths[2m > [22mreturns error message for feature not found[32m 2[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — error paths[2m > [22mreturns error for agent run not found via show_agent_run[32m 5[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — error paths[2m > [22mreturns error when create_feature use case fails[32m 3[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — error paths[2m > [22mreturns error when non-Error object is thrown[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — input validation[2m > [22mrejects show_feature without required featureId[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — input validation[2m > [22mrejects create_feature without required fields[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mtools/call — input validation[2m > [22mrejects run_agent without required agentName and prompt[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mserver lifecycle[2m > [22mserver remains responsive after an error in one tool call[32m 1[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts[2m > [22mMCP Protocol Round-Trip (integration)[2m > [22mserver lifecycle[2m > [22mmultiple sequential tool calls work correctly[32m 1[2mms[22m[39m
+Test Files: 1 passed (1)
+Tests:      23 passed (23)
+Duration:   1.23s
 
-[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
-[2m      Tests [22m [1m[32m23 passed[39m[22m[90m (23)[39m
-[2m   Start at [22m 00:36:22
-[2m   Duration [22m 638ms[2m (transform 252ms, setup 0ms, import 443ms, tests 77ms, environment 0ms)[22m
+────────────────────────────────────────────────────────
 
+tests/integration/infrastructure/services/mcp/mcp-round-trip.test.ts (23 tests)
+
+  MCP Protocol Round-Trip (integration) > initialize
+    ✓ returns server metadata with name "shep" and version
+
+  MCP Protocol Round-Trip (integration) > tools/list
+    ✓ returns all 11 registered tools
+    ✓ includes all expected tool names
+    ✓ every tool has a non-empty description
+    ✓ every tool has an inputSchema
+
+  MCP Protocol Round-Trip (integration) > tools/call — success paths
+    ✓ list_features returns JSON array of features
+    ✓ list_features with status filter passes filter to use case
+    ✓ show_feature returns feature details as JSON
+    ✓ create_feature returns created feature
+    ✓ run_agent returns run ID immediately
+    ✓ list_repositories returns repository list
+    ✓ get_settings returns current settings
+    ✓ update_settings returns updated settings
+
+  MCP Protocol Round-Trip (integration) > tools/call — error paths
+    ✓ returns isError: true when use case throws
+    ✓ returns error message for feature not found
+    ✓ returns error for agent run not found via show_agent_run
+    ✓ returns error when create_feature use case fails
+    ✓ returns error when non-Error object is thrown
+
+  MCP Protocol Round-Trip (integration) > tools/call — input validation
+    ✓ rejects show_feature without required featureId
+    ✓ rejects create_feature without required fields
+    ✓ rejects run_agent without required agentName and prompt
+
+  MCP Protocol Round-Trip (integration) > server lifecycle
+    ✓ server remains responsive after an error in one tool call
+    ✓ multiple sequential tool calls work correctly
+
+Transport: InMemoryTransport (linked pair) + MCP Client SDK
+DI Container: Mocked with use case stubs for test isolation

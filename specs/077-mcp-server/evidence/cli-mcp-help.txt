@@ -1,3 +1,4 @@
+$ shep mcp --help
 Usage: shep mcp [options]
 
 Start the MCP server for AI agent integration
