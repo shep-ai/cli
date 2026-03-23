@@ -1,0 +1,10 @@
+       ✓ shows check icon for selected repository  548ms
+       ✓ clicking "Add new repository..." opens folder picker and adds repo  396ms
+       ✓ does nothing when folder picker is cancelled  311ms
+       ✓ can submit feature after adding new repo via combobox  1414ms
+
+ Test Files  350 passed (350)
+      Tests  4777 passed (4777)
+   Start at  23:58:14
+   Duration  82.10s (transform 12.81s, setup 83.36s, import 106.48s, tests 188.63s, environment 237.48s)
+
