@@ -49,7 +49,7 @@ export function getFeatureFlags(): FeatureFlagsState {
         ? isEnabled(process.env.NEXT_PUBLIC_FLAG_ENV_DEPLOY)
         : true,
     debug: false,
-    githubImport: false,
+    githubImport: true,
     adoptBranch: false,
     gitRebaseSync: false,
     reactFileManager: isEnabled(process.env.NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER),

@@ -93,6 +93,7 @@ import { ApproveAgentRunUseCase } from '../../application/use-cases/agents/appro
 import { RejectAgentRunUseCase } from '../../application/use-cases/agents/reject-agent-run.use-case.js';
 import { ReviewFeatureUseCase } from '../../application/use-cases/agents/review-feature.use-case.js';
 import { CreateFeatureUseCase } from '../../application/use-cases/features/create/create-feature.use-case.js';
+import { CreateFeatureFromRemoteUseCase } from '../../application/use-cases/features/create/create-feature-from-remote.use-case.js';
 import { MetadataGenerator } from '../../application/use-cases/features/create/metadata-generator.js';
 import { SlugResolver } from '../../application/use-cases/features/create/slug-resolver.js';
 import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
@@ -355,6 +356,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(MetadataGenerator);
   container.registerSingleton(SlugResolver);
   container.registerSingleton(CreateFeatureUseCase);
+  container.registerSingleton(CreateFeatureFromRemoteUseCase);
   container.registerSingleton(ListFeaturesUseCase);
   container.registerSingleton(ShowFeatureUseCase);
   container.registerSingleton(DeleteFeatureUseCase);
@@ -409,6 +411,9 @@ export async function initializeContainer(): Promise<typeof container> {
   // imports inside @shepai/core, so routes use string tokens instead of class refs)
   container.register('CreateFeatureUseCase', {
     useFactory: (c) => c.resolve(CreateFeatureUseCase),
+  });
+  container.register('CreateFeatureFromRemoteUseCase', {
+    useFactory: (c) => c.resolve(CreateFeatureFromRemoteUseCase),
   });
   container.register('ListFeaturesUseCase', {
     useFactory: (c) => c.resolve(ListFeaturesUseCase),

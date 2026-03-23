@@ -153,7 +153,7 @@ export function createDefaultSettings(): Settings {
     skills: false,
     envDeploy: true,
     debug: false,
-    githubImport: false,
+    githubImport: true,
     adoptBranch: false,
     gitRebaseSync: false,
     reactFileManager: false,

@@ -8,18 +8,25 @@
  * @example
  * $ shep feat new "Add user authentication"
  * $ shep feat new "Add login page" --repo /path/to/project
+ * $ shep feat new "Add dark mode" --remote owner/repo
  */
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { container } from '@/infrastructure/di/container.js';
 import { CreateFeatureUseCase } from '@/application/use-cases/features/create/create-feature.use-case.js';
+import { CreateFeatureFromRemoteUseCase } from '@/application/use-cases/features/create/create-feature-from-remote.use-case.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
 import { SdlcLifecycle } from '@/domain/generated/output.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
-import { colors, messages, spinner } from '../../ui/index.js';
+import {
+  GitHubAuthError,
+  GitHubCloneError,
+  GitHubUrlParseError,
+} from '@/application/ports/output/services/github-repository-service.interface.js';
+import { colors, messages, symbols, spinner } from '../../ui/index.js';
 import { getShepHomeDir } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 import { getSettings, hasSettings } from '@/infrastructure/services/settings.service.js';
 import { CheckOnboardingStatusUseCase } from '@/application/use-cases/settings/check-onboarding-status.use-case.js';
@@ -27,6 +34,7 @@ import { onboardingWizard } from '../../../tui/wizards/onboarding/onboarding.wiz
 
 interface NewOptions {
   repo?: string;
+  remote?: string;
   push?: boolean;
   pr?: boolean;
   allowPrd?: boolean;
@@ -79,6 +87,12 @@ export function createNewCommand(): Command {
     .description('Create a new feature')
     .argument('<description>', 'Feature description')
     .option('-r, --repo <path>', 'Repository path (defaults to current directory)')
+    .addOption(
+      new Option(
+        '--remote <url>',
+        'GitHub URL or owner/repo shorthand to clone and create feature on'
+      ).conflicts('repo')
+    )
     .option('--push', 'Push branch to remote after implementation')
     .option('--pr', 'Open PR on implementation complete (implies --push)')
     .option('--no-pr', 'Do not open PR on implementation complete')
@@ -100,9 +114,6 @@ export function createNewCommand(): Command {
             await onboardingWizard();
           }
         }
-
-        const useCase = container.resolve(CreateFeatureUseCase);
-        const repoPath = options.repo ?? process.cwd();
 
         // Resolve openPr from CLI flags or settings defaults
         const defaults = getWorkflowDefaults();
@@ -146,22 +157,93 @@ export function createNewCommand(): Command {
           }
         }
 
-        const result = await spinner('Thinking', () =>
-          useCase.execute({
-            userInput: description,
-            repositoryPath: repoPath,
-            approvalGates,
-            push,
-            openPr,
-            ...(parentId !== undefined && { parentId }),
-            ...(options.pending && { pending: true }),
-            ...(options.fast && { fast: true }),
-            ...(options.model !== undefined && { model: options.model }),
-            ...(attachmentPaths.length > 0 && { attachmentPaths }),
-          })
-        );
+        // Common input fields shared between local and remote paths
+        const commonInput = {
+          userInput: description,
+          approvalGates,
+          push,
+          openPr,
+          ...(parentId !== undefined && { parentId }),
+          ...(options.pending && { pending: true }),
+          ...(options.fast && { fast: true }),
+          ...(options.model !== undefined && { model: options.model }),
+          ...(attachmentPaths.length > 0 && { attachmentPaths }),
+        };
+
+        let result;
+
+        if (options.remote) {
+          // Remote flow: import GitHub repo then create feature
+          const remoteUseCase = container.resolve(CreateFeatureFromRemoteUseCase);
+
+          // Read defaultCloneDir from settings
+          const settings = getSettings();
+          const defaultCloneDir = settings.environment?.defaultCloneDirectory;
+
+          // Dynamic spinner with clone progress updates
+          const frames = symbols.spinner;
+          let frameIdx = 0;
+          let spinnerLabel = 'Cloning repository';
+          let maxLabelLen = spinnerLabel.length;
+
+          const writeSpinner = () => {
+            const frame = frames[frameIdx % frames.length];
+            process.stderr.write(`\r${colors.muted(`${frame} ${spinnerLabel}...`)}`);
+            frameIdx++;
+          };
+
+          writeSpinner();
+          const spinnerInterval = setInterval(writeSpinner, 80);
+
+          const clearSpinner = () => {
+            clearInterval(spinnerInterval);
+            process.stderr.write(`\r${' '.repeat(maxLabelLen + 6)}\r`);
+          };
+
+          try {
+            result = await remoteUseCase.execute({
+              ...commonInput,
+              remoteUrl: options.remote!,
+              ...(defaultCloneDir !== undefined && { defaultCloneDir }),
+              cloneOptions: {
+                onProgress: (data: string) => {
+                  // Parse clone progress from gh CLI stderr
+                  const progressMatch = data.match(
+                    /(?:Cloning|Receiving objects|Resolving deltas|Updating files)[^]*?(?:\d+%|\.{3})/
+                  );
+                  if (progressMatch) {
+                    // Sanitize: take the first meaningful line, trim whitespace
+                    const line = progressMatch[0].split('\n')[0].trim();
+                    if (line.length > 0) {
+                      spinnerLabel = line;
+                      if (spinnerLabel.length > maxLabelLen) {
+                        maxLabelLen = spinnerLabel.length;
+                      }
+                    }
+                  }
+                },
+              },
+            });
+            clearSpinner();
+          } catch (error) {
+            clearSpinner();
+            throw error;
+          }
+        } else {
+          // Local flow: use existing repository
+          const useCase = container.resolve(CreateFeatureUseCase);
+          const repoPath = options.repo ?? process.cwd();
+
+          result = await spinner('Thinking', () =>
+            useCase.execute({
+              ...commonInput,
+              repositoryPath: repoPath,
+            })
+          );
+        }
 
         const { feature, warning } = result;
+        const repoPath = options.remote ? feature.repositoryPath : (options.repo ?? process.cwd());
         const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
         const wtSlug = feature.branch.replace(/\//g, '-');
         const worktreePath = join(getShepHomeDir(), 'repos', repoHash, 'wt', wtSlug);
@@ -216,6 +298,26 @@ export function createNewCommand(): Command {
         console.log(`  ${colors.muted('Review:')}   ${hint}`);
         messages.newline();
       } catch (error) {
+        // Handle GitHub-specific errors with actionable messages
+        if (error instanceof GitHubAuthError) {
+          messages.error('GitHub CLI is not authenticated. Run `gh auth login` to sign in.');
+          process.exitCode = 1;
+          return;
+        }
+        if (error instanceof GitHubUrlParseError) {
+          messages.error(`Invalid GitHub URL: ${error.message}`);
+          messages.info(
+            'Supported formats: https://github.com/owner/repo, git@github.com:owner/repo.git, or owner/repo'
+          );
+          process.exitCode = 1;
+          return;
+        }
+        if (error instanceof GitHubCloneError) {
+          messages.error(`Clone failed: ${error.message}`);
+          process.exitCode = 1;
+          return;
+        }
+
         const err = error instanceof Error ? error : new Error(String(error));
         messages.error('Failed to create feature', err);
         process.exitCode = 1;
