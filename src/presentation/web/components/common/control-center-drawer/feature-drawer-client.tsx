@@ -3,7 +3,18 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Play, Square, Copy, Check, Code2, ExternalLink } from 'lucide-react';
+import {
+  Loader2,
+  Trash2,
+  Play,
+  Square,
+  Copy,
+  Check,
+  Code2,
+  ExternalLink,
+  Archive,
+  ArchiveRestore,
+} from 'lucide-react';
 import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
@@ -139,6 +150,9 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
   // ── Delete state ───────────────────────────────────────────────────────
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  // ── Archive state ─────────────────────────────────────────────────────
+  const [isArchiving, setIsArchiving] = useState(false);
 
   // ── Shared reject state ────────────────────────────────────────────────
   const [isRejecting, setIsRejecting] = useState(false);
@@ -413,6 +427,32 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     [router]
   );
 
+  const handleArchive = useCallback(
+    (featureId: string) => {
+      setIsArchiving(true);
+      window.dispatchEvent(
+        new CustomEvent('shep:feature-archive-requested', {
+          detail: { featureId },
+        })
+      );
+      router.push('/');
+    },
+    [router]
+  );
+
+  const handleUnarchive = useCallback(
+    (featureId: string) => {
+      setIsArchiving(true);
+      window.dispatchEvent(
+        new CustomEvent('shep:feature-unarchive-requested', {
+          detail: { featureId },
+        })
+      );
+      router.push('/');
+    },
+    [router]
+  );
+
   const handleRetry = useCallback(async (featureId: string) => {
     const result = await resumeFeature(featureId);
     if (result.error) {
@@ -604,6 +644,53 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
             </div>
             {featureNode.featureId ? (
               <>
+                {featureNode.state === 'archived' ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Unarchive feature"
+                          disabled={isArchiving}
+                          className="text-muted-foreground hover:text-primary"
+                          data-testid="feature-drawer-unarchive"
+                          onClick={() => handleUnarchive(featureNode.featureId)}
+                        >
+                          {isArchiving ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <ArchiveRestore className="size-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Unarchive feature</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : featureNode.state !== 'deleting' ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Archive feature"
+                          disabled={isArchiving}
+                          className="text-muted-foreground hover:text-foreground"
+                          data-testid="feature-drawer-archive"
+                          onClick={() => handleArchive(featureNode.featureId)}
+                        >
+                          {isArchiving ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Archive className="size-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Archive feature</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : null}
                 <Button
                   variant="ghost"
                   size="icon-sm"
