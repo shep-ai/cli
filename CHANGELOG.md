@@ -1,3 +1,10 @@
+# [1.147.0](https://github.com/shep-ai/cli/compare/v1.146.0...v1.147.0) (2026-03-23)
+
+
+### Features
+
+* **web:** add run button to feature cards and allow archiving with children ([#459](https://github.com/shep-ai/cli/issues/459)) ([e1d5e78](https://github.com/shep-ai/cli/commit/e1d5e78f21b040eca9c7bc94467d2b4eace6030e))
+
 # [1.146.0](https://github.com/shep-ai/cli/compare/v1.145.0...v1.146.0) (2026-03-23)
 
 
