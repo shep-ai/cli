@@ -1,0 +1,106 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-ci-watch-fix
+summary: Technical analysis for replacing hardcoded CI watching with agent-based approach
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - gh-cli
+  - vitest
+  - langgraph
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: Agent-based vs programmatic CI watching
+    chosen: Agent-based CI watching with structured output parsing
+    rejected:
+      - Enhanced programmatic polling (fix watchCi to check all runs)
+      - Hybrid approach (programmatic poll + agent verification)
+    rationale: >
+      Agent-based watching is more robust because the agent can follow CI/CD rules naturally,
+      handle edge cases (rate limits, unexpected states), and adapt to different CI providers.
+      The hardcoded approach has proven brittle with gh run watch --exit-status bugs. Token cost
+      is acceptable since gh run watch handles the actual waiting internally — the agent just
+      orchestrates the commands.
+
+  - title: CI status reporting format
+    chosen: Structured markers in agent output (CI_STATUS PASSED/FAILED)
+    rejected:
+      - JSON structured output
+      - Exit code based detection
+    rationale: >
+      Matches existing pattern used by parseCommitHash and parsePrUrl — simple regex parsing
+      of agent text output. JSON would require teaching agents a specific output format.
+      Exit-code detection is unreliable since agent process exit codes don't map to CI status.
+
+  - title: Phase timing granularity for CI sub-phases
+    chosen: Separate phase timing records per CI watch and fix attempt
+    rejected:
+      - Single merged phase timing for entire CI loop
+      - No phase timing (status quo)
+    rationale: >
+      Separate records per watch/fix give visibility into each attempt in the Activity Timeline.
+      The phase-timing-context already supports iteration suffixes (:2, :3) automatically.
+      Using merge:ci-watch and merge:ci-fix as phase names integrates naturally.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-23
+
+  ## Technology Decisions
+
+  ### Agent-Based CI Watching
+
+  **Problem:** `gh run watch --exit-status` has three known bugs:
+  1. Only watches one run (--limit 1), misses other workflow runs
+  2. Exits early when any job fails (before other jobs complete)
+  3. Race condition: picks up stale runs from previous commits
+
+  **Solution:** Replace the hardcoded watchCi call in the CI loop with an agent call.
+  The agent receives a prompt with CI watching instructions that follow the CI/CD rules:
+  - `gh run list --branch <branch> --json databaseId,status,conclusion,name` to check ALL runs
+  - Watch each in-progress run with `gh run watch <id> --interval 20`
+  - After all complete, verify with `gh run list` to confirm every run shows completed + success
+  - Report structured status: `CI_STATUS: PASSED` or `CI_STATUS: FAILED — <details>`
+
+  The agent handles edge cases naturally (rate limits, network errors, unexpected states).
+  Token cost is acceptable: `gh run watch` does the actual polling internally, the agent
+  just calls it and waits.
+
+  ### Structured Output Parsing
+
+  Following the existing pattern of `parseCommitHash` and `parsePrUrl`, we add
+  `parseCiWatchResult` that extracts CI status from agent output text using regex:
+  - `CI_STATUS:\s*PASSED` → success
+  - `CI_STATUS:\s*FAILED` → failure (captures summary after dash)
+
+  ### Phase Timing for Activity Timeline
+
+  Each CI sub-phase gets its own phase timing record:
+  - `merge:ci-watch` — initial CI watching (and subsequent watches after fixes)
+  - `merge:ci-fix` — each fix attempt
+
+  The `recordPhaseStart` function already auto-appends iteration suffixes (:2, :3)
+  for repeated phases, so `merge:ci-watch:2` appears automatically on the second watch.
+
+  These records flow through the existing pipeline:
+  phase_timings table → getFeaturePhaseTimings server action → ActivityTab component
+
+  ## Security Considerations
+
+  No security implications — the agent already has full access to gh CLI.
+
+  ## Performance Implications
+
+  Agent-based watching uses more tokens than programmatic polling, but the difference is
+  small since `gh run watch` handles the actual waiting. Estimated overhead: ~2000 tokens
+  per CI watch call (prompt + response).
