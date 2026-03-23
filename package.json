@@ -178,6 +178,7 @@
     "@langchain/core": "^1.1.22",
     "@langchain/langgraph": "^1.1.4",
     "@langchain/langgraph-checkpoint-sqlite": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
     "better-sqlite3": "^12.6.2",
