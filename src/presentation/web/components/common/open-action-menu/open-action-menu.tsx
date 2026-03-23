@@ -38,8 +38,10 @@ export function OpenActionMenu({
     setTimeout(() => setCopied(false), COPY_FEEDBACK_DELAY);
   };
 
-  const anyLoading = actions.ideLoading || actions.shellLoading || actions.specsLoading;
-  const anyError = actions.ideError ?? actions.shellError ?? actions.specsError;
+  const anyLoading =
+    actions.ideLoading || actions.shellLoading || actions.folderLoading || actions.specsLoading;
+  const anyError =
+    actions.ideError ?? actions.shellError ?? actions.folderError ?? actions.specsError;
 
   return (
     <DropdownMenu modal={false}>
@@ -87,6 +89,21 @@ export function OpenActionMenu({
             <Terminal className="size-4" />
           )}
           Terminal
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onClick={actions.openFolder}
+          disabled={actions.folderLoading}
+          className="gap-2"
+        >
+          {actions.folderLoading ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : actions.folderError ? (
+            <CircleAlert className="text-destructive size-4" />
+          ) : (
+            <FolderOpen className="size-4" />
+          )}
+          Folder
         </DropdownMenuItem>
 
         <DropdownMenuItem
