@@ -6,15 +6,12 @@ number: 074
 branch: feat/074-readme-cover-image
 oneLiner: Use this image as cover image in main readme.md
 
-@/home/blackpc/.shep/attachments/pending-eba3426b-8c81-462b-b815-faa578c45f6a/image-066c62e2.png
 userQuery: >
   Use this image as cover image in main readme.md
 
-@/home/blackpc/.shep/attachments/pending-eba3426b-8c81-462b-b815-faa578c45f6a/image-066c62e2.png
 summary: >
   Use this image as cover image in main readme.md
 
-@/home/blackpc/.shep/attachments/pending-eba3426b-8c81-462b-b815-faa578c45f6a/image-066c62e2.png
 phase: Analysis
 sizeEstimate: M
 
@@ -37,8 +34,6 @@ content: |
   ## Problem Statement
 
   Use this image as cover image in main readme.md
-
-@/home/blackpc/.shep/attachments/pending-eba3426b-8c81-462b-b815-faa578c45f6a/image-066c62e2.png
 
   ## Success Criteria
 
