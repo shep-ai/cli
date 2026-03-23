@@ -5,8 +5,10 @@
  */
 
 import 'reflect-metadata';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServerService } from '@/infrastructure/services/mcp/mcp-server.service.js';
 
 // Mock the StdioServerTransport to avoid real stdin/stdout binding
@@ -76,6 +78,59 @@ describe('McpServerService', () => {
     it('returns a promise that resolves', async () => {
       vi.spyOn(service.server, 'close').mockResolvedValue(undefined);
       await expect(service.stop()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('tool registration with container', () => {
+    const expectedTools = [
+      'list_features',
+      'show_feature',
+      'create_feature',
+      'start_feature',
+      'run_agent',
+      'show_agent_run',
+      'list_agent_runs',
+      'stop_agent_run',
+      'list_repositories',
+      'get_settings',
+      'update_settings',
+    ];
+
+    let containerService: McpServerService;
+    let client: Client;
+
+    const mockContainer = {
+      resolve: vi.fn().mockReturnValue({ execute: vi.fn() }),
+    };
+
+    beforeEach(async () => {
+      containerService = new McpServerService('1.0.0', mockContainer as never);
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      client = new Client({ name: 'test-client', version: '0.0.0' });
+      await containerService.server.connect(serverTransport);
+      await client.connect(clientTransport);
+    });
+
+    afterEach(async () => {
+      await client.close();
+      await containerService.server.close();
+    });
+
+    it('registers all 11 tools when container is provided', async () => {
+      const { tools } = await client.listTools();
+      const toolNames = tools.map((t) => t.name);
+
+      expect(tools).toHaveLength(11);
+      for (const name of expectedTools) {
+        expect(toolNames).toContain(name);
+      }
+    });
+
+    it('all tools follow snake_case naming convention', async () => {
+      const { tools } = await client.listTools();
+      for (const tool of tools) {
+        expect(tool.name).toMatch(/^[a-z][a-z0-9_]*$/);
+      }
     });
   });
 });
