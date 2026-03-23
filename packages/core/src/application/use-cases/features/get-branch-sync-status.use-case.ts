@@ -41,6 +41,11 @@ export class GetBranchSyncStatusUseCase {
     }
 
     const cwd = await this.resolveCwd(feature.repositoryPath, feature.branch);
+    const hasRemote = await this.gitPrService.hasRemote(cwd);
+    if (!hasRemote) {
+      throw new Error('Repository has no remote — branch sync is not available');
+    }
+
     const baseBranch = await this.gitPrService.getDefaultBranch(feature.repositoryPath);
 
     // Sync the remote tracking ref so ahead/behind counts are current

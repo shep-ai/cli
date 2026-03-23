@@ -461,9 +461,12 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       : null;
   const featureActions = useFeatureActions(featureActionsInput);
 
-  // Branch sync status — only when the feature flag is on and the feature has a branch
+  // Branch sync status — only when the feature flag is on, the feature has a branch,
+  // and the repository has a remote (no remote = no sync needed)
   const syncFeatureId =
-    featureFlags.gitRebaseSync && featureNode?.branch ? featureNode.featureId : null;
+    featureFlags.gitRebaseSync && featureNode?.branch && featureNode?.remoteUrl
+      ? featureNode.featureId
+      : null;
   const {
     data: syncData,
     loading: syncLoading,
@@ -671,11 +674,11 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
         onMergeApprove={handleMergeApprove}
         onMergeReject={handleMergeReject}
         isMergeLoading={isLoadingMerge}
-        syncStatus={featureFlags.gitRebaseSync ? syncData : undefined}
+        syncStatus={syncFeatureId ? syncData : undefined}
         syncLoading={syncLoading}
         syncError={syncError}
-        onRefreshSync={featureFlags.gitRebaseSync ? refreshSync : undefined}
-        onRebaseOnMain={featureFlags.gitRebaseSync ? featureActions.rebaseOnMain : undefined}
+        onRefreshSync={syncFeatureId ? refreshSync : undefined}
+        onRebaseOnMain={syncFeatureId ? featureActions.rebaseOnMain : undefined}
         rebaseLoading={featureActions.rebaseLoading}
         rebaseError={featureActions.rebaseError}
         isRejecting={isRejecting}
