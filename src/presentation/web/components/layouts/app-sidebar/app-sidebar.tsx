@@ -1,8 +1,6 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import Link from 'next/link';
-import type { Route } from 'next';
 import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings } from 'lucide-react';
 import {
   Sidebar,
@@ -125,6 +123,12 @@ export function AppSidebar({
               active={pathname === '/skills'}
             />
           ) : null}
+          <SidebarNavItem
+            icon={Settings}
+            label="Settings"
+            href="/settings"
+            active={pathname === '/settings'}
+          />
         </SidebarMenu>
       </SidebarHeader>
 
@@ -171,20 +175,50 @@ export function AppSidebar({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <SidebarMenuButton asChild tooltip="Settings" className="w-auto flex-none">
-                      <Link href={'/settings' as Route} onClick={() => clickSound.play()}>
-                        <Settings className="h-4 w-4" />
-                      </Link>
+                    <SidebarMenuButton
+                      className="w-auto flex-none"
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                        const currentResolved = theme === 'system' ? resolvedTheme : theme;
+                        const goingToDark = currentResolved !== 'dark';
+                        const newTheme =
+                          theme === 'system'
+                            ? resolvedTheme === 'dark'
+                              ? 'light'
+                              : 'dark'
+                            : theme === 'dark'
+                              ? 'light'
+                              : 'dark';
+                        if (goingToDark) {
+                          toggleOnSound.play();
+                        } else {
+                          toggleOffSound.play();
+                        }
+                        const prefersReducedMotion =
+                          typeof window !== 'undefined' &&
+                          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                        if (!('startViewTransition' in document) || prefersReducedMotion) {
+                          setTheme(newTheme);
+                          return;
+                        }
+                        document.documentElement.style.setProperty('--x', `${e.clientX}px`);
+                        document.documentElement.style.setProperty('--y', `${e.clientY}px`);
+                        (
+                          document as unknown as { startViewTransition: (cb: () => void) => void }
+                        ).startViewTransition(() => {
+                          setTheme(newTheme);
+                        });
+                      }}
+                      aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+                    >
+                      <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+                      <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
                     </SidebarMenuButton>
                   </TooltipTrigger>
-                  <TooltipContent side="top" hidden={collapsed}>
-                    Settings
+                  <TooltipContent side="top">
+                    {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-              {!collapsed && <div className="flex-1" />}
-              {!collapsed && (
-                <TooltipProvider>
+                {!collapsed && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <SidebarMenuButton
@@ -206,53 +240,8 @@ export function AppSidebar({
                       {soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
                     </TooltipContent>
                   </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <SidebarMenuButton
-                        className="w-auto flex-none"
-                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                          const currentResolved = theme === 'system' ? resolvedTheme : theme;
-                          const goingToDark = currentResolved !== 'dark';
-                          const newTheme =
-                            theme === 'system'
-                              ? resolvedTheme === 'dark'
-                                ? 'light'
-                                : 'dark'
-                              : theme === 'dark'
-                                ? 'light'
-                                : 'dark';
-                          if (goingToDark) {
-                            toggleOnSound.play();
-                          } else {
-                            toggleOffSound.play();
-                          }
-                          const prefersReducedMotion =
-                            typeof window !== 'undefined' &&
-                            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                          if (!('startViewTransition' in document) || prefersReducedMotion) {
-                            setTheme(newTheme);
-                            return;
-                          }
-                          document.documentElement.style.setProperty('--x', `${e.clientX}px`);
-                          document.documentElement.style.setProperty('--y', `${e.clientY}px`);
-                          (
-                            document as unknown as { startViewTransition: (cb: () => void) => void }
-                          ).startViewTransition(() => {
-                            setTheme(newTheme);
-                          });
-                        }}
-                        aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
-                      >
-                        <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-                        <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-                      </SidebarMenuButton>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+                )}
+              </TooltipProvider>
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
