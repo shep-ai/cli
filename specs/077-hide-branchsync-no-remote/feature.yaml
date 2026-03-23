@@ -1,36 +1,33 @@
 feature:
-  id: '077-hide-branchsync-no-remote'
-  name: 'hide-branchsync-no-remote'
+  id: "077-hide-branchsync-no-remote"
+  name: "hide-branchsync-no-remote"
   number: 77
-  branch: 'feat/077-hide-branchsync-no-remote'
-  lifecycle: 'research'
-  createdAt: '2026-03-23T20:05:06Z'
-
+  branch: "feat/077-hide-branchsync-no-remote"
+  lifecycle: "research"
+  createdAt: "2026-03-23T20:05:06Z"
 status:
-  phase: 'research'
+  phase: "research"
   progress:
     completed: 0
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-03-23T20:05:06Z'
-  lastUpdatedBy: 'feature-agent'
-
+  lastUpdated: "2026-03-23T20:05:06Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "fast-implement"
 validation:
   lastRun: null
   gatesPassed: []
   autoFixesApplied: []
-
 tasks:
   current: null
   blocked: []
   failed: []
-
 checkpoints:
-  - phase: 'feature-created'
-    completedAt: '2026-03-23T20:05:06Z'
-    completedBy: 'feature-agent'
-
+  - phase: "feature-created"
+    completedAt: "2026-03-23T20:05:06Z"
+    completedBy: "feature-agent"
 errors:
   current: null
   history: []
