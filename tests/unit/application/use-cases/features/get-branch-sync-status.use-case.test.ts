@@ -44,6 +44,7 @@ describe('GetBranchSyncStatusUseCase', () => {
     } as unknown as IFeatureRepository;
 
     gitPrService = {
+      hasRemote: vi.fn().mockResolvedValue(true),
       getDefaultBranch: vi.fn().mockResolvedValue('main'),
       syncMain: vi.fn().mockResolvedValue(undefined),
       getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 2, behind: 5 }),
@@ -90,6 +91,14 @@ describe('GetBranchSyncStatusUseCase', () => {
     vi.mocked(featureRepo.findById).mockResolvedValue({ ...mockFeature, branch: '' });
 
     await expect(useCase.execute('feat-123')).rejects.toThrow('has no branch');
+  });
+
+  it('should throw when repository has no remote', async () => {
+    vi.mocked(gitPrService.hasRemote).mockResolvedValue(false);
+
+    await expect(useCase.execute('feat-123')).rejects.toThrow('Repository has no remote');
+    expect(gitPrService.syncMain).not.toHaveBeenCalled();
+    expect(gitPrService.getBranchSyncStatus).not.toHaveBeenCalled();
   });
 
   it('should fall back to findByIdPrefix', async () => {

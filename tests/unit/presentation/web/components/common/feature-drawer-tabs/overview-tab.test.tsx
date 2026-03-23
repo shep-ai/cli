@@ -286,6 +286,60 @@ describe('OverviewTab', () => {
     });
   });
 
+  describe('branch sync section', () => {
+    it('renders branch sync when onRebaseOnMain, branch, and onRefreshSync are provided', () => {
+      render(
+        <OverviewTab
+          data={defaultData}
+          onRebaseOnMain={vi.fn()}
+          onRefreshSync={vi.fn()}
+          syncStatus={{
+            ahead: 0,
+            behind: 0,
+            baseBranch: 'main',
+            checkedAt: new Date().toISOString(),
+          }}
+          syncLoading={false}
+          syncError={null}
+          rebaseLoading={false}
+          rebaseError={null}
+        />
+      );
+      expect(screen.getByTestId('branch-sync-status')).toBeInTheDocument();
+    });
+
+    it('does not render branch sync when onRebaseOnMain is not provided', () => {
+      render(
+        <OverviewTab
+          data={defaultData}
+          onRefreshSync={vi.fn()}
+          syncStatus={null}
+          syncLoading={false}
+          syncError={null}
+          rebaseLoading={false}
+          rebaseError={null}
+        />
+      );
+      expect(screen.queryByTestId('branch-sync-status')).not.toBeInTheDocument();
+    });
+
+    it('does not render branch sync when branch is not set', () => {
+      render(
+        <OverviewTab
+          data={{ ...defaultData, branch: undefined as unknown as string }}
+          onRebaseOnMain={vi.fn()}
+          onRefreshSync={vi.fn()}
+          syncStatus={null}
+          syncLoading={false}
+          syncError={null}
+          rebaseLoading={false}
+          rebaseError={null}
+        />
+      );
+      expect(screen.queryByTestId('branch-sync-status')).not.toBeInTheDocument();
+    });
+  });
+
   describe('details section', () => {
     it('renders details section with agent type', () => {
       renderOverviewTab({ ...defaultData, agentType: 'cursor' });
