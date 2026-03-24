@@ -60,8 +60,6 @@ describe('Port Service', () => {
 
       try {
         const port = await findAvailablePort(49155);
-        // Port must be >= 49157 (the first port after the two we occupied).
-        // It could be higher if another process occupies 49157 during the test.
         expect(port).toBeGreaterThanOrEqual(49157);
       } finally {
         await Promise.all(

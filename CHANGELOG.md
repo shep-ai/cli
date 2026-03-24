@@ -1,3 +1,34 @@
+## [1.150.1](https://github.com/shep-ai/cli/compare/v1.150.0...v1.150.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* **agents:** read evidence settings from feature state not global singleton ([#471](https://github.com/shep-ai/cli/issues/471)) ([80038b6](https://github.com/shep-ai/cli/commit/80038b607f086eb9cbc995793ebc5c6beaf60899))
+
+# [1.150.0](https://github.com/shep-ai/cli/compare/v1.149.1...v1.150.0) (2026-03-24)
+
+
+### Features
+
+* **web:** add archive and unarchive actions to feature drawer ([#464](https://github.com/shep-ai/cli/issues/464)) ([68c24ac](https://github.com/shep-ai/cli/commit/68c24ac8691fe80844306bab8bb8f1cd308f816f))
+* **web:** hide worktree-dependent actions for completed features ([#465](https://github.com/shep-ai/cli/issues/465)) ([9e3e29b](https://github.com/shep-ai/cli/commit/9e3e29b4327895eb077df288448579ae4fe17965))
+
+## [1.149.1](https://github.com/shep-ai/cli/compare/v1.149.0...v1.149.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* **web:** hide branch sync section when repository has no remote ([#463](https://github.com/shep-ai/cli/issues/463)) ([908f725](https://github.com/shep-ai/cli/commit/908f7258c1c3262a2337fc6654f8739dd5a8c41d))
+* **web:** remove standalone output mode causing production warning ([#466](https://github.com/shep-ai/cli/issues/466)) ([68b5ace](https://github.com/shep-ai/cli/commit/68b5ace1ac594eb7960315dba024fbec7f0434b8))
+
+# [1.149.0](https://github.com/shep-ai/cli/compare/v1.148.0...v1.149.0) (2026-03-23)
+
+
+### Features
+
+* **web:** centralize session fetching and eliminate request flood ([#462](https://github.com/shep-ai/cli/issues/462)) ([5af41fc](https://github.com/shep-ai/cli/commit/5af41fc88299700a3270fd0837eeebf1c666eed9))
+* **web:** reorganize sidebar layout - settings to nav, toggles reordered ([#461](https://github.com/shep-ai/cli/issues/461)) ([9543070](https://github.com/shep-ai/cli/commit/954307006e3bcc959de6081373495c0d6329d877))
+
 # [1.148.0](https://github.com/shep-ai/cli/compare/v1.147.0...v1.148.0) (2026-03-23)
 
 

@@ -227,6 +227,8 @@ describe('Graph State Transitions › Resume Feedback Propagation', () => {
       approvalGates: ALL_GATES_ENABLED,
       push: false,
       openPr: false,
+      enableEvidence: true,
+      commitEvidence: false,
     };
 
     return { graph, config, initialState };

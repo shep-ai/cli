@@ -187,6 +187,8 @@ describe('HITL Approval Flow (Graph-level)', () => {
       worktreePath: tempDir,
       specDir,
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      enableEvidence: true,
+      commitEvidence: false,
     };
 
     // Step 1: Initial invoke → analyze runs, then requirements interrupts

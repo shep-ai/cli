@@ -187,5 +187,4 @@ When a user creates a feature, the UI uses optimistic updates:
 
 - **No events when nothing changes**: SSE only emits deltas. If no feature state changes, no events are sent. This is correct behavior.
 - **Storybook mocks**: New server actions need mocks in `.storybook/mocks/app/actions/` or Storybook build breaks.
-- **`output: 'standalone'`** in next.config.ts: Production builds use standalone mode. Route handlers are bundled differently.
 - **Map insertion order affects dagre layout**: After remove+restore of a feature, the Map insertion order may change, causing slightly different dagre positions. This is expected behavior — don't write tests asserting exact position preservation across remove/restore cycles.

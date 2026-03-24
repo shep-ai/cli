@@ -1,0 +1,71 @@
+=== Unit Test Results: Feature 077 - Hide Branch Sync When No Remote ===
+Run Date: 2026-03-23T20:13:53Z
+Tool: vitest v4.0.18
+
+--- Test File 1: get-branch-sync-status.use-case.test.ts ---
+✓ GetBranchSyncStatusUseCase > should return sync status for a feature (1ms)
+✓ GetBranchSyncStatusUseCase > should use worktree path when worktree exists (0ms)
+✓ GetBranchSyncStatusUseCase > should throw when feature not found (1ms)
+✓ GetBranchSyncStatusUseCase > should throw when feature has no branch (0ms)
+✓ GetBranchSyncStatusUseCase > should throw when repository has no remote (0ms)  ← NEW TEST
+✓ GetBranchSyncStatusUseCase > should fall back to findByIdPrefix (0ms)
+
+--- Test File 2: overview-tab.test.tsx ---
+OverviewTab > lifecycle label
+  ✓ renders lifecycle phase label from FeatureNodeData (26ms)
+  ✓ renders all lifecycle phase labels correctly (24ms)
+OverviewTab > state badge
+  ✓ renders FeatureStateBadge with correct label for running state (3ms)
+  ✓ renders FeatureStateBadge with correct label for action-required state (4ms)
+  ✓ renders FeatureStateBadge with correct label for done state (2ms)
+  ✓ renders FeatureStateBadge with correct label for blocked state (3ms)
+  ✓ renders FeatureStateBadge with correct label for error state (2ms)
+OverviewTab > progress bar
+  ✓ renders progress bar when progress > 0 (3ms)
+  ✓ does not render progress bar when progress is 0 (2ms)
+  ✓ does not render progress bar when lifecycle is maintain (completed) (1ms)
+OverviewTab > PR info
+  ✓ renders PR info when PR exists (4ms)
+  ✓ does not render PR info when PR is undefined (2ms)
+  ✓ displays PR number as link (50ms)
+  ✓ CI status visibility > shows CI status row when hideCiStatus is false (6ms)
+  ✓ CI status visibility > shows CI status row when hideCiStatus is undefined (4ms)
+  ✓ CI status visibility > hides CI status row when hideCiStatus is true (4ms)
+  ✓ CI status visibility > still shows other PR metadata when CI status is hidden (11ms)
+  ✓ renders PR info inside status section when lifecycle is maintain (completed) (2ms)
+  ✓ renders PR info outside status section when lifecycle is not maintain (3ms)
+  ✓ renders merge conflict badge when mergeable is false (4ms)
+  ✓ does not render merge conflict badge when mergeable is true (3ms)
+  ✓ does not render merge conflict badge when mergeable is undefined (4ms)
+OverviewTab > inline attachments in user query
+  ✓ renders inline attachment image when userQuery contains @/path reference (4ms)
+  ✓ renders plain text when userQuery has no attachment references (2ms)
+OverviewTab > duplicate summary hiding
+  ✓ hides summary when it matches userQuery exactly (3ms)
+  ✓ hides summary when it matches userQuery after trimming whitespace (3ms)
+  ✓ shows summary when it differs from userQuery (3ms)
+  ✓ shows summary when userQuery is not present (2ms)
+OverviewTab > branch sync section  ← NEW TESTS
+  ✓ renders branch sync when onRebaseOnMain, branch, and onRefreshSync are provided (6ms)
+  ✓ does not render branch sync when onRebaseOnMain is not provided (2ms)
+  ✓ does not render branch sync when branch is not set (2ms)
+OverviewTab > details section
+  ✓ renders details section with agent type (3ms)
+  ✓ renders details section with runtime (3ms)
+  ✓ renders blocked by info (1ms)
+  ✓ renders error message (1ms)
+  ✓ hides details section when no optional detail fields are set (2ms)
+OverviewTab > settings section
+  ✓ renders settings section when approval gates are provided (7ms)
+  ✓ renders git settings when push and openPr are provided (3ms)
+  ✓ renders model name when modelId is provided (3ms)
+  ✓ renders all settings together (6ms)
+  ✓ renders evidence settings when enableEvidence is provided (3ms)
+  ✓ renders evidence with both badges enabled (3ms)
+  ✓ renders evidence with both badges disabled (3ms)
+  ✓ hides settings section when no settings fields are provided (2ms)
+
+=== Summary ===
+Test Files: 2 passed (2)
+Tests: 50 passed (50)
+Duration: 1.03s

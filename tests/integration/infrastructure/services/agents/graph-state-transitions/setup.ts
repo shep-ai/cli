@@ -291,6 +291,8 @@ export function createTestContext(options?: TestContextOptions): TestContext {
       repositoryPath: tempDir,
       worktreePath: tempDir,
       specDir,
+      enableEvidence: true,
+      commitEvidence: false,
       ...(gates ? { approvalGates: gates } : {}),
     }),
 
