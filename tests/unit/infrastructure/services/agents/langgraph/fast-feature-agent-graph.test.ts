@@ -211,6 +211,8 @@ describe('createFastFeatureAgentGraph', () => {
           repositoryPath: '/test/repo',
           worktreePath: '/test/repo',
           specDir: '/test/specs/001-test',
+          enableEvidence: true,
+          commitEvidence: false,
         },
         { configurable: { thread_id: 'fast-thread-1' } }
       );
@@ -230,6 +232,8 @@ describe('createFastFeatureAgentGraph', () => {
           repositoryPath: '/test/repo',
           worktreePath: '/test/repo',
           specDir: '/test/specs/001-test',
+          enableEvidence: true,
+          commitEvidence: false,
         },
         { configurable: { thread_id: 'fast-thread-2' } }
       );
@@ -253,6 +257,8 @@ describe('createFastFeatureAgentGraph', () => {
             repositoryPath: '/test/repo',
             worktreePath: '/test/repo',
             specDir: '/test/specs/001-test',
+            enableEvidence: true,
+            commitEvidence: false,
           },
           { configurable: { thread_id: 'err-thread' } }
         )
@@ -271,6 +277,8 @@ describe('createFastFeatureAgentGraph', () => {
           repositoryPath: '/test/repo',
           worktreePath: '/test/repo',
           specDir: '/test/specs/001-persist',
+          enableEvidence: true,
+          commitEvidence: false,
         },
         { configurable: { thread_id: 'persist-thread' } }
       );
@@ -296,6 +304,8 @@ describe('createFastFeatureAgentGraph', () => {
           repositoryPath: '/test/repo',
           worktreePath: '/test/repo',
           specDir: '/test/specs/001-test',
+          enableEvidence: true,
+          commitEvidence: false,
           approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
           push: true,
           openPr: true,
