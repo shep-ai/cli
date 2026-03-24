@@ -4,116 +4,19 @@
 name: orbiting-circles-storybook
 number: 079
 branch: feat/079-orbiting-circles-storybook
-oneLiner: Create a storybook of 
-https://magicui.design/docs/components/orbiting-circles
-
-orbiting-circles
-
-it should include logos of:
-WebStorm — JavaScript-focused IDE by JetBrains
-https://www.jetbrains.com/webstorm/
-Visual Studio Code — Lightweight, extensible code editor by Microsoft
-https://code.visualstudio.com/
-Sublime Text — Fast, minimal text editor
-https://www.sublimetext.com/
-iTerm2 — Advanced terminal for macOS
-https://iterm2.com/
-Warp — Modern terminal with AI features by Warp
-https://www.warp.dev/
-Oh My Zsh — Framework for managing Zsh configs
-https://ohmyz.sh/
-GitKraken — Visual Git client by GitKraken
-https://www.gitkraken.com/
-Lens — Kubernetes dashboard/IDE by Mirantis
-https://k8slens.dev/
-tmux — Terminal session manager
-https://github.com/tmux/tmux
-cmux — Multiplexer library (less common alt mentioned)
-https://github.com/soheilhy/cmux
-Claude — LLM by Anthropic
-https://www.anthropic.com/
-Cursor — AI-first IDE
-https://cursor.sh/
-Gemini — LLM by Google
-https://deepmind.google/technologies/gemini/
-Codex — Code-focused AI by OpenAI
-https://openai.com/
-Shep AI CLI — Your open-source agent orchestration CLI
-https://github.com/shep-ai/cli
+oneLiner: >
+  Create a storybook of orbiting-circles component with logos of dev tools,
+  terminals, AI models, and DevOps tools
 userQuery: >
-  Create a storybook of 
-https://magicui.design/docs/components/orbiting-circles
-
-orbiting-circles
-
-it should include logos of:
-WebStorm — JavaScript-focused IDE by JetBrains
-https://www.jetbrains.com/webstorm/
-Visual Studio Code — Lightweight, extensible code editor by Microsoft
-https://code.visualstudio.com/
-Sublime Text — Fast, minimal text editor
-https://www.sublimetext.com/
-iTerm2 — Advanced terminal for macOS
-https://iterm2.com/
-Warp — Modern terminal with AI features by Warp
-https://www.warp.dev/
-Oh My Zsh — Framework for managing Zsh configs
-https://ohmyz.sh/
-GitKraken — Visual Git client by GitKraken
-https://www.gitkraken.com/
-Lens — Kubernetes dashboard/IDE by Mirantis
-https://k8slens.dev/
-tmux — Terminal session manager
-https://github.com/tmux/tmux
-cmux — Multiplexer library (less common alt mentioned)
-https://github.com/soheilhy/cmux
-Claude — LLM by Anthropic
-https://www.anthropic.com/
-Cursor — AI-first IDE
-https://cursor.sh/
-Gemini — LLM by Google
-https://deepmind.google/technologies/gemini/
-Codex — Code-focused AI by OpenAI
-https://openai.com/
-Shep AI CLI — Your open-source agent orchestration CLI
-https://github.com/shep-ai/cli
+  Create a storybook of orbiting-circles component inspired by
+  magicui.design/docs/components/orbiting-circles. It should include logos of
+  WebStorm, Visual Studio Code, Sublime Text, iTerm2, Warp, Oh My Zsh,
+  GitKraken, Lens, tmux, cmux, Claude, Cursor, Gemini, Codex, and Shep AI CLI.
 summary: >
-  Create a storybook of 
-https://magicui.design/docs/components/orbiting-circles
-
-orbiting-circles
-
-it should include logos of:
-WebStorm — JavaScript-focused IDE by JetBrains
-https://www.jetbrains.com/webstorm/
-Visual Studio Code — Lightweight, extensible code editor by Microsoft
-https://code.visualstudio.com/
-Sublime Text — Fast, minimal text editor
-https://www.sublimetext.com/
-iTerm2 — Advanced terminal for macOS
-https://iterm2.com/
-Warp — Modern terminal with AI features by Warp
-https://www.warp.dev/
-Oh My Zsh — Framework for managing Zsh configs
-https://ohmyz.sh/
-GitKraken — Visual Git client by GitKraken
-https://www.gitkraken.com/
-Lens — Kubernetes dashboard/IDE by Mirantis
-https://k8slens.dev/
-tmux — Terminal session manager
-https://github.com/tmux/tmux
-cmux — Multiplexer library (less common alt mentioned)
-https://github.com/soheilhy/cmux
-Claude — LLM by Anthropic
-https://www.anthropic.com/
-Cursor — AI-first IDE
-https://cursor.sh/
-Gemini — LLM by Google
-https://deepmind.google/technologies/gemini/
-Codex — Code-focused AI by OpenAI
-https://openai.com/
-Shep AI CLI — Your open-source agent orchestration CLI
-https://github.com/shep-ai/cli
+  Create a storybook of orbiting-circles component inspired by
+  magicui.design/docs/components/orbiting-circles. It should include logos of
+  WebStorm, Visual Studio Code, Sublime Text, iTerm2, Warp, Oh My Zsh,
+  GitKraken, Lens, tmux, cmux, Claude, Cursor, Gemini, Codex, and Shep AI CLI.
 phase: Analysis
 sizeEstimate: M
 
@@ -135,52 +38,39 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  Create a storybook of 
-https://magicui.design/docs/components/orbiting-circles
+  Create a storybook of orbiting-circles component inspired by
+  magicui.design/docs/components/orbiting-circles.
 
-orbiting-circles
-
-it should include logos of:
-WebStorm — JavaScript-focused IDE by JetBrains
-https://www.jetbrains.com/webstorm/
-Visual Studio Code — Lightweight, extensible code editor by Microsoft
-https://code.visualstudio.com/
-Sublime Text — Fast, minimal text editor
-https://www.sublimetext.com/
-iTerm2 — Advanced terminal for macOS
-https://iterm2.com/
-Warp — Modern terminal with AI features by Warp
-https://www.warp.dev/
-Oh My Zsh — Framework for managing Zsh configs
-https://ohmyz.sh/
-GitKraken — Visual Git client by GitKraken
-https://www.gitkraken.com/
-Lens — Kubernetes dashboard/IDE by Mirantis
-https://k8slens.dev/
-tmux — Terminal session manager
-https://github.com/tmux/tmux
-cmux — Multiplexer library (less common alt mentioned)
-https://github.com/soheilhy/cmux
-Claude — LLM by Anthropic
-https://www.anthropic.com/
-Cursor — AI-first IDE
-https://cursor.sh/
-Gemini — LLM by Google
-https://deepmind.google/technologies/gemini/
-Codex — Code-focused AI by OpenAI
-https://openai.com/
-Shep AI CLI — Your open-source agent orchestration CLI
-https://github.com/shep-ai/cli
+  It should include logos of:
+  - WebStorm - JavaScript-focused IDE by JetBrains
+  - Visual Studio Code - Lightweight, extensible code editor by Microsoft
+  - Sublime Text - Fast, minimal text editor
+  - iTerm2 - Advanced terminal for macOS
+  - Warp - Modern terminal with AI features
+  - Oh My Zsh - Framework for managing Zsh configs
+  - GitKraken - Visual Git client
+  - Lens - Kubernetes dashboard/IDE by Mirantis
+  - tmux - Terminal session manager
+  - cmux - Multiplexer library
+  - Claude - LLM by Anthropic
+  - Cursor - AI-first IDE
+  - Gemini - LLM by Google
+  - Codex - Code-focused AI by OpenAI
+  - Shep AI CLI - Open-source agent orchestration CLI
 
   ## Success Criteria
 
-  - [ ] TBD
+  - [x] OrbitingCircles component created with configurable radius, speed, duration, and icon size
+  - [x] All 15 tool logos implemented as inline SVG icons
+  - [x] Storybook stories created for Default, IDEs & Editors, Terminal Tools, AI Models, DevOps Tools, Reversed, No Path, and On Dark Background variants
+  - [x] CSS orbit animation with 3D transforms to prevent icon spinning
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | TBD  | TBD    | TBD       |
+  | Web UI | New component | New OrbitingCircles primitive component |
+  | Storybook | New stories | 8 story variants showcasing the component |
 
   ## Dependencies
 
@@ -188,8 +78,8 @@ https://github.com/shep-ai/cli
 
   ## Size Estimate
 
-  **M** - To be refined during research
+  **M** - Component + stories implementation
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Generated by feature agent_
