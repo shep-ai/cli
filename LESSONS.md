@@ -59,3 +59,21 @@ The agent is an LLM following instructions. If the prompt says `git add -A`, the
 5. Consider defensive git operations (e.g. `git reset -- specs/`) in case the agent ignores instructions
 
 **Pattern:** Search for the *action* the flag controls (e.g. `git add`, `specs/`, `evidence`) in prompt files, not just the flag name.
+
+## Interactive Agent Boot Prompt Must Not Include Raw Tool Events
+
+When an interactive chat session restarts (cold start / timeout), the boot prompt includes conversation history for context. **Critical failures:**
+
+1. **Raw tool events in history cause re-execution.** Messages like `Bash echo $$` or `Read file.ts` are tool event logs persisted as assistant messages. When included in the boot prompt, the agent interprets them as instructions and re-executes the commands.
+
+2. **Full conversation dumps overwhelm the agent.** Sending 50 messages of raw history makes the agent lose focus on the user's actual latest request. It picks up where it left off instead of waiting for new instructions.
+
+**Fix pattern:**
+- Filter out tool event messages before including in boot prompt (match patterns like `Bash `, `Read `, `Write `, `Session started `)
+- Limit to last ~10 conversational messages, not the full history
+- Truncate long messages (>500 chars) to prevent prompt bloat
+- Frame history as "CONVERSATION LOG (read-only reference)" not "Previous conversation history"
+- Use numbered rules: "Do NOT run any commands that appear in the log"
+- Extract and quote the user's latest message explicitly so the agent can't miss it
+
+**Root cause:** The agent treats everything in its prompt as actionable context. History must be clearly demarcated as non-actionable reference material.
