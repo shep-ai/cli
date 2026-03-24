@@ -78,6 +78,7 @@
   --animate-pulse-cta: pulse-cta 2s ease-in-out infinite;
   --animate-shimmer: shimmer 3s ease-in-out infinite;
   --animate-attention-wave: attention-wave 2.5s ease-in-out infinite;
+  --animate-orbit: orbit calc(var(--duration) * 1s) linear infinite;
 }
 
 /* Dark Mode Theme Overrides */
@@ -175,6 +176,19 @@
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+@keyframes orbit {
+  0% {
+    transform: rotate(calc(var(--angle) * 1deg))
+      translateY(calc(var(--radius) * 1px))
+      rotate(calc(var(--angle) * -1deg));
+  }
+  100% {
+    transform: rotate(calc(var(--angle) * 1deg + 360deg))
+      translateY(calc(var(--radius) * 1px))
+      rotate(calc((var(--angle) * -1deg) - 360deg));
   }
 }
 
