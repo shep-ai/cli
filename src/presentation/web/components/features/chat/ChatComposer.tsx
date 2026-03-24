@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { ComposerPrimitive, ThreadPrimitive } from '@assistant-ui/react';
-import { SendHorizontal, CircleStop, Paperclip, FolderOpen } from 'lucide-react';
+import { SendHorizontal, CircleStop, Paperclip } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AttachmentChip } from '@/components/common/attachment-chip';
 import type { FormAttachment } from '@/hooks/use-attachments';
 
@@ -34,118 +35,115 @@ export function ChatComposer({
   onNotesChange,
   onPickFiles,
 }: ChatComposerProps) {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   return (
-    <ComposerPrimitive.Root
-      className={cn(
-        'flex flex-col border-t transition-colors',
-        isDragOver && 'border-primary/50 bg-primary/5'
-      )}
-      onDragEnter={onDragEnter}
-      onDragLeave={onDragLeave}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-    >
-      {/* Attachment chips */}
-      {attachments.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2">
-          {attachments.map((file) => (
-            <AttachmentChip
-              key={file.id}
-              name={file.name}
-              size={file.size}
-              mimeType={file.mimeType}
-              path={file.path}
-              onRemove={() => onRemoveAttachment(file.id)}
-              loading={file.loading}
-              notes={file.notes}
-              onNotesChange={(notes) => onNotesChange(file.id, notes)}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {/* Upload error */}
-      {uploadError ? (
-        <div className="text-destructive px-3 pt-1 text-xs">{uploadError}</div>
-      ) : null}
-
-      {/* Input row */}
-      <div className="flex items-end gap-2 p-3">
-        {/* Attachment buttons */}
-        <div className="mb-0.5 flex items-center gap-0.5">
-          <ComposerPrimitive.AddAttachment asChild>
-            <button
-              type="button"
-              title="Upload file"
-              className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-            >
-              <Paperclip className="h-3.5 w-3.5" />
-            </button>
-          </ComposerPrimitive.AddAttachment>
-          <button
-            type="button"
-            title="Browse files"
-            onClick={onPickFiles}
-            className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-          >
-            <FolderOpen className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Text input */}
-        <ComposerPrimitive.Input
-          ref={inputRef}
-          rows={1}
-          autoFocus
-          placeholder="Write a message..."
-          onPaste={onPaste}
+    <ComposerPrimitive.Root className="shrink-0 border-t p-3">
+      <div
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        className={cn(
+          'flex flex-col gap-1.5 rounded-md border-2 border-transparent p-1 transition-colors',
+          isDragOver && 'border-primary/50 bg-primary/5'
+        )}
+      >
+        <div
+          ref={containerRef}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           className={cn(
-            'bg-muted min-h-[40px] flex-1 resize-none rounded-xl border-0 px-4 py-2.5 text-sm',
-            'focus:ring-ring/30 focus:ring-2 focus:outline-none',
-            'placeholder:text-muted-foreground/60',
-            'max-h-40 overflow-y-auto'
+            'border-input flex flex-col overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow]',
+            isFocused && 'ring-ring/50 border-ring ring-[3px]'
           )}
-        />
+        >
+          {/* Textarea — same as create drawer */}
+          <ComposerPrimitive.Input
+            rows={3}
+            autoFocus
+            placeholder="Write a message..."
+            onPaste={onPaste}
+            className="min-h-0 flex-1 resize-none rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus-visible:ring-0 focus:outline-none"
+          />
 
-        {/* Send / Cancel */}
-        <ComposerAction />
-      </div>
+          {/* Attachment chips — between textarea and controls bar */}
+          {attachments.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
+              {attachments.map((file) => (
+                <AttachmentChip
+                  key={file.id}
+                  name={file.name}
+                  size={file.size}
+                  mimeType={file.mimeType}
+                  path={file.path}
+                  onRemove={() => onRemoveAttachment(file.id)}
+                  loading={file.loading}
+                  notes={file.notes}
+                  onNotesChange={(notes) => onNotesChange(file.id, notes)}
+                />
+              ))}
+            </div>
+          ) : null}
 
-      {/* Drag overlay hint */}
-      {isDragOver ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg border-2 border-dashed border-primary/40 bg-primary/5">
-          <span className="text-primary text-sm font-medium">Drop files here</span>
+          {/* Upload error */}
+          {uploadError ? (
+            <p className="text-destructive px-3 pb-2 text-xs">{uploadError}</p>
+          ) : null}
+
+          {/* Controls bar — same border-t pattern as create drawer */}
+          <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">
+            {/* Spacer — pushes controls to the right */}
+            <div className="flex-1" />
+
+            {/* Attach files */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={onPickFiles}
+                  aria-label="Attach files"
+                  className="text-muted-foreground hover:text-foreground cursor-pointer rounded p-1 transition-colors"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Attach files</TooltipContent>
+            </Tooltip>
+
+            {/* Send / Cancel */}
+            <ChatComposerAction />
+          </div>
         </div>
-      ) : null}
+      </div>
     </ComposerPrimitive.Root>
   );
 }
 
-function ComposerAction() {
+function ChatComposerAction() {
   return (
     <>
       <ThreadPrimitive.If running={false}>
         <ComposerPrimitive.Send
           className={cn(
-            'bg-primary text-primary-foreground inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-xl',
+            'bg-primary text-primary-foreground inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
             'hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-30',
             'transition-colors'
           )}
         >
-          <SendHorizontal className="size-4" />
+          <SendHorizontal className="size-3.5" />
         </ComposerPrimitive.Send>
       </ThreadPrimitive.If>
       <ThreadPrimitive.If running>
         <ComposerPrimitive.Cancel
           className={cn(
-            'bg-destructive/10 text-destructive inline-flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-xl',
+            'bg-destructive/10 text-destructive inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
             'hover:bg-destructive/20',
             'transition-colors'
           )}
         >
-          <CircleStop className="size-4" />
+          <CircleStop className="size-3.5" />
         </ComposerPrimitive.Cancel>
       </ThreadPrimitive.If>
     </>
