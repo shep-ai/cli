@@ -33,6 +33,7 @@ describe('getFeatureFlags', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        coastsDevServer: false,
       },
     });
 
@@ -109,6 +110,7 @@ describe('getFeatureFlags', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        coastsDevServer: false,
       },
     });
 
@@ -171,6 +173,7 @@ describe('featureFlags (backward-compatible const)', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        coastsDevServer: false,
       },
     });
 
@@ -188,6 +191,7 @@ describe('featureFlags (backward-compatible const)', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        coastsDevServer: false,
       },
     });
 
@@ -205,6 +209,7 @@ describe('featureFlags (backward-compatible const)', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        coastsDevServer: false,
       },
     });
 
