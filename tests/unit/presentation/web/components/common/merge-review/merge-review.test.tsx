@@ -291,8 +291,9 @@ describe('MergeReview', () => {
       };
       render(<MergeReview {...props} />);
 
-      expect(screen.getByText('First screenshot')).toBeInTheDocument();
-      expect(screen.getByText('Second screenshot')).toBeInTheDocument();
+      // Image evidence renders as thumbnails with description as alt text
+      expect(screen.getByAltText('First screenshot')).toBeInTheDocument();
+      expect(screen.getByAltText('Second screenshot')).toBeInTheDocument();
       expect(screen.getByText('2')).toBeInTheDocument(); // evidence count badge
     });
   });
