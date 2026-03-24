@@ -138,8 +138,8 @@ describe('CodexCliExecutorService', () => {
       expect(executor.supportsFeature(AgentFeature.toolScoping)).toBe(false);
     });
 
-    it('should NOT support session-listing feature', () => {
-      expect(executor.supportsFeature(AgentFeature.sessionListing)).toBe(false);
+    it('should support session-listing feature', () => {
+      expect(executor.supportsFeature(AgentFeature.sessionListing)).toBe(true);
     });
   });
 

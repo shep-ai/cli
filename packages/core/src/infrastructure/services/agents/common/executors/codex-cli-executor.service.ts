@@ -27,7 +27,12 @@ import type { SpawnFunction } from '../types.js';
 import { getCurrentPhase, getLogPrefix } from '../../feature-agent/log-context.js';
 
 /** Features supported by Codex CLI */
-const SUPPORTED_FEATURES = new Set<string>(['session-resume', 'streaming', 'structured-output']);
+const SUPPORTED_FEATURES = new Set<string>([
+  'session-resume',
+  'streaming',
+  'structured-output',
+  'session-listing',
+]);
 
 /**
  * Fatal stderr patterns indicating API-level failures even when exit code is 0.
@@ -121,6 +126,7 @@ export class CodexCliExecutorService implements IAgentExecutor {
         }
 
         const processLine = (line: string) => {
+          this.logStreamEvent(line);
           try {
             const parsed = JSON.parse(line);
             const type = parsed.type as string;
@@ -291,6 +297,7 @@ export class CodexCliExecutorService implements IAgentExecutor {
       }
 
       const processStreamLine = (line: string) => {
+        this.logStreamEvent(line);
         try {
           const parsed = JSON.parse(line);
           const type = parsed.type as string;
@@ -447,6 +454,134 @@ export class CodexCliExecutorService implements IAgentExecutor {
         } catch {
           // Best effort cleanup
         }
+      }
+    }
+  }
+
+  /**
+   * Log a JSONL stream line as a human-readable event in the worker log.
+   * Extracts tool calls (function_call), assistant text, command executions,
+   * and result summaries for verbose debugging.
+   */
+  private logStreamEvent(line: string): void {
+    try {
+      const parsed = JSON.parse(line);
+      const type = parsed.type as string;
+
+      // Thread lifecycle
+      if (type === 'thread.started') {
+        this.log(`[thread] started thread_id=${parsed.thread_id ?? 'unknown'}`);
+        return;
+      }
+
+      // Agent message text — log the content
+      if (type === 'item.completed' && parsed.item?.type === 'agent_message') {
+        const text = this.extractItemText(parsed);
+        if (text) {
+          // Truncate long messages for log readability
+          const preview = text.length > 200 ? `${text.slice(0, 197)}...` : text;
+          this.log(`[text] ${preview.replace(/\n/g, ' ')}`);
+        }
+        return;
+      }
+
+      // Function/tool calls — log name and arguments
+      if (type === 'item.started' && parsed.item?.type === 'function_call') {
+        const name = parsed.item.name ?? parsed.item.call_id ?? 'unknown';
+        const args = parsed.item.arguments ?? '';
+        this.log(`[tool] ${name} ${typeof args === 'string' ? args : JSON.stringify(args)}`);
+        return;
+      }
+      if (type === 'item.completed' && parsed.item?.type === 'function_call') {
+        const name = parsed.item.name ?? 'unknown';
+        this.log(`[tool] ${name} completed`);
+        return;
+      }
+
+      // Function call output — log truncated result
+      if (type === 'item.completed' && parsed.item?.type === 'function_call_output') {
+        const output = parsed.item.output ?? '';
+        const preview =
+          typeof output === 'string'
+            ? output.length > 200
+              ? `${output.slice(0, 197)}...`
+              : output
+            : JSON.stringify(output).slice(0, 200);
+        this.log(`[tool-result] ${preview.replace(/\n/g, ' ')}`);
+        return;
+      }
+
+      // Command executions (Codex shell tool)
+      if (type === 'item.started' && parsed.item?.type === 'command_execution') {
+        const cmd = parsed.item.command ?? parsed.item.name ?? 'command';
+        this.log(`[cmd] running: ${cmd}`);
+        return;
+      }
+      if (type === 'item.completed' && parsed.item?.type === 'command_execution') {
+        const exitCode = parsed.item.exit_code ?? '';
+        const output = parsed.item.output ?? '';
+        const preview =
+          typeof output === 'string'
+            ? output.length > 200
+              ? `${output.slice(0, 197)}...`
+              : output
+            : '';
+        this.log(
+          `[cmd] exit=${exitCode}${preview ? ` output: ${preview.replace(/\n/g, ' ')}` : ''}`
+        );
+        return;
+      }
+
+      // File changes
+      if (type === 'item.started' && parsed.item?.type === 'file_change') {
+        const file = parsed.item.file ?? parsed.item.path ?? '';
+        this.log(`[file] modifying: ${file}`);
+        return;
+      }
+      if (type === 'item.completed' && parsed.item?.type === 'file_change') {
+        const file = parsed.item.file ?? parsed.item.path ?? '';
+        this.log(`[file] modified: ${file}`);
+        return;
+      }
+
+      // Turn lifecycle with usage stats
+      if (type === 'turn.completed') {
+        const u = parsed.usage;
+        if (u) {
+          const inTokens = u.input_tokens ?? 0;
+          const outTokens = u.output_tokens ?? 0;
+          this.log(`[turn] completed, tokens: ${inTokens} in / ${outTokens} out`);
+        } else {
+          this.log('[turn] completed');
+        }
+        return;
+      }
+
+      if (type === 'turn.failed') {
+        const msg = parsed.error?.message ?? parsed.message ?? 'unknown';
+        this.log(`[turn] FAILED: ${msg}`);
+        return;
+      }
+
+      // Error events
+      if (type === 'error') {
+        const msg = parsed.message ?? parsed.error ?? 'unknown';
+        this.log(`[error] ${msg}`);
+        return;
+      }
+
+      // Delta/partial updates — log text fragments
+      if (type === 'item.updated' && parsed.item?.type === 'agent_message') {
+        const delta = this.extractDeltaText(parsed);
+        if (delta) {
+          this.log(`[delta] ${delta.replace(/\n/g, ' ')}`);
+        }
+        return;
+      }
+    } catch {
+      // Non-JSON line — log raw
+      if (line.length > 0) {
+        this.log(`[raw] ${line}`);
       }
     }
   }

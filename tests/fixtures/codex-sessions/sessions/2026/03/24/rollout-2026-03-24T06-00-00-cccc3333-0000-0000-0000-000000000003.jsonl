@@ -1,0 +1,2 @@
+{"timestamp":"2026-03-24T06:00:00.000Z","type":"session_meta","payload":{"id":"cccc3333-0000-0000-0000-000000000003","cwd":"/home/user/projects/tests"}}
+{"timestamp":"2026-03-24T06:00:01.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Refactor the test suite"}]}}
