@@ -134,6 +134,13 @@ function createMocks() {
     localMergeSquash: vi.fn(),
     getMergeableStatus: vi.fn(),
     getFailureLogs: vi.fn(),
+    syncMain: vi.fn(),
+    rebaseOnMain: vi.fn(),
+    getConflictedFiles: vi.fn().mockResolvedValue([]),
+    stageFiles: vi.fn(),
+    rebaseContinue: vi.fn(),
+    rebaseAbort: vi.fn(),
+    getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
   };
 
   const mockExecutor: IAgentExecutor = {
