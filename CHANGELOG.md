@@ -1,3 +1,10 @@
+## [1.151.2](https://github.com/shep-ai/cli/compare/v1.151.1...v1.151.2) (2026-03-24)
+
+
+### Bug Fixes
+
+* **agents:** deduplicate evidence across retry attempts ([#474](https://github.com/shep-ai/cli/issues/474)) ([1f0f4fa](https://github.com/shep-ai/cli/commit/1f0f4fa0e31e1b11d975bd2ded6f98ceacfae22e))
+
 ## [1.151.1](https://github.com/shep-ai/cli/compare/v1.151.0...v1.151.1) (2026-03-24)
 
 
