@@ -5,12 +5,9 @@
  * Resolves the configured agent type via IAgentExecutorProvider, then
  * spawns the CLI binary in conversation mode with stream-json I/O.
  *
- * The process is long-lived — it stays alive between turns. Messages are
- * sent via stdin as JSON lines (`--input-format stream-json`) and responses
- * stream back via stdout (`--output-format stream-json`).
- *
- * The first call spawns the process; subsequent turns reuse the same PID.
- * The --resume flag is used on the FIRST spawn to restore a prior session.
+ * Each call creates a single-turn process in print mode (-p). The process
+ * exits after producing the result. Multi-turn conversations are maintained
+ * via the --resume flag with the agent's session ID.
  *
  * Currently supports ClaudeCode. Additional agent types can be added
  * by extending the AGENT_FLAGS lookup table.
@@ -27,16 +24,15 @@ import { IS_WINDOWS } from '../../platform.js';
 import type { SpawnFunction } from '../agents/common/types.js';
 
 /**
- * CLI flags for conversation mode (persistent process).
- * --input-format stream-json: accept JSON messages on stdin
- * --output-format stream-json: emit structured JSON events on stdout
- * --verbose + --include-partial-messages: rich streaming events
+ * Base CLI flags for print mode (single-turn process).
+ * -p enables print (non-interactive) mode, reading prompt from stdin.
+ * stream-json + --verbose + --include-partial-messages give us structured
+ * JSON events including text deltas and a final result with session_id.
  */
-const AGENT_CONVERSATION_FLAGS: Partial<Record<AgentType, string[]>> = {
+const AGENT_PRINT_FLAGS: Partial<Record<AgentType, string[]>> = {
   [AgentType.ClaudeCode]: [
+    '-p',
     '--output-format',
-    'stream-json',
-    '--input-format',
     'stream-json',
     '--dangerously-skip-permissions',
     '--verbose',
@@ -70,7 +66,7 @@ export class InteractiveAgentProcessFactory implements IInteractiveAgentProcessF
     const agentType = executor.agentType as AgentType;
 
     const binary = AGENT_BINARY[agentType];
-    const baseFlags = AGENT_CONVERSATION_FLAGS[agentType];
+    const baseFlags = AGENT_PRINT_FLAGS[agentType];
 
     if (!binary || !baseFlags) {
       throw new Error(

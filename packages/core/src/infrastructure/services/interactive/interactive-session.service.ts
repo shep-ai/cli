@@ -410,6 +410,13 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   }
 
   async clearMessages(featureId: string): Promise<void> {
+    // Stop any active session so the agent doesn't retain old context
+    const state = this.findActiveStateForFeature(featureId);
+    if (state) {
+      await this.stopSession(state.sessionId);
+    }
+    // Also clear the cached claudeSessionId so next session starts fresh
+    this.stoppedClaudeSessionIds.delete(featureId);
     return this.messageRepo.deleteByFeatureId(featureId);
   }
 
@@ -428,13 +435,13 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   }
 
   // ---------------------------------------------------------------------------
-  // Persistent process management
+  // Per-turn process management
   // ---------------------------------------------------------------------------
 
   /**
-   * Execute a turn using the persistent process. Spawns the process on first
-   * call, then reuses the same PID for subsequent turns. Messages are sent
-   * via stdin as JSON lines (--input-format stream-json).
+   * Spawn a single-turn agent process (-p mode), pipe the prompt to stdin,
+   * and wait for the result event. The process exits after producing the
+   * result. Multi-turn context is maintained via --resume with claudeSessionId.
    */
   private executeTurn(
     state: SessionState,
@@ -442,15 +449,11 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     timeoutMs?: number
   ): Promise<TurnResult> {
     return new Promise<TurnResult>((resolve, reject) => {
-      void this.sendTurnToProcess(state, prompt, timeoutMs, resolve, reject);
+      void this.spawnTurnProcess(state, prompt, timeoutMs, resolve, reject);
     });
   }
 
-  /**
-   * Ensure a persistent process is running, then send the prompt as a
-   * JSON message on stdin. The process stays alive between turns.
-   */
-  private async sendTurnToProcess(
+  private async spawnTurnProcess(
     state: SessionState,
     prompt: string,
     timeoutMs: number | undefined,
@@ -458,28 +461,20 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     reject: (err: Error) => void
   ): Promise<void> {
     try {
-      // Spawn only if no active process (first turn or process crashed)
-      if (!state.activeProcess || state.activeProcess.killed) {
-        const proc = await this.processFactory.spawn(state.worktreePath, {
-          resumeSessionId: state.claudeSessionId,
-          model: state.model,
-        });
-        state.activeProcess = proc;
-        state.lastPid = proc.pid;
-        state.lineBuffer = '';
+      const proc = await this.processFactory.spawn(state.worktreePath, {
+        resumeSessionId: state.claudeSessionId,
+        model: state.model,
+      });
 
-        // Attach stdout parser and close handler ONCE for the lifetime of the process
-        this.attachStdoutParser(state);
-        this.attachCloseHandler(state);
-      }
-
-      // Reset per-turn state
+      state.activeProcess = proc;
+      state.lastPid = proc.pid;
       state.currentAssistantBuffer = '';
+      state.lineBuffer = '';
       state.toolEventsLog = [];
       state.onTurnComplete = resolve;
       state.onTurnError = reject;
 
-      // Set up timeout for this turn
+      // Set up timeout
       if (state.turnTimeout) clearTimeout(state.turnTimeout);
       if (timeoutMs) {
         state.turnTimeout = setTimeout(() => {
@@ -487,14 +482,24 @@ export class InteractiveSessionService implements IInteractiveSessionService {
             const rej = state.onTurnError;
             state.onTurnComplete = undefined;
             state.onTurnError = undefined;
+            state.activeProcess = null;
+            try {
+              proc.kill('SIGTERM');
+            } catch {
+              // ignore
+            }
             rej(new Error(`Agent turn timed out after ${timeoutMs / 1000}s`));
           }
         }, timeoutMs);
       }
 
-      // Send the message as a JSON line to the persistent process stdin
-      const jsonMessage = JSON.stringify({ type: 'user', content: prompt });
-      state.activeProcess.stdin.write(jsonMessage + '\n');
+      // Attach stdout parser and close handler
+      this.attachStdoutParser(state);
+      this.attachCloseHandler(state);
+
+      // Write prompt to stdin and end it to trigger execution
+      proc.stdin.write(prompt);
+      proc.stdin.end();
     } catch (err) {
       reject(err instanceof Error ? err : new Error(String(err)));
     }
