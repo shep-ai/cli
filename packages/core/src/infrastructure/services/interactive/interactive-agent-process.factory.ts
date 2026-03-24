@@ -3,11 +3,14 @@
  *
  * Infrastructure implementation of IInteractiveAgentProcessFactory.
  * Resolves the configured agent type via IAgentExecutorProvider, then
- * spawns the CLI binary in print mode (-p) with stream-json output.
+ * spawns the CLI binary in conversation mode with stream-json I/O.
  *
- * Each call creates a single-turn process. Multi-turn conversations
- * are maintained via the --resume flag with the agent's session ID.
- * The caller writes the prompt to stdin and calls stdin.end().
+ * The process is long-lived — it stays alive between turns. Messages are
+ * sent via stdin as JSON lines (`--input-format stream-json`) and responses
+ * stream back via stdout (`--output-format stream-json`).
+ *
+ * The first call spawns the process; subsequent turns reuse the same PID.
+ * The --resume flag is used on the FIRST spawn to restore a prior session.
  *
  * Currently supports ClaudeCode. Additional agent types can be added
  * by extending the AGENT_FLAGS lookup table.
@@ -24,15 +27,16 @@ import { IS_WINDOWS } from '../../platform.js';
 import type { SpawnFunction } from '../agents/common/types.js';
 
 /**
- * Base CLI flags for each supported agent type in print mode.
- * -p enables print (non-interactive) mode, reading prompt from stdin.
- * stream-json + --verbose + --include-partial-messages give us structured
- * JSON events including text deltas and a final result with session_id.
+ * CLI flags for conversation mode (persistent process).
+ * --input-format stream-json: accept JSON messages on stdin
+ * --output-format stream-json: emit structured JSON events on stdout
+ * --verbose + --include-partial-messages: rich streaming events
  */
-const AGENT_PRINT_FLAGS: Partial<Record<AgentType, string[]>> = {
+const AGENT_CONVERSATION_FLAGS: Partial<Record<AgentType, string[]>> = {
   [AgentType.ClaudeCode]: [
-    '-p',
     '--output-format',
+    'stream-json',
+    '--input-format',
     'stream-json',
     '--dangerously-skip-permissions',
     '--verbose',
@@ -66,7 +70,7 @@ export class InteractiveAgentProcessFactory implements IInteractiveAgentProcessF
     const agentType = executor.agentType as AgentType;
 
     const binary = AGENT_BINARY[agentType];
-    const baseFlags = AGENT_PRINT_FLAGS[agentType];
+    const baseFlags = AGENT_CONVERSATION_FLAGS[agentType];
 
     if (!binary || !baseFlags) {
       throw new Error(
@@ -77,7 +81,7 @@ export class InteractiveAgentProcessFactory implements IInteractiveAgentProcessF
 
     const args = [...baseFlags];
 
-    // Resume a prior conversation turn if a session ID is provided
+    // Resume a prior conversation if a session ID is provided
     if (options?.resumeSessionId) {
       args.push('--resume', options.resumeSessionId);
     }

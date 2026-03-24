@@ -71,6 +71,8 @@ interface SessionState {
   model?: string;
   /** Last known PID — persists after process exits between turns. */
   lastPid?: number;
+  /** Timeout handle for the current turn. */
+  turnTimeout?: NodeJS.Timeout;
 }
 
 /** Result extracted from a completed turn. */
@@ -408,14 +410,13 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   }
 
   // ---------------------------------------------------------------------------
-  // Per-turn process management
+  // Persistent process management
   // ---------------------------------------------------------------------------
 
   /**
-   * Spawn a single-turn agent process, pipe the prompt to stdin, and wait
-   * for the result event. Returns the result text and optional session_id.
-   *
-   * The process exits after producing the result (print mode).
+   * Execute a turn using the persistent process. Spawns the process on first
+   * call, then reuses the same PID for subsequent turns. Messages are sent
+   * via stdin as JSON lines (--input-format stream-json).
    */
   private executeTurn(
     state: SessionState,
@@ -423,11 +424,15 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     timeoutMs?: number
   ): Promise<TurnResult> {
     return new Promise<TurnResult>((resolve, reject) => {
-      void this.spawnTurnProcess(state, prompt, timeoutMs, resolve, reject);
+      void this.sendTurnToProcess(state, prompt, timeoutMs, resolve, reject);
     });
   }
 
-  private async spawnTurnProcess(
+  /**
+   * Ensure a persistent process is running, then send the prompt as a
+   * JSON message on stdin. The process stays alive between turns.
+   */
+  private async sendTurnToProcess(
     state: SessionState,
     prompt: string,
     timeoutMs: number | undefined,
@@ -435,45 +440,43 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     reject: (err: Error) => void
   ): Promise<void> {
     try {
-      const proc = await this.processFactory.spawn(state.worktreePath, {
-        resumeSessionId: state.claudeSessionId,
-        model: state.model,
-      });
+      // Spawn only if no active process (first turn or process crashed)
+      if (!state.activeProcess || state.activeProcess.killed) {
+        const proc = await this.processFactory.spawn(state.worktreePath, {
+          resumeSessionId: state.claudeSessionId,
+          model: state.model,
+        });
+        state.activeProcess = proc;
+        state.lastPid = proc.pid;
+        state.lineBuffer = '';
 
-      state.activeProcess = proc;
-      state.lastPid = proc.pid;
+        // Attach stdout parser and close handler ONCE for the lifetime of the process
+        this.attachStdoutParser(state);
+        this.attachCloseHandler(state);
+      }
+
+      // Reset per-turn state
       state.currentAssistantBuffer = '';
-      state.lineBuffer = '';
       state.toolEventsLog = [];
       state.onTurnComplete = resolve;
       state.onTurnError = reject;
 
-      // Set up timeout
-      let turnTimeout: NodeJS.Timeout | undefined;
+      // Set up timeout for this turn
+      if (state.turnTimeout) clearTimeout(state.turnTimeout);
       if (timeoutMs) {
-        turnTimeout = setTimeout(() => {
+        state.turnTimeout = setTimeout(() => {
           if (state.onTurnError) {
             const rej = state.onTurnError;
             state.onTurnComplete = undefined;
             state.onTurnError = undefined;
-            state.activeProcess = null;
-            try {
-              proc.kill('SIGTERM');
-            } catch {
-              // ignore
-            }
             rej(new Error(`Agent turn timed out after ${timeoutMs / 1000}s`));
           }
         }, timeoutMs);
       }
 
-      // Attach stdout parser and close handler
-      this.attachStdoutParser(state, turnTimeout);
-      this.attachCloseHandler(state, turnTimeout);
-
-      // Write prompt to stdin and end it to trigger execution
-      proc.stdin.write(prompt);
-      proc.stdin.end();
+      // Send the message as a JSON line to the persistent process stdin
+      const jsonMessage = JSON.stringify({ type: 'user', content: prompt });
+      state.activeProcess.stdin.write(jsonMessage + '\n');
     } catch (err) {
       reject(err instanceof Error ? err : new Error(String(err)));
     }
@@ -487,7 +490,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
    * Attach a raw data listener to the process stdout that manually buffers
    * incomplete lines. Matches the claude-code-executor approach.
    */
-  private attachStdoutParser(state: SessionState, turnTimeout?: NodeJS.Timeout): void {
+  private attachStdoutParser(state: SessionState): void {
     const proc = state.activeProcess;
     if (!proc) return;
 
@@ -497,7 +500,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       state.lineBuffer = lines.pop() ?? '';
       for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed) this.handleStdoutLine(state, trimmed, turnTimeout);
+        if (trimmed) this.handleStdoutLine(state, trimmed);
       }
     });
   }
@@ -505,7 +508,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   /**
    * Parse a single stdout line and dispatch to subscribers / resolve turn.
    */
-  private handleStdoutLine(state: SessionState, line: string, turnTimeout?: NodeJS.Timeout): void {
+  private handleStdoutLine(state: SessionState, line: string): void {
     // Reset idle timer on any agent activity
     this.resetTimer(state);
 
@@ -640,7 +643,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       state.toolEventsLog = [];
 
       // Clear turn timeout
-      if (turnTimeout) clearTimeout(turnTimeout);
+      if (state.turnTimeout) clearTimeout(state.turnTimeout);
 
       // Resolve the turn promise — only the clean response text
       if (state.onTurnComplete) {
@@ -659,17 +662,17 @@ export class InteractiveSessionService implements IInteractiveSessionService {
    * Handle process exit — clean up activeProcess reference.
    * If the turn promise hasn't resolved yet, reject it.
    */
-  private attachCloseHandler(state: SessionState, turnTimeout?: NodeJS.Timeout): void {
+  private attachCloseHandler(state: SessionState): void {
     const proc = state.activeProcess;
     if (!proc) return;
 
     proc.once('close', (code: number | null) => {
       // Clear turn timeout
-      if (turnTimeout) clearTimeout(turnTimeout);
+      if (state.turnTimeout) clearTimeout(state.turnTimeout);
 
       // Flush remaining buffer
       if (state.lineBuffer.trim()) {
-        this.handleStdoutLine(state, state.lineBuffer.trim(), undefined);
+        this.handleStdoutLine(state, state.lineBuffer.trim());
       }
 
       // Clear activeProcess reference (process has exited)
