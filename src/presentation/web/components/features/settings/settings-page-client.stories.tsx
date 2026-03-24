@@ -41,6 +41,7 @@ export const AllSections: Story = {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       },
     },
     shepHome: '/opt/shep',

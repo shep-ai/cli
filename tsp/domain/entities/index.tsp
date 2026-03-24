@@ -26,3 +26,5 @@ import "./feature-status.tsp";
 import "./tool.tsp";
 import "./notification-event.tsp";
 import "./repository.tsp";
+import "./scheduled-workflow.tsp";
+import "./workflow-execution.tsp";

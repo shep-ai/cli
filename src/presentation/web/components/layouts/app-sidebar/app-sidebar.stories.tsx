@@ -14,6 +14,7 @@ const defaultFeatureFlags = {
   adoptBranch: false,
   gitRebaseSync: false,
   reactFileManager: false,
+  scheduledWorkflows: false,
 };
 
 const meta: Meta<typeof AppSidebar> = {

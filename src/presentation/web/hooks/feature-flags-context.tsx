@@ -11,6 +11,7 @@ const defaultFlags: FeatureFlagsState = {
   adoptBranch: false,
   gitRebaseSync: false,
   reactFileManager: false,
+  scheduledWorkflows: false,
 };
 
 const FeatureFlagsContext = createContext<FeatureFlagsState>(defaultFlags);

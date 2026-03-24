@@ -33,6 +33,7 @@ describe('getFeatureFlags', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       },
     });
 
@@ -109,6 +110,7 @@ describe('getFeatureFlags', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       },
     });
 
@@ -120,7 +122,13 @@ describe('getFeatureFlags', () => {
   it('returns reactFileManager from DB when settings exist', () => {
     mockHasSettings.mockReturnValue(true);
     mockGetSettings.mockReturnValue({
-      featureFlags: { skills: false, envDeploy: false, debug: false, reactFileManager: true },
+      featureFlags: {
+        skills: false,
+        envDeploy: false,
+        debug: false,
+        reactFileManager: true,
+        scheduledWorkflows: false,
+      },
     });
 
     const flags = getFeatureFlags();
@@ -171,6 +179,7 @@ describe('featureFlags (backward-compatible const)', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       },
     });
 
@@ -188,6 +197,7 @@ describe('featureFlags (backward-compatible const)', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       },
     });
 
@@ -205,6 +215,7 @@ describe('featureFlags (backward-compatible const)', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        scheduledWorkflows: false,
       },
     });
 
@@ -214,7 +225,13 @@ describe('featureFlags (backward-compatible const)', () => {
   it('exposes reactFileManager via getter', () => {
     mockHasSettings.mockReturnValue(true);
     mockGetSettings.mockReturnValue({
-      featureFlags: { skills: false, envDeploy: false, debug: false, reactFileManager: true },
+      featureFlags: {
+        skills: false,
+        envDeploy: false,
+        debug: false,
+        reactFileManager: true,
+        scheduledWorkflows: false,
+      },
     });
 
     expect(featureFlags.reactFileManager).toBe(true);
