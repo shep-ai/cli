@@ -32,3 +32,8 @@ export type {
   IInteractiveAgentProcessFactory,
   InteractiveSpawnOptions,
 } from './interactive-agent-process-factory.interface.js';
+export type {
+  IInteractiveAgentAdapter,
+  InteractiveSessionOptions,
+  SDKSession,
+} from './interactive-agent-adapter.interface.js';
