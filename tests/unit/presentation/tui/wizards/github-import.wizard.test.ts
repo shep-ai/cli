@@ -41,6 +41,7 @@ function createMockGitHubService(): IGitHubRepositoryService {
       repo: 'my-project',
       nameWithOwner: 'octocat/my-project',
     }),
+    getViewerPermission: vi.fn().mockResolvedValue('ADMIN'),
   };
 }
 

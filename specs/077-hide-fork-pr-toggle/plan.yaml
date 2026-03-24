@@ -1,0 +1,166 @@
+name: "hide-fork-pr-toggle"
+summary: >
+  Add a getViewerPermission() method to IGitHubRepositoryService that calls
+  gh repo view --json viewerPermission with cwd. The create drawer server component
+  fetches the initial permission in its existing Promise.all, threading a canPushDirectly
+  boolean through CreateDrawerClient to FeatureCreateDrawer. A new get-viewer-permission
+  server action handles dynamic re-checks on repo change. The Fork & PR toggle block is
+  conditionally unmounted when canPushDirectly is true, with forkAndPr and dependent states
+  auto-reset via useEffect. TDD throughout: service unit tests, component conditional
+  rendering tests, and Storybook stories for both states.
+
+relatedFeatures: []
+technologies:
+  - "React (Next.js App Router)"
+  - "GitHub CLI (gh)"
+  - "TypeScript"
+  - "Server Actions"
+  - "Shadcn UI (Switch, Tooltip)"
+  - "tsyringe (DI)"
+  - "Vitest"
+  - "Storybook"
+
+relatedLinks:
+  - title: "GitHub CLI gh repo view documentation"
+    url: "https://cli.github.com/manual/gh_repo_view"
+  - title: "GitHub viewerPermission field (GraphQL)"
+    url: "https://docs.github.com/en/graphql/reference/enums#repositorypermission"
+
+phases:
+  - id: "phase-1"
+    name: "Service Layer — Permission Detection"
+    description: >
+      Add getViewerPermission(repoPath) to the IGitHubRepositoryService interface and
+      implement it in GitHubRepositoryService using gh repo view --json viewerPermission
+      with cwd. This is the foundational building block — everything downstream depends on
+      this method existing. Includes unit tests for success and error paths.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Server Integration — Data Flow to UI"
+    description: >
+      Wire the permission check into the create drawer data flow. Add the initial
+      canPushDirectly fetch to create/page.tsx (inside the existing Promise.all), create
+      the get-viewer-permission server action for dynamic re-checks, and thread the prop
+      through CreateDrawerClient. This phase bridges the service layer to the UI layer.
+    parallel: false
+
+  - id: "phase-3"
+    name: "UI — Conditional Rendering & State Management"
+    description: >
+      Modify FeatureCreateDrawer to accept canPushDirectly prop, manage internal state,
+      call the server action on repo change, auto-reset forkAndPr and dependent states,
+      and conditionally unmount the Fork & PR toggle block. Includes component tests and
+      Storybook stories for both toggle-visible and toggle-hidden states.
+    parallel: false
+
+filesToCreate:
+  - "src/presentation/web/app/actions/get-viewer-permission.ts"
+  - "tests/unit/infrastructure/services/external/github-repository.service.getViewerPermission.test.ts"
+
+filesToModify:
+  - "packages/core/src/application/ports/output/services/github-repository-service.interface.ts"
+  - "packages/core/src/infrastructure/services/external/github-repository.service.ts"
+  - "src/presentation/web/app/(dashboard)/@drawer/create/page.tsx"
+  - "src/presentation/web/components/common/control-center-drawer/create-drawer-client.tsx"
+  - "src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx"
+  - "src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature adds permission-aware visibility to the Fork & PR toggle in the feature
+  create drawer. It follows the established Clean Architecture pattern:
+
+  - **Interface** (`application/ports/output/services/github-repository-service.interface.ts`):
+    Add `getViewerPermission(repoPath: string): Promise<string>` to `IGitHubRepositoryService`.
+    Returns the raw GitHub permission string (ADMIN, MAINTAIN, WRITE, TRIAGE, READ).
+
+  - **Implementation** (`infrastructure/services/external/github-repository.service.ts`):
+    Uses `this.execFile('gh', ['repo', 'view', '--json', 'viewerPermission'], { cwd: repoPath })`
+    matching the exact pattern from `GitForkService.forkRepository()` (git-fork.service.ts:26).
+
+  - **Server component** (`create/page.tsx`): Adds one more concurrent call to the existing
+    `Promise.all([listFeatures, listRepos, getWorkflowDefaults])`, passing `canPushDirectly`
+    as a prop to `CreateDrawerClient`.
+
+  - **Server action** (`get-viewer-permission.ts`): A focused `'use server'` action that
+    resolves `IGitHubRepositoryService` from DI, calls `getViewerPermission(repoPath)`,
+    maps the result to `{ canPushDirectly: boolean }`. Used for re-checking on repo change.
+
+  - **Client component** (`FeatureCreateDrawer`): Accepts `canPushDirectly` prop, manages
+    internal `canPush` state initialized from prop, calls server action on repo change,
+    auto-resets `forkAndPr`/`push`/`openPr`/`commitSpecs` when canPush becomes true,
+    conditionally unmounts the Fork & PR toggle block.
+
+  ## Key Design Decisions
+
+  ### 1. Permission Detection via gh repo view with cwd
+
+  **Chosen:** `gh repo view --json viewerPermission` with `{ cwd: repoPath }`.
+  **Why:** Matches the exact pattern in GitForkService (line 26). The gh CLI auto-detects
+  the repository from the working directory. No URL parsing or nameWithOwner extraction needed.
+  **Rejected:** `gh api /repos/{owner}/{repo}` (requires parsing owner/repo), git remote
+  parsing + REST API (over-engineered), storing nameWithOwner on Repository entity (TypeSpec change).
+
+  ### 2. Service Method on IGitHubRepositoryService
+
+  **Chosen:** Add to existing `IGitHubRepositoryService`.
+  **Why:** The interface already handles auth, listing, URL parsing, and cloning — all general
+  GitHub repo operations. Permission detection fits naturally. Already registered as singleton
+  in DI container (container.ts:230-233).
+  **Rejected:** New `IGitHubPermissionService` (over-abstraction for one method), adding to
+  `IGitForkService` (permission is general, not fork-specific).
+
+  ### 3. Initial Fetch Blocking in Promise.all
+
+  **Chosen:** Add permission check to the existing `Promise.all` in create/page.tsx.
+  **Why:** The ~200-500ms gh CLI call runs concurrently with three existing calls. Net impact
+  is negligible (bounded by the slowest call). Guarantees zero layout shift (NFR-4).
+  **Rejected:** Non-blocking with optimistic default (causes layout shift), hybrid race with
+  timeout (complex for marginal benefit).
+
+  ### 4. Conditional JSX (Unmount, Not Hide)
+
+  **Chosen:** `{!canPush && <Tooltip>...</Tooltip>}` — do not mount when hidden.
+  **Why:** Prevents layout shift (NFR-4), no hidden interactive elements (a11y), no stale
+  DOM nodes. The toggle occupies minimal space in the GIT row.
+  **Rejected:** CSS display:none (accessibility issues), render disabled with text (unnecessary).
+
+  ### 5. State Reset via useEffect
+
+  **Chosen:** useEffect watching canPush — resets forkAndPr=false and reverts push/openPr/
+  commitSpecs to workflow defaults.
+  **Why:** When forkAndPr=true, it forces push=true, openPr=true, commitSpecs=false
+  (lines 981, 1011, 1085). Hiding the toggle must revert all cascaded state to prevent
+  stale values from leaking into the form submission.
+
+  ### 6. Graceful Degradation
+
+  **Chosen:** On permission check failure, default to showing the toggle (canPushDirectly=false).
+  **Why:** A visible toggle when unnecessary is a minor UX inconvenience. A hidden toggle
+  when the user needs it blocks functionality. The service throws on failure; the server
+  action and server component catch and return the safe default.
+
+  ## Implementation Strategy
+
+  Phase ordering follows the dependency chain: service layer first (Phase 1) because both
+  the server component and server action depend on it. Server integration second (Phase 2)
+  because the UI needs the prop and the server action to function. UI changes last (Phase 3)
+  because they consume everything built in Phases 1-2.
+
+  Within each phase, TDD is applied: write failing tests first (RED), implement minimally
+  (GREEN), then refactor. This ensures each layer works correctly before the next builds on it.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | gh CLI not installed or not authenticated | Service throws; server action catches and returns canPushDirectly=false (show toggle). Graceful degradation per NFR-2. |
+  | Permission check adds latency to drawer open | Runs concurrently in Promise.all with 3 existing calls. Net impact bounded by slowest call (~200-500ms typical). |
+  | Layout shift when permission state changes on repo switch | Initial state comes from server (zero shift). On repo change, toggle visibility updates after server action responds — current state is maintained until response arrives. |
+  | Stale forkAndPr state leaks into submission | useEffect auto-resets forkAndPr=false and reverts dependent states when canPush becomes true. Form payload always matches visible UI. |
+  | Breaking existing Fork & PR behavior | canPushDirectly defaults to false (toggle shown) when prop is undefined. Backwards compatible — existing stories and the overview tab SettingBadge are unaffected. |
+  | Test isolation for gh CLI calls | Service tests mock ExecFunction (existing pattern). Component tests pass canPushDirectly as a prop — no gh CLI dependency. |
