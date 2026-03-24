@@ -303,6 +303,26 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return () => window.removeEventListener('shep:feature-delete-requested', handler);
   }, [handleDeleteFeature]);
 
+  // Listen for archive requests from the feature drawer.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { featureId } = (e as CustomEvent<{ featureId: string }>).detail;
+      handleArchiveFeature(featureId);
+    };
+    window.addEventListener('shep:feature-archive-requested', handler);
+    return () => window.removeEventListener('shep:feature-archive-requested', handler);
+  }, [handleArchiveFeature]);
+
+  // Listen for unarchive requests from the feature drawer.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { featureId } = (e as CustomEvent<{ featureId: string }>).detail;
+      handleUnarchiveFeature(featureId);
+    };
+    window.addEventListener('shep:feature-unarchive-requested', handler);
+    return () => window.removeEventListener('shep:feature-unarchive-requested', handler);
+  }, [handleUnarchiveFeature]);
+
   // Wire callbacks into derived node data (via ref — no re-render).
   useEffect(() => {
     setCallbacks({
