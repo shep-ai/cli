@@ -85,3 +85,7 @@ import "./prd-approval.tsp";
 // Agent provider CLI session models
 import "./agent-session-message.tsp";
 import "./agent-session.tsp";
+
+// Per-feature interactive chat session models
+import "./interactive-session.tsp";
+import "./interactive-message.tsp";

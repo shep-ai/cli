@@ -139,6 +139,17 @@ import { AgentType } from '../../domain/generated/output.js';
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
 import { runSQLiteMigrations } from '../persistence/sqlite/migrations.js';
 
+// Interactive session infrastructure
+import type { IInteractiveSessionRepository } from '../../application/ports/output/repositories/interactive-session-repository.interface.js';
+import type { IInteractiveMessageRepository } from '../../application/ports/output/repositories/interactive-message-repository.interface.js';
+import type { IInteractiveAgentProcessFactory } from '../../application/ports/output/agents/interactive-agent-process-factory.interface.js';
+import type { IInteractiveSessionService } from '../../application/ports/output/services/interactive-session-service.interface.js';
+import { SQLiteInteractiveSessionRepository } from '../repositories/sqlite-interactive-session.repository.js';
+import { SQLiteInteractiveMessageRepository } from '../repositories/sqlite-interactive-message.repository.js';
+import { InteractiveAgentProcessFactory } from '../services/interactive/interactive-agent-process.factory.js';
+import { InteractiveSessionService } from '../services/interactive/interactive-session.service.js';
+import { FeatureContextBuilder } from '../services/interactive/feature-context.builder.js';
+
 let _initialized = false;
 
 /**
@@ -509,6 +520,56 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('GetBranchSyncStatusUseCase', {
     useFactory: (c) => c.resolve(GetBranchSyncStatusUseCase),
   });
+
+  // Register interactive session infrastructure
+  container.register<IInteractiveSessionRepository>('IInteractiveSessionRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteInteractiveSessionRepository(database);
+    },
+  });
+
+  container.register<IInteractiveMessageRepository>('IInteractiveMessageRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteInteractiveMessageRepository(database);
+    },
+  });
+
+  const interactiveProcessFactory = new InteractiveAgentProcessFactory(
+    container.resolve<IAgentExecutorProvider>('IAgentExecutorProvider'),
+    (command: string, args: string[], options?: object) =>
+      spawn(command, args, {
+        stdio: 'pipe',
+        ...(process.platform === 'win32' ? { windowsHide: true } : {}),
+        ...options,
+      })
+  );
+  container.registerInstance<IInteractiveAgentProcessFactory>(
+    'IInteractiveAgentProcessFactory',
+    interactiveProcessFactory
+  );
+
+  const interactiveSessionRepo = container.resolve<IInteractiveSessionRepository>(
+    'IInteractiveSessionRepository'
+  );
+  const interactiveMessageRepo = container.resolve<IInteractiveMessageRepository>(
+    'IInteractiveMessageRepository'
+  );
+  const interactiveSessionService = new InteractiveSessionService(
+    interactiveSessionRepo,
+    interactiveMessageRepo,
+    interactiveProcessFactory,
+    container.resolve<IFeatureRepository>('IFeatureRepository'),
+    new FeatureContextBuilder()
+  );
+  container.registerInstance<IInteractiveSessionService>(
+    'IInteractiveSessionService',
+    interactiveSessionService
+  );
+
+  // Startup cleanup: mark any zombie sessions (booting/ready from a prior server run) as stopped
+  await interactiveSessionRepo.markAllActiveStopped();
 
   _initialized = true;
   return container;

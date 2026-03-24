@@ -1,0 +1,30 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: InteractiveSession.yaml
+type: object
+properties:
+  featureId:
+    $ref: UUID.yaml
+    description: Feature ID this session is associated with
+  status:
+    $ref: InteractiveSessionStatus.yaml
+    description: Current lifecycle status of the interactive session
+  startedAt:
+    type: string
+    format: date-time
+    description: Timestamp when the agent process was spawned
+  stoppedAt:
+    type: string
+    format: date-time
+    description: Timestamp when the session ended (null if still active)
+  lastActivityAt:
+    type: string
+    format: date-time
+    description: Timestamp of last user message or agent stdout activity
+required:
+  - featureId
+  - status
+  - startedAt
+  - lastActivityAt
+allOf:
+  - $ref: BaseEntity.yaml
+description: Per-feature interactive agent session record

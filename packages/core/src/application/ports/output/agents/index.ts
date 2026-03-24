@@ -28,3 +28,7 @@ export type {
   ListSessionsOptions,
   GetSessionOptions,
 } from './agent-session-repository.interface.js';
+export type {
+  IInteractiveAgentProcessFactory,
+  InteractiveSpawnOptions,
+} from './interactive-agent-process-factory.interface.js';

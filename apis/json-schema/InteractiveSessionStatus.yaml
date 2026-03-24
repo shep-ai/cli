@@ -1,0 +1,9 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: InteractiveSessionStatus.yaml
+type: string
+enum:
+  - booting
+  - ready
+  - stopped
+  - error
+description: Lifecycle status of an interactive agent session

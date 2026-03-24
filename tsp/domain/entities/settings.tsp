@@ -493,6 +493,58 @@ model FeatureFlags {
 }
 
 /**
+ * Interactive Agent Configuration
+ *
+ * Controls the per-feature Chat tab and the interactive agent process lifecycle.
+ * All fields have runtime defaults applied via nullish coalescing so no
+ * migration of existing settings files is required.
+ *
+ * ## Default Values (applied at runtime when field is absent)
+ *
+ * | Field                | Default | Description                              |
+ * |----------------------|---------|------------------------------------------|
+ * | enabled              | true    | Chat tab is visible by default           |
+ * | autoTimeoutMinutes   | 15      | Session auto-stops after 15 min idle     |
+ * | maxConcurrentSessions| 3       | At most 3 active sessions at once        |
+ *
+ * @example
+ * ```json
+ * {
+ *   "enabled": true,
+ *   "autoTimeoutMinutes": 15,
+ *   "maxConcurrentSessions": 3
+ * }
+ * ```
+ */
+@doc("Interactive agent chat tab configuration")
+model InteractiveAgentConfig {
+  /**
+   * Whether the Chat tab is shown in the feature detail page.
+   * When false, the tab is hidden from the tab bar entirely (FR-17).
+   * @example true
+   */
+  @doc("Whether the interactive agent Chat tab is enabled (default: true)")
+  enabled: boolean = true;
+
+  /**
+   * Number of minutes of idle time before the agent process is automatically
+   * stopped. Idle is measured from the last user message sent or agent stdout
+   * chunk received. Valid range: 1-120 minutes.
+   * @example 15
+   */
+  @doc("Idle timeout in minutes before auto-stopping the agent (default: 15, range: 1-120)")
+  autoTimeoutMinutes: int32 = 15;
+
+  /**
+   * Maximum number of agent processes allowed to run simultaneously.
+   * Attempting to start a session when at the cap returns an error (FR-12).
+   * @example 3
+   */
+  @doc("Maximum number of concurrent active interactive sessions (default: 3)")
+  maxConcurrentSessions: int32 = 3;
+}
+
+/**
  * Settings Entity
  *
  * Global Shep platform settings stored as a singleton. This entity contains
@@ -622,4 +674,13 @@ model Settings extends BaseEntity {
    */
   @doc("Whether first-run onboarding has been completed (default: false)")
   onboardingComplete: boolean = false;
+
+  /**
+   * Interactive agent chat configuration.
+   * Controls the Chat tab feature: enable/disable toggle, idle auto-timeout,
+   * and maximum concurrent active sessions.
+   * Optional for backward compatibility — defaults applied at runtime.
+   */
+  @doc("Interactive agent chat configuration (optional, defaults applied at runtime)")
+  interactiveAgent?: InteractiveAgentConfig;
 }

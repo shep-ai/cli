@@ -114,6 +114,10 @@ export interface SettingsRow {
   feature_flag_adopt_branch: number;
   feature_flag_git_rebase_sync: number;
   feature_flag_react_file_manager: number;
+  // Interactive agent config (added in migration 046)
+  interactive_agent_enabled: number;
+  interactive_agent_auto_timeout_minutes: number;
+  interactive_agent_max_concurrent_sessions: number;
 }
 
 /**
@@ -219,6 +223,12 @@ export function toDatabase(settings: Settings): SettingsRow {
     feature_flag_adopt_branch: settings.featureFlags?.adoptBranch ? 1 : 0,
     feature_flag_git_rebase_sync: settings.featureFlags?.gitRebaseSync ? 1 : 0,
     feature_flag_react_file_manager: settings.featureFlags?.reactFileManager ? 1 : 0,
+
+    // InteractiveAgentConfig (boolean → 0/1, integer fields; defaults applied here)
+    interactive_agent_enabled: (settings.interactiveAgent?.enabled ?? true) ? 1 : 0,
+    interactive_agent_auto_timeout_minutes: settings.interactiveAgent?.autoTimeoutMinutes ?? 15,
+    interactive_agent_max_concurrent_sessions:
+      settings.interactiveAgent?.maxConcurrentSessions ?? 3,
   };
 }
 
@@ -353,6 +363,13 @@ export function fromDatabase(row: SettingsRow): Settings {
       adoptBranch: row.feature_flag_adopt_branch === 1,
       gitRebaseSync: row.feature_flag_git_rebase_sync === 1,
       reactFileManager: row.feature_flag_react_file_manager === 1,
+    },
+
+    // InteractiveAgentConfig (INTEGER 0/1 → boolean, integer → number)
+    interactiveAgent: {
+      enabled: (row.interactive_agent_enabled ?? 1) !== 0,
+      autoTimeoutMinutes: row.interactive_agent_auto_timeout_minutes ?? 15,
+      maxConcurrentSessions: row.interactive_agent_max_concurrent_sessions ?? 3,
     },
 
     // Onboarding (INTEGER → boolean)

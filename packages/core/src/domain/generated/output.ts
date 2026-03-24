@@ -585,6 +585,24 @@ export type FeatureFlags = {
 };
 
 /**
+ * Interactive agent chat tab configuration
+ */
+export type InteractiveAgentConfig = {
+  /**
+   * Whether the interactive agent Chat tab is enabled (default: true)
+   */
+  enabled: boolean;
+  /**
+   * Idle timeout in minutes before auto-stopping the agent (default: 15, range: 1-120)
+   */
+  autoTimeoutMinutes: number;
+  /**
+   * Maximum number of concurrent active interactive sessions (default: 3)
+   */
+  maxConcurrentSessions: number;
+};
+
+/**
  * Global Shep platform settings (singleton)
  */
 export type Settings = BaseEntity & {
@@ -624,6 +642,10 @@ export type Settings = BaseEntity & {
    * Whether first-run onboarding has been completed (default: false)
    */
   onboardingComplete: boolean;
+  /**
+   * Interactive agent chat configuration (optional, defaults applied at runtime)
+   */
+  interactiveAgent?: InteractiveAgentConfig;
 };
 export enum TaskState {
   Todo = 'Todo',
@@ -2267,6 +2289,64 @@ export type AgentSession = BaseEntity & {
    * Timestamp of the most recent message in the session (optional)
    */
   lastMessageAt?: any;
+};
+export enum InteractiveSessionStatus {
+  booting = 'booting',
+  ready = 'ready',
+  stopped = 'stopped',
+  error = 'error',
+}
+
+/**
+ * Per-feature interactive agent session record
+ */
+export type InteractiveSession = BaseEntity & {
+  /**
+   * Feature ID this session is associated with
+   */
+  featureId: UUID;
+  /**
+   * Current lifecycle status of the interactive session
+   */
+  status: InteractiveSessionStatus;
+  /**
+   * Timestamp when the agent process was spawned
+   */
+  startedAt: any;
+  /**
+   * Timestamp when the session ended (null if still active)
+   */
+  stoppedAt?: any;
+  /**
+   * Timestamp of last user message or agent stdout activity
+   */
+  lastActivityAt: any;
+};
+export enum InteractiveMessageRole {
+  user = 'user',
+  assistant = 'assistant',
+}
+
+/**
+ * A single chat message in a per-feature interactive agent session
+ */
+export type InteractiveMessage = BaseEntity & {
+  /**
+   * Feature ID this message belongs to
+   */
+  featureId: string;
+  /**
+   * Session ID during which this message was sent (optional)
+   */
+  sessionId?: string;
+  /**
+   * Author role: user or assistant
+   */
+  role: InteractiveMessageRole;
+  /**
+   * Full message content (finalised after streaming for assistant messages)
+   */
+  content: string;
 };
 
 /**

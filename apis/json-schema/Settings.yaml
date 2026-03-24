@@ -30,6 +30,9 @@ properties:
     type: boolean
     default: false
     description: "Whether first-run onboarding has been completed (default: false)"
+  interactiveAgent:
+    $ref: InteractiveAgentConfig.yaml
+    description: Interactive agent chat configuration (optional, defaults applied at runtime)
 required:
   - models
   - user

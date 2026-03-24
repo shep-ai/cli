@@ -52,3 +52,9 @@ export {
   GitHubUrlParseError,
   GitHubRepoListError,
 } from './github-repository-service.interface.js';
+export type {
+  IInteractiveSessionService,
+  StreamChunk,
+  UnsubscribeFn,
+  ChatState,
+} from './interactive-session-service.interface.js';
