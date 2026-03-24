@@ -23,14 +23,54 @@ interface Size {
   h: number;
 }
 
+const STORAGE_KEY = 'shep-global-chat';
+
+function loadPersistedState(): { pos: Position | null; size: Size | null } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { pos: null, size: null };
+    const parsed = JSON.parse(raw);
+    return {
+      pos: parsed.pos ?? null,
+      size: parsed.size ?? null,
+    };
+  } catch {
+    return { pos: null, size: null };
+  }
+}
+
+function persistState(pos: Position | null, size: Size | null) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ pos, size }));
+  } catch {
+    // Storage full or unavailable — ignore
+  }
+}
+
 export function GlobalChatPopup() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
 
-  // Position is relative to viewport (fixed positioning when dragged)
-  const [pos, setPos] = useState<Position | null>(null); // null = default position
-  const [size, setSize] = useState<Size | null>(null); // null = default size
+  // Position/size — initialized from localStorage
+  const [pos, _setPos] = useState<Position | null>(() => loadPersistedState().pos);
+  const [size, _setSize] = useState<Size | null>(() => loadPersistedState().size);
+
+  // Wrapped setters that also persist
+  const setPos = useCallback((v: Position | null | ((prev: Position | null) => Position | null)) => {
+    _setPos((prev) => {
+      const next = typeof v === 'function' ? v(prev) : v;
+      // Defer persist to avoid doing it on every mousemove frame
+      return next;
+    });
+  }, []);
+
+  const setSize = useCallback((v: Size | null | ((prev: Size | null) => Size | null)) => {
+    _setSize((prev) => {
+      const next = typeof v === 'function' ? v(prev) : v;
+      return next;
+    });
+  }, []);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
@@ -87,6 +127,12 @@ export function GlobalChatPopup() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [toggle, toggleMaximize, isMaximized]);
+
+  // Persist position/size to localStorage (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => persistState(pos, size), 300);
+    return () => clearTimeout(timer);
+  }, [pos, size]);
 
   // ── Drag handling ──────────────────────────────────────────────────────
   const onDragStart = useCallback(
@@ -206,10 +252,10 @@ export function GlobalChatPopup() {
           ref={panelRef}
           className={cn(
             isMaximized
-              ? 'absolute inset-0 z-[60] flex flex-col overflow-hidden bg-background dark:bg-neutral-900'
+              ? 'absolute inset-0 z-30 flex flex-col overflow-hidden bg-background dark:bg-neutral-900'
               : cn(
                   !pos && 'absolute bottom-24 left-4',
-                  'z-[60] flex flex-col overflow-hidden rounded-lg',
+                  'z-30 flex flex-col overflow-hidden rounded-lg',
                   'border border-border/60 dark:border-white/10',
                   'bg-background dark:bg-neutral-900',
                   'shadow-[0_8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_8px_40px_-8px_rgba(0,0,0,0.6)]',
@@ -313,7 +359,7 @@ export function GlobalChatPopup() {
       ) : null}
 
       {/* Floating chat button — hidden when maximized */}
-      <div className={cn('group/fab absolute bottom-4 left-4 z-[60] flex items-center', isMaximized && 'hidden')}>
+      <div className={cn('group/fab absolute bottom-4 left-4 z-30 flex items-center', isMaximized && 'hidden')}>
         <Button
           size="icon"
           onClick={toggle}

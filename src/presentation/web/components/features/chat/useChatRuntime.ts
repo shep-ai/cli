@@ -99,7 +99,13 @@ export function useChatRuntime(featureId: string, worktreePath?: string, options
   const messages = useMemo(() => chatState?.messages ?? [], [chatState?.messages]);
   const sessionStatus = chatState?.sessionStatus ?? null;
   const backendStreamingText = chatState?.streamingText ?? null;
-  const sessionInfo = chatState?.sessionInfo ?? null;
+
+  // Cache last known sessionInfo so PID stays visible after process exits
+  const lastSessionInfoRef = useRef<ChatState['sessionInfo']>(null);
+  if (chatState?.sessionInfo) {
+    lastSessionInfoRef.current = chatState.sessionInfo;
+  }
+  const sessionInfo = chatState?.sessionInfo ?? lastSessionInfoRef.current;
 
   // ── SSE: real-time streaming deltas ─────────────────────────────────────
 
@@ -227,8 +233,9 @@ export function useChatRuntime(featureId: string, worktreePath?: string, options
   });
 
   // ── Derive running state ────────────────────────────────────────────────
+  // Note: sendMutation.isPending is excluded — the 600ms awaitingResponse
+  // timer provides a smooth transition without flicker.
   const isRunning =
-    sendMutation.isPending ||
     awaitingResponse ||
     !!streamingText ||
     !!statusLog ||
@@ -247,7 +254,9 @@ export function useChatRuntime(featureId: string, worktreePath?: string, options
         role: 'assistant',
         content: [{ type: 'text', text: activeStreamText }],
       });
-    } else if (sendMutation.isPending || awaitingResponse || sessionStatus === 'booting') {
+    } else if (awaitingResponse || sessionStatus === 'booting') {
+      // Note: sendMutation.isPending is NOT included here — the 600ms
+      // delay via startAwaiting() prevents flash on fast responses.
       result.push({
         id: 'streaming',
         role: 'assistant',
@@ -261,23 +270,13 @@ export function useChatRuntime(featureId: string, worktreePath?: string, options
     }
 
     return result;
-  }, [messages, activeStreamText, sendMutation.isPending, awaitingResponse, sessionStatus]);
+  }, [messages, activeStreamText, awaitingResponse, sessionStatus]);
 
   // ── Status info for typing indicator ──────────────────────────────────
   const status: ChatStatus = useMemo(() => {
     if (!isRunning) return { isRunning: false, statusText: null };
-
-    let statusText: string | null = null;
-    if (sendMutation.isPending) {
-      statusText = 'Sending...';
-    } else if (statusLog) {
-      statusText = statusLog;
-    } else {
-      statusText = null;
-    }
-
-    return { isRunning: true, statusText };
-  }, [isRunning, statusLog, sendMutation.isPending]);
+    return { isRunning: true, statusText: statusLog };
+  }, [isRunning, statusLog]);
 
   // ── onNew: called by assistant-ui when user submits ─────────────────────
   const onNew = useCallback(

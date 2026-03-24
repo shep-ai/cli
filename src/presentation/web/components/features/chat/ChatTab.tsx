@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useState } from 'react';
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
 import { Trash2, Square, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Thread } from '@/components/assistant-ui/thread';
 import { useAttachments } from '@/hooks/use-attachments';
 import { composeUserInput } from '@/app/actions/compose-user-input';
+import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import { useChatRuntime } from './useChatRuntime';
 import { ChatComposer } from './ChatComposer';
 
@@ -16,6 +17,8 @@ export interface ChatTabProps {
 }
 
 export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
+  const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
+  const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
   const att = useAttachments();
 
   const contentTransform = useCallback(
@@ -54,16 +57,6 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
     }
   }, [featureId, att.addAttachment]);
 
-  const statusBar = (
-    <ChatStatusBar
-      sessionInfo={sessionInfo}
-      isAgentActive={status.isRunning}
-      statusText={status.statusText}
-      onClear={clearChat}
-      onStop={stopAgent}
-    />
-  );
-
   const composer = (
     <ChatComposer
       attachments={att.attachments}
@@ -77,17 +70,37 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
       onRemoveAttachment={att.removeAttachment}
       onNotesChange={att.updateNotes}
       onPickFiles={handlePickFiles}
+      agentPicker={
+        <AgentModelPicker
+          initialAgentType={overrideAgent ?? 'claude-code'}
+          initialModel={overrideModel ?? 'claude-sonnet-4-6'}
+          mode="override"
+          onAgentModelChange={(agent, model) => {
+            setOverrideAgent(agent);
+            setOverrideModel(model);
+          }}
+          className="w-55"
+        />
+      }
     />
   );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* Header bar — session info + stop/clear */}
+      <ChatHeader
+        sessionInfo={sessionInfo}
+        isAgentActive={status.isRunning}
+        statusText={status.statusText}
+        onClear={clearChat}
+        onStop={stopAgent}
+      />
       <div className="flex min-h-0 flex-1 flex-col">
         {isChatLoading ? (
           <ChatSkeleton />
         ) : (
           <AssistantRuntimeProvider runtime={runtime}>
-            <Thread statusBar={statusBar} composer={composer} />
+            <Thread composer={composer} />
           </AssistantRuntimeProvider>
         )}
       </div>
@@ -137,9 +150,9 @@ interface SessionInfo {
   lastActivityAt: string;
 }
 
-// ── Status bar (below thread, above prompt) ─────────────────────────────────
+// ── Chat header — compact session info + actions ─────────────────────────────
 
-function ChatStatusBar({
+function ChatHeader({
   sessionInfo,
   isAgentActive,
   statusText,
@@ -153,45 +166,50 @@ function ChatStatusBar({
   onStop: () => Promise<void>;
 }) {
   return (
-    <div className="flex h-10 shrink-0 items-center border-t px-3">
-      {/* Left — session info + activity indicator */}
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+    <div className="flex h-8 shrink-0 items-center border-b px-3">
+      {/* Left — session info + activity */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {sessionInfo ? (
-          <SessionBadge info={sessionInfo} />
-        ) : (
-          <span className="text-muted-foreground/50 text-xs">No active session</span>
-        )}
-        {isAgentActive ? (
-          <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
-            <span className="text-muted-foreground truncate text-xs">
-              {statusText ?? 'Working...'}
+          <>
+            {isAgentActive ? (
+              <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+            ) : (
+              <Cpu className="text-muted-foreground/40 h-3 w-3 shrink-0" />
+            )}
+            <span className="text-muted-foreground font-mono text-[10px]">
+              pid {sessionInfo.pid ?? '—'}
             </span>
-          </div>
-        ) : null}
+            {isAgentActive ? (
+              <span className="text-muted-foreground truncate text-[10px]">
+                · {statusText ?? 'Working...'}
+              </span>
+            ) : null}
+          </>
+        ) : (
+          <span className="text-muted-foreground/40 text-[11px]">No session</span>
+        )}
       </div>
 
-      {/* Right — actions */}
-      <div className="flex items-center gap-1.5">
+      {/* Right — actions with separator */}
+      <div className="flex items-center gap-1 pl-2">
         {sessionInfo ? (
-          <ToolbarButton
-            onClick={() => {
-              void onStop();
-            }}
-            title="Force stop agent process"
-            variant="danger"
-          >
-            <Square className="h-3.5 w-3.5 fill-current" />
-            <span>Stop</span>
-          </ToolbarButton>
+          <>
+            <ToolbarButton
+              onClick={() => { void onStop(); }}
+              title="Force stop agent process"
+              variant="danger"
+            >
+              <Square className="h-2.5 w-2.5 fill-current" />
+              <span>Stop</span>
+            </ToolbarButton>
+            <span className="text-border mx-0.5">|</span>
+          </>
         ) : null}
         <ToolbarButton
-          onClick={() => {
-            void onClear();
-          }}
+          onClick={() => { void onClear(); }}
           title="Clear chat history"
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-2.5 w-2.5" />
           <span>Clear</span>
         </ToolbarButton>
       </div>
@@ -199,66 +217,6 @@ function ChatStatusBar({
   );
 }
 
-// ── Session badge ───────────────────────────────────────────────────────────
-
-function SessionBadge({ info }: { info: SessionInfo }) {
-  const uptime = useUptime(info.startedAt);
-  const sleepsIn = useSleepsIn(info.lastActivityAt, info.idleTimeoutMinutes);
-
-  return (
-    <div className="flex items-center gap-2.5 overflow-hidden">
-      <Cpu className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-      <div className="flex items-center gap-1.5 overflow-hidden text-xs">
-        {info.model ? (
-          <span className="text-foreground/70 truncate font-medium">{info.model}</span>
-        ) : null}
-        {info.pid ? (
-          <Chip title={`PID ${info.pid}${info.sessionId ? ` · Session ${info.sessionId}` : ''}`}>
-            pid {info.pid}
-          </Chip>
-        ) : null}
-        <Chip>{uptime}</Chip>
-        <Chip title={`Auto-sleep after ${info.idleTimeoutMinutes}m idle`}>sleep {sleepsIn}</Chip>
-      </div>
-    </div>
-  );
-}
-
-function Chip({ children, title }: { children: React.ReactNode; title?: string }) {
-  return (
-    <span
-      title={title}
-      className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap"
-    >
-      {children}
-    </span>
-  );
-}
-
-// ── Time hooks ──────────────────────────────────────────────────────────────
-
-function useUptime(startedAt: string): string {
-  return useMemo(() => formatDuration(Date.now() - new Date(startedAt).getTime()), [startedAt]);
-}
-
-function useSleepsIn(lastActivityAt: string, timeoutMinutes: number): string {
-  return useMemo(() => {
-    const elapsed = Date.now() - new Date(lastActivityAt).getTime();
-    const remaining = timeoutMinutes * 60_000 - elapsed;
-    if (remaining <= 0) return 'soon';
-    return formatDuration(remaining);
-  }, [lastActivityAt, timeoutMinutes]);
-}
-
-function formatDuration(ms: number): string {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const minutes = Math.floor(totalSeconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-}
 
 // ── Toolbar button ──────────────────────────────────────────────────────────
 

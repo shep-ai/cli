@@ -20,6 +20,8 @@ export interface ChatComposerProps {
   onRemoveAttachment: (id: string) => void;
   onNotesChange: (id: string, notes: string) => void;
   onPickFiles: () => void;
+  /** Agent/model picker rendered in the controls row. */
+  agentPicker?: React.ReactNode;
 }
 
 export function ChatComposer({
@@ -34,6 +36,7 @@ export function ChatComposer({
   onRemoveAttachment,
   onNotesChange,
   onPickFiles,
+  agentPicker,
 }: ChatComposerProps) {
   const [isFocused, setIsFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,13 +62,13 @@ export function ChatComposer({
             isFocused && 'ring-ring/50 border-ring ring-[3px]'
           )}
         >
-          {/* Textarea — same as create drawer */}
+          {/* Textarea — 1 row default, expands to 3, then scrolls */}
           <ComposerPrimitive.Input
-            rows={3}
+            rows={1}
             autoFocus
             placeholder="Write a message..."
             onPaste={onPaste}
-            className="min-h-0 flex-1 resize-none rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus-visible:ring-0 focus:outline-none"
+            className="min-h-0 max-h-[4.5rem] resize-none rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus-visible:ring-0 focus:outline-none"
           />
 
           {/* Attachment chips — between textarea and controls bar */}
@@ -92,9 +95,10 @@ export function ChatComposer({
             <p className="text-destructive px-3 pb-2 text-xs">{uploadError}</p>
           ) : null}
 
-          {/* Controls bar — same border-t pattern as create drawer */}
+          {/* Controls bar — agent picker + status left, actions right */}
           <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">
-            {/* Spacer — pushes controls to the right */}
+            {/* Agent/model picker */}
+            {agentPicker}
             <div className="flex-1" />
 
             {/* Attach files */}

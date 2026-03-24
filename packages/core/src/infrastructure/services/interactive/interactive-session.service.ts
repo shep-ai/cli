@@ -185,14 +185,20 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               `[${m.role === InteractiveMessageRole.user ? 'User' : 'Assistant'}]: ${m.content}`
           )
           .join('\n\n');
-        bootPrompt += `\n\n---\nPrevious conversation history with this feature:\n${historyBlock}\n---\n\n`;
+        bootPrompt += `\n\n---\nPrevious conversation history (READ-ONLY — this is what already happened, do NOT repeat or redo any of this work):\n${historyBlock}\n---\n\n`;
+
+        bootPrompt += `CRITICAL INSTRUCTIONS:
+- The conversation history above is READ-ONLY context. All that work is ALREADY DONE. Do NOT repeat, redo, or re-execute anything from the history.
+- You are resuming an interactive chat session after a process restart. The user is waiting for you in a chat interface.
+`;
 
         if (userIsWaiting) {
-          // The user sent a message and is waiting for a response.
-          // Respond to it directly — do NOT just greet.
-          bootPrompt += `The user's latest message is waiting for your response. Briefly note you're back from a session restart, then directly address their message. Do NOT just greet — answer what they asked.`;
+          bootPrompt += `- The user's LATEST message (the last [User] entry above) is waiting for your response RIGHT NOW.
+- Respond to it directly and concisely. Do NOT re-do any previous work. Just answer what they asked.
+- You may briefly acknowledge the session restarted, but focus on answering their question.`;
         } else {
-          bootPrompt += `Please greet the user briefly and let them know you have context from the previous conversation.`;
+          bootPrompt += `- The last response was from you (Assistant). The user hasn't sent a new message yet.
+- Briefly greet the user and let them know you're back and ready. Keep it short — one sentence.`;
         }
       }
 
