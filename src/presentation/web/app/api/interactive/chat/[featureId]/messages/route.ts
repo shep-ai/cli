@@ -3,6 +3,7 @@
  *
  * POST - Send a user message. Backend handles session lifecycle.
  * GET  - Get chat state: messages + session status + streaming text.
+ * DELETE - Clear chat message history for the feature.
  *
  * The frontend never manages sessions — it just sends messages for a feature.
  *
@@ -12,6 +13,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { resolve } from '@/lib/server-container';
+import type { SendInteractiveMessageUseCase } from '@shepai/core/application/use-cases/interactive/send-interactive-message.use-case';
+import type { GetInteractiveChatStateUseCase } from '@shepai/core/application/use-cases/interactive/get-interactive-chat-state.use-case';
 import type { IInteractiveSessionService } from '@shepai/core/application/ports/output/services/interactive-session-service.interface';
 import { getShepHomeDir } from '@shepai/core/infrastructure/services/filesystem/shep-directory.service';
 
@@ -43,8 +46,12 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
       resolvedWorktreePath = getShepHomeDir();
     }
 
-    const service = resolve<IInteractiveSessionService>('IInteractiveSessionService');
-    const message = await service.sendUserMessage(featureId, content, resolvedWorktreePath);
+    const useCase = resolve<SendInteractiveMessageUseCase>('SendInteractiveMessageUseCase');
+    const message = await useCase.execute({
+      featureId,
+      content,
+      worktreePath: resolvedWorktreePath,
+    });
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {
@@ -60,9 +67,13 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
+export async function DELETE(
+  _request: NextRequest,
+  { params }: RouteParams
+): Promise<NextResponse> {
   try {
     const { featureId } = await params;
+    // clearMessages is not yet exposed as a use case — use service directly
     const service = resolve<IInteractiveSessionService>('IInteractiveSessionService');
     await service.clearMessages(featureId);
 
@@ -80,8 +91,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams): Pr
 export async function GET(_request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
   try {
     const { featureId } = await params;
-    const service = resolve<IInteractiveSessionService>('IInteractiveSessionService');
-    const chatState = await service.getChatState(featureId);
+    const useCase = resolve<GetInteractiveChatStateUseCase>('GetInteractiveChatStateUseCase');
+    const chatState = await useCase.execute({ featureId });
 
     return NextResponse.json(chatState);
   } catch (error) {

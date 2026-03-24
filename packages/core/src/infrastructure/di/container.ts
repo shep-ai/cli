@@ -127,6 +127,12 @@ import { RebaseFeatureOnMainUseCase } from '../../application/use-cases/features
 import { GetBranchSyncStatusUseCase } from '../../application/use-cases/features/get-branch-sync-status.use-case.js';
 import { ConflictResolutionService } from '../services/agents/conflict-resolution/conflict-resolution.service.js';
 
+// Interactive session use cases
+import { StartInteractiveSessionUseCase } from '../../application/use-cases/interactive/start-interactive-session.use-case.js';
+import { SendInteractiveMessageUseCase } from '../../application/use-cases/interactive/send-interactive-message.use-case.js';
+import { StopInteractiveSessionUseCase } from '../../application/use-cases/interactive/stop-interactive-session.use-case.js';
+import { GetInteractiveChatStateUseCase } from '../../application/use-cases/interactive/get-interactive-chat-state.use-case.js';
+
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
 import { StubSessionRepository } from '../services/agents/sessions/stub-session.repository.js';
@@ -576,6 +582,27 @@ export async function initializeContainer(): Promise<typeof container> {
     'IInteractiveSessionService',
     interactiveSessionService
   );
+
+  // Register interactive session use cases
+  container.registerSingleton(StartInteractiveSessionUseCase);
+  container.registerSingleton(SendInteractiveMessageUseCase);
+  container.registerSingleton(StopInteractiveSessionUseCase);
+  container.registerSingleton(GetInteractiveChatStateUseCase);
+
+  // String-token aliases for web routes (Turbopack can't resolve .js→.ts
+  // imports inside @shepai/core, so routes use string tokens instead of class refs)
+  container.register('StartInteractiveSessionUseCase', {
+    useFactory: (c) => c.resolve(StartInteractiveSessionUseCase),
+  });
+  container.register('SendInteractiveMessageUseCase', {
+    useFactory: (c) => c.resolve(SendInteractiveMessageUseCase),
+  });
+  container.register('StopInteractiveSessionUseCase', {
+    useFactory: (c) => c.resolve(StopInteractiveSessionUseCase),
+  });
+  container.register('GetInteractiveChatStateUseCase', {
+    useFactory: (c) => c.resolve(GetInteractiveChatStateUseCase),
+  });
 
   // Startup cleanup: mark any zombie sessions (booting/ready from a prior server run) as stopped
   await interactiveSessionRepo.markAllActiveStopped();

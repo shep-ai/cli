@@ -7,7 +7,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { resolve } from '@/lib/server-container';
-import type { IInteractiveSessionService } from '@shepai/core/application/ports/output/services/interactive-session-service.interface';
+import type { StopInteractiveSessionUseCase } from '@shepai/core/application/use-cases/interactive/stop-interactive-session.use-case';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,8 +18,8 @@ interface RouteParams {
 export async function POST(_request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
   try {
     const { featureId } = await params;
-    const service = resolve<IInteractiveSessionService>('IInteractiveSessionService');
-    await service.stopByFeature(featureId);
+    const useCase = resolve<StopInteractiveSessionUseCase>('StopInteractiveSessionUseCase');
+    await useCase.execute({ featureId });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -24,6 +24,7 @@ export async function GET(request: NextRequest, { params }: RouteParams): Promis
   const { featureId } = await params;
 
   try {
+    // SSE streams use service directly for subscribe pattern
     const service = resolve<IInteractiveSessionService>('IInteractiveSessionService');
     const encoder = new TextEncoder();
 
@@ -50,7 +51,9 @@ export async function GET(request: NextRequest, { params }: RouteParams): Promis
           if (chunk.done) {
             enqueue(`event: done\ndata: ${JSON.stringify({ done: true, featureId })}\n\n`);
           } else if (chunk.activity) {
-            enqueue(`event: activity\ndata: ${JSON.stringify({ activity: chunk.activity, featureId })}\n\n`);
+            enqueue(
+              `event: activity\ndata: ${JSON.stringify({ activity: chunk.activity, featureId })}\n\n`
+            );
             // Also send log for the status indicator
             if (chunk.log) {
               enqueue(`event: log\ndata: ${JSON.stringify({ log: chunk.log, featureId })}\n\n`);
