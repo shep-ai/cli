@@ -1,3 +1,10 @@
+## [1.150.1](https://github.com/shep-ai/cli/compare/v1.150.0...v1.150.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* **agents:** read evidence settings from feature state not global singleton ([#471](https://github.com/shep-ai/cli/issues/471)) ([80038b6](https://github.com/shep-ai/cli/commit/80038b607f086eb9cbc995793ebc5c6beaf60899))
+
 # [1.150.0](https://github.com/shep-ai/cli/compare/v1.149.1...v1.150.0) (2026-03-24)
 
 
