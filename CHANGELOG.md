@@ -1,3 +1,10 @@
+## [1.150.2](https://github.com/shep-ai/cli/compare/v1.150.1...v1.150.2) (2026-03-24)
+
+
+### Bug Fixes
+
+* **web:** deduplicate evidence gallery keys to prevent react warnings ([#472](https://github.com/shep-ai/cli/issues/472)) ([c192f87](https://github.com/shep-ai/cli/commit/c192f870b2539c1de0ce64a4c21c96cf9e5f9629))
+
 ## [1.150.1](https://github.com/shep-ai/cli/compare/v1.150.0...v1.150.1) (2026-03-24)
 
 
