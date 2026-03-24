@@ -72,7 +72,7 @@ const markdownComponents: Components = {
 
 // ── Thread ──────────────────────────────────────────────────────────────────
 
-export function Thread({ className, statusBar }: { className?: string; statusBar?: React.ReactNode }) {
+export function Thread({ className, statusBar, composer }: { className?: string; statusBar?: React.ReactNode; composer?: React.ReactNode }) {
   return (
     <ThreadPrimitive.Root className={cn('flex h-full flex-col', className)}>
       <ThreadPrimitive.Viewport className="flex flex-1 flex-col overflow-y-auto pt-4">
@@ -89,7 +89,7 @@ export function Thread({ className, statusBar }: { className?: string; statusBar
       </ThreadPrimitive.Viewport>
 
       {statusBar}
-      <Composer />
+      {composer ?? <Composer />}
     </ThreadPrimitive.Root>
   );
 }

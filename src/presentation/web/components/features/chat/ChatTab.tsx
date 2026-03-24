@@ -1,11 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
 import { Trash2, Square, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Thread } from '@/components/assistant-ui/thread';
+import { useAttachments } from '@/hooks/use-attachments';
+import { composeUserInput } from '@/app/actions/compose-user-input';
 import { useChatRuntime } from './useChatRuntime';
+import { ChatComposer } from './ChatComposer';
 
 export interface ChatTabProps {
   featureId: string;
@@ -13,10 +16,43 @@ export interface ChatTabProps {
 }
 
 export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
+  const att = useAttachments();
+
+  const contentTransform = useCallback(
+    (content: string) =>
+      composeUserInput(
+        content,
+        att.completedAttachments.map((a) => ({ path: a.path, name: a.name, notes: a.notes }))
+      ),
+    [att.completedAttachments]
+  );
+
   const { runtime, status, clearChat, stopAgent, sessionInfo, isChatLoading } = useChatRuntime(
     featureId,
-    worktreePath
+    worktreePath,
+    { contentTransform, onMessageSent: att.clearAttachments }
   );
+
+  const handlePickFiles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/dialog/pick-files');
+      if (!res.ok) return;
+      const data = (await res.json()) as { paths?: string[] };
+      if (!data.paths?.length) return;
+      for (const filePath of data.paths) {
+        const uploadRes = await fetch('/api/attachments/upload-from-path', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: filePath, sessionId: 'chat-' + featureId }),
+        });
+        if (!uploadRes.ok) continue;
+        const uploaded = (await uploadRes.json()) as { id: string; name: string; size: number; mimeType: string; path: string };
+        att.addAttachment(uploaded);
+      }
+    } catch {
+      // Native picker not available — ignore
+    }
+  }, [featureId, att.addAttachment]);
 
   const statusBar = (
     <ChatStatusBar
@@ -28,6 +64,22 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
     />
   );
 
+  const composer = (
+    <ChatComposer
+      attachments={att.attachments}
+      isDragOver={att.isDragOver}
+      uploadError={att.uploadError}
+      onDragEnter={att.handleDragEnter}
+      onDragLeave={att.handleDragLeave}
+      onDragOver={att.handleDragOver}
+      onDrop={att.handleDrop}
+      onPaste={att.handlePaste}
+      onRemoveAttachment={att.removeAttachment}
+      onNotesChange={att.updateNotes}
+      onPickFiles={handlePickFiles}
+    />
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-h-0 flex-1 flex-col">
@@ -35,7 +87,7 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
           <ChatSkeleton />
         ) : (
           <AssistantRuntimeProvider runtime={runtime}>
-            <Thread statusBar={statusBar} />
+            <Thread statusBar={statusBar} composer={composer} />
           </AssistantRuntimeProvider>
         )}
       </div>

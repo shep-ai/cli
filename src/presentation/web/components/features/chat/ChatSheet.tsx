@@ -209,7 +209,7 @@ export function GlobalChatPopup() {
               ? 'absolute inset-0 z-[60] flex flex-col overflow-hidden bg-background dark:bg-neutral-900'
               : cn(
                   !pos && 'absolute bottom-24 left-4',
-                  'z-[60] flex flex-col overflow-hidden rounded-2xl',
+                  'z-[60] flex flex-col overflow-hidden rounded-lg',
                   'border border-border/60 dark:border-white/10',
                   'bg-background dark:bg-neutral-900',
                   'shadow-[0_8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_8px_40px_-8px_rgba(0,0,0,0.6)]',

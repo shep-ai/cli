@@ -79,7 +79,14 @@ export interface ChatStatus {
 
 // ── Hook ────────────────────────────────────────────────────────────────────
 
-export function useChatRuntime(featureId: string, worktreePath?: string) {
+export interface ChatRuntimeOptions {
+  /** Transform message content before sending (e.g. append attachment refs). */
+  contentTransform?: (content: string) => string;
+  /** Called after a message is successfully sent (e.g. clear attachments). */
+  onMessageSent?: () => void;
+}
+
+export function useChatRuntime(featureId: string, worktreePath?: string, options?: ChatRuntimeOptions) {
   const queryClient = useQueryClient();
 
   // ── TanStack Query: fetch messages from backend ─────────────────────────
@@ -277,9 +284,14 @@ export function useChatRuntime(featureId: string, worktreePath?: string) {
     async (message: AppendMessage) => {
       const textPart = message.content.find((c) => c.type === 'text');
       if (textPart?.type !== 'text' || !textPart.text.trim()) return;
-      sendMutation.mutate(textPart.text);
+      const content = options?.contentTransform
+        ? options.contentTransform(textPart.text)
+        : textPart.text;
+      sendMutation.mutate(content, {
+        onSuccess: () => options?.onMessageSent?.(),
+      });
     },
-    [sendMutation]
+    [sendMutation, options]
   );
 
   // ── Clear chat ─────────────────────────────────────────────────────────
