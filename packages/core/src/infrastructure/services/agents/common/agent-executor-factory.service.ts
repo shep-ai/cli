@@ -10,11 +10,13 @@
 
 import type { AgentType, AgentConfig } from '../../../../domain/generated/output.js';
 import type { IAgentExecutor } from '../../../../application/ports/output/agents/agent-executor.interface.js';
+import type { IInteractiveAgentExecutor } from '../../../../application/ports/output/agents/interactive-agent-executor.interface.js';
 import type {
   IAgentExecutorFactory,
   AgentCliInfo,
 } from '../../../../application/ports/output/agents/agent-executor-factory.interface.js';
 import { ClaudeCodeExecutorService } from './executors/claude-code-executor.service.js';
+import { ClaudeCodeInteractiveExecutor } from './executors/claude-code-interactive-executor.service.js';
 import { CursorExecutorService } from './executors/cursor-executor.service.js';
 import { DevAgentExecutorService } from './executors/dev-executor.service.js';
 import { GeminiCliExecutorService } from './executors/gemini-cli-executor.service.js';
@@ -111,6 +113,39 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
       default:
         return [];
     }
+  }
+
+  /**
+   * Create an interactive executor for multi-turn agent sessions.
+   * Currently only Claude Code supports interactive sessions via the SDK.
+   *
+   * @param agentType - The type of agent to create an interactive executor for
+   * @param _authConfig - Agent authentication and configuration
+   * @returns A configured interactive agent executor
+   * @throws Error if the agent type does not support interactive sessions
+   */
+  createInteractiveExecutor(
+    agentType: AgentType,
+    _authConfig: AgentConfig
+  ): IInteractiveAgentExecutor {
+    const key = agentType as string;
+    if (key === 'claude-code') {
+      return new ClaudeCodeInteractiveExecutor();
+    }
+    throw new Error(
+      `Agent type '${agentType}' does not support interactive sessions. ` +
+        `Only 'claude-code' supports interactive mode.`
+    );
+  }
+
+  /**
+   * Check whether the given agent type supports interactive sessions.
+   *
+   * @param agentType - The agent type to query
+   * @returns true if createInteractiveExecutor can be called for this type
+   */
+  supportsInteractive(agentType: AgentType): boolean {
+    return (agentType as string) === 'claude-code';
   }
 }
 

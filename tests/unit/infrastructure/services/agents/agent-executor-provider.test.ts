@@ -28,6 +28,8 @@ describe('AgentExecutorProvider', () => {
       getSupportedAgents: vi.fn(),
       getCliInfo: vi.fn().mockReturnValue([]),
       getSupportedModels: vi.fn().mockReturnValue([]),
+      createInteractiveExecutor: vi.fn(),
+      supportsInteractive: vi.fn().mockReturnValue(false),
     };
     mockSettingsRepo = {
       load: vi.fn().mockResolvedValue(defaultSettings),

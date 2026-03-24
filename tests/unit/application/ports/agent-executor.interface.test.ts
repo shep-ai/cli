@@ -133,6 +133,10 @@ describe('IAgentExecutorFactory type contracts', () => {
       getSupportedAgents: () => [AgentType.ClaudeCode],
       getCliInfo: () => [],
       getSupportedModels: () => [],
+      createInteractiveExecutor: () => {
+        throw new Error('not implemented');
+      },
+      supportsInteractive: () => false,
     };
     expect(mockFactory.getSupportedAgents()).toContain(AgentType.ClaudeCode);
   });
@@ -149,6 +153,10 @@ describe('IAgentExecutorFactory type contracts', () => {
       getSupportedAgents: () => [AgentType.ClaudeCode, AgentType.GeminiCli],
       getCliInfo: () => [],
       getSupportedModels: () => [],
+      createInteractiveExecutor: () => {
+        throw new Error('not implemented');
+      },
+      supportsInteractive: () => false,
     };
     const executor = mockFactory.createExecutor(AgentType.ClaudeCode, {
       type: AgentType.ClaudeCode,
@@ -169,6 +177,10 @@ describe('IAgentExecutorFactory type contracts', () => {
       getSupportedAgents: () => [AgentType.ClaudeCode, AgentType.GeminiCli],
       getCliInfo: () => [],
       getSupportedModels: () => [],
+      createInteractiveExecutor: () => {
+        throw new Error('not implemented');
+      },
+      supportsInteractive: () => false,
     };
     const supported = mockFactory.getSupportedAgents();
     expect(supported).toHaveLength(2);
