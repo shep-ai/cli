@@ -1,3 +1,11 @@
+# [1.150.0](https://github.com/shep-ai/cli/compare/v1.149.1...v1.150.0) (2026-03-24)
+
+
+### Features
+
+* **web:** add archive and unarchive actions to feature drawer ([#464](https://github.com/shep-ai/cli/issues/464)) ([68c24ac](https://github.com/shep-ai/cli/commit/68c24ac8691fe80844306bab8bb8f1cd308f816f))
+* **web:** hide worktree-dependent actions for completed features ([#465](https://github.com/shep-ai/cli/issues/465)) ([9e3e29b](https://github.com/shep-ai/cli/commit/9e3e29b4327895eb077df288448579ae4fe17965))
+
 ## [1.149.1](https://github.com/shep-ai/cli/compare/v1.149.0...v1.149.1) (2026-03-23)
 
 
