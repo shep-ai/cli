@@ -1,11 +1,9 @@
 /**
  * Interactive Agent Executor Interface
  *
- * Output port for creating and managing interactive agent sessions with
- * our own abstraction layer over the raw SDK types. Unlike IInteractiveAgentAdapter
- * which re-exports SDKSession directly, this interface provides clean domain types
- * (InteractiveAgentEvent, InteractiveAgentSessionHandle) that decouple the
- * application layer from any SDK specifics.
+ * Output port for creating and managing interactive agent sessions.
+ * Provides clean domain types (InteractiveAgentEvent, InteractiveAgentSessionHandle)
+ * that decouple the application layer from any SDK specifics.
  *
  * Following Clean Architecture:
  * - Application layer depends on this interface and its domain types

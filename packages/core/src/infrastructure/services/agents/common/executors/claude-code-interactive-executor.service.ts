@@ -3,7 +3,7 @@
  *
  * Infrastructure implementation of IInteractiveAgentExecutor using the
  * @anthropic-ai/claude-agent-sdk V2 session API. This is the ONLY file
- * (alongside claude-agent-sdk.adapter.ts) that imports from the SDK.
+ * that imports from the SDK.
  *
  * Design decisions:
  * - SDKSessionOptions (V2) does not expose a `cwd` parameter. We use

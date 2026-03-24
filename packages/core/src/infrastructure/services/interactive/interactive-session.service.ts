@@ -862,37 +862,6 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     }
   }
 
-  /** Extract a human-readable detail string from tool input for display in chat. */
-  private extractToolDetail(toolName: string, input?: Record<string, unknown>): string | undefined {
-    if (!input) return undefined;
-    if (toolName === 'Read' && input.file_path) return String(input.file_path);
-    if (toolName === 'Write' && input.file_path) return String(input.file_path);
-    if (toolName === 'Edit' && input.file_path) return String(input.file_path);
-    if (toolName === 'Glob' && input.pattern) return String(input.pattern);
-    if (toolName === 'Grep' && input.pattern) return String(input.pattern);
-    if (toolName === 'Bash' && input.command) {
-      const cmd = String(input.command);
-      return cmd.length > 120 ? `${cmd.slice(0, 117)}...` : cmd;
-    }
-    if (toolName === 'Skill' && input.skill) return String(input.skill);
-    if (toolName === 'Agent' && input.prompt) {
-      const prompt = String(input.prompt);
-      return prompt.length > 120 ? `${prompt.slice(0, 117)}...` : prompt;
-    }
-    if (toolName === 'WebSearch' && input.query) return String(input.query);
-    if (toolName === 'WebFetch' && input.url) return String(input.url);
-    if (toolName === 'TaskCreate' && input.description) return String(input.description);
-    if (toolName === 'TodoWrite' && input.todos)
-      return `${(input.todos as unknown[]).length} items`;
-    // Fallback: show first string value from input for unknown tools
-    for (const val of Object.values(input)) {
-      if (typeof val === 'string' && val.length > 0) {
-        return val.length > 120 ? `${val.slice(0, 117)}...` : val;
-      }
-    }
-    return undefined;
-  }
-
   // ---------------------------------------------------------------------------
   // Timer helpers
   // ---------------------------------------------------------------------------

@@ -29,15 +29,6 @@ export type {
   GetSessionOptions,
 } from './agent-session-repository.interface.js';
 export type {
-  IInteractiveAgentProcessFactory,
-  InteractiveSpawnOptions,
-} from './interactive-agent-process-factory.interface.js';
-export type {
-  IInteractiveAgentAdapter,
-  InteractiveSessionOptions,
-  SDKSession,
-} from './interactive-agent-adapter.interface.js';
-export type {
   IInteractiveAgentExecutor,
   InteractiveAgentOptions,
   InteractiveAgentEvent,
