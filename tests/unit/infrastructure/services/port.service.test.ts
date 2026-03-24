@@ -60,6 +60,8 @@ describe('Port Service', () => {
 
       try {
         const port = await findAvailablePort(49155);
+        // Must skip at least past the two occupied ports; other system processes
+        // may occupy additional ports so we check >= rather than exact equality.
         expect(port).toBeGreaterThanOrEqual(49157);
       } finally {
         await Promise.all(

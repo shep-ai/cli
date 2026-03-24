@@ -379,6 +379,41 @@ describe('getMergeReviewData server action', () => {
       expect(result).toMatchObject({ evidence: undefined });
     });
 
+    it('deduplicates evidence entries with the same type and relativePath', async () => {
+      const duplicateManifest = [
+        {
+          type: 'Screenshot',
+          capturedAt: '2026-01-01T12:00:00Z',
+          description: 'Homepage screenshot',
+          relativePath: '/home/test/.shep/repos/abcdef0123456789/evidence/feat-123/homepage.png',
+          taskRef: 'task-1',
+        },
+        {
+          type: 'Screenshot',
+          capturedAt: '2026-01-01T12:01:00Z',
+          description: 'Homepage screenshot (duplicate)',
+          relativePath: '/home/test/.shep/repos/abcdef0123456789/evidence/feat-123/homepage.png',
+          taskRef: 'task-1',
+        },
+        {
+          type: 'Video',
+          capturedAt: '2026-01-01T12:02:00Z',
+          description: 'Demo video',
+          relativePath: '/home/test/.shep/repos/abcdef0123456789/evidence/feat-123/demo.mp4',
+        },
+      ];
+      mockFindById.mockResolvedValue(baseFeature);
+      mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(JSON.stringify(duplicateManifest));
+
+      const result = await getMergeReviewData('feat-123');
+
+      expect('evidence' in result && result.evidence).toHaveLength(2);
+      expect('evidence' in result && result.evidence?.[0]?.description).toBe('Homepage screenshot');
+      expect('evidence' in result && result.evidence?.[1]?.description).toBe('Demo video');
+    });
+
     it('returns no evidence when repositoryPath and worktreePath are both absent', async () => {
       mockFindById.mockResolvedValue({
         ...baseFeature,
