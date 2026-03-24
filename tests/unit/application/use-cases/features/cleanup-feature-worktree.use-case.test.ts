@@ -108,6 +108,9 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       rebaseContinue: vi.fn().mockResolvedValue(undefined),
       rebaseAbort: vi.fn().mockResolvedValue(undefined),
       getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
+      createPrFromArgs: vi
+        .fn()
+        .mockResolvedValue({ url: 'https://github.com/org/repo/pull/1', number: 1 }),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(

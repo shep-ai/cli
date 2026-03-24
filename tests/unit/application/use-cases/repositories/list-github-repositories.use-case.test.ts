@@ -40,6 +40,11 @@ describe('ListGitHubRepositoriesUseCase', () => {
         .fn<() => Promise<GitHubRepo[]>>()
         .mockResolvedValue([createMockRepo()]),
       parseGitHubUrl: vi.fn(),
+      checkPushAccess: vi.fn().mockResolvedValue(false),
+      forkRepository: vi.fn().mockResolvedValue({
+        nameWithOwner: 'user/repo',
+        cloneUrl: 'https://github.com/user/repo.git',
+      }),
       getViewerPermission: vi.fn().mockResolvedValue('ADMIN'),
     };
 

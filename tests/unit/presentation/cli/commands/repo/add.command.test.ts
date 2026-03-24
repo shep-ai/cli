@@ -23,6 +23,9 @@ const { mockImportExecute, mockListExecute, mockGitHubService, mockGithubImportW
       cloneRepository: vi.fn(),
       listUserRepositories: vi.fn(),
       parseGitHubUrl: vi.fn(),
+      checkPushAccess: vi.fn(),
+      forkRepository: vi.fn(),
+      getViewerPermission: vi.fn(),
     },
     mockGithubImportWizard: vi.fn(),
   }));

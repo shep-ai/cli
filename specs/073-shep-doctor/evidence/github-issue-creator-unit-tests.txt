@@ -1,0 +1,21 @@
+GitHubIssueCreatorService Unit Tests — 11/11 passing
+=====================================================
+Test runner: Vitest v4.0.18
+
+GitHubIssueCreatorService > createIssue() — success
+  ✓ should call gh issue create with correct flags and return URL + number
+  ✓ should handle issue URL without trailing newline
+  ✓ should create issue with no labels
+  ✓ should return number 0 when URL cannot be parsed
+
+GitHubIssueCreatorService > createIssue() — error handling
+  ✓ should throw GH_NOT_FOUND when gh CLI is not installed
+  ✓ should throw AUTH_FAILURE when gh is not authenticated
+  ✓ should throw AUTH_FAILURE on 403 errors
+  ✓ should throw NETWORK_ERROR on connection failures
+  ✓ should throw NETWORK_ERROR on timeout
+  ✓ should throw CREATE_FAILED for unknown errors
+  ✓ should preserve cause on error
+
+Test Files  1 passed (1)
+     Tests  11 passed (11)

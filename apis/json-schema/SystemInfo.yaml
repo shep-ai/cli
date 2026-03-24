@@ -1,0 +1,22 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: SystemInfo.yaml
+type: object
+properties:
+  nodeVersion:
+    type: string
+    description: Node.js version (e.g. v20.11.0)
+  platform:
+    type: string
+    description: Operating system platform (e.g. darwin, linux, win32)
+  arch:
+    type: string
+    description: CPU architecture (e.g. x64, arm64)
+  ghVersion:
+    type: string
+    description: gh CLI version string
+required:
+  - nodeVersion
+  - platform
+  - arch
+  - ghVersion
+description: System environment information for diagnostic reporting

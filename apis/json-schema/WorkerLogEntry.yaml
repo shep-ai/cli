@@ -1,0 +1,27 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: WorkerLogEntry.yaml
+type: object
+properties:
+  agentRunId:
+    type: string
+    description: Agent run ID this log belongs to
+  agentName:
+    type: string
+    description: Name of the agent that produced this log
+  content:
+    type: string
+    description: Full log file content (may be truncated)
+  truncated:
+    type: boolean
+    description: Whether the content was truncated due to size limits
+  originalLength:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Original character count before truncation (only set when truncated)
+required:
+  - agentRunId
+  - agentName
+  - content
+  - truncated
+description: Worker log entry for a specific agent run

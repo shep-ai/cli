@@ -436,6 +436,10 @@ export type WorkflowConfig = {
    * Hide CI status badges from UI (default: true)
    */
   hideCiStatus?: boolean;
+  /**
+   * Maximum number of doctor fix attempts before giving up (default: 1)
+   */
+  doctorMaxFixAttempts?: number;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',
@@ -1714,6 +1718,192 @@ export type Evidence = {
    * Optional reference to the task this evidence proves
    */
   taskRef?: string;
+};
+
+/**
+ * Summary of a failed agent run for diagnostic reporting
+ */
+export type FailedRunSummary = {
+  /**
+   * Type of agent that failed (e.g. claude-code, gemini-cli)
+   */
+  agentType: string;
+  /**
+   * Name/identifier of the agent run
+   */
+  agentName: string;
+  /**
+   * Error message from the failed run
+   */
+  error: string;
+  /**
+   * ISO 8601 timestamp when the failure occurred
+   */
+  timestamp: string;
+};
+
+/**
+ * System environment information for diagnostic reporting
+ */
+export type SystemInfo = {
+  /**
+   * Node.js version (e.g. v20.11.0)
+   */
+  nodeVersion: string;
+  /**
+   * Operating system platform (e.g. darwin, linux, win32)
+   */
+  platform: string;
+  /**
+   * CPU architecture (e.g. x64, arm64)
+   */
+  arch: string;
+  /**
+   * gh CLI version string
+   */
+  ghVersion: string;
+};
+
+/**
+ * Detailed agent run information including prompt and result for diagnostic reporting
+ */
+export type AgentRunDetail = {
+  /**
+   * Type of agent (e.g. claude-code, gemini-cli)
+   */
+  agentType: string;
+  /**
+   * Name/identifier of the agent run
+   */
+  agentName: string;
+  /**
+   * Input prompt sent to the agent executor
+   */
+  prompt: string;
+  /**
+   * Final result output from the agent (if available)
+   */
+  result?: string;
+  /**
+   * Error message if the run failed
+   */
+  error?: string;
+  /**
+   * ISO 8601 timestamp of the run
+   */
+  timestamp: string;
+};
+
+/**
+ * Worker log entry for a specific agent run
+ */
+export type WorkerLogEntry = {
+  /**
+   * Agent run ID this log belongs to
+   */
+  agentRunId: string;
+  /**
+   * Name of the agent that produced this log
+   */
+  agentName: string;
+  /**
+   * Full log file content (may be truncated)
+   */
+  content: string;
+  /**
+   * Whether the content was truncated due to size limits
+   */
+  truncated: boolean;
+  /**
+   * Original character count before truncation (only set when truncated)
+   */
+  originalLength?: number;
+};
+
+/**
+ * Structured diagnostic report collected by shep doctor for issue creation
+ */
+export type DoctorDiagnosticReport = {
+  /**
+   * User-provided description of the problem
+   */
+  userDescription: string;
+  /**
+   * Summaries of recent failed agent runs
+   */
+  failedRunSummaries: FailedRunSummary[];
+  /**
+   * System environment information
+   */
+  systemInfo: SystemInfo;
+  /**
+   * Current shep CLI version
+   */
+  cliVersion: string;
+  /**
+   * Feature ID when diagnosing a specific feature (optional)
+   */
+  featureId?: string;
+  /**
+   * Feature name when diagnosing a specific feature (optional)
+   */
+  featureName?: string;
+  /**
+   * Feature lifecycle phase (e.g. Implementation, Review)
+   */
+  featureLifecycle?: string;
+  /**
+   * Feature git branch name
+   */
+  featureBranch?: string;
+  /**
+   * Feature description
+   */
+  featureDescription?: string;
+  /**
+   * JSON-serialized feature workflow configuration (fast, push, openPr, approvalGates)
+   */
+  featureWorkflowConfig?: string;
+  /**
+   * Raw spec.yaml content
+   */
+  specYaml?: string;
+  /**
+   * Raw research.yaml content
+   */
+  researchYaml?: string;
+  /**
+   * Raw plan.yaml content
+   */
+  planYaml?: string;
+  /**
+   * Raw tasks.yaml content
+   */
+  tasksYaml?: string;
+  /**
+   * Raw feature.yaml (status tracking) content
+   */
+  featureStatusYaml?: string;
+  /**
+   * Detailed agent run information including prompts and results
+   */
+  agentRunDetails?: AgentRunDetail[];
+  /**
+   * JSON-serialized conversation messages (Feature.messages[])
+   */
+  conversationMessages?: string;
+  /**
+   * JSON-serialized feature plan (Feature.plan)
+   */
+  featurePlan?: string;
+  /**
+   * Worker execution logs for agent runs associated with this feature
+   */
+  workerLogs?: WorkerLogEntry[];
+  /**
+   * JSON-serialized phase timing records
+   */
+  phaseTimings?: string;
 };
 export enum AgentStatus {
   Idle = 'Idle',

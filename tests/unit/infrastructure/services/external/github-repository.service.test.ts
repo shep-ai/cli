@@ -12,6 +12,7 @@ import { GitHubRepositoryService } from '@/infrastructure/services/external/gith
 import {
   GitHubAuthError,
   GitHubCloneError,
+  GitHubForkError,
   GitHubRepoListError,
   GitHubUrlParseError,
 } from '@/application/ports/output/services/github-repository-service.interface.js';
@@ -338,6 +339,152 @@ describe('GitHubRepositoryService', () => {
 
       await expect(promise).rejects.toThrow(GitHubCloneError);
       expect(mockRm).toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // checkPushAccess
+  // -------------------------------------------------------------------------
+
+  describe('checkPushAccess()', () => {
+    it('should return true when gh api returns "true"', async () => {
+      mockExecFile.mockResolvedValue({ stdout: 'true\n', stderr: '' });
+
+      const result = await service.checkPushAccess('shep-ai/cli');
+
+      expect(result).toBe(true);
+      expect(mockExecFile).toHaveBeenCalledWith('gh', [
+        'api',
+        'repos/shep-ai/cli',
+        '--jq',
+        '.permissions.push',
+      ]);
+    });
+
+    it('should return false when gh api returns "false"', async () => {
+      mockExecFile.mockResolvedValue({ stdout: 'false\n', stderr: '' });
+
+      const result = await service.checkPushAccess('shep-ai/cli');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when gh api throws an error (network failure)', async () => {
+      mockExecFile.mockRejectedValue(new Error('network error'));
+
+      const result = await service.checkPushAccess('shep-ai/cli');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when gh api throws ENOENT (gh not installed)', async () => {
+      const err = new Error('spawn gh ENOENT') as NodeJS.ErrnoException;
+      err.code = 'ENOENT';
+      mockExecFile.mockRejectedValue(err);
+
+      const result = await service.checkPushAccess('shep-ai/cli');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when gh api returns unexpected output', async () => {
+      mockExecFile.mockResolvedValue({ stdout: 'null\n', stderr: '' });
+
+      const result = await service.checkPushAccess('shep-ai/cli');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when gh api returns empty string', async () => {
+      mockExecFile.mockResolvedValue({ stdout: '', stderr: '' });
+
+      const result = await service.checkPushAccess('shep-ai/cli');
+
+      expect(result).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // forkRepository
+  // -------------------------------------------------------------------------
+
+  describe('forkRepository()', () => {
+    it('should create a new fork and return nameWithOwner + cloneUrl', async () => {
+      mockExecFile.mockResolvedValue({
+        stdout: JSON.stringify({
+          nameWithOwner: 'myuser/cli',
+          url: 'https://github.com/myuser/cli',
+        }),
+        stderr: '',
+      });
+
+      const result = await service.forkRepository('shep-ai/cli');
+
+      expect(result.nameWithOwner).toBe('myuser/cli');
+      expect(result.cloneUrl).toBe('https://github.com/myuser/cli.git');
+      expect(mockExecFile).toHaveBeenCalledWith('gh', [
+        'repo',
+        'fork',
+        'shep-ai/cli',
+        '--clone=false',
+        '--json',
+        'nameWithOwner,url',
+      ]);
+    });
+
+    it('should detect existing fork and return it (idempotent)', async () => {
+      mockExecFile.mockResolvedValue({
+        stdout: JSON.stringify({
+          nameWithOwner: 'myuser/cli',
+          url: 'https://github.com/myuser/cli',
+        }),
+        stderr: 'myuser/cli already exists',
+      });
+
+      const result = await service.forkRepository('shep-ai/cli');
+
+      expect(result.nameWithOwner).toBe('myuser/cli');
+      expect(result.cloneUrl).toBe('https://github.com/myuser/cli.git');
+    });
+
+    it('should not double-append .git if URL already has it', async () => {
+      mockExecFile.mockResolvedValue({
+        stdout: JSON.stringify({
+          nameWithOwner: 'myuser/cli',
+          url: 'https://github.com/myuser/cli.git',
+        }),
+        stderr: '',
+      });
+
+      const result = await service.forkRepository('shep-ai/cli');
+
+      expect(result.cloneUrl).toBe('https://github.com/myuser/cli.git');
+    });
+
+    it('should throw GitHubForkError on auth failure', async () => {
+      mockExecFile.mockRejectedValue(new Error('HTTP 403: not authorized'));
+
+      await expect(service.forkRepository('shep-ai/cli')).rejects.toThrow(GitHubForkError);
+      await expect(service.forkRepository('shep-ai/cli')).rejects.toThrow('Failed to fork');
+    });
+
+    it('should throw GitHubForkError on network error', async () => {
+      mockExecFile.mockRejectedValue(new Error('network timeout'));
+
+      await expect(service.forkRepository('shep-ai/cli')).rejects.toThrow(GitHubForkError);
+    });
+
+    it('should preserve error cause', async () => {
+      const cause = new Error('original fork error');
+      mockExecFile.mockRejectedValue(cause);
+
+      try {
+        await service.forkRepository('shep-ai/cli');
+        expect.fail('Should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(GitHubForkError);
+        expect((err as GitHubForkError).cause).toBe(cause);
+      }
     });
   });
 });

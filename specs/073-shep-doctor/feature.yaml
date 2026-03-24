@@ -1,0 +1,43 @@
+feature:
+  id: "073-shep-doctor"
+  name: "shep-doctor"
+  number: 73
+  branch: "feat/073-shep-doctor"
+  lifecycle: "research"
+  createdAt: "2026-03-20T20:31:34Z"
+status:
+  phase: "implementation-complete"
+  progress:
+    completed: 15
+    total: 15
+    percentage: 100
+  currentTask: null
+  lastUpdated: "2026-03-20T22:41:03.003Z"
+  lastUpdatedBy: "feature-agent:implement"
+  completedPhases:
+    - "analyze"
+    - "requirements"
+    - "research"
+    - "plan"
+    - "phase-1"
+    - "phase-2"
+    - "phase-3"
+    - "phase-4"
+    - "phase-5"
+    - "phase-6"
+    - "evidence"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-20T20:31:34Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []

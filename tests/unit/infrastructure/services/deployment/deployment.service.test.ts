@@ -379,6 +379,18 @@ describe('DeploymentService', () => {
   });
 
   describe('recoverAll', () => {
+    const originalSkipRecovery = process.env.SHEP_SKIP_RECOVERY;
+    beforeEach(() => {
+      delete process.env.SHEP_SKIP_RECOVERY;
+    });
+    afterEach(() => {
+      if (originalSkipRecovery !== undefined) {
+        process.env.SHEP_SKIP_RECOVERY = originalSkipRecovery;
+      } else {
+        delete process.env.SHEP_SKIP_RECOVERY;
+      }
+    });
+
     function createMockDb(rows: Record<string, unknown>[]) {
       return {
         prepare: vi.fn().mockReturnValue({

@@ -1,0 +1,22 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FailedRunSummary.yaml
+type: object
+properties:
+  agentType:
+    type: string
+    description: Type of agent that failed (e.g. claude-code, gemini-cli)
+  agentName:
+    type: string
+    description: Name/identifier of the agent run
+  error:
+    type: string
+    description: Error message from the failed run
+  timestamp:
+    type: string
+    description: ISO 8601 timestamp when the failure occurred
+required:
+  - agentType
+  - agentName
+  - error
+  - timestamp
+description: Summary of a failed agent run for diagnostic reporting

@@ -27,6 +27,7 @@ export type {
   CiStatusResult,
   DiffSummary,
   MergeStrategy,
+  PrCreateArgs,
   PrCreateResult,
 } from './git-pr-service.interface.js';
 export { GitPrError, GitPrErrorCode } from './git-pr-service.interface.js';
@@ -45,10 +46,17 @@ export type {
   ListUserRepositoriesOptions,
   CloneOptions,
   ParsedGitHubUrl,
+  ForkResult,
 } from './github-repository-service.interface.js';
 export {
   GitHubAuthError,
   GitHubCloneError,
   GitHubUrlParseError,
   GitHubRepoListError,
+  GitHubForkError,
 } from './github-repository-service.interface.js';
+export type {
+  IGitHubIssueService,
+  GitHubIssueCreateResult,
+} from './github-issue-service.interface.js';
+export { GitHubIssueError, GitHubIssueErrorCode } from './github-issue-service.interface.js';
