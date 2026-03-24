@@ -1,0 +1,15 @@
+> vitest run tests/unit -- tests/unit/presentation/web/actions/merge-review/get-merge-review-data.test.ts tests/unit/presentation/web/components/common/merge-review/merge-review.test.tsx
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/merge.node.ci-watch.test.ts [2m([22m[2m33 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/merge.node.test.ts [2m([22m[2m36 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/merge-output-parser.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.ci-watch.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.evidence.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge.prompt.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.ci-watch-fix.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-review.test.tsx [2m([22m[2m38 tests[22m[2m)[22m[33m 809[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/diff-view.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[32m 233[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/merge-review/get-merge-review-data.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+[2m Test Files [22m [1m[32m348 passed[39m[22m[90m (348)[39m
+[2m      Tests [22m [1m[32m4755 passed[39m[22m[90m (4755)[39m
