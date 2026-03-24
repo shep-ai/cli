@@ -7,6 +7,7 @@ import { AppShell } from '@/components/layouts/app-shell';
 import { Toaster } from '@/components/ui/sonner';
 import { getFeatureFlags } from '@/lib/feature-flags';
 import { FeatureFlagsProvider } from '@/hooks/feature-flags-context';
+import { QueryProvider } from '@/components/providers/query-provider';
 
 /** Force dynamic rendering for all pages since they depend on client-side context. */
 export const dynamic = 'force-dynamic';
@@ -50,9 +51,11 @@ export default async function RootLayout({
         />
       </head>
       <body className="min-h-screen antialiased">
-        <FeatureFlagsProvider flags={getFeatureFlags()}>
-          <AppShell sidebarOpen={sidebarOpen}>{children}</AppShell>
-        </FeatureFlagsProvider>
+        <QueryProvider>
+          <FeatureFlagsProvider flags={getFeatureFlags()}>
+            <AppShell sidebarOpen={sidebarOpen}>{children}</AppShell>
+          </FeatureFlagsProvider>
+        </QueryProvider>
         <Toaster position="bottom-center" />
       </body>
     </html>

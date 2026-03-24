@@ -443,6 +443,27 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* ── Global seamless scrollbars ────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, currentColor 25%, transparent);
+  }
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, currentColor 12%, transparent) transparent;
+  }
   button,
   [role='button'],
   a,

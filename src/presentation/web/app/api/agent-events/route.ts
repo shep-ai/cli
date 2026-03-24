@@ -17,9 +17,11 @@
 import { resolve } from '@/lib/server-container';
 import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
 import type { IPhaseTimingRepository } from '@shepai/core/application/ports/output/agents/phase-timing-repository.interface';
+import type { IInteractiveSessionRepository } from '@shepai/core/application/ports/output/repositories/interactive-session-repository.interface';
 import type { Feature, AgentRun } from '@shepai/core/domain/generated/output';
 import {
   AgentRunStatus,
+  InteractiveSessionStatus,
   SdlcLifecycle,
   NotificationEventType,
   NotificationSeverity,
@@ -101,6 +103,22 @@ function resultToPhase(result: string | undefined): string | undefined {
   return result.slice(5); // "node:analyze" → "analyze"
 }
 
+/** Payload emitted for interactive session lifecycle SSE events. */
+export interface InteractiveSessionEvent {
+  type:
+    | 'interactive_session_booting'
+    | 'interactive_session_ready'
+    | 'interactive_session_stopped'
+    | 'interactive_session_error';
+  sessionId: string;
+  featureId: string;
+}
+
+/** Per-connection cache entry for interactive sessions. */
+interface CachedSessionState {
+  status: InteractiveSessionStatus;
+}
+
 export function GET(request: Request): Response {
   try {
     const url = new URL(request.url);
@@ -112,6 +130,8 @@ export function GET(request: Request): Response {
 
         // Per-connection cache: featureId → last-seen state
         const cache = new Map<string, CachedFeatureState>();
+        // Per-connection cache: sessionId → last-seen interactive session state
+        const sessionCache = new Map<string, CachedSessionState>();
         let stopped = false;
 
         function enqueue(text: string) {
@@ -331,6 +351,64 @@ export function GET(request: Request): Response {
                 // Ignore timing errors
               }
             }
+            // Poll interactive sessions for lifecycle status changes
+            try {
+              const sessionRepo = resolve<IInteractiveSessionRepository>(
+                'IInteractiveSessionRepository'
+              );
+              const activeSessions = await sessionRepo.findAllActive();
+
+              for (const session of activeSessions) {
+                const prev = sessionCache.get(session.id);
+                if (prev?.status !== session.status) {
+                  sessionCache.set(session.id, { status: session.status });
+                  const eventType =
+                    session.status === InteractiveSessionStatus.booting
+                      ? 'interactive_session_booting'
+                      : session.status === InteractiveSessionStatus.ready
+                        ? 'interactive_session_ready'
+                        : session.status === InteractiveSessionStatus.error
+                          ? 'interactive_session_error'
+                          : 'interactive_session_stopped';
+                  const payload: InteractiveSessionEvent = {
+                    type: eventType,
+                    sessionId: session.id,
+                    featureId: session.featureId,
+                  };
+                  enqueue(`event: interactive_session\ndata: ${JSON.stringify(payload)}\n\n`);
+                }
+              }
+
+              // Emit stopped/error events for sessions that disappeared from active list
+              for (const [sessionId, cached] of sessionCache) {
+                if (
+                  (cached.status === InteractiveSessionStatus.booting ||
+                    cached.status === InteractiveSessionStatus.ready) &&
+                  !activeSessions.find((s) => s.id === sessionId)
+                ) {
+                  // Session no longer active — fetch to get final status
+                  const session = await sessionRepo.findById(sessionId);
+                  if (session) {
+                    sessionCache.set(sessionId, { status: session.status });
+                    const eventType =
+                      session.status === InteractiveSessionStatus.error
+                        ? 'interactive_session_error'
+                        : 'interactive_session_stopped';
+                    const payload: InteractiveSessionEvent = {
+                      type: eventType,
+                      sessionId: session.id,
+                      featureId: session.featureId,
+                    };
+                    enqueue(`event: interactive_session\ndata: ${JSON.stringify(payload)}\n\n`);
+                  } else {
+                    sessionCache.delete(sessionId);
+                  }
+                }
+              }
+            } catch {
+              // Ignore interactive session poll errors to not affect main polling
+            }
+
             pollErrorCount = 0; // Reset on success
           } catch (error) {
             pollErrorCount++;

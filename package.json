@@ -173,6 +173,7 @@
   },
   "packageManager": "pnpm@10.30.0",
   "dependencies": {
+    "@assistant-ui/react": "^0.12.19",
     "@cubone/react-file-manager": "^1.35.0",
     "@inquirer/prompts": "^8.2.0",
     "@langchain/core": "^1.1.22",
