@@ -2,16 +2,15 @@
  * Interactive Session Service
  *
  * Singleton service that owns the lifecycle of all interactive agent sessions.
- * Each conversation turn spawns a fresh agent process in print mode (-p) with
- * stream-json output. Multi-turn context is maintained via the agent CLI's
- * --resume flag using the session_id returned in the first result event.
+ * Uses the IAgentExecutorFactory to create interactive executors that manage
+ * persistent sessions via the agent SDK. Multi-turn context is maintained
+ * by the SDK session handle internally.
  *
  * Dependencies are injected via constructor for testability (no real processes
  * are spawned in unit tests — the factory is replaced with a test double).
  */
 
 import * as crypto from 'node:crypto';
-import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type {
   IInteractiveSessionService,
   StreamChunk,
@@ -20,13 +19,17 @@ import type {
 } from '../../../application/ports/output/services/interactive-session-service.interface.js';
 import type { IInteractiveSessionRepository } from '../../../application/ports/output/repositories/interactive-session-repository.interface.js';
 import type { IInteractiveMessageRepository } from '../../../application/ports/output/repositories/interactive-message-repository.interface.js';
-import type { IInteractiveAgentProcessFactory } from '../../../application/ports/output/agents/interactive-agent-process-factory.interface.js';
+import type { IAgentExecutorFactory } from '../../../application/ports/output/agents/agent-executor-factory.interface.js';
+import type { InteractiveAgentSessionHandle } from '../../../application/ports/output/agents/interactive-agent-executor.interface.js';
 import type { IFeatureRepository } from '../../../application/ports/output/repositories/feature-repository.interface.js';
 import type { InteractiveSession, InteractiveMessage } from '../../../domain/generated/output.js';
 import {
   InteractiveSessionStatus,
   InteractiveMessageRole,
+  AgentType,
+  AgentAuthMethod,
 } from '../../../domain/generated/output.js';
+import type { AgentConfig } from '../../../domain/generated/output.js';
 import { ConcurrentSessionLimitError } from '../../../domain/errors/concurrent-session-limit.error.js';
 import { type FeatureContextBuilder } from './feature-context.builder.js';
 import { getSettings, hasSettings } from '../settings.service.js';
@@ -45,40 +48,25 @@ interface SessionState {
   sessionId: string;
   featureId: string;
   worktreePath: string;
-  /** Claude CLI session ID for --resume across turns. */
+  /** Agent SDK session handle — null until session is created. */
+  handle: InteractiveAgentSessionHandle | null;
+  /** Claude SDK session ID for resumption across service restarts. */
   claudeSessionId?: string;
-  /** The currently-running per-turn process (null between turns). */
-  activeProcess: ChildProcessWithoutNullStreams | null;
   timer: NodeJS.Timeout | null;
   /** Accumulates assistant text between user turns for persistence. */
   currentAssistantBuffer: string;
-  /** Incomplete line data waiting for a newline. */
-  lineBuffer: string;
   /** Accumulates tool events during a turn for rich message persistence. */
   toolEventsLog: string[];
   /** Subscriber callbacks for real-time stdout chunk forwarding. */
   subscribers: Set<(chunk: StreamChunk) => void>;
-  /**
-   * Resolve callback for the current turn's completion promise.
-   * Set when spawning a turn process, cleared when result arrives.
-   */
-  onTurnComplete?: (result: TurnResult) => void;
-  /** Reject callback for the current turn (process crashes before result). */
-  onTurnError?: (err: Error) => void;
   /** User message content queued while session boots. */
   pendingUserContent?: string;
-  /** Model override for the agent process (e.g. 'sonnet', 'opus', 'haiku'). */
+  /** Model override for the agent process (e.g. 'claude-sonnet-4-6'). */
   model?: string;
-  /** Last known PID — persists after process exits between turns. */
-  lastPid?: number;
-  /** Timeout handle for the current turn. */
-  turnTimeout?: NodeJS.Timeout;
-}
-
-/** Result extracted from a completed turn. */
-interface TurnResult {
-  text: string;
-  sessionId?: string;
+  /** Agent type for this session. */
+  agentType?: string;
+  /** AbortController to cancel active stream iteration on stop. */
+  streamAbort?: AbortController;
 }
 
 /**
@@ -105,7 +93,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   constructor(
     private readonly sessionRepo: IInteractiveSessionRepository,
     private readonly messageRepo: IInteractiveMessageRepository,
-    private readonly processFactory: IInteractiveAgentProcessFactory,
+    private readonly executorFactory: IAgentExecutorFactory,
     private readonly featureRepo: IFeatureRepository,
     private readonly contextBuilder: FeatureContextBuilder
   ) {}
@@ -117,7 +105,8 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   async startSession(
     featureId: string,
     worktreePath: string,
-    model?: string
+    model?: string,
+    agentType?: string
   ): Promise<InteractiveSession> {
     const cap = this.getCap();
     const activeCount = await this.sessionRepo.countActiveSessions();
@@ -138,7 +127,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     };
     await this.sessionRepo.create(session);
 
-    // Carry over claudeSessionId from previous session so --resume works
+    // Carry over claudeSessionId from previous session so resumption works
     let previousClaudeSessionId: string | undefined;
     for (const [, s] of this.sessions) {
       if (s.featureId === featureId && s.claudeSessionId) {
@@ -147,9 +136,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       }
     }
     // Also check stoppedSessions cache (populated on stop)
-    if (!previousClaudeSessionId) {
-      previousClaudeSessionId = this.stoppedClaudeSessionIds.get(featureId);
-    }
+    previousClaudeSessionId ??= this.stoppedClaudeSessionIds.get(featureId);
 
     // Set up in-memory state
     const state: SessionState = {
@@ -157,11 +144,11 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       featureId,
       worktreePath,
       model,
+      agentType,
+      handle: null,
       claudeSessionId: previousClaudeSessionId,
-      activeProcess: null,
       timer: null,
       currentAssistantBuffer: '',
-      lineBuffer: '',
       toolEventsLog: [],
       subscribers: new Set(),
     };
@@ -176,9 +163,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 
   /**
    * Asynchronously complete the boot sequence: build feature context,
-   * spawn a one-shot agent process, pipe the context prompt to stdin,
-   * wait for the result event (greeting + session_id), persist the
-   * greeting, and transition the session to "ready".
+   * create an SDK session via the interactive executor, send the boot
+   * prompt, iterate the stream for the greeting, persist the greeting,
+   * and transition the session to "ready".
    */
   private async completeBootAsync(
     state: SessionState,
@@ -204,7 +191,8 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       let bootPrompt = context;
 
       // Check if the last message is from the user — they're waiting for a response
-      const lastMsg = previousMessages.length > 0 ? previousMessages[previousMessages.length - 1] : null;
+      const lastMsg =
+        previousMessages.length > 0 ? previousMessages[previousMessages.length - 1] : null;
       const userIsWaiting = lastMsg?.role === InteractiveMessageRole.user;
 
       if (previousMessages.length > 0) {
@@ -214,7 +202,8 @@ export class InteractiveSessionService implements IInteractiveSessionService {
           if (m.role !== InteractiveMessageRole.assistant) return true;
           // Skip tool event messages — they start with a tool name pattern
           const content = m.content.trim();
-          const toolPatterns = /^(Bash |Read |Write |Edit |Glob |Grep |Session started |Using tool:)/;
+          const toolPatterns =
+            /^(Bash |Read |Write |Edit |Glob |Grep |Session started |Using tool:)/;
           return !toolPatterns.test(content);
         });
 
@@ -224,7 +213,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
           .map((m) => {
             const role = m.role === InteractiveMessageRole.user ? 'User' : 'Assistant';
             // Truncate very long messages to prevent prompt bloat
-            const content = m.content.length > 500 ? m.content.slice(0, 500) + '...' : m.content;
+            const content = m.content.length > 500 ? `${m.content.slice(0, 500)}...` : m.content;
             return `[${role}]: ${content}`;
           })
           .join('\n\n');
@@ -239,9 +228,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 `;
 
         if (userIsWaiting) {
-          const lastUserMsg = [...previousMessages].reverse().find(
-            (m) => m.role === InteractiveMessageRole.user
-          );
+          const lastUserMsg = [...previousMessages]
+            .reverse()
+            .find((m) => m.role === InteractiveMessageRole.user);
           bootPrompt += `5. The user's latest message is: "${lastUserMsg?.content.slice(0, 200) ?? ''}"
 6. Respond to THIS message directly. Do not do anything else.`;
         } else {
@@ -254,28 +243,160 @@ export class InteractiveSessionService implements IInteractiveSessionService {
         state.pendingUserContent = undefined;
       }
 
-      // Spawn the boot turn and wait for result
-      const result = await this.executeTurn(state, bootPrompt, BOOT_TIMEOUT_MS);
+      // Resolve agent type and auth config from settings
+      const resolvedAgentType = this.resolveAgentType(state.agentType);
+      const authConfig = this.resolveAuthConfig();
 
-      // Store the claude session ID for subsequent --resume calls
-      if (result.sessionId) {
-        state.claudeSessionId = result.sessionId;
+      // Create the interactive executor and session
+      const executor = this.executorFactory.createInteractiveExecutor(
+        resolvedAgentType,
+        authConfig
+      );
+      let handle: InteractiveAgentSessionHandle;
+
+      if (state.claudeSessionId) {
+        // Resume existing SDK session
+        handle = await executor.resumeSession(state.claudeSessionId, {
+          cwd: worktreePath,
+          model: state.model,
+          systemPrompt: context,
+        });
+      } else {
+        // Create new SDK session
+        handle = await executor.createSession({
+          cwd: worktreePath,
+          model: state.model,
+          systemPrompt: context,
+        });
       }
 
-      // Persist greeting/response and mark session ready
-      const greetingMsg: InteractiveMessage = {
-        id: crypto.randomUUID(),
-        featureId,
-        sessionId: state.sessionId,
-        role: InteractiveMessageRole.assistant,
-        content: result.text,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      await this.messageRepo.create(greetingMsg);
-      await this.sessionRepo.updateStatus(state.sessionId, InteractiveSessionStatus.ready);
+      state.handle = handle;
+      state.claudeSessionId = handle.sessionId;
 
-      // Start idle timer now that the session is live
+      // Send the boot prompt and iterate stream for the greeting
+      await handle.send(bootPrompt);
+
+      let greetingText = '';
+      const bootAbort = new AbortController();
+      state.streamAbort = bootAbort;
+
+      // Set up boot timeout
+      const bootTimeout = setTimeout(() => {
+        bootAbort.abort();
+      }, BOOT_TIMEOUT_MS);
+
+      try {
+        for await (const event of handle.stream()) {
+          if (bootAbort.signal.aborted) {
+            throw new Error(`Agent boot timed out after ${BOOT_TIMEOUT_MS / 1000}s`);
+          }
+
+          this.resetTimer(state);
+
+          switch (event.type) {
+            case 'delta':
+              if (event.content) {
+                greetingText += event.content;
+                state.currentAssistantBuffer += event.content;
+                state.subscribers.forEach((sub) => sub({ delta: event.content!, done: false }));
+              }
+              break;
+
+            case 'tool_use':
+              if (event.label) {
+                const toolLabel = event.label;
+                const toolDetail = event.detail;
+                void this.persistToolEvent(state, toolLabel, toolDetail);
+                state.subscribers.forEach((sub) =>
+                  sub({
+                    delta: '',
+                    done: false,
+                    log: `Using tool: ${toolLabel}`,
+                    activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
+                  })
+                );
+              }
+              break;
+
+            case 'tool_result':
+              if (event.label) {
+                const resultLabel = event.label;
+                const resultDetail = event.detail;
+                void this.persistToolEvent(state, resultLabel, resultDetail);
+                state.subscribers.forEach((sub) =>
+                  sub({
+                    delta: '',
+                    done: false,
+                    log: `Completed: ${resultLabel}`,
+                    activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
+                  })
+                );
+              }
+              break;
+
+            case 'status':
+              if (event.content) {
+                const statusContent = event.content;
+                state.subscribers.forEach((sub) =>
+                  sub({ delta: '', done: false, log: statusContent })
+                );
+              }
+              break;
+
+            case 'done': {
+              // Use result text if provided and non-empty, otherwise use accumulated buffer
+              const resultText =
+                event.content && event.content.length > 0 ? event.content : greetingText;
+
+              // Persist greeting and mark session ready
+              const greetingMsg: InteractiveMessage = {
+                id: crypto.randomUUID(),
+                featureId,
+                sessionId: state.sessionId,
+                role: InteractiveMessageRole.assistant,
+                content: resultText,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              };
+              await this.messageRepo.create(greetingMsg);
+              await this.sessionRepo.updateStatus(state.sessionId, InteractiveSessionStatus.ready);
+
+              state.currentAssistantBuffer = '';
+              state.toolEventsLog = [];
+
+              // Notify subscribers of end-of-turn
+              state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+
+              // Start idle timer now that the session is live
+              this.resetTimer(state);
+              return; // Boot complete
+            }
+
+            case 'error':
+              throw new Error(`Agent error during boot: ${event.content ?? 'unknown'}`);
+          }
+        }
+      } finally {
+        clearTimeout(bootTimeout);
+        state.streamAbort = undefined;
+      }
+
+      // If we get here without a 'done' event, use whatever text we accumulated
+      if (greetingText) {
+        const greetingMsg: InteractiveMessage = {
+          id: crypto.randomUUID(),
+          featureId,
+          sessionId: state.sessionId,
+          role: InteractiveMessageRole.assistant,
+          content: greetingText,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        await this.messageRepo.create(greetingMsg);
+      }
+      await this.sessionRepo.updateStatus(state.sessionId, InteractiveSessionStatus.ready);
+      state.currentAssistantBuffer = '';
+      state.toolEventsLog = [];
       this.resetTimer(state);
     } catch (err) {
       // If session was already cleaned up by stopSession, nothing more to do
@@ -309,29 +430,27 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       new Error().stack?.split('\n').slice(1, 4).join(' <- ')
     );
 
-    // Reject pending turn promise so executeTurn does not hang
-    if (state.onTurnError) {
-      const reject = state.onTurnError;
-      state.onTurnComplete = undefined;
-      state.onTurnError = undefined;
-      reject(new Error('Session stopped during active turn'));
+    // Abort any active stream iteration
+    if (state.streamAbort) {
+      state.streamAbort.abort();
+      state.streamAbort = undefined;
     }
 
     this.clearTimer(state);
-    // Cache claudeSessionId so --resume works when session restarts
+    // Cache claudeSessionId so resumption works when session restarts
     if (state.claudeSessionId) {
       this.stoppedClaudeSessionIds.set(state.featureId, state.claudeSessionId);
     }
     this.sessions.delete(sessionId);
 
-    // Kill the active per-turn process if one is running
-    if (state.activeProcess) {
+    // Close the SDK session handle
+    if (state.handle) {
       try {
-        state.activeProcess.kill('SIGTERM');
+        await state.handle.close();
       } catch {
-        // Process may already be dead
+        // Session may already be closed
       }
-      state.activeProcess = null;
+      state.handle = null;
     }
 
     await this.sessionRepo.updateStatus(sessionId, InteractiveSessionStatus.stopped, new Date());
@@ -365,38 +484,151 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     this.resetTimer(state);
     await this.sessionRepo.updateLastActivity(sessionId, now);
 
-    // Spawn a per-turn process with --resume to continue the conversation
-    // This is fire-and-forget — the response streams to subscribers and
-    // is persisted when the result event arrives.
+    // Execute turn via SDK handle — fire-and-forget, response streams to subscribers
     void this.executeAndPersistTurn(state, content);
 
     return message;
   }
 
   /**
-   * Execute a turn and persist the assistant response when complete.
+   * Execute a turn via the SDK session handle and persist the assistant response.
    */
   private async executeAndPersistTurn(state: SessionState, prompt: string): Promise<void> {
     try {
-      const result = await this.executeTurn(state, prompt);
-
-      // Update claude session ID if returned (should be stable across turns)
-      if (result.sessionId) {
-        state.claudeSessionId = result.sessionId;
+      if (!state.handle) {
+        throw new Error('No active session handle — cannot execute turn');
       }
 
-      // Persist assistant message
-      const now = new Date();
-      const msg: InteractiveMessage = {
-        id: crypto.randomUUID(),
-        featureId: state.featureId,
-        sessionId: state.sessionId,
-        role: InteractiveMessageRole.assistant,
-        content: result.text,
-        createdAt: now,
-        updatedAt: now,
-      };
-      await this.messageRepo.create(msg);
+      state.currentAssistantBuffer = '';
+      state.toolEventsLog = [];
+
+      // Send the message to the SDK session
+      await state.handle.send(prompt);
+
+      // Set up abort controller for this stream
+      const abort = new AbortController();
+      state.streamAbort = abort;
+
+      let responseText = '';
+
+      try {
+        for await (const event of state.handle.stream()) {
+          if (abort.signal.aborted) break;
+
+          // Reset idle timer on each event received
+          this.resetTimer(state);
+
+          switch (event.type) {
+            case 'delta':
+              if (event.content) {
+                responseText += event.content;
+                state.currentAssistantBuffer += event.content;
+                state.subscribers.forEach((sub) => sub({ delta: event.content!, done: false }));
+              }
+              break;
+
+            case 'tool_use':
+              if (event.label) {
+                const toolLabel = event.label;
+                const toolDetail = event.detail;
+                void this.persistToolEvent(state, toolLabel, toolDetail);
+                state.subscribers.forEach((sub) =>
+                  sub({
+                    delta: '',
+                    done: false,
+                    log: `Using tool: ${toolLabel}`,
+                    activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
+                  })
+                );
+              }
+              break;
+
+            case 'tool_result':
+              if (event.label) {
+                const resultLabel = event.label;
+                const resultDetail = event.detail;
+                void this.persistToolEvent(state, resultLabel, resultDetail);
+                state.subscribers.forEach((sub) =>
+                  sub({
+                    delta: '',
+                    done: false,
+                    log: `Completed: ${resultLabel}`,
+                    activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
+                  })
+                );
+              }
+              break;
+
+            case 'status':
+              if (event.content) {
+                const statusContent = event.content;
+                state.subscribers.forEach((sub) =>
+                  sub({ delta: '', done: false, log: statusContent })
+                );
+              }
+              break;
+
+            case 'done': {
+              // Use result text if provided and non-empty, otherwise use accumulated buffer
+              const resultText =
+                event.content && event.content.length > 0 ? event.content : responseText;
+
+              // Persist assistant message
+              const now = new Date();
+              const msg: InteractiveMessage = {
+                id: crypto.randomUUID(),
+                featureId: state.featureId,
+                sessionId: state.sessionId,
+                role: InteractiveMessageRole.assistant,
+                content: resultText,
+                createdAt: now,
+                updatedAt: now,
+              };
+              await this.messageRepo.create(msg);
+
+              state.currentAssistantBuffer = '';
+              state.toolEventsLog = [];
+
+              // Notify subscribers of end-of-turn
+              state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+              return; // Turn complete
+            }
+
+            case 'error':
+              // eslint-disable-next-line no-console
+              console.error(
+                `[InteractiveSession] agent error during turn for session ${state.sessionId}:`,
+                event.content
+              );
+              state.subscribers.forEach((sub) =>
+                sub({ delta: '', done: true, log: `Error: ${event.content ?? 'unknown'}` })
+              );
+              break;
+          }
+        }
+      } finally {
+        state.streamAbort = undefined;
+      }
+
+      // If we exit the stream loop without a 'done' event (stream ended),
+      // persist whatever text we accumulated
+      if (responseText && state.currentAssistantBuffer) {
+        const now = new Date();
+        const msg: InteractiveMessage = {
+          id: crypto.randomUUID(),
+          featureId: state.featureId,
+          sessionId: state.sessionId,
+          role: InteractiveMessageRole.assistant,
+          content: responseText,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await this.messageRepo.create(msg);
+
+        state.currentAssistantBuffer = '';
+        state.toolEventsLog = [];
+        state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+      }
     } catch (err) {
       // If session was already stopped, ignore
       if (!this.sessions.has(state.sessionId)) return;
@@ -432,309 +664,6 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     }
     state.subscribers.add(onChunk);
     return () => state.subscribers.delete(onChunk);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Per-turn process management
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Spawn a single-turn agent process (-p mode), pipe the prompt to stdin,
-   * and wait for the result event. The process exits after producing the
-   * result. Multi-turn context is maintained via --resume with claudeSessionId.
-   */
-  private executeTurn(
-    state: SessionState,
-    prompt: string,
-    timeoutMs?: number
-  ): Promise<TurnResult> {
-    return new Promise<TurnResult>((resolve, reject) => {
-      void this.spawnTurnProcess(state, prompt, timeoutMs, resolve, reject);
-    });
-  }
-
-  private async spawnTurnProcess(
-    state: SessionState,
-    prompt: string,
-    timeoutMs: number | undefined,
-    resolve: (result: TurnResult) => void,
-    reject: (err: Error) => void
-  ): Promise<void> {
-    try {
-      const proc = await this.processFactory.spawn(state.worktreePath, {
-        resumeSessionId: state.claudeSessionId,
-        model: state.model,
-      });
-
-      state.activeProcess = proc;
-      state.lastPid = proc.pid;
-      state.currentAssistantBuffer = '';
-      state.lineBuffer = '';
-      state.toolEventsLog = [];
-      state.onTurnComplete = resolve;
-      state.onTurnError = reject;
-
-      // Set up timeout
-      if (state.turnTimeout) clearTimeout(state.turnTimeout);
-      if (timeoutMs) {
-        state.turnTimeout = setTimeout(() => {
-          if (state.onTurnError) {
-            const rej = state.onTurnError;
-            state.onTurnComplete = undefined;
-            state.onTurnError = undefined;
-            state.activeProcess = null;
-            try {
-              proc.kill('SIGTERM');
-            } catch {
-              // ignore
-            }
-            rej(new Error(`Agent turn timed out after ${timeoutMs / 1000}s`));
-          }
-        }, timeoutMs);
-      }
-
-      // Attach stdout parser and close handler
-      this.attachStdoutParser(state);
-      this.attachCloseHandler(state);
-
-      // Write prompt to stdin and end it to trigger execution
-      proc.stdin.write(prompt);
-      proc.stdin.end();
-    } catch (err) {
-      reject(err instanceof Error ? err : new Error(String(err)));
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Stdout parsing
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Attach a raw data listener to the process stdout that manually buffers
-   * incomplete lines. Matches the claude-code-executor approach.
-   */
-  private attachStdoutParser(state: SessionState): void {
-    const proc = state.activeProcess;
-    if (!proc) return;
-
-    proc.stdout.on('data', (chunk: Buffer | string) => {
-      state.lineBuffer += chunk.toString();
-      const lines = state.lineBuffer.split('\n');
-      state.lineBuffer = lines.pop() ?? '';
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed) this.handleStdoutLine(state, trimmed);
-      }
-    });
-  }
-
-  /**
-   * Parse a single stdout line and dispatch to subscribers / resolve turn.
-   */
-  private handleStdoutLine(state: SessionState, line: string): void {
-    // Reset idle timer on any agent activity
-    this.resetTimer(state);
-
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(line);
-    } catch {
-      // Non-JSON line — ignore
-      return;
-    }
-
-    let type = parsed.type as string;
-
-    // Unwrap stream_event envelope — the real event is in parsed.event
-    if (type === 'stream_event' && parsed.event) {
-      const inner = parsed.event as Record<string, unknown>;
-      const innerType = inner.type as string;
-      // Extract text deltas from content_block_delta
-      if (innerType === 'content_block_delta') {
-        const delta = inner.delta as Record<string, string> | undefined;
-        if (delta?.text) {
-          state.currentAssistantBuffer += delta.text;
-          state.subscribers.forEach((sub) => sub({ delta: delta.text, done: false }));
-        }
-        return;
-      }
-      // message_stop signals end of a message but NOT end of turn (result does that)
-      if (innerType === 'message_stop') {
-        return;
-      }
-      // Other stream_events we don't need to handle
-      return;
-    }
-
-    // rate_limit_event — ignore
-    if (type === 'rate_limit_event') return;
-
-    if (type === 'assistant') {
-      // An assistant message block — may contain tool_use entries and text
-      const messageContent = parsed.message as
-        | {
-            content?: {
-              type: string;
-              name?: string;
-              text?: string;
-              input?: Record<string, unknown>;
-            }[];
-          }
-        | undefined;
-      if (Array.isArray(messageContent?.content)) {
-        for (const block of messageContent.content) {
-          if (block.type === 'tool_use' && block.name) {
-            const detail =
-              this.extractToolDetail(block.name, block.input) ??
-              // Fallback: compact JSON of the full input if no specific detail extracted
-              (block.input && Object.keys(block.input).length > 0
-                ? JSON.stringify(block.input).slice(0, 150)
-                : undefined);
-            // Persist tool event as its own message immediately
-            void this.persistToolEvent(state, block.name, detail);
-            state.subscribers.forEach((sub) =>
-              sub({
-                delta: '',
-                done: false,
-                log: `Using tool: ${block.name}`,
-                activity: { kind: 'tool_use', label: block.name!, detail },
-              })
-            );
-          } else if (block.type === 'text' && block.text?.trim()) {
-            state.currentAssistantBuffer += block.text;
-            state.subscribers.forEach((sub) => sub({ delta: block.text!, done: false }));
-          }
-        }
-      }
-      return;
-    }
-
-    if (type === 'text' || type === 'content_block_delta') {
-      // Token-level delta
-      const rawDelta =
-        (parsed.delta as string | undefined) ??
-        (parsed.text as string | undefined) ??
-        (parsed.delta as Record<string, string> | undefined)?.text;
-      if (rawDelta) {
-        state.currentAssistantBuffer += rawDelta;
-        state.subscribers.forEach((sub) => sub({ delta: rawDelta, done: false }));
-      }
-      return;
-    }
-
-    if (type === 'tool_use' || type === 'tool_result') {
-      // Tool events (outside of assistant blocks)
-      const toolName = (parsed.name as string) ?? (parsed.tool as string) ?? type;
-      const input = parsed.input as Record<string, unknown> | undefined;
-      const detail =
-        this.extractToolDetail(toolName, input) ??
-        (input && Object.keys(input).length > 0 ? JSON.stringify(input).slice(0, 150) : undefined);
-      const kind = type === 'tool_use' ? ('tool_use' as const) : ('tool_result' as const);
-      // Persist tool event as its own message
-      void this.persistToolEvent(state, toolName, detail);
-      state.subscribers.forEach((sub) =>
-        sub({
-          delta: '',
-          done: false,
-          log: `${type === 'tool_use' ? 'Using' : 'Completed'}: ${toolName}`,
-          activity: { kind, label: toolName, detail },
-        })
-      );
-      return;
-    }
-
-    if (type === 'tool_progress') {
-      const toolName = (parsed.tool_name as string) ?? 'tool';
-      state.subscribers.forEach((sub) =>
-        sub({
-          delta: '',
-          done: false,
-          log: `Running: ${toolName}`,
-        })
-      );
-      return;
-    }
-
-    if (type === 'system') {
-      const subtype = parsed.subtype as string;
-      if (subtype === 'init' && !state.claudeSessionId) {
-        // Only show on cold start (first turn), not on resumed turns
-        const model = (parsed.model as string) ?? '';
-        const version = (parsed.claude_code_version as string) ?? '';
-        const tools = parsed.tools as string[] | undefined;
-        const pid = state.activeProcess?.pid ?? '';
-        const parts = [
-          model ? `${model}` : null,
-          tools ? `${tools.length} tools` : null,
-          version ? `v${version}` : null,
-          pid ? `pid ${pid}` : null,
-        ].filter(Boolean);
-        const detail = parts.join(' · ');
-        void this.persistToolEvent(state, 'Session started', detail ?? undefined);
-        state.subscribers.forEach((sub) =>
-          sub({
-            delta: '',
-            done: false,
-            activity: { kind: 'system', label: 'Session started', detail: detail ?? undefined },
-          })
-        );
-      }
-      return;
-    }
-
-    if (type === 'result') {
-      const resultText = (parsed.result as string) ?? state.currentAssistantBuffer;
-      const resultSessionId = parsed.session_id as string | undefined;
-
-      state.currentAssistantBuffer = '';
-      state.toolEventsLog = [];
-
-      // Clear turn timeout
-      if (state.turnTimeout) clearTimeout(state.turnTimeout);
-
-      // Resolve the turn promise — only the clean response text
-      if (state.onTurnComplete) {
-        const resolve = state.onTurnComplete;
-        state.onTurnComplete = undefined;
-        state.onTurnError = undefined;
-        resolve({ text: resultText, sessionId: resultSessionId });
-      }
-
-      // Notify subscribers of end-of-turn
-      state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
-    }
-  }
-
-  /**
-   * Handle process exit — clean up activeProcess reference.
-   * If the turn promise hasn't resolved yet, reject it.
-   */
-  private attachCloseHandler(state: SessionState): void {
-    const proc = state.activeProcess;
-    if (!proc) return;
-
-    proc.once('close', (code: number | null) => {
-      // Clear turn timeout
-      if (state.turnTimeout) clearTimeout(state.turnTimeout);
-
-      // Flush remaining buffer
-      if (state.lineBuffer.trim()) {
-        this.handleStdoutLine(state, state.lineBuffer.trim());
-      }
-
-      // Clear activeProcess reference (process has exited)
-      if (state.activeProcess === proc) {
-        state.activeProcess = null;
-      }
-
-      // If still waiting for turn result, reject
-      if (state.onTurnError) {
-        const reject = state.onTurnError;
-        state.onTurnComplete = undefined;
-        state.onTurnError = undefined;
-        reject(new Error(`Agent process exited with code ${code} before producing a result`));
-      }
-    });
   }
 
   // ---------------------------------------------------------------------------
@@ -801,8 +730,8 @@ export class InteractiveSessionService implements IInteractiveSessionService {
         streamingText = state.currentAssistantBuffer;
       }
       sessionInfo = {
-        pid: state.activeProcess?.pid ?? state.lastPid ?? null,
-        sessionId: state.claudeSessionId ?? state.sessionId,
+        pid: null, // SDK manages process internally — we don't expose PID
+        sessionId: state.handle?.sessionId ?? state.claudeSessionId ?? state.sessionId,
         model: state.model ?? null,
         startedAt: dbSession?.startedAt
           ? new Date(dbSession.startedAt as unknown as string).toISOString()
@@ -874,6 +803,33 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       if (state.featureId === featureId) return state;
     }
     return undefined;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Agent resolution helpers
+  // ---------------------------------------------------------------------------
+
+  /** Resolve the agent type from an explicit override or settings. */
+  private resolveAgentType(agentTypeOverride?: string): AgentType {
+    if (agentTypeOverride) {
+      return agentTypeOverride as AgentType;
+    }
+    if (hasSettings()) {
+      return getSettings().agent.type;
+    }
+    return AgentType.ClaudeCode;
+  }
+
+  /** Resolve the auth config from settings, with a safe fallback. */
+  private resolveAuthConfig(): AgentConfig {
+    if (hasSettings()) {
+      return getSettings().agent;
+    }
+    // Fallback for when settings haven't been initialized yet
+    return {
+      type: AgentType.ClaudeCode,
+      authMethod: AgentAuthMethod.Session,
+    };
   }
 
   // ---------------------------------------------------------------------------

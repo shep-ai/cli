@@ -38,7 +38,11 @@ export class StartInteractiveSessionUseCase {
   ) {}
 
   async execute(input: StartInteractiveSessionInput): Promise<InteractiveSession> {
-    // agentType and model will be forwarded to the service in Phase 3
-    return this.service.startSession(input.featureId, input.worktreePath);
+    return this.service.startSession(
+      input.featureId,
+      input.worktreePath,
+      input.model,
+      input.agentType
+    );
   }
 }

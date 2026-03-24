@@ -1,8 +1,9 @@
 /**
  * Feature Context Builder
  *
- * Builds the system prompt for the interactive agent's stdin.
+ * Builds the system prompt context for the interactive agent session.
  * Includes Shep identity, CLI reference, feature context, and behavioral guidelines.
+ * The output string is suitable for use as systemPrompt content in SDK sessions.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -72,7 +73,7 @@ export class FeatureContextBuilder {
    * @param feature - The feature domain object
    * @param worktreePath - Absolute CWD of the agent process
    * @param openPRs - List of open PR URLs to include (may be empty)
-   * @returns A formatted context string suitable for agent stdin injection
+   * @returns A formatted context string suitable for systemPrompt or boot prompt injection
    */
   buildContext(feature: Feature, worktreePath: string, openPRs: string[]): string {
     const shepHome = process.env.SHEP_HOME ?? join(homedir(), '.shep');

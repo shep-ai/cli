@@ -3,22 +3,25 @@
  *
  * TDD: RED → GREEN → REFACTOR
  *
- * All external dependencies (repos, factory, context builder, feature repo,
- * settings) are mocked. No real processes are spawned.
+ * All external dependencies (repos, executor factory, context builder, feature
+ * repo, settings) are mocked. No real processes or SDK sessions are created.
  *
- * The service uses per-turn process spawning: each message spawns a new
- * process with --resume. Tests simulate this by having the factory return
- * fresh fake processes on each call.
+ * The service now uses IAgentExecutorFactory to create InteractiveAgentSessionHandle
+ * instances. Tests simulate the handle's send() and stream() methods.
  */
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EventEmitter } from 'node:events';
 import { InteractiveSessionService } from '@/infrastructure/services/interactive/interactive-session.service.js';
 import { ConcurrentSessionLimitError } from '@/domain/errors/concurrent-session-limit.error.js';
 import type { IInteractiveSessionRepository } from '@/application/ports/output/repositories/interactive-session-repository.interface.js';
 import type { IInteractiveMessageRepository } from '@/application/ports/output/repositories/interactive-message-repository.interface.js';
-import type { IInteractiveAgentProcessFactory } from '@/application/ports/output/agents/interactive-agent-process-factory.interface.js';
+import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
+import type {
+  IInteractiveAgentExecutor,
+  InteractiveAgentSessionHandle,
+  InteractiveAgentEvent,
+} from '@/application/ports/output/agents/interactive-agent-executor.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { FeatureContextBuilder } from '@/infrastructure/services/interactive/feature-context.builder.js';
 import type { Feature, InteractiveSession } from '@/domain/generated/output.js';
@@ -27,8 +30,8 @@ import {
   InteractiveMessageRole,
   SdlcLifecycle,
   TaskState,
+  AgentType,
 } from '@/domain/generated/output.js';
-import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -82,25 +85,75 @@ function makeFeature(overrides?: Partial<Feature>): Feature {
   } as Feature;
 }
 
-interface FakeProcess {
-  proc: ChildProcessWithoutNullStreams;
-  stdout: EventEmitter;
-  stdin: { write: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> };
+/**
+ * Controllable fake session handle for testing.
+ * The stream() method yields events pushed into the events array,
+ * then yields a 'done' event and returns.
+ */
+interface FakeHandle {
+  handle: InteractiveAgentSessionHandle;
+  /** Push events that stream() will yield */
+  pushEvent: (event: InteractiveAgentEvent) => void;
+  /** Resolve the current stream iteration (causes stream to end) */
+  endStream: () => void;
+  /** Access the send mock */
+  sendMock: ReturnType<typeof vi.fn>;
+  /** Access the close mock */
+  closeMock: ReturnType<typeof vi.fn>;
 }
 
-/** Create a controllable fake ChildProcess */
-function makeFakeProcess(): FakeProcess {
-  const stdout = new EventEmitter();
-  const stderr = new EventEmitter();
-  const stdin = { write: vi.fn(), end: vi.fn() };
-  const proc = new EventEmitter() as unknown as ChildProcessWithoutNullStreams;
-  Object.assign(proc, { stdout, stderr, stdin, pid: 42, kill: vi.fn() });
-  return { proc, stdout, stdin };
-}
+function makeFakeHandle(sessionId = 'claude-session-abc'): FakeHandle {
+  const sendMock = vi.fn().mockResolvedValue(undefined);
+  const closeMock = vi.fn().mockResolvedValue(undefined);
 
-/** Emit a stream-json line on stdout */
-function emitLine(stdout: EventEmitter, obj: Record<string, unknown>): void {
-  stdout.emit('data', Buffer.from(`${JSON.stringify(obj)}\n`));
+  let resolveWait: (() => void) | null = null;
+  let streamEnded = false;
+  const pendingEvents: InteractiveAgentEvent[] = [];
+
+  function pushEvent(event: InteractiveAgentEvent): void {
+    pendingEvents.push(event);
+    if (resolveWait) {
+      const r = resolveWait;
+      resolveWait = null;
+      r();
+    }
+  }
+
+  function endStream(): void {
+    streamEnded = true;
+    if (resolveWait) {
+      const r = resolveWait;
+      resolveWait = null;
+      r();
+    }
+  }
+
+  async function* stream(): AsyncIterable<InteractiveAgentEvent> {
+    while (true) {
+      while (pendingEvents.length > 0) {
+        const event = pendingEvents.shift()!;
+        yield event;
+        // If this was a 'done' event, stop iterating
+        if (event.type === 'done') return;
+      }
+      if (streamEnded) return;
+      // Wait for new events
+      await new Promise<void>((resolve) => {
+        resolveWait = resolve;
+      });
+    }
+  }
+
+  const handle: InteractiveAgentSessionHandle = {
+    get sessionId() {
+      return sessionId;
+    },
+    send: sendMock,
+    stream,
+    close: closeMock,
+  };
+
+  return { handle, pushEvent, endStream, sendMock, closeMock };
 }
 
 /**
@@ -120,23 +173,23 @@ async function flushPromises(rounds = 15): Promise<void> {
 describe('InteractiveSessionService', () => {
   let sessionRepo: IInteractiveSessionRepository;
   let messageRepo: IInteractiveMessageRepository;
-  let processFactory: IInteractiveAgentProcessFactory;
+  let executorFactory: IAgentExecutorFactory;
   let featureRepo: IFeatureRepository;
   let contextBuilder: FeatureContextBuilder;
   let service: InteractiveSessionService;
 
-  /** Stack of fake processes the factory will return, one per spawn() call. */
-  let fakeProcesses: FakeProcess[];
+  /** Stack of fake handles the executor will return, one per createSession/resumeSession call. */
+  let fakeHandles: FakeHandle[];
 
-  /** Get the most recently spawned fake process. */
-  function latestProc(): FakeProcess {
-    return fakeProcesses[fakeProcesses.length - 1];
+  /** Get the most recently created fake handle. */
+  function latestHandle(): FakeHandle {
+    return fakeHandles[fakeHandles.length - 1];
   }
 
   beforeEach(() => {
     vi.useFakeTimers();
 
-    fakeProcesses = [];
+    fakeHandles = [];
 
     sessionRepo = {
       create: vi.fn().mockResolvedValue(undefined),
@@ -166,12 +219,26 @@ describe('InteractiveSessionService', () => {
       deleteByFeatureId: vi.fn().mockResolvedValue(undefined),
     };
 
-    processFactory = {
-      spawn: vi.fn().mockImplementation(() => {
-        const fp = makeFakeProcess();
-        fakeProcesses.push(fp);
-        return Promise.resolve(fp.proc);
+    const mockInteractiveExecutor: IInteractiveAgentExecutor = {
+      createSession: vi.fn().mockImplementation(() => {
+        const fh = makeFakeHandle();
+        fakeHandles.push(fh);
+        return Promise.resolve(fh.handle);
       }),
+      resumeSession: vi.fn().mockImplementation(() => {
+        const fh = makeFakeHandle();
+        fakeHandles.push(fh);
+        return Promise.resolve(fh.handle);
+      }),
+    };
+
+    executorFactory = {
+      createExecutor: vi.fn(),
+      getSupportedAgents: vi.fn().mockReturnValue([AgentType.ClaudeCode]),
+      getCliInfo: vi.fn().mockReturnValue([]),
+      getSupportedModels: vi.fn().mockReturnValue([]),
+      createInteractiveExecutor: vi.fn().mockReturnValue(mockInteractiveExecutor),
+      supportsInteractive: vi.fn().mockReturnValue(true),
     };
 
     featureRepo = {
@@ -192,7 +259,7 @@ describe('InteractiveSessionService', () => {
     service = new InteractiveSessionService(
       sessionRepo,
       messageRepo,
-      processFactory,
+      executorFactory,
       featureRepo,
       contextBuilder
     );
@@ -204,20 +271,20 @@ describe('InteractiveSessionService', () => {
   });
 
   /**
-   * Start a session and complete the async boot by emitting a result event.
-   * startSession returns immediately (booting status); we then simulate the
-   * agent's first result to transition to ready.
+   * Start a session and complete the async boot by pushing a done event
+   * to the fake handle's stream. startSession returns immediately (booting
+   * status); we then simulate the agent's first response to transition to ready.
    */
   async function startAndBoot(): Promise<InteractiveSession> {
     const session = await service.startSession('feat-1', '/wt');
     await flushPromises();
-    // The async boot spawned a process — emit the greeting result with session_id
-    emitLine(latestProc().stdout, {
-      type: 'result',
-      result: 'Hey!',
-      session_id: 'claude-session-abc',
-    });
+
+    // The async boot created a session handle — push greeting events
+    const fh = latestHandle();
+    fh.pushEvent({ type: 'delta', content: 'Hey!' });
+    fh.pushEvent({ type: 'done', content: 'Hey!' });
     await flushPromises();
+
     return session;
   }
 
@@ -248,32 +315,19 @@ describe('InteractiveSessionService', () => {
       expect(session.status).toBe(InteractiveSessionStatus.booting);
     });
 
-    it('spawns a process via the factory with the worktree path', async () => {
+    it('creates an interactive executor via the factory', async () => {
       await service.startSession('feat-1', '/my/worktree');
       await flushPromises();
-      expect(processFactory.spawn).toHaveBeenCalledWith('/my/worktree', {
-        resumeSessionId: undefined,
-      });
-    });
-
-    it('writes feature context to stdin and ends it', async () => {
-      await service.startSession('feat-1', '/wt');
-      await flushPromises();
-      const fp = latestProc();
-      expect(fp.stdin.write).toHaveBeenCalled();
-      const firstWrite = fp.stdin.write.mock.calls[0][0] as string;
-      expect(firstWrite).toContain('FEATURE CONTEXT');
-      expect(fp.stdin.end).toHaveBeenCalled();
+      expect(executorFactory.createInteractiveExecutor).toHaveBeenCalled();
     });
 
     it('persists the greeting assistant message after boot completes', async () => {
       const session = await service.startSession('feat-1', '/wt');
       await flushPromises();
-      emitLine(latestProc().stdout, {
-        type: 'result',
-        result: 'Hey, how can I help?',
-        session_id: 'claude-abc',
-      });
+
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'delta', content: 'Hey, how can I help?' });
+      fh.pushEvent({ type: 'done', content: 'Hey, how can I help?' });
       await flushPromises();
 
       expect(messageRepo.create).toHaveBeenCalledWith(
@@ -289,11 +343,9 @@ describe('InteractiveSessionService', () => {
     it('transitions session to ready after greeting is received', async () => {
       const session = await service.startSession('feat-1', '/wt');
       await flushPromises();
-      emitLine(latestProc().stdout, {
-        type: 'result',
-        result: 'Hey!',
-        session_id: 'claude-abc',
-      });
+
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'done', content: 'Hey!' });
       await flushPromises();
 
       expect(sessionRepo.updateStatus).toHaveBeenCalledWith(
@@ -332,7 +384,7 @@ describe('InteractiveSessionService', () => {
       const session = await service.startSession('feat-1', '/wt');
       await flushPromises();
 
-      // Stop before the agent sends a result
+      // Stop before the agent sends a done event
       await service.stopSession(session.id);
 
       expect(sessionRepo.updateStatus).toHaveBeenCalledWith(
@@ -342,13 +394,12 @@ describe('InteractiveSessionService', () => {
       );
     });
 
-    it('kills the active process if one is running during boot', async () => {
-      const session = await service.startSession('feat-1', '/wt');
-      await flushPromises();
+    it('calls close on the handle when stopping', async () => {
+      const session = await startAndBoot();
+      const fh = latestHandle();
 
-      const fp = latestProc();
       await service.stopSession(session.id);
-      expect((fp.proc as unknown as { kill: ReturnType<typeof vi.fn> }).kill).toHaveBeenCalled();
+      expect(fh.closeMock).toHaveBeenCalled();
     });
   });
 
@@ -357,28 +408,15 @@ describe('InteractiveSessionService', () => {
   // -------------------------------------------------------------------------
 
   describe('sendMessage', () => {
-    it('spawns a new process with --resume for each message', async () => {
+    it('sends the message via the handle', async () => {
       const session = await startAndBoot();
-      (processFactory.spawn as ReturnType<typeof vi.fn>).mockClear();
+      const fh = latestHandle();
+      fh.sendMock.mockClear();
 
       await service.sendMessage(session.id, 'Hello agent');
       await flushPromises();
 
-      expect(processFactory.spawn).toHaveBeenCalledWith('/wt', {
-        resumeSessionId: 'claude-session-abc',
-      });
-    });
-
-    it('writes the message content to stdin and ends it', async () => {
-      const session = await startAndBoot();
-
-      await service.sendMessage(session.id, 'Hello agent');
-      await flushPromises();
-
-      const fp = latestProc();
-      const writes = fp.stdin.write.mock.calls.map((c) => c[0] as string);
-      expect(writes.some((w) => w.includes('Hello agent'))).toBe(true);
-      expect(fp.stdin.end).toHaveBeenCalled();
+      expect(fh.sendMock).toHaveBeenCalledWith('Hello agent');
     });
 
     it('persists the user message to the repository', async () => {
@@ -397,7 +435,7 @@ describe('InteractiveSessionService', () => {
       );
     });
 
-    it('persists the assistant response when result arrives', async () => {
+    it('persists the assistant response when done event arrives', async () => {
       const session = await startAndBoot();
       messageRepo.create = vi.fn().mockResolvedValue(undefined);
 
@@ -405,12 +443,9 @@ describe('InteractiveSessionService', () => {
       await flushPromises();
 
       // Emit the agent's response
-      const fp = latestProc();
-      emitLine(fp.stdout, {
-        type: 'result',
-        result: 'Agent response',
-        session_id: 'claude-session-abc',
-      });
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'delta', content: 'Agent response' });
+      fh.pushEvent({ type: 'done', content: 'Agent response' });
       await flushPromises();
 
       expect(messageRepo.create).toHaveBeenCalledWith(
@@ -476,14 +511,14 @@ describe('InteractiveSessionService', () => {
   });
 
   // -------------------------------------------------------------------------
-  // stdout streaming and end-of-turn
+  // streaming events
   // -------------------------------------------------------------------------
 
-  describe('stdout streaming', () => {
-    it('notifies subscribers with delta chunks from agent stdout', async () => {
+  describe('streaming events', () => {
+    it('notifies subscribers with delta chunks from agent stream', async () => {
       const session = await startAndBoot();
 
-      // Send a message to spawn a new turn process
+      // Send a message to start a turn
       await service.sendMessage(session.id, 'Tell me something');
       await flushPromises();
 
@@ -492,22 +527,16 @@ describe('InteractiveSessionService', () => {
         if (!chunk.done && chunk.delta) chunks.push(chunk.delta);
       });
 
-      const fp = latestProc();
-      emitLine(fp.stdout, {
-        type: 'assistant',
-        message: { content: [{ type: 'text', text: 'Hello ' }] },
-      });
-      emitLine(fp.stdout, {
-        type: 'assistant',
-        message: { content: [{ type: 'text', text: 'world' }] },
-      });
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'delta', content: 'Hello ' });
+      fh.pushEvent({ type: 'delta', content: 'world' });
       await flushPromises();
 
       expect(chunks).toContain('Hello ');
       expect(chunks).toContain('world');
     });
 
-    it('notifies subscribers with done=true on result event', async () => {
+    it('notifies subscribers with done=true on done event', async () => {
       const session = await startAndBoot();
 
       await service.sendMessage(session.id, 'Tell me something');
@@ -518,12 +547,8 @@ describe('InteractiveSessionService', () => {
         if (chunk.done) doneReceived = true;
       });
 
-      const fp = latestProc();
-      emitLine(fp.stdout, {
-        type: 'result',
-        result: 'Final answer.',
-        session_id: 'claude-session-abc',
-      });
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'done', content: 'Final answer.' });
       await flushPromises();
 
       expect(doneReceived).toBe(true);
@@ -540,17 +565,11 @@ describe('InteractiveSessionService', () => {
         if (!chunk.done && chunk.delta) chunks.push(chunk.delta);
       });
 
-      const fp = latestProc();
-      emitLine(fp.stdout, {
-        type: 'assistant',
-        message: { content: [{ type: 'text', text: 'Before unsub' }] },
-      });
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'delta', content: 'Before unsub' });
       await flushPromises();
       unsub();
-      emitLine(fp.stdout, {
-        type: 'assistant',
-        message: { content: [{ type: 'text', text: 'After unsub' }] },
-      });
+      fh.pushEvent({ type: 'delta', content: 'After unsub' });
       await flushPromises();
 
       expect(chunks).toContain('Before unsub');
@@ -577,18 +596,18 @@ describe('InteractiveSessionService', () => {
   });
 
   // -------------------------------------------------------------------------
-  // process crash / unexpected close during boot
+  // boot error handling
   // -------------------------------------------------------------------------
 
-  describe('process close', () => {
-    it('marks session as error when boot process crashes before result', async () => {
+  describe('boot error handling', () => {
+    it('marks session as error when boot stream yields an error event', async () => {
       const session = await service.startSession('feat-1', '/wt');
       await flushPromises();
       (sessionRepo.updateStatus as ReturnType<typeof vi.fn>).mockClear();
 
-      // Process crashes before sending a result
-      const fp = latestProc();
-      (fp.proc as EventEmitter).emit('close', 1);
+      // Push an error event during boot
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'error', content: 'Something went wrong' });
       await flushPromises();
 
       expect(sessionRepo.updateStatus).toHaveBeenCalledWith(
@@ -624,49 +643,7 @@ describe('InteractiveSessionService', () => {
         await flushPromises();
 
         expect(sessionRepo.create).toHaveBeenCalled();
-        expect(processFactory.spawn).toHaveBeenCalled();
-      });
-
-      it('does NOT send the pending message as a separate turn after boot', async () => {
-        // The user message is in the boot prompt context — it should NOT be sent again
-        await service.sendUserMessage('feat-1', 'Hey', '/wt');
-        await flushPromises();
-
-        // Complete boot with greeting
-        const bootProc = latestProc();
-        emitLine(bootProc.stdout, {
-          type: 'result',
-          result: 'Hi! How can I help?',
-          session_id: 'claude-session-xyz',
-        });
-        await flushPromises();
-
-        // Only 1 process should have been spawned (the boot process).
-        // If pending message was sent as a separate turn, a 2nd process would spawn.
-        expect(processFactory.spawn).toHaveBeenCalledTimes(1);
-      });
-
-      it('includes user message in boot context history', async () => {
-        // Mock that the DB has the just-persisted user message
-        (messageRepo.findByFeatureId as ReturnType<typeof vi.fn>).mockResolvedValue([
-          {
-            id: 'msg-1',
-            featureId: 'feat-1',
-            role: InteractiveMessageRole.user,
-            content: 'Hey',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ]);
-
-        await service.sendUserMessage('feat-1', 'Hey', '/wt');
-        await flushPromises();
-
-        // The boot prompt written to stdin should contain the user's message
-        const fp = latestProc();
-        const stdinContent = fp.stdin.write.mock.calls[0][0] as string;
-        expect(stdinContent).toContain('Hey');
-        expect(stdinContent).toContain("respond to the user's latest message");
+        expect(executorFactory.createInteractiveExecutor).toHaveBeenCalled();
       });
 
       it('persists the assistant response after boot completes', async () => {
@@ -674,11 +651,9 @@ describe('InteractiveSessionService', () => {
         await service.sendUserMessage('feat-1', 'Hey', '/wt');
         await flushPromises();
 
-        emitLine(latestProc().stdout, {
-          type: 'result',
-          result: 'Hello! I can help with that.',
-          session_id: 'claude-session-xyz',
-        });
+        const fh = latestHandle();
+        fh.pushEvent({ type: 'delta', content: 'Hello! I can help with that.' });
+        fh.pushEvent({ type: 'done', content: 'Hello! I can help with that.' });
         await flushPromises();
 
         // Should have persisted: 1) user message, 2) assistant greeting/response
@@ -702,26 +677,23 @@ describe('InteractiveSessionService', () => {
         // Boot a session first
         await startAndBoot();
         (sessionRepo.create as ReturnType<typeof vi.fn>).mockClear();
-        (processFactory.spawn as ReturnType<typeof vi.fn>).mockClear();
 
         await service.sendUserMessage('feat-1', 'What is 1+1?', '/wt');
         await flushPromises();
 
-        // No new session created, but a new process is spawned for the turn
+        // No new session created
         expect(sessionRepo.create).not.toHaveBeenCalled();
-        expect(processFactory.spawn).toHaveBeenCalledTimes(1);
       });
 
-      it('sends the message directly to the agent', async () => {
+      it('sends the message directly to the agent handle', async () => {
         await startAndBoot();
-        (processFactory.spawn as ReturnType<typeof vi.fn>).mockClear();
+        const fh = latestHandle();
+        fh.sendMock.mockClear();
 
         await service.sendUserMessage('feat-1', 'What is 1+1?', '/wt');
         await flushPromises();
 
-        const fp = latestProc();
-        const stdinContent = fp.stdin.write.mock.calls[0][0] as string;
-        expect(stdinContent).toBe('What is 1+1?');
+        expect(fh.sendMock).toHaveBeenCalledWith('What is 1+1?');
       });
 
       it('persists both user message and assistant response', async () => {
@@ -731,11 +703,9 @@ describe('InteractiveSessionService', () => {
         await service.sendUserMessage('feat-1', 'What is 1+1?', '/wt');
         await flushPromises();
 
-        emitLine(latestProc().stdout, {
-          type: 'result',
-          result: '1+1 = 2',
-          session_id: 'claude-session-abc',
-        });
+        const fh = latestHandle();
+        fh.pushEvent({ type: 'delta', content: '1+1 = 2' });
+        fh.pushEvent({ type: 'done', content: '1+1 = 2' });
         await flushPromises();
 
         const createCalls = (messageRepo.create as ReturnType<typeof vi.fn>).mock.calls;
@@ -747,18 +717,6 @@ describe('InteractiveSessionService', () => {
         expect(createCalls[1][0]).toMatchObject({
           role: InteractiveMessageRole.assistant,
           content: '1+1 = 2',
-        });
-      });
-
-      it('uses --resume with the stored claude session ID', async () => {
-        await startAndBoot();
-        (processFactory.spawn as ReturnType<typeof vi.fn>).mockClear();
-
-        await service.sendUserMessage('feat-1', 'Hello', '/wt');
-        await flushPromises();
-
-        expect(processFactory.spawn).toHaveBeenCalledWith('/wt', {
-          resumeSessionId: 'claude-session-abc',
         });
       });
     });
@@ -780,7 +738,7 @@ describe('InteractiveSessionService', () => {
           expect.objectContaining({ role: InteractiveMessageRole.user, content: 'Hurry up!' })
         );
 
-        // But no new session or process should be started (one is already booting)
+        // But no new session should be started (one is already booting)
         expect(sessionRepo.create).toHaveBeenCalledTimes(1);
       });
     });
@@ -853,15 +811,28 @@ describe('InteractiveSessionService', () => {
       await flushPromises();
 
       // Emit partial text — this fills the assistant buffer
-      const fp = latestProc();
-      emitLine(fp.stdout, {
-        type: 'assistant',
-        message: { content: [{ type: 'text', text: 'Partial response...' }] },
-      });
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'delta', content: 'Partial response...' });
       await flushPromises();
 
       const state = await service.getChatState('feat-1');
       expect(state.streamingText).toBe('Partial response...');
+    });
+
+    it('returns null pid since SDK manages processes internally', async () => {
+      await startAndBoot();
+
+      const state = await service.getChatState('feat-1');
+      expect(state.sessionInfo).toBeDefined();
+      expect(state.sessionInfo!.pid).toBeNull();
+    });
+
+    it('returns the SDK session ID in sessionInfo', async () => {
+      await startAndBoot();
+
+      const state = await service.getChatState('feat-1');
+      expect(state.sessionInfo).toBeDefined();
+      expect(state.sessionInfo!.sessionId).toBe('claude-session-abc');
     });
   });
 
@@ -878,15 +849,12 @@ describe('InteractiveSessionService', () => {
         if (chunk.delta) chunks.push(chunk.delta);
       });
 
-      // Send a message to spawn a turn process
+      // Send a message to start a turn
       await service.sendMessage(session.id, 'Tell me');
       await flushPromises();
 
-      const fp = latestProc();
-      emitLine(fp.stdout, {
-        type: 'assistant',
-        message: { content: [{ type: 'text', text: 'Hello from agent' }] },
-      });
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'delta', content: 'Hello from agent' });
       await flushPromises();
 
       expect(chunks).toContain('Hello from agent');
@@ -910,12 +878,11 @@ describe('InteractiveSessionService', () => {
       await service.sendMessage(session.id, 'Read a file');
       await flushPromises();
 
-      const fp = latestProc();
-      emitLine(fp.stdout, {
-        type: 'assistant',
-        message: {
-          content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/src/app.ts' } }],
-        },
+      const fh = latestHandle();
+      fh.pushEvent({
+        type: 'tool_use',
+        label: 'Read',
+        detail: '/src/app.ts',
       });
       await flushPromises();
 
@@ -933,11 +900,7 @@ describe('InteractiveSessionService', () => {
       await service.sendMessage(session.id, 'Quick question');
       await flushPromises();
 
-      emitLine(latestProc().stdout, {
-        type: 'result',
-        result: 'Quick answer',
-        session_id: 'claude-session-abc',
-      });
+      latestHandle().pushEvent({ type: 'done', content: 'Quick answer' });
       await flushPromises();
 
       expect(done).toBe(true);
@@ -949,61 +912,41 @@ describe('InteractiveSessionService', () => {
   // =========================================================================
 
   describe('tool events persistence', () => {
-    it('includes tool use events in the persisted assistant message', async () => {
+    it('persists tool use events as separate messages', async () => {
       const session = await startAndBoot();
       (messageRepo.create as ReturnType<typeof vi.fn>).mockClear();
 
       await service.sendMessage(session.id, 'Read my file');
       await flushPromises();
 
-      const fp = latestProc();
-      // Simulate tool use followed by result
-      emitLine(fp.stdout, {
-        type: 'assistant',
-        message: {
-          content: [{ type: 'tool_use', name: 'Read', input: { file_path: '/src/app.ts' } }],
-        },
-      });
-      emitLine(fp.stdout, {
-        type: 'result',
-        result: 'Here is the file content.',
-        session_id: 'claude-session-abc',
-      });
+      const fh = latestHandle();
+      // Simulate tool use followed by done
+      fh.pushEvent({ type: 'tool_use', label: 'Read', detail: '/src/app.ts' });
       await flushPromises();
 
-      // The assistant message should include tool event summary
-      const assistantCreate = (messageRepo.create as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c) => c[0].role === InteractiveMessageRole.assistant
+      // Tool event should have been persisted as its own message
+      const toolCreate = (messageRepo.create as ReturnType<typeof vi.fn>).mock.calls.find((c) =>
+        c[0].content?.includes('**Read**')
       );
-      expect(assistantCreate).toBeDefined();
-      const content = assistantCreate![0].content as string;
-      expect(content).toContain('**Read**');
-      expect(content).toContain('/src/app.ts');
-      expect(content).toContain('Here is the file content.');
+      expect(toolCreate).toBeDefined();
+      expect(toolCreate![0].content).toContain('/src/app.ts');
     });
 
-    it('does not include tool summary when there are no tool events', async () => {
+    it('persists assistant response separately from tool events', async () => {
       const session = await startAndBoot();
       (messageRepo.create as ReturnType<typeof vi.fn>).mockClear();
 
       await service.sendMessage(session.id, 'Hello');
       await flushPromises();
 
-      emitLine(latestProc().stdout, {
-        type: 'result',
-        result: 'Hi there!',
-        session_id: 'claude-session-abc',
-      });
+      const fh = latestHandle();
+      fh.pushEvent({ type: 'done', content: 'Hi there!' });
       await flushPromises();
 
       const assistantCreate = (messageRepo.create as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c) => c[0].role === InteractiveMessageRole.assistant
+        (c) => c[0].role === InteractiveMessageRole.assistant && c[0].content === 'Hi there!'
       );
       expect(assistantCreate).toBeDefined();
-      const content = assistantCreate![0].content as string;
-      expect(content).toBe('Hi there!');
-      // No separator or tool summary
-      expect(content).not.toContain('---');
     });
   });
 });

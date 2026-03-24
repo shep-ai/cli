@@ -148,13 +148,9 @@ import { runSQLiteMigrations } from '../persistence/sqlite/migrations.js';
 // Interactive session infrastructure
 import type { IInteractiveSessionRepository } from '../../application/ports/output/repositories/interactive-session-repository.interface.js';
 import type { IInteractiveMessageRepository } from '../../application/ports/output/repositories/interactive-message-repository.interface.js';
-import type { IInteractiveAgentProcessFactory } from '../../application/ports/output/agents/interactive-agent-process-factory.interface.js';
-import type { IInteractiveAgentAdapter } from '../../application/ports/output/agents/interactive-agent-adapter.interface.js';
 import type { IInteractiveSessionService } from '../../application/ports/output/services/interactive-session-service.interface.js';
 import { SQLiteInteractiveSessionRepository } from '../repositories/sqlite-interactive-session.repository.js';
 import { SQLiteInteractiveMessageRepository } from '../repositories/sqlite-interactive-message.repository.js';
-import { InteractiveAgentProcessFactory } from '../services/interactive/interactive-agent-process.factory.js';
-import { ClaudeAgentSdkAdapter } from '../services/interactive/claude-agent-sdk.adapter.js';
 import { InteractiveSessionService } from '../services/interactive/interactive-session.service.js';
 import { FeatureContextBuilder } from '../services/interactive/feature-context.builder.js';
 
@@ -544,27 +540,6 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
 
-  const interactiveProcessFactory = new InteractiveAgentProcessFactory(
-    container.resolve<IAgentExecutorProvider>('IAgentExecutorProvider'),
-    (command: string, args: string[], options?: object) =>
-      spawn(command, args, {
-        stdio: 'pipe',
-        ...(process.platform === 'win32' ? { windowsHide: true } : {}),
-        ...options,
-      })
-  );
-  container.registerInstance<IInteractiveAgentProcessFactory>(
-    'IInteractiveAgentProcessFactory',
-    interactiveProcessFactory
-  );
-
-  // Register the new SDK adapter (Phase 1 — coexists with the process factory
-  // until Phase 3 removes the old factory and session service is migrated).
-  container.registerInstance<IInteractiveAgentAdapter>(
-    'IInteractiveAgentAdapter',
-    new ClaudeAgentSdkAdapter()
-  );
-
   const interactiveSessionRepo = container.resolve<IInteractiveSessionRepository>(
     'IInteractiveSessionRepository'
   );
@@ -574,7 +549,7 @@ export async function initializeContainer(): Promise<typeof container> {
   const interactiveSessionService = new InteractiveSessionService(
     interactiveSessionRepo,
     interactiveMessageRepo,
-    interactiveProcessFactory,
+    container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory'),
     container.resolve<IFeatureRepository>('IFeatureRepository'),
     new FeatureContextBuilder()
   );

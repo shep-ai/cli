@@ -101,7 +101,12 @@ export interface IInteractiveSessionService {
    * @returns The newly created session record (status may still be 'booting')
    * @throws ConcurrentSessionLimitError when the configured cap is reached
    */
-  startSession(featureId: string, worktreePath: string): Promise<InteractiveSession>;
+  startSession(
+    featureId: string,
+    worktreePath: string,
+    model?: string,
+    agentType?: string
+  ): Promise<InteractiveSession>;
 
   /**
    * Stop an active session: send SIGTERM to the process, cancel the idle
