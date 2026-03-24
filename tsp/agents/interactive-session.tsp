@@ -61,7 +61,7 @@ enum InteractiveSessionStatus {
  * | Property       | Type                     | Required | Description                                   |
  * |----------------|--------------------------|----------|-----------------------------------------------|
  * | id             | UUID                     | Yes      | Unique identifier (from BaseEntity)           |
- * | featureId      | UUID                     | Yes      | Feature this session belongs to               |
+ * | featureId      | UUID                     | Yes      | Polymorphic scope key (feature/repo/global)   |
  * | status         | InteractiveSessionStatus | Yes      | Current lifecycle status                      |
  * | startedAt      | utcDateTime              | Yes      | When the process was spawned                  |
  * | stoppedAt      | utcDateTime              | No       | When the session ended (null if still active) |
@@ -86,11 +86,16 @@ enum InteractiveSessionStatus {
 @doc("Per-feature interactive agent session record")
 model InteractiveSession extends BaseEntity {
   /**
-   * The feature this session belongs to.
-   * Each feature can have at most one active session at a time.
+   * Polymorphic scope key — not always an actual feature ID.
+   * - Feature chat: actual feature UUID (e.g. "f3e2d1c0-...")
+   * - Repository chat: repo identifier (e.g. "repo-<id>")
+   * - Global chat: literal string "global"
+   *
+   * Each scope can have at most one active session at a time.
+   * Future: consider renaming to `scopeId` + adding `scopeType` discriminator.
    * @example "f3e2d1c0-b9a8-47f6-e5d4-c3b2a1908070"
    */
-  @doc("Feature ID this session is associated with")
+  @doc("Polymorphic scope key: feature UUID, 'repo-<id>', or 'global'. Future: rename to scopeId + scopeType.")
   featureId: UUID;
 
   /**

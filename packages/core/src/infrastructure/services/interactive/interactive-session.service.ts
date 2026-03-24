@@ -82,10 +82,23 @@ interface TurnResult {
 /**
  * Core service managing interactive agent session lifecycles.
  * Must be registered as a singleton in the DI container.
+ *
+ * **Polymorphic `featureId` scope key:** The `featureId` parameter accepted
+ * by public methods (`sendUserMessage`, `getChatState`, `subscribeByFeature`,
+ * etc.) is a polymorphic scope key — not necessarily a feature UUID:
+ * - Feature chat: actual feature UUID (e.g. `"feat-abc123"`)
+ * - Repository chat: repo identifier (e.g. `"repo-<repoId>"`)
+ * - Global chat: literal string `"global"`
+ *
+ * Sessions and messages are isolated by this key regardless of chat type.
+ *
+ * @todo Consider renaming to `scopeId` + adding a `scopeType` discriminator.
  */
 export class InteractiveSessionService implements IInteractiveSessionService {
   /** Live sessions indexed by sessionId. */
   private sessions = new Map<string, SessionState>();
+  /** Cached claudeSessionIds from stopped sessions, keyed by featureId. */
+  private stoppedClaudeSessionIds = new Map<string, string>();
 
   constructor(
     private readonly sessionRepo: IInteractiveSessionRepository,
@@ -123,12 +136,26 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     };
     await this.sessionRepo.create(session);
 
+    // Carry over claudeSessionId from previous session so --resume works
+    let previousClaudeSessionId: string | undefined;
+    for (const [, s] of this.sessions) {
+      if (s.featureId === featureId && s.claudeSessionId) {
+        previousClaudeSessionId = s.claudeSessionId;
+        break;
+      }
+    }
+    // Also check stoppedSessions cache (populated on stop)
+    if (!previousClaudeSessionId) {
+      previousClaudeSessionId = this.stoppedClaudeSessionIds.get(featureId);
+    }
+
     // Set up in-memory state
     const state: SessionState = {
       sessionId: session.id,
       featureId,
       worktreePath,
       model,
+      claudeSessionId: previousClaudeSessionId,
       activeProcess: null,
       timer: null,
       currentAssistantBuffer: '',
@@ -242,6 +269,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       } catch {
         // Best-effort DB update
       }
+      if (state.claudeSessionId) {
+        this.stoppedClaudeSessionIds.set(state.featureId, state.claudeSessionId);
+      }
       this.sessions.delete(state.sessionId);
     }
   }
@@ -268,6 +298,10 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     }
 
     this.clearTimer(state);
+    // Cache claudeSessionId so --resume works when session restarts
+    if (state.claudeSessionId) {
+      this.stoppedClaudeSessionIds.set(state.featureId, state.claudeSessionId);
+    }
     this.sessions.delete(sessionId);
 
     // Kill the active per-turn process if one is running

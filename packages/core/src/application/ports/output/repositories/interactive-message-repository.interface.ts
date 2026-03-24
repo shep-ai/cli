@@ -23,7 +23,8 @@ export interface IInteractiveMessageRepository {
    * Find all messages for a feature, ordered by created_at ASC.
    * Messages are scoped by featureId (not sessionId) for cross-session continuity.
    *
-   * @param featureId - The feature to retrieve messages for
+   * @param featureId - Polymorphic scope key: may be a spec ID, repo ID, or any
+   *   future entity that owns an interactive chat. Not a FK to a single table.
    * @param limit - Maximum number of messages to return (default 200)
    */
   findByFeatureId(featureId: string, limit?: number): Promise<InteractiveMessage[]>;

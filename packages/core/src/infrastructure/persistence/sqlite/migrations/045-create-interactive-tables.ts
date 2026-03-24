@@ -23,6 +23,7 @@ export async function up({ context: db }: MigrationParams<Database.Database>): P
   db.exec(`
     CREATE TABLE IF NOT EXISTS interactive_sessions (
       id               TEXT PRIMARY KEY,
+      -- Polymorphic scope key (spec ID, repo ID, etc.) — not a FK to any single table.
       feature_id       TEXT NOT NULL,
       status           TEXT NOT NULL CHECK(status IN ('booting','ready','stopped','error')),
       started_at       INTEGER NOT NULL,
@@ -36,6 +37,7 @@ export async function up({ context: db }: MigrationParams<Database.Database>): P
   db.exec(`
     CREATE TABLE IF NOT EXISTS interactive_messages (
       id         TEXT PRIMARY KEY,
+      -- Polymorphic scope key (spec ID, repo ID, etc.) — not a FK to any single table.
       feature_id TEXT NOT NULL,
       session_id TEXT REFERENCES interactive_sessions(id),
       role       TEXT NOT NULL CHECK(role IN ('user','assistant')),

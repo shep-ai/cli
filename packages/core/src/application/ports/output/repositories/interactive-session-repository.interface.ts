@@ -29,6 +29,9 @@ export interface IInteractiveSessionRepository {
 
   /**
    * Find the most recent session for a given feature.
+   *
+   * @param featureId - Polymorphic scope key: may be a spec ID, repo ID, or any
+   *   future entity that owns an interactive chat. Not a FK to a single table.
    */
   findByFeatureId(featureId: string): Promise<InteractiveSession | null>;
 

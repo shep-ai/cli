@@ -76,6 +76,18 @@ export interface SessionInfo {
  * Implementations are expected to be singletons: they maintain in-memory
  * state (process handles, timers, subscriber maps) across multiple HTTP
  * requests for the duration of the server process.
+ *
+ * **Polymorphic `featureId` scope key:** The `featureId` parameter used
+ * throughout this interface is a polymorphic scope key that determines
+ * message and session isolation:
+ * - Feature chat: actual feature UUID (e.g. `"feat-abc123"`)
+ * - Repository chat: repo identifier (e.g. `"repo-<repoId>"`)
+ * - Global chat: literal string `"global"`
+ *
+ * All messages and sessions are scoped by this key regardless of chat type.
+ *
+ * @todo Consider renaming to `scopeId` with a `scopeType` discriminator
+ *       for better type safety and clarity.
  */
 export interface IInteractiveSessionService {
   /**

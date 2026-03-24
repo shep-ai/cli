@@ -6,6 +6,8 @@
  *   - `delta` events with token chunks
  *   - `log` events for tool use / thinking
  *   - `done` events at end-of-turn
+ *
+ * `featureId` is a polymorphic scope key: a feature UUID, "repo-<id>", or "global".
  */
 
 import type { NextRequest } from 'next/server';

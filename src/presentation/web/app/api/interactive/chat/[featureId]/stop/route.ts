@@ -1,5 +1,7 @@
 /**
  * Feature-scoped stop API — kills the active agent session.
+ *
+ * `featureId` is a polymorphic scope key: a feature UUID, "repo-<id>", or "global".
  */
 
 import type { NextRequest } from 'next/server';

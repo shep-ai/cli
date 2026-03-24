@@ -5,6 +5,8 @@
  * GET  - Get chat state: messages + session status + streaming text.
  *
  * The frontend never manages sessions — it just sends messages for a feature.
+ *
+ * `featureId` is a polymorphic scope key: a feature UUID, "repo-<id>", or "global".
  */
 
 import type { NextRequest } from 'next/server';

@@ -48,7 +48,7 @@ enum InteractiveMessageRole {
  * | Property  | Type                   | Required | Description                                    |
  * |-----------|------------------------|----------|------------------------------------------------|
  * | id        | UUID                   | Yes      | Unique identifier (from BaseEntity)            |
- * | featureId | string                 | Yes      | Feature this message belongs to                |
+ * | featureId | string                 | Yes      | Polymorphic scope key (feature/repo/global)    |
  * | sessionId | string                 | No       | Session during which the message was sent      |
  * | role      | InteractiveMessageRole | Yes      | Whether sent by user or agent                  |
  * | content   | string                 | Yes      | Full message text (finalised after streaming)  |
@@ -71,11 +71,16 @@ enum InteractiveMessageRole {
 @doc("A single chat message in a per-feature interactive agent session")
 model InteractiveMessage extends BaseEntity {
   /**
-   * The feature this message belongs to.
-   * Scoped by feature (not session) for cross-session history continuity.
+   * Polymorphic scope key — not always an actual feature ID.
+   * - Feature chat: actual feature UUID (e.g. "f3e2d1c0-...")
+   * - Repository chat: repo identifier (e.g. "repo-<id>")
+   * - Global chat: literal string "global"
+   *
+   * Scoped by this key (not session) for cross-session history continuity.
+   * Future: consider renaming to `scopeId` + adding `scopeType` discriminator.
    * @example "f3e2d1c0-b9a8-47f6-e5d4-c3b2a1908070"
    */
-  @doc("Feature ID this message belongs to")
+  @doc("Polymorphic scope key: feature UUID, 'repo-<id>', or 'global'. Future: rename to scopeId + scopeType.")
   featureId: string;
 
   /**

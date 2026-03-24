@@ -86,6 +86,10 @@ export interface ChatRuntimeOptions {
   onMessageSent?: () => void;
 }
 
+/**
+ * `featureId` is a polymorphic scope key: a feature UUID, "repo-<id>", or "global".
+ * All API calls and SSE subscriptions are scoped to this key.
+ */
 export function useChatRuntime(featureId: string, worktreePath?: string, options?: ChatRuntimeOptions) {
   const queryClient = useQueryClient();
 
