@@ -543,7 +543,31 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       return;
     }
 
-    const type = parsed.type as string;
+    let type = parsed.type as string;
+
+    // Unwrap stream_event envelope — the real event is in parsed.event
+    if (type === 'stream_event' && parsed.event) {
+      const inner = parsed.event as Record<string, unknown>;
+      const innerType = inner.type as string;
+      // Extract text deltas from content_block_delta
+      if (innerType === 'content_block_delta') {
+        const delta = inner.delta as Record<string, string> | undefined;
+        if (delta?.text) {
+          state.currentAssistantBuffer += delta.text;
+          state.subscribers.forEach((sub) => sub({ delta: delta.text, done: false }));
+        }
+        return;
+      }
+      // message_stop signals end of a message but NOT end of turn (result does that)
+      if (innerType === 'message_stop') {
+        return;
+      }
+      // Other stream_events we don't need to handle
+      return;
+    }
+
+    // rate_limit_event — ignore
+    if (type === 'rate_limit_event') return;
 
     if (type === 'assistant') {
       // An assistant message block — may contain tool_use entries and text
