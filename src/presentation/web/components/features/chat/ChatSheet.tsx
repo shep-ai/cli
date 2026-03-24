@@ -1,17 +1,40 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { MessageSquare, X, Bot } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { MessageSquare, X, Bot, GripVertical, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ChatTab } from './ChatTab';
 
-// ── Persistent global chat popup ──────────────────────────────────────────
+// ── Persistent global chat popup (draggable + resizable) ──────────────────
+
+const DEFAULT_W = 520;
+const DEFAULT_H_VH = 70; // percentage of viewport height
+const MIN_W = 360;
+const MIN_H = 300;
+
+interface Position {
+  x: number;
+  y: number;
+}
+
+interface Size {
+  w: number;
+  h: number;
+}
 
 export function GlobalChatPopup() {
   const [isOpen, setIsOpen] = useState(false);
-  // Keep panel mounted after first open so chat state persists
   const [hasOpened, setHasOpened] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  // Position is relative to viewport (fixed positioning when dragged)
+  const [pos, setPos] = useState<Position | null>(null); // null = default position
+  const [size, setSize] = useState<Size | null>(null); // null = default size
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
+  const resizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
 
   const toggle = useCallback(() => {
     setIsOpen((prev) => {
@@ -20,26 +43,209 @@ export function GlobalChatPopup() {
     });
   }, []);
 
+  // Store pre-maximize pos/size so we can restore
+  const preMaxRef = useRef<{ pos: Position | null; size: Size | null }>({ pos: null, size: null });
+
+  const toggleMaximize = useCallback(() => {
+    if (!isOpen) {
+      setIsOpen(true);
+      setHasOpened(true);
+    }
+    setIsMaximized((prev) => {
+      if (!prev) {
+        // Entering maximize — save current state
+        preMaxRef.current = { pos, size };
+      } else {
+        // Leaving maximize — restore previous state
+        setPos(preMaxRef.current.pos);
+        setSize(preMaxRef.current.size);
+      }
+      return !prev;
+    });
+  }, [isOpen, pos, size]);
+
+  // Keyboard shortcuts: Cmd/Ctrl+Shift+K = toggle, Cmd/Ctrl+Shift+M = maximize
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        if (isMaximized) setIsMaximized(false);
+        toggle();
+        // Focus the composer input after panel opens
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            const input = panelRef.current?.querySelector<HTMLTextAreaElement>('textarea');
+            input?.focus();
+          }, 100);
+        });
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'm' || e.key === 'M')) {
+        e.preventDefault();
+        toggleMaximize();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [toggle, toggleMaximize, isMaximized]);
+
+  // ── Drag handling ──────────────────────────────────────────────────────
+  const onDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      // If no custom position yet, compute from current DOM position
+      const rect = panel.getBoundingClientRect();
+      const currentX = pos?.x ?? rect.left;
+      const currentY = pos?.y ?? rect.top;
+
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startPosX: currentX,
+        startPosY: currentY,
+      };
+
+      const onMove = (ev: MouseEvent) => {
+        if (!dragRef.current) return;
+        const dx = ev.clientX - dragRef.current.startX;
+        const dy = ev.clientY - dragRef.current.startY;
+        setPos({
+          x: dragRef.current.startPosX + dx,
+          y: dragRef.current.startPosY + dy,
+        });
+      };
+
+      const onUp = () => {
+        dragRef.current = null;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    [pos]
+  );
+
+  // ── Resize handling (from top-right corner) ────────────────────────────
+  const onResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const rect = panel.getBoundingClientRect();
+      resizeRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startW: size?.w ?? rect.width,
+        startH: size?.h ?? rect.height,
+      };
+
+      // Also capture position if not set yet
+      if (!pos) {
+        setPos({ x: rect.left, y: rect.top });
+      }
+
+      const onMove = (ev: MouseEvent) => {
+        if (!resizeRef.current) return;
+        const dx = ev.clientX - resizeRef.current.startX;
+        const dy = ev.clientY - resizeRef.current.startY;
+        setSize({
+          w: Math.max(MIN_W, resizeRef.current.startW + dx),
+          h: Math.max(MIN_H, resizeRef.current.startH - dy),
+        });
+        // Move top edge up as height increases
+        if (pos) {
+          setPos((prev) => prev ? { ...prev, y: (prev.y ?? 0) + dy } : prev);
+        }
+      };
+
+      const onUp = () => {
+        resizeRef.current = null;
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    [size, pos]
+  );
+
+  // Reset position/size on close for clean reopen
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setIsMaximized(false);
+  }, []);
+
+  // Compute panel style — maximized overrides everything
+  const panelStyle: React.CSSProperties = isMaximized
+    ? {}
+    : pos
+      ? {
+          position: 'fixed',
+          left: pos.x,
+          top: pos.y,
+          width: size?.w ?? DEFAULT_W,
+          height: size?.h ?? `${DEFAULT_H_VH}vh`,
+        }
+      : {
+          width: size?.w ?? DEFAULT_W,
+          height: size?.h ?? `${DEFAULT_H_VH}vh`,
+        };
+
   return (
     <>
-      {/* Chat panel — always mounted after first open, animated via CSS */}
+      {/* Chat panel */}
       {hasOpened ? (
         <div
+          ref={panelRef}
           className={cn(
-            'fixed bottom-24 left-[calc(var(--sidebar-width)+1rem)] z-[60] flex flex-col overflow-hidden rounded-2xl shadow-xl',
-            'ring-[3px] ring-violet-500/25 dark:ring-violet-400/20',
-            'bg-background/80 backdrop-blur-xl dark:bg-neutral-900/80',
-            'h-[70vh] w-[520px]',
-            'origin-bottom-left transition-all duration-300 ease-out',
+            isMaximized
+              ? 'absolute inset-0 z-[60] flex flex-col overflow-hidden bg-background dark:bg-neutral-900'
+              : cn(
+                  !pos && 'absolute bottom-24 left-4',
+                  'z-[60] flex flex-col overflow-hidden rounded-2xl',
+                  'border border-border/60 dark:border-white/10',
+                  'bg-background dark:bg-neutral-900',
+                  'shadow-[0_8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_8px_40px_-8px_rgba(0,0,0,0.6)]',
+                ),
+            'transition-opacity duration-300 ease-out',
             isOpen
-              ? 'pointer-events-auto scale-100 opacity-100'
-              : 'pointer-events-none scale-95 opacity-0'
+              ? 'pointer-events-auto opacity-100'
+              : 'pointer-events-none opacity-0'
           )}
+          style={panelStyle}
         >
-          {/* Header — layered depth, no garish color */}
-          <div className="relative flex h-11 shrink-0 items-center gap-2.5 border-b border-black/[0.06] px-3.5 dark:border-white/[0.06]">
-            {/* Subtle gradient wash — barely visible, adds depth */}
+          {/* Violet accent strip at top */}
+          {!isMaximized ? (
+            <div className="h-[2px] shrink-0 bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+          ) : null}
+
+          {/* Resize handle — top-right corner (hidden when maximized) */}
+          {!isMaximized ? (
+            <div
+              onMouseDown={onResizeStart}
+              className="absolute top-0 right-0 z-10 h-4 w-4 cursor-ne-resize"
+            />
+          ) : null}
+
+          {/* Header — draggable when not maximized */}
+          <div
+            onMouseDown={isMaximized ? undefined : onDragStart}
+            className={cn(
+              'relative flex h-11 shrink-0 items-center gap-2.5 border-b border-black/[0.06] px-3.5 dark:border-white/[0.06]',
+              !isMaximized && 'cursor-grab active:cursor-grabbing'
+            )}
+          >
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-foreground/[0.02] via-transparent to-foreground/[0.02]" />
+            {!isMaximized ? (
+              <GripVertical className="text-foreground/15 relative h-3.5 w-3.5 shrink-0" />
+            ) : null}
             <div className="relative flex h-5 w-5 items-center justify-center">
               <Bot className="text-foreground/50 h-4 w-4" />
             </div>
@@ -47,29 +253,70 @@ export function GlobalChatPopup() {
               <span className="text-foreground/90 text-base font-bold tracking-tight">Shep</span>
               <span className="text-foreground/30 text-xs font-medium tracking-widest uppercase">global</span>
             </div>
-            <button
-              type="button"
-              onClick={toggle}
-              className="text-foreground/30 hover:text-foreground/60 relative ml-auto rounded-md p-1 transition-colors"
-              title="Close"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            <div className="relative ml-auto flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={toggleMaximize}
+                className="text-foreground/30 hover:text-foreground/60 rounded-md p-1 transition-colors"
+                title={isMaximized ? 'Restore (⌘⇧M)' : 'Maximize (⌘⇧M)'}
+              >
+                {isMaximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="text-foreground/30 hover:text-foreground/60 rounded-md p-1 transition-colors"
+                title="Close (⌘⇧K)"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Chat content */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <ChatTab featureId="global" />
           </div>
+
+          {/* Resize handle — bottom-right corner (hidden when maximized) */}
+          {!isMaximized ? (
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const panel = panelRef.current;
+                if (!panel) return;
+                const rect = panel.getBoundingClientRect();
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startW = size?.w ?? rect.width;
+                const startH = size?.h ?? rect.height;
+                if (!pos) setPos({ x: rect.left, y: rect.top });
+
+                const onMove = (ev: MouseEvent) => {
+                  setSize({
+                    w: Math.max(MIN_W, startW + (ev.clientX - startX)),
+                    h: Math.max(MIN_H, startH + (ev.clientY - startY)),
+                  });
+                };
+                const onUp = () => {
+                  document.removeEventListener('mousemove', onMove);
+                  document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+              }}
+              className="absolute right-0 bottom-0 z-10 h-4 w-4 cursor-se-resize"
+            />
+          ) : null}
         </div>
       ) : null}
 
-      {/* Floating chat button — always visible, icon crossfades */}
-      <div className="fixed bottom-6 left-[calc(var(--sidebar-width)+1rem)] z-[60]">
+      {/* Floating chat button — hidden when maximized */}
+      <div className={cn('group/fab absolute bottom-4 left-4 z-[60] flex items-center', isMaximized && 'hidden')}>
         <Button
           size="icon"
           onClick={toggle}
-          title="Shep Chat"
           className={cn(
             'relative h-14 w-14 rounded-full shadow-lg',
             'transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95',
@@ -91,6 +338,17 @@ export function GlobalChatPopup() {
             )}
           />
         </Button>
+        {/* Tooltip — slides in from left on hover */}
+        <div className="pointer-events-none ml-3 flex items-center gap-2 opacity-0 transition-all duration-200 translate-x-[-4px] group-hover/fab:opacity-100 group-hover/fab:translate-x-0">
+          <div className="rounded-lg bg-foreground px-3 py-1.5 shadow-lg">
+            <p className="text-background text-xs font-medium">Shep Chat</p>
+            <p className="text-background/50 mt-0.5 flex items-center gap-1 text-[10px]">
+              <kbd className="bg-background/15 rounded px-1 py-px font-mono">⌘</kbd>
+              <kbd className="bg-background/15 rounded px-1 py-px font-mono">⇧</kbd>
+              <kbd className="bg-background/15 rounded px-1 py-px font-mono">K</kbd>
+            </p>
+          </div>
+        </div>
       </div>
     </>
   );
