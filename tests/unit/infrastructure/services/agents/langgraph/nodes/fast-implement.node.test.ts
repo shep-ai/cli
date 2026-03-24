@@ -157,7 +157,7 @@ function createMockState(overrides?: Partial<FeatureAgentState>): FeatureAgentSt
     forkAndPr: false,
     commitSpecs: true,
     ciWatchEnabled: true,
-    enableEvidence: false,
+    enableEvidence: true,
     commitEvidence: false,
     ...overrides,
   };

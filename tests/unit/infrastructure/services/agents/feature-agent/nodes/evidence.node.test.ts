@@ -158,6 +158,8 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
     openPr: false,
     evidence: [],
     evidenceRetries: 0,
+    enableEvidence: true,
+    commitEvidence: false,
     ...overrides,
   } as FeatureAgentState;
 }
