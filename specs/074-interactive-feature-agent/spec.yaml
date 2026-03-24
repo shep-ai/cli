@@ -1,17 +1,19 @@
 name: "interactive-feature-agent"
 number: 74
 branch: "feat/interactive-feature-agent"
-oneLiner: "Refactor the interactive chat agent to use @anthropic-ai/claude-agent-sdk, replacing manual CLI process management with the official SDK's V2 session API."
-userQuery: "i want to update current spec files with new iteration, we invented the wheel with claude-code cli wrapper, there is official claude sdk which wraps cli calls! https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk We must adopt it - REFACTOR OUR CODE AND CLEANUP UNUSED"
+oneLiner: "Refactor the interactive chat agent to use @anthropic-ai/claude-agent-sdk via the IAgentExecutor pattern, add use cases as the presentation boundary, and thread agent/model selection end-to-end."
+userQuery: "i want to update current spec files with new iteration, we invented the wheel with claude-code cli wrapper, there is official claude sdk which wraps cli calls! https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk We must adopt it - REFACTOR OUR CODE AND CLEANUP UNUSED. ISOLATE ALL LOGIC WITHIN USECASES ONLY. Encapsulate interactive agent logic per specific implementation like IAgentExecutor. RESPECT SELECT AGENT/MODEL IN CHAT!"
 summary: >
-  The interactive feature agent (spec 074, iteration 1) was built with manual child_process.spawn(),
-  readline stdout parsing, and hand-rolled JSON-line protocol handling. The official
-  @anthropic-ai/claude-agent-sdk (v0.2.81) wraps all of this — process management, typed message
-  streaming, session persistence, and resumption — behind a clean TypeScript API. This iteration
-  replaces the manual CLI wrapper with the SDK's V2 session API (createSession/resumeSession/send/stream),
-  deletes ~500 lines of process management code, and preserves the existing UI, SSE streaming,
-  SQLite persistence, and idle timeout behavior. A PoC commit (5ab568c4) has already proven
-  persistent sessions work with the SDK.
+  Iteration 2 of the interactive feature agent. Three architectural corrections:
+  (1) Add use cases as the boundary between presentation and application layers —
+  API routes must call use cases, never services directly.
+  (2) Integrate SDK via the existing IAgentExecutor/IAgentExecutorFactory pattern —
+  create IInteractiveAgentExecutor interface and ClaudeCodeInteractiveExecutor, not a
+  standalone adapter. Each agent type encapsulates its own interactive logic.
+  (3) Thread agent type and model selection from the UI through API → use case →
+  service → executor. The chat UI's agent/model picker must be honored.
+  Replace ~500 lines of manual CLI process management with the SDK's V2 session API,
+  all contained within the ClaudeCodeInteractiveExecutor.
 
 phase: "Requirements"
 sizeEstimate: "M"
@@ -19,187 +21,134 @@ relatedFeatures:
   - "074-interactive-feature-agent (iteration 1 — initial implementation)"
 technologies:
   - "TypeScript"
-  - "@anthropic-ai/claude-agent-sdk (V2 session API — createSession, resumeSession, send, stream)"
+  - "@anthropic-ai/claude-agent-sdk (V2 session API)"
+  - "tsyringe (DI — @injectable, @inject decorators)"
   - "Next.js 16 (App Router)"
   - "React 19"
   - "SQLite / better-sqlite3"
-  - "Server-Sent Events (SSE)"
-  - "tsyringe (DI container)"
-  - "Tailwind CSS v4"
-  - "assistant-ui/react (ExternalStoreRuntime, ThreadPrimitive, MessagePrimitive, ComposerPrimitive)"
-  - "react-markdown (Markdown rendering in assistant messages)"
   - "Vitest"
   - "zod@^4 (peer dep of claude-agent-sdk)"
 relatedLinks:
   - title: "@anthropic-ai/claude-agent-sdk npm"
     url: "https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk"
-  - title: "Claude Agent SDK TypeScript GitHub"
+  - title: "Claude Agent SDK GitHub"
     url: "https://github.com/anthropics/claude-agent-sdk-typescript"
-  - title: "Claude Code SDK docs"
-    url: "https://docs.anthropic.com/en/docs/claude-code/sdk"
 openQuestions:
-  - question: "Should we use the stable V1 query() API or the unstable V2 session API?"
+  - question: "How should interactive session support integrate with the existing IAgentExecutor pattern?"
     resolved: true
     options:
-      - option: "V1 query() — stable, async generator based"
+      - option: "Add optional methods to IAgentExecutor"
         description: >
-          The V1 API uses query({ prompt }) returning an AsyncGenerator<SDKMessage>.
-          Multi-turn requires passing an AsyncIterable<SDKUserMessage> as prompt and
-          coordinating when to yield the next message after receiving a result. More
-          complex coordination logic but stable API surface.
+          Add createInteractiveSession() and resumeInteractiveSession() as optional
+          methods on IAgentExecutor. Check support via supportsFeature(). Pollutes
+          the executor interface with optional methods.
         selected: false
-      - option: "V2 unstable_v2_createSession() — simpler session-based API"
+      - option: "Create separate IInteractiveAgentExecutor interface"
         description: >
-          The V2 API provides createSession()/resumeSession() returning an SDKSession
-          with send(message) and stream() methods. Much simpler for multi-turn interactive
-          use: send a message, iterate the stream, repeat. Marked as unstable/alpha but
-          maps perfectly to our interactive session model.
+          New interface alongside IAgentExecutor. Add createInteractiveExecutor()
+          to IAgentExecutorFactory. Each agent type registers its own interactive
+          executor implementation. Clean separation — executors that don't support
+          interactive mode simply don't register one.
         selected: true
     selectionRationale: >
-      V2's send()/stream() model maps directly to our InteractiveSessionService's
-      sendMessage/subscribe pattern. The V1 async generator coordination for multi-turn
-      adds unnecessary complexity. The PoC (commit 5ab568c4) already validated V2 works.
-      The "unstable" label means the API may change between SDK versions, but we pin our
-      dependency version and can adapt on upgrade.
-    answer: "V2 unstable_v2_createSession() — simpler session-based API"
-  - question: "Should we keep IAgentExecutorProvider for interactive mode or use SDK directly?"
+      Separate interface keeps IAgentExecutor clean. The factory already handles
+      agent type resolution — adding createInteractiveExecutor() follows the same
+      pattern. Each agent type encapsulates its own interactive logic (Claude uses
+      SDK, others can use their own approaches).
+    answer: "Separate IInteractiveAgentExecutor interface + factory method"
+  - question: "Should API routes call services directly or through use cases?"
     resolved: true
     options:
-      - option: "Keep IAgentExecutorProvider abstraction"
+      - option: "Call services directly (current approach)"
         description: >
-          Continue resolving agent type through IAgentExecutorProvider, then conditionally
-          use the SDK when Claude Code is selected. Maintains architectural consistency
-          with non-interactive agent execution. However, the SDK only supports Claude Code
-          (it bundles the CLI), making the abstraction hollow for interactive mode.
+          API routes resolve IInteractiveSessionService via DI and call methods
+          directly. Simpler, fewer files. But violates the established codebase
+          pattern where ALL API routes go through use cases.
         selected: false
-      - option: "Replace with SDK-specific adapter for interactive mode"
+      - option: "Use cases as mandatory boundary"
         description: >
-          Create a thin IInteractiveAgentAdapter interface that wraps the SDK directly.
-          Interactive mode is Claude-Code-only (the SDK bundles it). Non-interactive
-          agent execution continues to use IAgentExecutorProvider for multi-agent support.
-          Cleaner separation of concerns.
+          Create use case classes (StartInteractiveSessionUseCase, etc.) following
+          the existing @injectable() + @inject() tsyringe pattern. API routes resolve
+          use cases, never services. Consistent with every other API route.
         selected: true
     selectionRationale: >
-      The SDK is inherently Claude-Code-specific (it embeds the CLI binary). Routing
-      through IAgentExecutorProvider for interactive mode adds an unnecessary abstraction
-      layer that can never resolve to anything else. A dedicated IInteractiveAgentAdapter
-      is honest about this constraint while keeping the interface mockable for tests.
-      Non-interactive agent execution retains IAgentExecutorProvider for Cursor/Gemini support.
-    answer: "Replace with SDK-specific adapter for interactive mode"
-  - question: "Should we use the SDK's built-in session persistence or keep our SQLite tables?"
-    resolved: true
-    options:
-      - option: "SDK persistence only — remove our SQLite tables"
-        description: >
-          The SDK persists sessions to disk and provides listSessions(), getSessionMessages()
-          APIs. Could eliminate our interactive_sessions and interactive_messages tables.
-          However, the SDK stores data in Claude Code's internal format, not queryable
-          by our UI without going through the SDK API for every read.
-        selected: false
-      - option: "Dual persistence — SDK for agent context, SQLite for UI queries"
-        description: >
-          Keep our SQLite tables for fast UI queries (message history, session status,
-          feature scoping). The SDK handles its own persistence for agent context
-          resumption. Our tables serve a different purpose: UI state, feature scoping,
-          and cross-session message history that the SDK doesn't provide.
-        selected: true
-    selectionRationale: >
-      Our SQLite tables serve the UI layer — fast queries for message lists, feature-scoped
-      history, session status. The SDK's persistence serves the agent's context window.
-      These are complementary, not redundant. Removing our tables would couple the UI
-      to the SDK's internal storage format and require SDK API calls for every page load.
-    answer: "Dual persistence — SDK for agent context, SQLite for UI queries"
+      Every API route in the codebase uses resolve<UseCase>('UseCaseName'). The
+      interactive session routes are the only ones that skip this boundary. This
+      is a Clean Architecture violation that must be corrected.
+    answer: "Use cases as mandatory boundary"
 content: |
   ## Problem Statement
 
-  The interactive feature agent (iteration 1) manually spawns the Claude CLI via child_process.spawn(),
-  parses JSON-line stdout with readline, manages process lifecycle (SIGTERM, stdin writes, process
-  monitoring), and handles session resumption via --resume flags. This is ~500 lines of hand-rolled
-  process management code that duplicates what the official @anthropic-ai/claude-agent-sdk provides
-  out of the box with a clean, typed TypeScript API.
+  Iteration 1 of the interactive feature agent has three architecture violations:
+  1. API routes call IInteractiveSessionService directly, bypassing the use case boundary
+     that every other route respects.
+  2. The interactive agent logic is contained in a standalone adapter (ClaudeAgentSdkAdapter)
+     instead of following the IAgentExecutor/IAgentExecutorFactory pattern used by all other
+     agent operations. This creates a parallel resolution path that duplicates agent-type handling.
+  3. The chat UI's agent/model selector is not threaded through the API → service → executor
+     chain. The model is hardcoded in the adapter.
 
-  The SDK (v0.2.81) wraps the Claude CLI internally, handles all IPC protocol complexity, provides
-  typed SDKMessage streams, and offers session create/resume/send/stream primitives. A PoC commit
-  (5ab568c4) has already proven persistent sessions work with the V2 API.
+  Additionally, the manual CLI wrapper (child_process.spawn + readline + JSON parsing) should
+  be replaced with the official @anthropic-ai/claude-agent-sdk, but encapsulated WITHIN the
+  ClaudeCode executor, not in a separate adapter.
 
   ## Success Criteria
 
-  - [ ] @anthropic-ai/claude-agent-sdk is installed as a dependency
-  - [ ] InteractiveSessionService uses SDK V2 createSession()/resumeSession() instead of child_process.spawn()
-  - [ ] Message sending uses session.send() instead of stdin.write()
-  - [ ] Response streaming uses session.stream() async generator instead of readline JSON parsing
-  - [ ] InteractiveAgentProcessFactory is replaced with a thin SDK adapter
-  - [ ] All manual CLI flag construction (--output-format, --dangerously-skip-permissions, etc.) is removed
-  - [ ] All readline-based stdout parsing code is removed
-  - [ ] All manual child_process lifecycle management (SIGTERM, spawn, stdio pipe) is removed
-  - [ ] Feature context injection uses SDK systemPrompt option instead of manual stdin writing
-  - [ ] Session resumption uses SDK's resumeSession() instead of manual --resume flag
-  - [ ] SDK permissionMode replaces --dangerously-skip-permissions flag
-  - [ ] Existing SSE streaming to browser continues to work (source changes, delivery unchanged)
-  - [ ] Idle timeout behavior is preserved
-  - [ ] Concurrent session cap is preserved
-  - [ ] All existing unit tests pass (updated for new implementation)
-  - [ ] All existing integration tests pass (SQLite repositories unchanged)
-  - [ ] Message history persistence across session restarts is preserved
-  - [ ] React UI components require zero changes (API contract unchanged)
+  - [ ] IInteractiveAgentExecutor interface defined with InteractiveAgentSessionHandle
+  - [ ] IAgentExecutorFactory extended with createInteractiveExecutor() method
+  - [ ] ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor using SDK
+  - [ ] All SDK message parsing happens inside the executor (not in the session service)
+  - [ ] Use cases created: StartInteractiveSession, SendInteractiveMessage, StopInteractiveSession, GetInteractiveChatState
+  - [ ] API routes use resolve<UseCase>() pattern (never resolve services directly)
+  - [ ] agentType and model parameters threaded from UI → API → use case → service → executor
+  - [ ] Session service uses IInteractiveAgentExecutor instead of IInteractiveAgentProcessFactory
+  - [ ] Manual process management code (spawn, readline, JSON parsing, SIGTERM) removed
+  - [ ] InteractiveAgentProcessFactory and its interface deleted
+  - [ ] Incorrect ClaudeAgentSdkAdapter and IInteractiveAgentAdapter deleted
+  - [ ] All existing tests pass (updated for new architecture)
+  - [ ] React UI components unchanged (API contract preserved)
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | packages/core/src/infrastructure/services/interactive/interactive-session.service.ts | High | Core refactoring target — replace spawn/readline with SDK session API |
-  | packages/core/src/infrastructure/services/interactive/interactive-agent-process.factory.ts | High | Replace with SDK adapter or delete entirely |
-  | packages/core/src/application/ports/output/agents/interactive-agent-process-factory.interface.ts | High | Replace IInteractiveAgentProcessFactory with IInteractiveAgentAdapter |
-  | packages/core/src/infrastructure/services/interactive/feature-context.builder.ts | Medium | Simplify — context now passed as SDK systemPrompt option |
-  | packages/core/src/infrastructure/di/container.ts | Medium | Update DI registrations for new SDK adapter |
-  | package.json | Low | Add @anthropic-ai/claude-agent-sdk dependency |
-  | tests/unit/infrastructure/services/interactive/ | High | Update all unit tests for SDK-based implementation |
-  | src/presentation/web/ | None | API routes and React components unchanged (contract preserved) |
-  | packages/core/src/infrastructure/persistence/sqlite/ | None | SQLite tables, mappers, repositories unchanged |
-
-  ## Dependencies
-
-  - **@anthropic-ai/claude-agent-sdk v0.2.81+** — the SDK to adopt
-  - **zod@^4** — peer dependency of the SDK
-  - **Existing SQLite persistence** — retained for UI queries
-  - **Existing SSE infrastructure** — retained, source changes from readline to SDK stream
-  - **Existing React components** — unchanged, API contract preserved
+  | application/ports/output/agents/ | High | New IInteractiveAgentExecutor interface; extend IAgentExecutorFactory |
+  | application/use-cases/interactive/ | High | New use case classes (4) |
+  | infrastructure/services/agents/common/executors/ | High | ClaudeCodeInteractiveExecutor using SDK |
+  | infrastructure/services/agents/common/agent-executor-factory.service.ts | Medium | Add createInteractiveExecutor() |
+  | infrastructure/services/interactive/interactive-session.service.ts | High | Refactor to use executor instead of process factory |
+  | infrastructure/services/interactive/feature-context.builder.ts | Low | Simplify for SDK systemPrompt |
+  | infrastructure/di/container.ts | Medium | Register use cases, update executor factory |
+  | presentation/web/app/api/interactive/ | Medium | Routes use resolve<UseCase>() |
+  | infrastructure/services/interactive/interactive-agent-process.factory.ts | Delete | Replaced by executor |
+  | infrastructure/services/interactive/claude-agent-sdk.adapter.ts | Delete | Wrong pattern — replaced by executor |
+  | application/ports/output/agents/interactive-agent-process-factory.interface.ts | Delete | Replaced by executor interface |
+  | application/ports/output/agents/interactive-agent-adapter.interface.ts | Delete | Wrong pattern — replaced by executor interface |
 
   ## Size Estimate
 
-  **M (3-5 days)** — This is a focused refactoring within the infrastructure layer:
-
-  1. Install SDK + create adapter interface (S)
-  2. Refactor InteractiveSessionService to use SDK V2 API (L — core work)
-  3. Delete InteractiveAgentProcessFactory and manual process management (S)
-  4. Update FeatureContextBuilder for SDK systemPrompt format (S)
-  5. Update unit tests for new implementation (M)
-  6. Cleanup dead code paths and unused imports (S)
-  7. Verify all existing tests pass (S)
-
-  The refactoring is contained to the infrastructure layer. No domain, application port,
-  presentation, or persistence changes are needed. The API contract between the service
-  and the API routes is preserved.
+  **M (3-5 days)** — Focused refactoring across application and infrastructure layers.
+  Presentation layer and persistence layer are mostly unchanged.
 
 rejectionFeedback:
   - iteration: 1
-    message: "something doesnt work, Startin session is stuck, please test e2e on some claude feature, ask something simple like hey, status, etc and stop the agent!"
+    message: "something doesnt work, Startin session is stuck"
     phase: "merge"
     timestamp: "2026-03-23T10:45:23.540Z"
   - iteration: 2
-    message: "[InteractiveSession] boot failed for session 33b3e769-4aff-42b5-8c00-10621b09701d: Error: Agent boot timed out after 30s\n    at Timeout._onTimeout (packages/core/src/infrastructure/services/interactive/interactive-session.service.ts:150:17)\nStuck on loading context, TEST E2E UNTIL CHAT RESPOND!"
+    message: "boot timed out after 30s"
     phase: "merge"
     timestamp: "2026-03-23T11:09:26.623Z"
   - iteration: 3
-    message: "works, but updates are broken, i need to refresh to see agent message, also dont see Thinking or something, loader/spinner etc,"
+    message: "updates broken, need refresh to see agent message"
     phase: "merge"
     timestamp: "2026-03-23T11:41:17.978Z"
   - iteration: 4
-    message: "Dont run tests or lint from now, just do edits and commit no verify!\nWe still have bug with updates, after my message i see Thinkging for few seconds, then it disappears forever, after referesh i see agent response.\nAnother bug, after stop/restart agent - he doesnt remember the history i see in chat tab, we must provide previos messages.\nAnother issue - we dont render markdown in chat!\nAnd last! After clicking Restart agent i dont want to jump back to empty chat and clickcc again on Start agent, just restart in same conversation SEAMLEASSLY.\nShow chat alwasy and make agent start/stop/restart SEAMLSESS integrate very sleek!"
+    message: "multiple bugs with updates, history, markdown, restart UX"
     phase: "merge"
     timestamp: "2026-03-23T11:52:06.645Z"
   - iteration: 5
-    message: "better, thinking doesnt disappear but STILL refresh required to see the agent RESPONSE!"
+    message: "STILL refresh required to see agent RESPONSE"
     phase: "merge"
     timestamp: "2026-03-23T12:11:36.983Z"
   - iteration: 6
@@ -207,6 +156,6 @@ rejectionFeedback:
     phase: "merge"
     timestamp: "2026-03-23T16:20:52.491Z"
   - iteration: 7
-    message: "adopt @anthropic-ai/claude-agent-sdk — replace manual CLI wrapper with official SDK V2 session API"
+    message: "adopt SDK, use cases boundary, executor pattern, model selection"
     phase: "refactor"
     timestamp: "2026-03-24T00:00:00Z"

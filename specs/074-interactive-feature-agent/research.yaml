@@ -1,8 +1,8 @@
 name: "interactive-feature-agent"
 summary: >
-  Iteration 2: Replace manual CLI process management with @anthropic-ai/claude-agent-sdk V2 session
-  API. The SDK wraps Claude Code CLI internally, provides typed message streaming, session
-  create/resume/send/stream primitives, and eliminates ~500 lines of hand-rolled IPC code.
+  Iteration 2: Adopt @anthropic-ai/claude-agent-sdk via the IAgentExecutor pattern,
+  add use cases as presentation boundary, and thread agent/model selection end-to-end.
+  The SDK is encapsulated inside ClaudeCodeInteractiveExecutor, not a standalone adapter.
 
 relatedFeatures:
   - "074-interactive-feature-agent (iteration 1)"
@@ -10,312 +10,259 @@ relatedFeatures:
 technologies:
   - "TypeScript"
   - "@anthropic-ai/claude-agent-sdk v0.2.81+ (V2 session API)"
+  - "tsyringe (@injectable, @inject decorators for DI)"
   - "zod@^4 (peer dep of SDK)"
-  - "Next.js 16 App Router (route handlers)"
-  - "React 19"
-  - "SQLite / better-sqlite3"
-  - "tsyringe (DI container)"
-  - "Server-Sent Events (ReadableStream)"
-  - "assistant-ui/react v0.12+"
-  - "Vitest (unit + integration tests)"
 
 relatedLinks:
   - title: "@anthropic-ai/claude-agent-sdk npm"
     url: "https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk"
-  - title: "Claude Agent SDK TypeScript GitHub"
+  - title: "Claude Agent SDK GitHub"
     url: "https://github.com/anthropics/claude-agent-sdk-typescript"
-  - title: "Claude Code SDK docs"
-    url: "https://docs.anthropic.com/en/docs/claude-code/sdk"
 
 decisions:
-  - title: "Replace manual CLI spawning with Claude Agent SDK"
+  - title: "IInteractiveAgentExecutor via IAgentExecutorFactory"
     chosen: |
-      Use @anthropic-ai/claude-agent-sdk V2 session API (unstable_v2_createSession /
-      unstable_v2_resumeSession) to replace all manual child_process.spawn() + readline
-      + JSON-line parsing code. The SDK:
-      - Bundles Claude Code CLI internally (no separate binary resolution)
-      - Handles all IPC protocol (stdin/stdout JSON-line framing)
-      - Provides typed SDKMessage stream (22+ message types)
-      - Manages process lifecycle (spawn, signal, cleanup)
-      - Supports session persistence and resumption natively
-      - Offers includePartialMessages for streaming deltas
-    rejected:
-      - "Keep manual child_process.spawn wrapper — ~500 lines of hand-rolled process management that duplicates SDK functionality; maintenance burden grows with each Claude CLI protocol change"
-      - "Use SDK V1 query() API — requires complex async generator coordination for multi-turn; V2 send()/stream() maps directly to our session model"
-      - "Direct Anthropic API calls via @anthropic-ai/sdk — loses all Claude Code tooling (file read/write, bash, git); would need to rebuild tool infrastructure from scratch"
-    rationale: |
-      The SDK is the official wrapper for Claude Code CLI, maintained by Anthropic. It provides
-      everything we built manually (process spawn, JSON parsing, session resume) plus features
-      we didn't have (typed messages, in-process custom tools, hooks, MCP server management).
-      The PoC commit (5ab568c4) validated that V2 persistent sessions work correctly.
-      Adopting the SDK reduces our infrastructure code by ~500 lines and ensures we stay
-      compatible with future Claude Code protocol changes.
+      Create a new IInteractiveAgentExecutor interface (application port) alongside
+      IAgentExecutor. Add createInteractiveExecutor(agentType, config) to the existing
+      IAgentExecutorFactory interface. Each agent type that supports interactive mode
+      registers its own implementation:
 
-  - title: "SDK V2 Session API for Multi-Turn Conversations"
-    chosen: |
-      Use the V2 unstable API surface:
-      - unstable_v2_createSession(options) → SDKSession for new sessions
-      - unstable_v2_resumeSession(sessionId, options) → SDKSession for resumed sessions
-      - session.send(message) to send user messages (replaces stdin.write)
-      - session.stream() async generator yielding SDKMessage (replaces readline parsing)
-      - session.close() to terminate (replaces process.kill SIGTERM)
-      - session.sessionId for tracking (replaces manual UUID management)
+      - ClaudeCode → ClaudeCodeInteractiveExecutor (uses @anthropic-ai/claude-agent-sdk)
+      - Cursor → future implementation
+      - Gemini → future implementation
 
-      SDK options used:
-      - model: from settings or default
-      - cwd: feature worktree path
-      - systemPrompt: { type: 'preset', preset: 'claude_code', append: featureContext }
-      - permissionMode: 'bypassPermissions' (replaces --dangerously-skip-permissions)
-      - allowDangerouslySkipPermissions: true
-      - includePartialMessages: true (for streaming deltas to SSE)
-      - persistSession: true (SDK handles session disk persistence)
-    rejected:
-      - "V1 query() with AsyncIterable prompt — complex generator coordination for multi-turn; must manually yield SDKUserMessage at correct timing; V2 eliminates this entirely"
-      - "V1 query() with string prompt per turn (no session resume) — loses conversation context between turns; defeats the purpose of persistent sessions"
-    rationale: |
-      V2's send()/stream() model is a direct replacement for our current
-      stdin.write() + readline-stdout-parsing flow. Each turn is: send message,
-      iterate stream for responses, done. The "unstable" label means the API shape
-      may evolve, but we pin the SDK version and can adapt on upgrade. The PoC
-      already validated this works end-to-end.
+      The executor returns an InteractiveAgentSessionHandle that abstracts all
+      agent-specific session management (send, stream, close). The session service
+      only interacts with the handle, never with SDK types directly.
 
-  - title: "Replace IInteractiveAgentProcessFactory with IInteractiveAgentAdapter"
-    chosen: |
-      Delete the IInteractiveAgentProcessFactory interface and its implementation
-      (InteractiveAgentProcessFactory). Replace with a thinner IInteractiveAgentAdapter
-      interface:
-
-      interface IInteractiveAgentAdapter {
-        createSession(options: InteractiveSessionOptions): Promise<SDKSession>;
-        resumeSession(sessionId: string, options: InteractiveSessionOptions): Promise<SDKSession>;
+      interface InteractiveAgentSessionHandle {
+        sessionId: string;
+        send(message: string): void;
+        stream(): AsyncIterable<InteractiveAgentEvent>;
+        close(): Promise<void>;
       }
 
-      The adapter wraps SDK calls and maps our InteractiveSessionOptions to SDK
-      SDKSessionOptions. This is the only place in the codebase that imports from
-      @anthropic-ai/claude-agent-sdk — all other code interacts through the adapter
-      interface, keeping the SDK a swappable implementation detail.
-    rejected:
-      - "Keep IInteractiveAgentProcessFactory returning ChildProcess — the SDK manages the child process internally; exposing ChildProcess would mean reaching into SDK internals"
-      - "No adapter, use SDK directly in InteractiveSessionService — couples the service to the SDK; harder to test; violates DI principle"
-      - "Route through IAgentExecutorProvider — the SDK only supports Claude Code (it bundles the CLI); the abstraction is hollow for interactive mode"
-    rationale: |
-      A thin adapter keeps the SDK as an implementation detail behind a clean interface.
-      The InteractiveSessionService depends only on the adapter interface, making it
-      testable with mocks. The adapter is the single point where SDK imports live,
-      making future SDK version upgrades contained to one file.
+      interface InteractiveAgentEvent {
+        type: 'delta' | 'tool_use' | 'tool_result' | 'status' | 'done' | 'error';
+        content?: string;
+        label?: string;
+        detail?: string;
+      }
 
-  - title: "SDK Message Type Mapping to SSE Events"
+      interface IInteractiveAgentExecutor {
+        createSession(options: InteractiveAgentOptions): Promise<InteractiveAgentSessionHandle>;
+        resumeSession(sessionId: string, options: InteractiveAgentOptions): Promise<InteractiveAgentSessionHandle>;
+      }
+    rejected:
+      - "Standalone IInteractiveAgentAdapter — creates parallel resolution path, duplicates agent-type handling, doesn't integrate with existing factory"
+      - "Add optional methods to IAgentExecutor — pollutes the interface; not all executors support interactive"
+      - "Hardcode SDK in session service — couples service to Claude-specific types; violates agent resolution rule"
+    rationale: |
+      Follows the established codebase pattern exactly: IAgentExecutorFactory resolves
+      the correct executor per agent type. The executor encapsulates all agent-specific
+      logic. The session service is agent-agnostic. Future agent types (Cursor, Gemini)
+      just register their own IInteractiveAgentExecutor implementations.
+
+  - title: "Use Cases as Presentation Boundary"
     chosen: |
-      Map SDK message types to our existing SSE event format:
+      Create four use case classes following the existing @injectable() + @inject() pattern:
 
-      SDKPartialAssistantMessage → SSE 'delta' event (streaming token chunks)
-      SDKAssistantMessage → SSE 'message' event (complete message, persisted to SQLite)
-      SDKResultMessage (success) → SSE 'done' event (end-of-turn)
-      SDKResultMessage (error) → SSE 'error' event
-      SDKStatusMessage → SSE 'log' event (status updates, tool usage)
-      SDKToolUseSummaryMessage → SSE 'log' event (tool use summaries)
+      1. StartInteractiveSessionUseCase
+         Input: { featureId, worktreePath, agentType?, model? }
+         Output: InteractiveSession
 
-      The mapping happens in InteractiveSessionService when iterating session.stream().
-      The SSE event format sent to the browser is unchanged — React components need
-      zero modifications.
+      2. SendInteractiveMessageUseCase
+         Input: { featureId, content, worktreePath }
+         Output: InteractiveMessage
+
+      3. StopInteractiveSessionUseCase
+         Input: { featureId }
+         Output: void
+
+      4. GetInteractiveChatStateUseCase
+         Input: { featureId }
+         Output: ChatState
+
+      API routes use: resolve<UseCase>('UseCaseName').execute(input)
+      Use cases delegate to IInteractiveSessionService.
+
+      The use case is thin — it provides the boundary and can evolve independently
+      (e.g., adding authorization, logging, validation) without changing routes or services.
     rejected:
-      - "Pass raw SDK messages to the browser — browser would need to understand SDK message types; tight coupling to SDK internals; breaks if SDK changes message format"
-      - "Only emit complete messages (no streaming) — loses GPT-style token streaming feel; regresses UX from iteration 1"
+      - "Call services directly from API routes — violates the established pattern; every other route uses use cases"
+      - "Fat use cases with business logic — business logic belongs in the service; use cases are thin delegation"
     rationale: |
-      Mapping SDK messages to our existing SSE event format preserves the API contract
-      between the backend and frontend. The React components (useChatRuntime, Thread)
-      continue to consume the same SSE event shapes. This makes the SDK adoption a
-      pure backend refactoring with zero frontend changes.
+      Every API route in the codebase follows resolve<UseCase>('TokenName'). The
+      interactive session routes are the only exception. This creates inconsistency
+      and bypasses the application boundary that Clean Architecture requires between
+      presentation and application layers.
 
-  - title: "Dual Persistence Strategy"
+  - title: "Agent/Model Selection Threading"
     chosen: |
-      Keep both persistence layers:
-      - SDK persistence: handles agent context (session history for Claude's context window,
-        tool outputs, file checkpoints). Managed automatically by the SDK.
-      - Our SQLite tables: handle UI state (interactive_sessions status tracking,
-        interactive_messages for feature-scoped history display, fast queries for
-        message lists and session status). Unchanged from iteration 1.
+      Thread agentType and model from UI through the full chain:
 
-      On session.send(), we:
-      1. Persist user message to our SQLite interactive_messages table
-      2. Call session.send() (SDK handles its own persistence internally)
-      3. Iterate session.stream() and persist complete assistant messages to our table
+      1. UI: Chat tab agent/model selector sends { agentType?, model? } with requests
+      2. API route: Passes to use case input
+      3. Use case: Passes to service.startSession(featureId, worktreePath, agentType, model)
+      4. Service: Resolves executor via factory.createInteractiveExecutor(agentType, config)
+      5. Executor: Uses model in session creation (e.g., SDK model option)
+
+      If agentType is omitted, defaults to getSettings().agent.type (same as IAgentExecutorProvider).
+      If model is omitted, uses the executor's default model.
+
+      The SessionState stores both agentType and model so they persist across session
+      lifecycle and are returned in SessionInfo for the UI toolbar display.
     rejected:
-      - "Remove our SQLite tables, use SDK APIs for everything — SDK's listSessions/getSessionMessages APIs are not feature-scoped; querying per-feature history would require loading all sessions and filtering; no index optimization"
-      - "Remove SDK persistence, relay all context ourselves — defeats the purpose of using the SDK; we'd need to manage context window trimming manually again"
+      - "Hardcode model in adapter — ignores user selection; breaks UI contract"
+      - "Model only from settings — can't override per-session; chat UI selector is useless"
     rationale: |
-      The two persistence layers serve different purposes and are complementary:
-      - SDK persistence: agent's internal context (opaque to us)
-      - Our SQLite: UI layer queries (fast, indexed, feature-scoped)
-      Trying to use one for both purposes would compromise either the SDK's context
-      management or our UI query performance.
+      The chat UI shows an agent+model picker (screenshot confirms: "Claude Code / Sonnet 4.6").
+      This selection must be honored. Threading through the full chain ensures the user's
+      choice reaches the actual agent process.
 
-  - title: "Feature Context Injection via SDK systemPrompt"
+  - title: "SDK Encapsulation Inside ClaudeCodeInteractiveExecutor"
     chosen: |
-      Replace manual stdin writing of feature context with SDK's systemPrompt option:
+      The @anthropic-ai/claude-agent-sdk is imported ONLY inside
+      ClaudeCodeInteractiveExecutor (in the executors/ directory alongside
+      claude-code-executor.service.ts). The executor:
 
-      const session = await adapter.createSession({
-        cwd: worktreePath,
-        systemPrompt: {
-          type: 'preset',
-          preset: 'claude_code',
-          append: featureContextBuilder.build(feature)
-        },
-        // ... other options
-      });
+      - Creates SDK sessions via unstable_v2_createSession()
+      - Resumes via unstable_v2_resumeSession()
+      - Maps SDK message types to InteractiveAgentEvent:
+        SDKPartialAssistantMessage → { type: 'delta', content }
+        SDKAssistantMessage tool_use blocks → { type: 'tool_use', label, detail }
+        SDKResultMessage success → { type: 'done' }
+        SDKResultMessage error → { type: 'error', content }
+        SDKStatusMessage → { type: 'status', content }
+        SDKToolUseSummaryMessage → { type: 'tool_result', label, detail }
+      - Wraps the SDK session in an InteractiveAgentSessionHandle
 
-      The FeatureContextBuilder.build() method stays the same (generates ~400-600 token
-      summary). Only the injection mechanism changes — from stdin writing to SDK option.
+      The InteractiveSessionService never imports from the SDK — it only works
+      with InteractiveAgentSessionHandle and InteractiveAgentEvent.
     rejected:
-      - "Pass context as first user message — pollutes message history; agent sees it as a user turn, not system context"
-      - "Skip context entirely, let agent read files — degrades first-response quality; agent wastes a turn reading spec files"
+      - "Map SDK types in session service — couples service to SDK; violates agent-agnostic design"
+      - "Expose raw SDK session to service — leaks implementation detail through the boundary"
     rationale: |
-      The SDK's systemPrompt option with preset: 'claude_code' ensures the agent gets
-      both its standard Claude Code instructions AND our feature context. The append
-      field cleanly adds our context without replacing Claude Code's default behavior.
-      This is cleaner than our iteration 1 approach of writing to stdin.
+      Encapsulation inside the executor means:
+      - The session service is fully agent-agnostic
+      - SDK upgrades only affect one file (the executor)
+      - Adding new agent types doesn't touch the service
+      - Unit tests for the service mock the executor, not the SDK
+
+  - title: "Dual Persistence Strategy (unchanged from iteration 1)"
+    chosen: |
+      Keep both persistence layers: SDK handles agent context, our SQLite tables
+      handle UI state (feature-scoped message history, session status tracking).
+    rejected:
+      - "SDK only — not feature-scoped, not queryable by our UI"
+    rationale: |
+      Complementary purposes. Our tables serve fast UI queries. SDK serves agent context.
 
 openQuestions: []
 
 content: |
-  ## Technology Decisions
+  ## Architecture Overview
 
-  ### 1. Claude Agent SDK Adoption (Core Decision)
-
-  **Chosen:** @anthropic-ai/claude-agent-sdk V2 session API
-
-  The SDK (v0.2.81) bundles Claude Code CLI internally and provides:
-  - Process lifecycle management (spawn, signal, cleanup)
-  - JSON-line IPC protocol handling
-  - Typed message stream (22+ SDKMessage types)
-  - Session create/resume/send/stream primitives
-  - Permission mode configuration
-  - System prompt injection
-  - Streaming partial messages
-
-  **Replaces (to be deleted):**
-  - Manual `child_process.spawn()` with CLI flag construction
-  - `readline.createInterface()` for stdout JSON-line parsing
-  - Manual `stdin.write()` for message sending
-  - Manual `process.kill(SIGTERM)` for session termination
-  - `--resume` flag management for session resumption
-  - `--output-format stream-json` flag construction
-  - `--dangerously-skip-permissions` flag
-  - `windowsHide`, `stdio: pipe` configuration
-  - `CLAUDECODE` env var stripping
-  - JSON-line parsing with error recovery
-
-  **Retained (unchanged):**
-  - SQLite persistence (interactive_sessions, interactive_messages tables)
-  - SSE streaming to browser (event format preserved)
-  - Idle timeout via NodeJS.Timeout per session
-  - Concurrent session cap enforcement
-  - FeatureContextBuilder (output reused, injection mechanism changes)
-  - React components and API routes (contract preserved)
-
-  ---
-
-  ### 2. V2 Session API Usage Pattern
-
-  **Session creation:**
-  ```typescript
-  import { unstable_v2_createSession, unstable_v2_resumeSession } from '@anthropic-ai/claude-agent-sdk';
-
-  // New session
-  const session = unstable_v2_createSession({
-    model: settings.model ?? 'claude-sonnet-4-6',
-    cwd: worktreePath,
-    systemPrompt: { type: 'preset', preset: 'claude_code', append: featureContext },
-    permissionMode: 'bypassPermissions',
-    allowDangerouslySkipPermissions: true,
-    includePartialMessages: true,
-    persistSession: true,
-  });
-
-  // Resumed session
-  const session = unstable_v2_resumeSession(claudeSessionId, {
-    model: settings.model ?? 'claude-sonnet-4-6',
-    cwd: worktreePath,
-    permissionMode: 'bypassPermissions',
-    allowDangerouslySkipPermissions: true,
-    includePartialMessages: true,
-  });
+  ```
+  Presentation Layer (API routes, React components)
+       │
+       │ resolve<UseCase>('StartInteractiveSessionUseCase')
+       ▼
+  Application Layer (Use Cases)
+       │
+       │ delegates to
+       ▼
+  Application Layer (IInteractiveSessionService port)
+       │
+       │ resolves executor via
+       ▼
+  Application Layer (IAgentExecutorFactory port)
+       │
+       │ createInteractiveExecutor(agentType, config)
+       ▼
+  Infrastructure Layer (ClaudeCodeInteractiveExecutor)
+       │
+       │ uses internally
+       ▼
+  @anthropic-ai/claude-agent-sdk (V2 session API)
+       │
+       │ spawns internally
+       ▼
+  Claude Code CLI (bundled in SDK)
   ```
 
-  **Message exchange:**
-  ```typescript
-  session.send(userMessage);
+  ## Key Interfaces
 
-  for await (const msg of session.stream()) {
-    switch (msg.type) {
-      case 'assistant':
-        // SDKPartialAssistantMessage — streaming delta → SSE 'delta' event
-        break;
-      case 'result':
-        // SDKResultMessage — end of turn → SSE 'done' event
-        // Persist complete assistant message to SQLite
-        break;
+  ### IInteractiveAgentExecutor (new port)
+  ```typescript
+  interface InteractiveAgentOptions {
+    cwd: string;
+    model?: string;
+    systemPrompt?: string;
+  }
+
+  interface InteractiveAgentSessionHandle {
+    sessionId: string;
+    send(message: string): void;
+    stream(): AsyncIterable<InteractiveAgentEvent>;
+    close(): Promise<void>;
+  }
+
+  interface InteractiveAgentEvent {
+    type: 'delta' | 'tool_use' | 'tool_result' | 'status' | 'done' | 'error';
+    content?: string;
+    label?: string;
+    detail?: string;
+  }
+
+  interface IInteractiveAgentExecutor {
+    createSession(options: InteractiveAgentOptions): Promise<InteractiveAgentSessionHandle>;
+    resumeSession(sessionId: string, options: InteractiveAgentOptions): Promise<InteractiveAgentSessionHandle>;
+  }
+  ```
+
+  ### IAgentExecutorFactory (extended)
+  ```typescript
+  interface IAgentExecutorFactory {
+    // existing
+    createExecutor(agentType, authConfig): IAgentExecutor;
+    getSupportedAgents(): AgentType[];
+    getSupportedModels(agentType): string[];
+    getCliInfo(): AgentCliInfo[];
+    // NEW
+    createInteractiveExecutor(agentType: AgentType, authConfig: AgentConfig): IInteractiveAgentExecutor;
+    supportsInteractive(agentType: AgentType): boolean;
+  }
+  ```
+
+  ### Use Case Pattern
+  ```typescript
+  @injectable()
+  export class StartInteractiveSessionUseCase {
+    constructor(
+      @inject('IInteractiveSessionService') private service: IInteractiveSessionService,
+    ) {}
+
+    async execute(input: StartInteractiveSessionInput): Promise<InteractiveSession> {
+      return this.service.startSession(input.featureId, input.worktreePath, input.agentType, input.model);
     }
   }
   ```
 
-  ---
+  ## Code to Delete
 
-  ### 3. SDK Message Type Mapping
-
-  | SDK Message Type | SSE Event | Purpose |
-  | ---------------- | --------- | ------- |
-  | SDKPartialAssistantMessage | delta | Streaming token chunks |
-  | SDKAssistantMessage | message | Complete assistant message |
-  | SDKResultMessage (success) | done | End-of-turn signal |
-  | SDKResultMessage (error) | error | Agent error |
-  | SDKStatusMessage | log | Status changes (compacting, etc.) |
-  | SDKToolUseSummaryMessage | log | Tool use summaries |
-  | SDKToolProgressMessage | log | Long-running tool progress |
-
-  ---
-
-  ### 4. Code to Delete
-
-  | File | What to Remove | Reason |
-  | ---- | -------------- | ------ |
-  | interactive-agent-process.factory.ts | Entire file | SDK manages process spawning |
-  | interactive-agent-process-factory.interface.ts | Entire file | Replaced by IInteractiveAgentAdapter |
-  | interactive-session.service.ts | spawn/readline/stdin logic | Replaced by SDK session API |
-  | interactive-session.service.ts | JSON-line parser | SDK provides typed messages |
-  | interactive-session.service.ts | claudeStdoutParser utility | SDK handles protocol parsing |
-  | container.ts | IInteractiveAgentProcessFactory registration | Replaced by IInteractiveAgentAdapter |
-
-  ---
+  | File | Reason |
+  | ---- | ------ |
+  | interactive-agent-process.factory.ts | Replaced by ClaudeCodeInteractiveExecutor |
+  | interactive-agent-process-factory.interface.ts | Replaced by IInteractiveAgentExecutor |
+  | claude-agent-sdk.adapter.ts | Wrong pattern — SDK lives inside executor |
+  | interactive-agent-adapter.interface.ts | Wrong pattern — replaced by executor interface |
 
   ## Library Analysis
 
-  | Library | Purpose | Decision | Reasoning |
-  | ------- | ------- | -------- | --------- |
-  | @anthropic-ai/claude-agent-sdk | Official SDK wrapping Claude Code CLI | **Adopt** | Replaces ~500 lines of manual process management; typed API; maintained by Anthropic |
-  | zod@^4 | Peer dependency of SDK | **Add** | Required by SDK; no breaking changes to our code (we use zod@3 internally but ^4 is compatible) |
-  | node:child_process | Manual process spawning | **Remove usage** | SDK manages processes internally |
-  | node:readline | Stdout line buffering | **Remove usage** | SDK handles IPC protocol |
-
-  ---
-
-  ## Security Considerations
-
-  - **permissionMode: 'bypassPermissions'** — same security posture as iteration 1's
-    --dangerously-skip-permissions flag. Agent operates with local user OS permissions.
-    This is a local single-user tool; no additional sandboxing applied.
-  - **allowDangerouslySkipPermissions: true** — required safety acknowledgment flag
-    when using bypass mode. Explicit opt-in prevents accidental use.
-  - **No new attack surface** — SDK is a wrapper around the same Claude CLI binary.
-    No network exposure changes. All communication remains local IPC.
-
-  ---
-
-  ## Performance Implications
-
-  - **Reduced latency** — SDK's internal message routing is direct (no readline buffering
-    overhead). Streaming deltas arrive with lower latency.
-  - **Memory** — SDK bundles Claude Code CLI (~50MB on disk). Runtime memory footprint
-    is comparable to manual spawn (same underlying process).
-  - **Startup time** — SDK session creation may be slightly faster than manual spawn
-    due to optimized initialization path.
+  | Library | Decision | Reasoning |
+  | ------- | -------- | --------- |
+  | @anthropic-ai/claude-agent-sdk | Adopt (inside executor) | Official SDK; replaces manual process management |
+  | zod@^4 | Add (peer dep) | Required by SDK |
+  | node:child_process | Remove usage | SDK manages processes internally |
+  | node:readline | Remove usage | SDK handles IPC protocol |

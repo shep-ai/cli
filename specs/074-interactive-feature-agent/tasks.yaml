@@ -3,16 +3,16 @@
 
 name: "interactive-feature-agent"
 summary: >
-  11 tasks across 4 phases. Phase 1 installs the SDK and creates the adapter layer (3 tasks).
-  Phase 2 refactors the session service to use SDK session API (3 tasks). Phase 3 deletes
-  dead code from the manual CLI wrapper (2 tasks). Phase 4 updates tests and verifies
-  no regressions (3 tasks).
+  10 tasks across 5 phases. Phase 1: executor interface + ClaudeCode implementation (3 tasks).
+  Phase 2: use cases + API route updates (2 tasks). Phase 3: session service refactoring (2 tasks).
+  Phase 4: dead code cleanup (1 task). Phase 5: test updates + verification (2 tasks).
 
 relatedFeatures:
   - "074-interactive-feature-agent (iteration 1)"
 technologies:
   - "@anthropic-ai/claude-agent-sdk"
   - "TypeScript"
+  - "tsyringe"
   - "Vitest"
 relatedLinks:
   - title: "@anthropic-ai/claude-agent-sdk npm"
@@ -20,370 +20,377 @@ relatedLinks:
 
 tasks:
   # ─────────────────────────────────────────────────────────────
-  # PHASE 1 — SDK Setup & Adapter Layer
+  # PHASE 1 — Executor Pattern Extension
   # ─────────────────────────────────────────────────────────────
 
   - id: "task-1"
     phaseId: "phase-1"
-    title: "Install @anthropic-ai/claude-agent-sdk and zod@^4"
+    title: "Create IInteractiveAgentExecutor interface with InteractiveAgentSessionHandle"
     description: >
-      Add @anthropic-ai/claude-agent-sdk as a dependency in the root package.json.
-      Add zod@^4 as a dependency (peer dep of SDK). Verify no version conflicts
-      with existing zod usage. Run pnpm install and verify build succeeds.
+      Create packages/core/src/application/ports/output/agents/interactive-agent-executor.interface.ts.
+
+      Define three interfaces and one type:
+      - InteractiveAgentOptions { cwd: string; model?: string; systemPrompt?: string }
+      - InteractiveAgentEvent { type: 'delta'|'tool_use'|'tool_result'|'status'|'done'|'error'; content?: string; label?: string; detail?: string }
+      - InteractiveAgentSessionHandle { sessionId: string; send(msg): void; stream(): AsyncIterable<InteractiveAgentEvent>; close(): Promise<void> }
+      - IInteractiveAgentExecutor { createSession(opts): Promise<Handle>; resumeSession(id, opts): Promise<Handle> }
+
+      Export from the agents/ index.ts barrel.
     state: "Todo"
     dependencies: []
     acceptanceCriteria:
-      - "@anthropic-ai/claude-agent-sdk is in package.json dependencies"
-      - "zod@^4 is installed (check for conflicts with existing zod usage)"
-      - "pnpm install succeeds without errors"
-      - "pnpm build succeeds without type errors from SDK imports"
+      - "Interface file exists with all four type definitions"
+      - "Exported from agents/index.ts"
+      - "pnpm build succeeds"
     tdd: null
     estimatedEffort: "S"
 
   - id: "task-2"
     phaseId: "phase-1"
-    title: "Create IInteractiveAgentAdapter interface"
+    title: "Extend IAgentExecutorFactory with createInteractiveExecutor()"
     description: >
-      Define the IInteractiveAgentAdapter application port interface that replaces
-      IInteractiveAgentProcessFactory. The interface wraps SDK session operations
-      behind a clean contract that the service depends on.
+      Add two new methods to IAgentExecutorFactory interface:
+      - createInteractiveExecutor(agentType: AgentType, authConfig: AgentConfig): IInteractiveAgentExecutor
+      - supportsInteractive(agentType: AgentType): boolean
 
-      Interface methods:
-      - createSession(options: InteractiveSessionOptions): creates a new SDK session
-      - resumeSession(sessionId: string, options: InteractiveSessionOptions): resumes an existing session
-
-      InteractiveSessionOptions type:
-      - cwd: string (worktree path)
-      - model?: string (model override)
-      - systemPrompt?: string (feature context to append)
+      Update the AgentExecutorFactory implementation to support these methods.
+      For now, only ClaudeCode returns an interactive executor; others throw
+      'Agent type X does not support interactive mode'.
     state: "Todo"
     dependencies:
       - "task-1"
     acceptanceCriteria:
-      - "IInteractiveAgentAdapter interface exists in application/ports/output/agents/"
-      - "InteractiveSessionOptions type is defined"
-      - "Interface has createSession and resumeSession methods"
-      - "Return types use SDK SDKSession type (or a wrapped version)"
+      - "IAgentExecutorFactory interface has createInteractiveExecutor() and supportsInteractive()"
+      - "AgentExecutorFactory implementation handles Claude Code type"
+      - "Other agent types throw descriptive error for createInteractiveExecutor()"
+      - "supportsInteractive() returns true only for ClaudeCode"
+      - "pnpm build succeeds"
     tdd:
       red:
-        - "Write adapter test asserting createSession calls SDK unstable_v2_createSession with correct options mapping"
-        - "Write adapter test asserting resumeSession calls SDK unstable_v2_resumeSession with sessionId and options"
+        - "Test: factory.supportsInteractive(ClaudeCode) returns true"
+        - "Test: factory.supportsInteractive(Cursor) returns false"
+        - "Test: factory.createInteractiveExecutor(unsupported) throws"
       green:
-        - "Implement the interface definition"
+        - "Implement methods in AgentExecutorFactory"
       refactor:
-        - "Ensure option mapping is clean and typed"
-    estimatedEffort: "S"
+        - "Ensure consistent error message pattern with existing createExecutor()"
+    estimatedEffort: "M"
 
   - id: "task-3"
     phaseId: "phase-1"
-    title: "Implement ClaudeAgentSdkAdapter"
+    title: "Implement ClaudeCodeInteractiveExecutor using SDK"
     description: >
-      Create the SDK-backed implementation of IInteractiveAgentAdapter. This is the
-      ONLY file in the codebase that imports from @anthropic-ai/claude-agent-sdk.
+      Create packages/core/src/infrastructure/services/agents/common/executors/claude-code-interactive-executor.service.ts.
 
-      Implementation:
-      - createSession: maps InteractiveSessionOptions to SDKSessionOptions, calls
-        unstable_v2_createSession()
-      - resumeSession: maps options, calls unstable_v2_resumeSession(sessionId, options)
-      - Maps our options to SDK options: cwd, model, systemPrompt (preset + append),
-        permissionMode: 'bypassPermissions', includePartialMessages: true, persistSession: true
+      This is the ONLY file importing from @anthropic-ai/claude-agent-sdk. Implements
+      IInteractiveAgentExecutor by:
+      - createSession(): calls unstable_v2_createSession() with SDK options mapped from
+        InteractiveAgentOptions (model, cwd, systemPrompt as preset+append, permissionMode,
+        includePartialMessages). Strips CLAUDECODE env var.
+      - resumeSession(): calls unstable_v2_resumeSession() with sessionId.
+      - Returns an InteractiveAgentSessionHandle that wraps the SDK session:
+        - send() → sdkSession.send()
+        - stream() → async generator that maps SDK message types to InteractiveAgentEvent
+        - close() → sdkSession.close()
+        - sessionId → sdkSession.sessionId
 
-      Register in DI container as 'IInteractiveAgentAdapter'.
+      SDK message mapping happens INSIDE the executor's stream() implementation:
+        SDKPartialAssistantMessage → { type: 'delta', content: extracted text }
+        SDKAssistantMessage with tool_use blocks → { type: 'tool_use', label, detail }
+        SDKResultMessage success → { type: 'done', content: result text }
+        SDKResultMessage error → { type: 'error', content: error message }
+        SDKStatusMessage → { type: 'status', content: status text }
+        SDKToolUseSummaryMessage → { type: 'tool_result', label, detail }
+        SDKToolProgressMessage → { type: 'status', label, detail }
+
+      Register in AgentExecutorFactory (from task-2).
     state: "Todo"
     dependencies:
       - "task-2"
     acceptanceCriteria:
-      - "ClaudeAgentSdkAdapter implements IInteractiveAgentAdapter"
+      - "ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor"
       - "Only file importing from @anthropic-ai/claude-agent-sdk"
-      - "Maps InteractiveSessionOptions to SDKSessionOptions correctly"
-      - "Sets permissionMode: 'bypassPermissions' and allowDangerouslySkipPermissions: true"
-      - "Sets includePartialMessages: true for streaming"
-      - "Uses systemPrompt preset: 'claude_code' with append for feature context"
-      - "Registered in DI container"
-      - "Unit tests pass with mocked SDK"
+      - "createSession maps InteractiveAgentOptions to SDK options correctly"
+      - "stream() maps all SDK message types to InteractiveAgentEvent"
+      - "handle.close() calls sdkSession.close()"
+      - "CLAUDECODE env var stripped in session creation"
+      - "systemPrompt uses preset: 'claude_code' with append"
+      - "Registered in AgentExecutorFactory"
+      - "pnpm build succeeds"
     tdd:
       red:
-        - "Write test: createSession maps cwd, model, systemPrompt correctly to SDK options"
-        - "Write test: createSession sets permissionMode and includePartialMessages"
-        - "Write test: resumeSession passes sessionId to SDK"
-        - "Write test: resumeSession preserves options mapping"
+        - "Test: createSession maps cwd, model, systemPrompt to SDK options"
+        - "Test: stream() maps SDKPartialAssistantMessage to delta event"
+        - "Test: stream() maps SDKResultMessage success to done event"
+        - "Test: stream() maps SDKResultMessage error to error event"
+        - "Test: close() calls sdkSession.close()"
       green:
-        - "Implement ClaudeAgentSdkAdapter with SDK calls"
-        - "Register in container.ts"
+        - "Implement executor with SDK calls and message mapping"
       refactor:
-        - "Extract SDK option building into a private method if both create/resume share logic"
-    estimatedEffort: "M"
+        - "Extract SDK message mapper into a private method"
+    estimatedEffort: "L"
 
   # ─────────────────────────────────────────────────────────────
-  # PHASE 2 — Session Service Refactoring
+  # PHASE 2 — Use Cases & API Route Updates
   # ─────────────────────────────────────────────────────────────
 
   - id: "task-4"
     phaseId: "phase-2"
-    title: "Refactor InteractiveSessionService to use SDK adapter for session lifecycle"
+    title: "Create interactive session use cases"
     description: >
-      Replace the manual child_process.spawn() + readline + stdin lifecycle with the
-      SDK adapter's createSession/resumeSession. Key changes:
+      Create four use case classes under packages/core/src/application/use-cases/interactive/:
 
-      - Replace this.processFactory.spawn() with this.adapter.createSession()
-      - Replace --resume flag management with this.adapter.resumeSession()
-      - Store SDKSession reference per session (replaces ChildProcess reference)
-      - Replace process.kill('SIGTERM') with session.close()
-      - Remove readline.createInterface() setup
-      - Remove manual JSON-line parsing from stdout
-      - Boot detection: createSession() resolves when ready (no manual boot timeout)
+      1. StartInteractiveSessionUseCase
+         @injectable() with @inject('IInteractiveSessionService')
+         Input: { featureId, worktreePath, agentType?, model? }
+         Delegates to service.startSession(featureId, worktreePath, agentType, model)
 
-      Constructor injection: replace IInteractiveAgentProcessFactory with IInteractiveAgentAdapter.
+      2. SendInteractiveMessageUseCase
+         @injectable() with @inject('IInteractiveSessionService')
+         Input: { featureId, content, worktreePath }
+         Delegates to service.sendUserMessage(featureId, content, worktreePath)
+
+      3. StopInteractiveSessionUseCase
+         @injectable() with @inject('IInteractiveSessionService')
+         Input: { featureId }
+         Delegates to service.stopByFeature(featureId)
+
+      4. GetInteractiveChatStateUseCase
+         @injectable() with @inject('IInteractiveSessionService')
+         Input: { featureId }
+         Delegates to service.getChatState(featureId)
+
+      Register all four in DI container with string tokens.
     state: "Todo"
     dependencies:
-      - "task-3"
+      - "task-1"
     acceptanceCriteria:
-      - "InteractiveSessionService constructor accepts IInteractiveAgentAdapter instead of IInteractiveAgentProcessFactory"
-      - "startSession uses adapter.createSession() instead of processFactory.spawn()"
-      - "Resume uses adapter.resumeSession() with stored claudeSessionId"
-      - "stopSession uses session.close() instead of process.kill()"
-      - "No child_process or readline imports remain in the service"
-      - "SDKSession references tracked per active session"
-      - "Idle timeout logic preserved (timer reset points updated)"
-      - "Concurrent cap logic preserved (unchanged)"
+      - "Four use case files created in application/use-cases/interactive/"
+      - "Each uses @injectable() and @inject() decorators"
+      - "Each has typed input interface and execute() method"
+      - "StartInteractiveSessionUseCase accepts agentType and model"
+      - "All four registered in DI container"
+      - "pnpm build succeeds"
     tdd:
       red:
-        - "Write test: startSession calls adapter.createSession with correct options"
-        - "Write test: stopSession calls session.close()"
-        - "Write test: session resume uses adapter.resumeSession with stored sessionId"
-        - "Write test: idle timeout still resets on message activity"
+        - "Test: StartInteractiveSessionUseCase.execute() delegates to service with all params"
+        - "Test: SendInteractiveMessageUseCase.execute() delegates to service"
       green:
-        - "Refactor InteractiveSessionService constructor to accept IInteractiveAgentAdapter"
-        - "Replace spawn/kill with createSession/close"
-        - "Replace readline setup with stream iteration setup"
+        - "Implement use cases and register in DI"
       refactor:
-        - "Remove unused imports (child_process, readline)"
-        - "Simplify boot detection (no more boot timeout — SDK handles it)"
-    estimatedEffort: "L"
+        - "Verify naming consistency with existing use cases"
+    estimatedEffort: "M"
 
   - id: "task-5"
     phaseId: "phase-2"
-    title: "Refactor message sending and response streaming to use SDK session API"
+    title: "Update API routes to use resolve<UseCase>() pattern"
     description: >
-      Replace stdin.write() message sending and readline-based response parsing with
-      SDK's session.send() and session.stream() async generator.
+      Update all interactive API routes to resolve use cases instead of services:
 
-      sendMessage flow:
-      1. Persist user message to SQLite (unchanged)
-      2. Call session.send(content) instead of process.stdin.write()
-      3. Iterate session.stream() async generator
-      4. Map SDK message types to SSE events:
-         - SDKPartialAssistantMessage → SSE 'delta' event
-         - SDKAssistantMessage → complete message (accumulate content)
-         - SDKResultMessage (success) → SSE 'done' event + persist to SQLite
-         - SDKResultMessage (error) → SSE 'error' event
-         - SDKStatusMessage → SSE 'log' event
-         - SDKToolUseSummaryMessage → SSE 'log' event
-      5. Reset idle timer on each message received (unchanged behavior)
+      - POST /api/interactive/sessions → resolve('StartInteractiveSessionUseCase')
+        Accept agentType and model in request body
+      - POST /api/interactive/chat/[featureId]/messages → resolve('SendInteractiveMessageUseCase')
+      - POST /api/interactive/chat/[featureId]/stop → resolve('StopInteractiveSessionUseCase')
+      - GET /api/interactive/chat/[featureId]/messages → resolve('GetInteractiveChatStateUseCase')
+
+      For SSE stream routes, they still need the service (for subscribe). Either:
+      (a) Create a SubscribeInteractiveStreamUseCase that wraps subscribeByFeature()
+      (b) Or keep the service resolution for the stream route specifically (it's a long-lived SSE
+          connection, not a simple request-response)
+
+      Follow the existing pattern in other API routes (e.g., /api/tools/route.ts).
     state: "Todo"
     dependencies:
       - "task-4"
     acceptanceCriteria:
-      - "sendMessage uses session.send() instead of stdin.write()"
-      - "Response streaming uses session.stream() async generator"
-      - "All SDK message types are mapped to correct SSE events"
-      - "Complete assistant messages are persisted to SQLite interactive_messages"
-      - "Streaming deltas are forwarded to SSE subscribers in real-time"
-      - "Idle timer resets on each SDK message received"
-      - "End-of-turn (SDKResultMessage) emits SSE 'done' event"
-      - "Error results emit SSE 'error' event"
-    tdd:
-      red:
-        - "Write test: sendMessage calls session.send() with user content"
-        - "Write test: SDKPartialAssistantMessage mapped to SSE delta event"
-        - "Write test: SDKResultMessage success mapped to SSE done event"
-        - "Write test: SDKResultMessage error mapped to SSE error event"
-        - "Write test: complete assistant message persisted to SQLite"
-        - "Write test: idle timer reset called for each streamed message"
-      green:
-        - "Implement stream iteration loop with SDK message type switching"
-        - "Implement SSE event emission for each mapped type"
-        - "Wire up SQLite persistence for complete messages"
-      refactor:
-        - "Extract SDK message → SSE event mapping into a pure function for testability"
-    estimatedEffort: "L"
+      - "All request-response API routes use resolve<UseCase>() pattern"
+      - "POST /sessions accepts agentType and model in body"
+      - "No API route resolves IInteractiveSessionService directly (except SSE stream)"
+      - "Existing API contract preserved (response shapes unchanged)"
+      - "pnpm build succeeds"
+    tdd: null
+    estimatedEffort: "M"
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 3 — Session Service Refactoring
+  # ─────────────────────────────────────────────────────────────
 
   - id: "task-6"
-    phaseId: "phase-2"
-    title: "Update FeatureContextBuilder for SDK systemPrompt injection"
-    description: >
-      Simplify FeatureContextBuilder to output a plain string that gets passed as the
-      append field of SDK's systemPrompt option. Remove any stdin-specific framing
-      (e.g., "DO NOT EXECUTE" headers, JSON wrapping for stdin protocol).
-
-      The build() method output changes from a stdin-formatted context string to a
-      plain context string suitable for systemPrompt.append.
-    state: "Todo"
-    dependencies: []
-    acceptanceCriteria:
-      - "FeatureContextBuilder.build() returns a plain string (no stdin framing)"
-      - "Content still includes: feature name, one-liner, phase, branch, worktree, tasks, PRs"
-      - "No 'DO NOT EXECUTE' or stdin-specific headers in output"
-      - "String is suitable for SDK systemPrompt.append field"
-      - "Unit tests updated for new output format"
-    tdd:
-      red:
-        - "Write test: build() output does not contain stdin-specific framing"
-        - "Write test: build() output contains all required feature context fields"
-      green:
-        - "Remove stdin-specific framing from build() method"
-      refactor:
-        - "Simplify any complex string building that was only needed for stdin protocol"
-    estimatedEffort: "S"
-
-  # ─────────────────────────────────────────────────────────────
-  # PHASE 3 — Dead Code Cleanup
-  # ─────────────────────────────────────────────────────────────
-
-  - id: "task-7"
     phaseId: "phase-3"
-    title: "Delete InteractiveAgentProcessFactory and its interface"
+    title: "Refactor InteractiveSessionService to use executor pattern"
     description: >
-      Remove the files that are no longer needed after SDK adoption:
-      - packages/core/src/infrastructure/services/interactive/interactive-agent-process.factory.ts
-      - packages/core/src/application/ports/output/agents/interactive-agent-process-factory.interface.ts
-      - tests/unit/infrastructure/services/interactive/interactive-agent-process.factory.test.ts
+      Major refactoring of InteractiveSessionService:
 
-      Remove DI registration for IInteractiveAgentProcessFactory from container.ts.
-      Remove re-export from any index.ts barrel files.
-    state: "Todo"
-    dependencies:
-      - "task-4"
-    acceptanceCriteria:
-      - "interactive-agent-process.factory.ts is deleted"
-      - "interactive-agent-process-factory.interface.ts is deleted"
-      - "interactive-agent-process.factory.test.ts is deleted"
-      - "DI registration for IInteractiveAgentProcessFactory removed from container.ts"
-      - "No remaining imports of deleted files anywhere in the codebase"
-      - "pnpm build succeeds after deletion"
-    tdd: null
-    estimatedEffort: "S"
+      1. Constructor: Replace IInteractiveAgentProcessFactory with IAgentExecutorFactory
+      2. startSession(): Accept agentType? and model? parameters
+         - Resolve agentType from settings if not provided
+         - Call factory.createInteractiveExecutor(agentType, config)
+         - Call executor.createSession({ cwd, model, systemPrompt })
+         - Store InteractiveAgentSessionHandle in SessionState (replace ChildProcess)
+      3. sendMessage(): Use handle.send() instead of stdin.write()
+         - Iterate handle.stream() for responses instead of readline parsing
+         - Map InteractiveAgentEvent to StreamChunk for SSE subscribers
+         - InteractiveAgentEvent mapping (executor already did SDK→Event, now Event→StreamChunk):
+           delta → { delta: content, done: false }
+           tool_use → { delta: '', done: false, log, activity }
+           tool_result → { delta: '', done: false, log, activity }
+           status → { delta: '', done: false, log }
+           done → { delta: '', done: true }
+           error → { delta: '', done: true, log: errorMsg }
+      4. stopSession(): Use handle.close() instead of process.kill()
+      5. SessionState: Replace ChildProcess fields with InteractiveAgentSessionHandle
+         - Remove: activeProcess, lineBuffer, onTurnComplete/Error
+         - Add: handle (InteractiveAgentSessionHandle)
+         - Keep: sessionId, featureId, worktreePath, claudeSessionId, timer, subscribers, model, agentType
+      6. Remove ALL manual process management code:
+         - executeTurn(), spawnTurnProcess()
+         - attachStdoutParser(), handleStdoutLine()
+         - attachCloseHandler()
+         - JSON.parse per stdout line
+         - readline references
+         - child_process imports
 
-  - id: "task-8"
-    phaseId: "phase-3"
-    title: "Remove unused imports and dead code paths from session service"
-    description: >
-      Clean up the session service after refactoring:
-      - Remove child_process imports
-      - Remove readline imports
-      - Remove any JSON-line parsing utilities
-      - Remove ChildProcess type references
-      - Remove spawn-related helper functions
-      - Remove any claudeStdoutParser or similar utilities
-      - Remove CLAUDECODE env var stripping logic
-      - Remove Windows-specific spawn flags (windowsHide, etc.)
-      - Clean up unused type imports
-
-      Also check for any orphaned utilities in the interactive/ directory that
-      were only used by the deleted factory.
-    state: "Todo"
-    dependencies:
-      - "task-7"
-    acceptanceCriteria:
-      - "No child_process or readline imports in the interactive/ directory"
-      - "No ChildProcess type references in the service"
-      - "No JSON-line parsing utilities remain"
-      - "No CLAUDECODE env var stripping logic"
-      - "No orphaned helper files in the interactive/ directory"
-      - "pnpm build succeeds"
-      - "pnpm lint passes (no unused import warnings)"
-    tdd: null
-    estimatedEffort: "S"
-
-  # ─────────────────────────────────────────────────────────────
-  # PHASE 4 — Test Updates & Verification
-  # ─────────────────────────────────────────────────────────────
-
-  - id: "task-9"
-    phaseId: "phase-4"
-    title: "Write unit tests for ClaudeAgentSdkAdapter"
-    description: >
-      Comprehensive unit tests for the SDK adapter:
-      - Mock @anthropic-ai/claude-agent-sdk module
-      - Test createSession maps all InteractiveSessionOptions fields correctly
-      - Test resumeSession passes sessionId and maps options
-      - Test SDK options include permissionMode, includePartialMessages, persistSession
-      - Test systemPrompt uses preset: 'claude_code' with append
-      - Test error handling when SDK throws
+      Update IInteractiveSessionService interface to accept agentType and model in startSession().
     state: "Todo"
     dependencies:
       - "task-3"
-    acceptanceCriteria:
-      - "100% branch coverage of ClaudeAgentSdkAdapter"
-      - "All SDK option mappings verified"
-      - "Error handling paths tested"
-      - "Tests use vi.mock for SDK module"
-    tdd:
-      red:
-        - "Write all adapter test cases with assertions"
-      green:
-        - "Verify tests pass against implementation from task-3"
-      refactor:
-        - "Extract common test fixtures for SDK session mocks"
-    estimatedEffort: "M"
-
-  - id: "task-10"
-    phaseId: "phase-4"
-    title: "Update InteractiveSessionService unit tests for SDK-based implementation"
-    description: >
-      Rewrite the session service unit tests to mock IInteractiveAgentAdapter
-      instead of IInteractiveAgentProcessFactory. Key test updates:
-
-      - Mock adapter.createSession() returning a fake SDKSession
-      - Mock adapter.resumeSession() returning a fake SDKSession
-      - Mock session.send() and session.stream() for message exchange tests
-      - Mock session.close() for stop tests
-      - Test SDK message type → SSE event mapping
-      - Verify idle timeout still works with SDK-based triggers
-      - Verify concurrent cap still works
-      - Remove all ChildProcess mock setup
-      - Remove all readline mock setup
-    state: "Todo"
-    dependencies:
       - "task-5"
     acceptanceCriteria:
-      - "All service lifecycle tests pass with SDK adapter mocks"
-      - "No ChildProcess or readline mocks in test file"
-      - "SDK message → SSE event mapping tests cover all message types"
-      - "Idle timeout tests use SDK stream events as trigger"
-      - "Concurrent cap tests unchanged (still pass)"
-      - "Test count equal to or greater than iteration 1"
+      - "Constructor accepts IAgentExecutorFactory instead of IInteractiveAgentProcessFactory"
+      - "startSession() accepts agentType? and model? parameters"
+      - "Uses executor.createSession() instead of processFactory.spawn()"
+      - "sendMessage() uses handle.send() and handle.stream()"
+      - "stopSession() uses handle.close()"
+      - "No child_process or readline imports in the service"
+      - "No manual JSON parsing in the service"
+      - "InteractiveAgentEvent → StreamChunk mapping is clean"
+      - "Idle timeout and concurrent cap logic preserved"
+      - "IInteractiveSessionService interface updated"
+      - "pnpm build succeeds"
     tdd:
       red:
-        - "Rewrite test setup to mock IInteractiveAgentAdapter"
-        - "Add tests for SDK message type mapping"
+        - "Test: startSession resolves executor via factory"
+        - "Test: sendMessage calls handle.send() and iterates handle.stream()"
+        - "Test: InteractiveAgentEvent mapped to StreamChunk correctly"
+        - "Test: stopSession calls handle.close()"
+        - "Test: idle timeout still resets on message activity"
       green:
-        - "Verify all tests pass against refactored service"
+        - "Refactor service to use executor pattern"
+        - "Update IInteractiveSessionService interface"
       refactor:
-        - "Extract fake SDKSession factory for reuse across tests"
+        - "Remove all dead process management methods"
+        - "Simplify SessionState interface"
+    estimatedEffort: "XL"
+
+  - id: "task-7"
+    phaseId: "phase-3"
+    title: "Update FeatureContextBuilder for SDK systemPrompt"
+    description: >
+      Simplify FeatureContextBuilder for SDK systemPrompt.append format.
+      Remove any stdin-specific framing (DO NOT EXECUTE headers, JSON wrapping).
+      The buildContext() output is passed as systemPrompt string to the executor,
+      which passes it as the append field of SDK's preset system prompt.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "buildContext() returns plain string without stdin-specific framing"
+      - "Content still includes feature name, phase, branch, worktree, tasks, PRs"
+      - "No 'DO NOT EXECUTE' or stdin-specific headers"
+      - "pnpm build succeeds"
+    tdd:
+      red:
+        - "Test: output does not contain stdin-specific framing"
+      green:
+        - "Remove stdin-specific framing"
+      refactor:
+        - "Simplify string building"
+    estimatedEffort: "S"
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 4 — Dead Code Cleanup
+  # ─────────────────────────────────────────────────────────────
+
+  - id: "task-8"
+    phaseId: "phase-4"
+    title: "Delete dead code and clean up unused imports"
+    description: >
+      Delete files no longer needed:
+      - packages/core/src/infrastructure/services/interactive/interactive-agent-process.factory.ts
+      - packages/core/src/infrastructure/services/interactive/claude-agent-sdk.adapter.ts
+      - packages/core/src/application/ports/output/agents/interactive-agent-process-factory.interface.ts
+      - packages/core/src/application/ports/output/agents/interactive-agent-adapter.interface.ts
+      - tests/unit/infrastructure/services/interactive/interactive-agent-process.factory.test.ts
+
+      Remove DI registrations for deleted types from container.ts.
+      Remove re-exports from barrel files.
+      Remove all child_process and readline imports from the interactive/ directory.
+      Clean up unused imports throughout.
+    state: "Todo"
+    dependencies:
+      - "task-6"
+    acceptanceCriteria:
+      - "All five files deleted"
+      - "DI registrations for deleted types removed"
+      - "No remaining imports of deleted files"
+      - "No child_process or readline imports in interactive/ directory"
+      - "pnpm build succeeds"
+      - "pnpm lint passes"
+    tdd: null
+    estimatedEffort: "S"
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 5 — Test Updates & Verification
+  # ─────────────────────────────────────────────────────────────
+
+  - id: "task-9"
+    phaseId: "phase-5"
+    title: "Write/update unit tests for new architecture"
+    description: >
+      Write and update tests for:
+      1. ClaudeCodeInteractiveExecutor — mock SDK, test message mapping
+      2. AgentExecutorFactory — test createInteractiveExecutor/supportsInteractive
+      3. InteractiveSessionService — mock executor, test lifecycle
+      4. Use cases — mock service, test delegation
+      5. FeatureContextBuilder — verify output format
+
+      Key test patterns:
+      - Mock IInteractiveAgentExecutor for service tests (replaces ChildProcess mocks)
+      - Mock SDK module for executor tests (vi.mock('@anthropic-ai/claude-agent-sdk'))
+      - Use case tests verify delegation with all parameters
+    state: "Todo"
+    dependencies:
+      - "task-6"
+    acceptanceCriteria:
+      - "Executor message mapping tests cover all SDK message types"
+      - "Service tests use executor mocks (no ChildProcess mocks)"
+      - "Use case tests verify parameter threading"
+      - "All unit tests pass: pnpm test:unit"
+    tdd:
+      red:
+        - "Write failing tests for all new components"
+      green:
+        - "Verify tests pass against implementation"
+      refactor:
+        - "Extract shared test fixtures"
     estimatedEffort: "L"
 
-  - id: "task-11"
-    phaseId: "phase-4"
-    title: "Run full test suite and verify no regressions"
+  - id: "task-10"
+    phaseId: "phase-5"
+    title: "Run full verification suite"
     description: >
-      Run all tests to verify the refactoring introduces no regressions:
+      Run all verification commands:
       - pnpm test:unit — all unit tests pass
-      - pnpm test:int — all integration tests pass (SQLite repos unchanged)
+      - pnpm test:int — integration tests pass (SQLite unchanged)
       - pnpm build — TypeScript compilation succeeds
-      - pnpm validate — lint, format, typecheck all pass
-
-      Fix any remaining issues found during the full suite run.
+      - pnpm validate — lint, format, typecheck pass
     state: "Todo"
     dependencies:
       - "task-9"
-      - "task-10"
     acceptanceCriteria:
       - "pnpm test:unit passes with zero failures"
       - "pnpm test:int passes with zero failures"
       - "pnpm build succeeds"
       - "pnpm validate passes"
-      - "No new lint warnings or type errors"
     tdd: null
     estimatedEffort: "M"
 
@@ -394,24 +401,22 @@ openQuestions: []
 content: |
   ## Task Summary
 
-  11 tasks across 4 phases:
-  - Phase 1: SDK Setup & Adapter Layer (3 tasks — S/S/M)
-  - Phase 2: Session Service Refactoring (3 tasks — L/L/S)
-  - Phase 3: Dead Code Cleanup (2 tasks — S/S)
-  - Phase 4: Test Updates & Verification (3 tasks — M/L/M)
+  10 tasks across 5 phases:
+  - Phase 1: Executor Pattern Extension (3 tasks — S/M/L)
+  - Phase 2: Use Cases & API Routes (2 tasks — M/M)
+  - Phase 3: Session Service Refactoring (2 tasks — XL/S)
+  - Phase 4: Dead Code Cleanup (1 task — S)
+  - Phase 5: Test Updates & Verification (2 tasks — L/M)
 
   ## Acceptance Checklist
 
-  - [ ] @anthropic-ai/claude-agent-sdk installed and building
-  - [ ] IInteractiveAgentAdapter interface defined
-  - [ ] ClaudeAgentSdkAdapter implemented and registered in DI
-  - [ ] InteractiveSessionService uses SDK adapter for all session operations
-  - [ ] Message sending uses session.send()
-  - [ ] Response streaming uses session.stream() with SDK message mapping
-  - [ ] FeatureContextBuilder simplified for SDK systemPrompt
-  - [ ] InteractiveAgentProcessFactory deleted
-  - [ ] All manual process management code removed
-  - [ ] Adapter unit tests pass
-  - [ ] Service unit tests pass (updated for SDK mocks)
-  - [ ] Integration tests pass unchanged
+  - [ ] IInteractiveAgentExecutor interface with InteractiveAgentSessionHandle
+  - [ ] IAgentExecutorFactory extended with createInteractiveExecutor()
+  - [ ] ClaudeCodeInteractiveExecutor using SDK (only SDK import)
+  - [ ] 4 use cases: Start, Send, Stop, GetState
+  - [ ] API routes use resolve<UseCase>() pattern
+  - [ ] agentType + model threaded from UI to executor
+  - [ ] Session service uses executor instead of process factory
+  - [ ] All dead code deleted (factory, adapter, interfaces)
+  - [ ] All tests pass
   - [ ] Full build and validation pass
