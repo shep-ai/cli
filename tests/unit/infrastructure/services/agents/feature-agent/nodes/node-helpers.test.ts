@@ -420,6 +420,7 @@ describe('removeSpecCommitsIfNeeded', () => {
     git('init');
     git('config user.email "test@test.com"');
     git('config user.name "Test"');
+    git('config commit.gpgsign false');
     writeFileSync(join(repoDir, 'README.md'), 'initial');
     git('add README.md');
     git('commit -m "initial"');
