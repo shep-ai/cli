@@ -29,7 +29,7 @@ export default async function FeatureDrawerPage({ params }: FeatureDrawerPagePro
 
     const run = feature.agentRunId ? await agentRunRepo.findById(feature.agentRunId) : null;
 
-    const { workflow } = getSettings();
+    const { workflow, interactiveAgent } = getSettings();
     const nodeData = buildFeatureNodeData(feature, run, {
       enableEvidence: workflow.enableEvidence,
       commitEvidence: workflow.commitEvidence,
@@ -48,7 +48,12 @@ export default async function FeatureDrawerPage({ params }: FeatureDrawerPagePro
 
     if (!view) return null;
 
-    return <FeatureDrawerClient view={view} />;
+    return (
+      <FeatureDrawerClient
+        view={view}
+        interactiveAgentEnabled={interactiveAgent?.enabled ?? true}
+      />
+    );
   } catch {
     // Feature not found — render nothing (drawer stays closed)
     return null;

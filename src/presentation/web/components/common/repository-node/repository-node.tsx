@@ -17,6 +17,7 @@ import {
   ArrowDown,
   User,
   RotateCcw,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
@@ -255,6 +256,25 @@ export function RepositoryNode({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>Open Folder</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label="Chat with agent"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (data.id) router.push(`/repository/${data.id}/chat`);
+                        }}
+                        className="nodrag cursor-pointer text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300"
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Chat with agent</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <FeatureSessionsDropdown

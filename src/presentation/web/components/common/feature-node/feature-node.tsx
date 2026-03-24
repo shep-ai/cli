@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Handle, Position } from '@xyflow/react';
 import {
   Plus,
@@ -15,6 +16,7 @@ import {
   Eye,
   Archive,
   ArchiveRestore,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -91,6 +93,7 @@ export function FeatureNode({
   selected?: boolean;
   [key: string]: unknown;
 }) {
+  const router = useRouter();
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -418,6 +421,31 @@ export function FeatureNode({
                   repositoryPath={data.worktreePath ?? data.repositoryPath}
                 />
               ) : null}
+              {/* Chat button */}
+              {data.state !== 'creating' && data.state !== 'deleting' && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        aria-label="Open chat"
+                        data-testid="feature-node-chat-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/feature/${data.featureId}/chat`);
+                        }}
+                        className="nodrag relative cursor-pointer text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300"
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Chat with agent</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {deployTarget && data.state !== 'deleting' && data.state !== 'creating' ? (
                 <>
                   <span className="bg-border h-3 w-px shrink-0" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -48,9 +48,6 @@ export function FloatingActionButton({ actions, className }: FloatingActionButto
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open]);
 
-  // Reversed actions so bottom-most item in stack = first action
-  const reversedActions = [...actions].reverse();
-
   return (
     <>
       {/* Invisible click-outside catcher */}
@@ -63,22 +60,22 @@ export function FloatingActionButton({ actions, className }: FloatingActionButto
         />
       ) : null}
 
-      {/* FAB container */}
+      {/* FAB container — horizontal: + left, chat right */}
       <div
         data-testid="floating-action-button"
         className={cn('fixed right-6 bottom-6 z-50', className)}
       >
-        {/* Action chips — vertical stack expanding upward */}
+        {/* Action chips — expand upward from the + button */}
         <div
-          className="absolute right-0 bottom-16 flex flex-col-reverse items-end gap-3"
+          className={cn(
+            'absolute right-[calc(100%+12px)] bottom-0 flex flex-col items-end gap-2',
+            !open && 'pointer-events-none'
+          )}
           data-testid="fab-actions"
         >
-          {reversedActions.map((action, reversedIndex) => {
-            const originalIndex = actions.length - 1 - reversedIndex;
-            // Stagger: bottom items appear first (closest to FAB)
-            const openDelay = originalIndex * STAGGER_MS;
-            // Close: top items disappear first
-            const closeDelay = reversedIndex * STAGGER_MS;
+          {actions.map((action, i) => {
+            const openDelay = (actions.length - 1 - i) * STAGGER_MS;
+            const closeDelay = i * STAGGER_MS;
 
             return (
               <button
@@ -87,19 +84,17 @@ export function FloatingActionButton({ actions, className }: FloatingActionButto
                 aria-label={action.label}
                 disabled={action.disabled ?? action.loading}
                 className={cn(
-                  'flex items-center gap-3 rounded-full px-4 py-2.5',
-                  'bg-background text-foreground shadow-lg',
+                  'flex h-12 w-52 items-center justify-center gap-3 rounded-full px-4',
+                  'bg-background text-foreground shadow-sm',
                   'border-border border',
-                  'transition-all ease-out',
                   'hover:bg-accent hover:text-accent-foreground',
                   'disabled:pointer-events-none disabled:opacity-50',
                   open
-                    ? 'translate-y-0 scale-100 opacity-100'
-                    : 'pointer-events-none translate-y-4 scale-95 opacity-0'
+                    ? 'translate-x-0 opacity-100'
+                    : 'pointer-events-none translate-x-0 opacity-0'
                 )}
                 style={{
-                  transitionDuration: `${DURATION_MS}ms`,
-                  transitionDelay: open ? `${openDelay}ms` : `${closeDelay}ms`,
+                  transition: `opacity ${open ? DURATION_MS : 150}ms ease-out ${open ? openDelay : closeDelay}ms`,
                 }}
                 onClick={() => {
                   action.onClick();
@@ -115,34 +110,35 @@ export function FloatingActionButton({ actions, className }: FloatingActionButto
           })}
         </div>
 
-        {/* Primary FAB trigger */}
-        <Button
-          size="icon"
-          data-testid="fab-trigger"
-          aria-label={open ? 'Close actions' : 'Open actions'}
-          className={cn(
-            'relative h-12 w-12 rounded-full shadow-lg',
-            'transition-colors duration-200'
-          )}
-          onClick={() => setOpen((prev) => !prev)}
-        >
-          {/* Plus icon — fades out when open */}
-          <Plus
+        {/* FAB trigger */}
+        <div className="flex items-center">
+          <Button
+            size="icon"
+            data-testid="fab-trigger"
+            aria-label={open ? 'Close actions' : 'Open actions'}
             className={cn(
-              'absolute h-5 w-5 transition-all',
-              open ? 'scale-0 rotate-90 opacity-0' : 'scale-100 rotate-0 opacity-100'
+              'relative h-14 w-14 rounded-full shadow-lg',
+              'bg-indigo-500 text-white hover:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400',
+              'transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95'
             )}
-            style={{ transitionDuration: `${DURATION_MS}ms` }}
-          />
-          {/* X icon — fades in when open */}
-          <X
-            className={cn(
-              'absolute h-5 w-5 transition-all',
-              open ? 'scale-100 rotate-0 opacity-100' : 'scale-0 -rotate-90 opacity-0'
-            )}
-            style={{ transitionDuration: `${DURATION_MS}ms` }}
-          />
-        </Button>
+            onClick={() => setOpen((prev) => !prev)}
+          >
+            <Plus
+              className={cn(
+                'absolute h-8 w-8 stroke-[2.5] transition-all',
+                open ? 'scale-0 rotate-90 opacity-0' : 'scale-100 rotate-0 opacity-100'
+              )}
+              style={{ transitionDuration: `${DURATION_MS}ms` }}
+            />
+            <X
+              className={cn(
+                'absolute h-8 w-8 stroke-[2.5] transition-all',
+                open ? 'scale-100 rotate-0 opacity-100' : 'scale-0 -rotate-90 opacity-0'
+              )}
+              style={{ transitionDuration: `${DURATION_MS}ms` }}
+            />
+          </Button>
+        </div>
       </div>
     </>
   );

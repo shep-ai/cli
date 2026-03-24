@@ -42,7 +42,7 @@ export default async function FeatureDrawerTabPage({ params }: FeatureDrawerTabP
       gitPrService.getRemoteUrl(feature.repositoryPath).catch(() => null),
     ]);
 
-    const { workflow } = getSettings();
+    const { workflow, interactiveAgent } = getSettings();
     const nodeData = buildFeatureNodeData(feature, run, {
       repositoryName: repo?.name,
       baseBranch,
@@ -65,7 +65,13 @@ export default async function FeatureDrawerTabPage({ params }: FeatureDrawerTabP
 
     if (!view) return null;
 
-    return <FeatureDrawerClient view={view} urlTab={urlTab} />;
+    return (
+      <FeatureDrawerClient
+        view={view}
+        urlTab={urlTab}
+        interactiveAgentEnabled={interactiveAgent?.enabled ?? true}
+      />
+    );
   } catch {
     return null;
   }
