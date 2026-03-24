@@ -3,6 +3,7 @@ import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/fea
 import type { ListRepositoriesUseCase } from '@shepai/core/application/use-cases/repositories/list-repositories.use-case';
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { getWorkflowDefaults } from '@/app/actions/get-workflow-defaults';
+import { getViewerPermission } from '@/app/actions/get-viewer-permission';
 import { CreateDrawerClient } from '@/components/common/control-center-drawer/create-drawer-client';
 
 /** Skip static pre-rendering since we need runtime DI container. */
@@ -19,10 +20,13 @@ export default async function CreateDrawerPage({ searchParams }: CreateDrawerPag
   const listRepos = resolve<ListRepositoriesUseCase>('ListRepositoriesUseCase');
   const settings = getSettings();
 
-  const [features, repositories, workflowDefaults] = await Promise.all([
+  const [features, repositories, workflowDefaults, viewerPerm] = await Promise.all([
     listFeatures.execute(),
     listRepos.execute().catch(() => []),
     getWorkflowDefaults().catch(() => undefined),
+    repo
+      ? getViewerPermission(repo).catch(() => ({ canPushDirectly: false }))
+      : Promise.resolve({ canPushDirectly: false }),
   ]);
 
   const featureOptions = features
@@ -45,6 +49,7 @@ export default async function CreateDrawerPage({ searchParams }: CreateDrawerPag
       workflowDefaults={workflowDefaults}
       currentAgentType={settings.agent.type}
       currentModel={settings.models.default}
+      canPushDirectly={viewerPerm.canPushDirectly}
     />
   );
 }

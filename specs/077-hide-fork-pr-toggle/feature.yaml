@@ -1,0 +1,40 @@
+feature:
+  id: "077-hide-fork-pr-toggle"
+  name: "hide-fork-pr-toggle"
+  number: 77
+  branch: "feat/077-hide-fork-pr-toggle"
+  lifecycle: "research"
+  createdAt: "2026-03-23T20:07:45Z"
+status:
+  phase: "implementation-complete"
+  progress:
+    completed: 8
+    total: 8
+    percentage: 100
+  currentTask: null
+  lastUpdated: "2026-03-24T09:55:32.703Z"
+  lastUpdatedBy: "feature-agent:implement"
+  completedPhases:
+    - "analyze"
+    - "requirements"
+    - "research"
+    - "plan"
+    - "phase-1"
+    - "phase-2"
+    - "phase-3"
+    - "evidence"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-23T20:07:45Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []

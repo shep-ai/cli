@@ -1,0 +1,343 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "hide-fork-pr-toggle"
+summary: >
+  The feature adds a `getViewerPermission()` method to the existing IGitHubRepositoryService
+  interface, implemented via `gh repo view --json viewerPermission`. The create drawer server
+  component passes an initial `canPushDirectly` boolean prop through the component chain, and
+  a new lightweight server action enables re-checking on repo change. The Fork & PR toggle
+  block is conditionally rendered (not shown/hidden — simply not mounted) when the user has
+  ADMIN, MAINTAIN, or WRITE permission, with forkAndPr state auto-reset to false.
+
+relatedFeatures: []
+
+technologies:
+  - "React (Next.js App Router)"
+  - "GitHub CLI (gh)"
+  - "TypeScript"
+  - "Server Actions"
+  - "Shadcn UI (Switch, Tooltip)"
+  - "tsyringe (DI)"
+  - "Vitest"
+  - "Storybook"
+
+relatedLinks:
+  - title: "GitHub CLI gh repo view documentation"
+    url: "https://cli.github.com/manual/gh_repo_view"
+  - title: "GitHub viewerPermission field (GraphQL)"
+    url: "https://docs.github.com/en/graphql/reference/enums#repositorypermission"
+
+decisions:
+  - title: "Permission detection method"
+    chosen: "gh repo view --json viewerPermission"
+    rejected:
+      - "gh api /repos/{owner}/{repo} — returns full repo JSON including permissions object, but requires parsing owner/repo from the local repo path and constructing the API call. The gh repo view command is simpler and already used in GitForkService for similar metadata queries."
+      - "git remote parsing + GitHub REST API — would need to extract the remote URL, parse owner/repo, then call the REST API. Over-engineered for a single field when gh repo view does it in one command."
+    rationale: >
+      The codebase already uses `gh repo view --json <fields>` in GitForkService
+      (git-fork.service.ts:26) to query repo metadata. The `viewerPermission` field
+      returns one of ADMIN, MAINTAIN, WRITE, TRIAGE, or READ — exactly what we need.
+      This follows the established pattern and requires no additional dependencies.
+      Verified locally: `gh repo view --json viewerPermission` returns `{"viewerPermission":"ADMIN"}`.
+
+  - title: "Service method location"
+    chosen: "Add getViewerPermission() to existing IGitHubRepositoryService interface and GitHubRepositoryService implementation"
+    rejected:
+      - "Create a new IGitHubPermissionService interface — over-abstraction for a single method. The permission check is a GitHub repository operation that logically belongs with the existing service."
+      - "Add to IGitForkService — the fork service handles fork-specific operations (fork, push-to-fork, create-upstream-PR). Permission detection is a general repo capability, not fork-specific."
+    rationale: >
+      IGitHubRepositoryService already handles auth checks, repo listing, URL parsing, and
+      cloning — all general GitHub repo operations. Permission detection fits naturally here.
+      The service is already registered as a singleton in the DI container
+      (container.ts:230-233) and is accessible via the resolve() helper in server actions.
+
+  - title: "How to pass permission to the UI"
+    chosen: "Fetch in create/page.tsx server component + new server action for dynamic re-check"
+    rejected:
+      - "Extend WorkflowDefaults to include canPushDirectly — couples permission logic to workflow settings, which are user preferences, not repo-level permissions. WorkflowDefaults comes from getSettings() which has no GitHub context."
+      - "Client-side only via useEffect — would cause layout shift (toggle renders then disappears). NFR-4 requires no layout shift, so the initial state must come from the server."
+    rationale: >
+      The create/page.tsx server component already fetches repos and workflow defaults
+      via Promise.all. Adding one more service call here provides the initial
+      canPushDirectly value with zero layout shift. For repo changes in the combobox,
+      a dedicated server action (getViewerPermission) lets the client re-check without
+      a full page reload. This matches the pattern used by listGitHubRepositories.ts
+      which resolves services via the server container.
+
+  - title: "Server action for dynamic re-check"
+    chosen: "New dedicated server action: get-viewer-permission.ts"
+    rejected:
+      - "Reuse listGitHubRepositories action with extra field — the list action returns repos, not permission for a specific repo. Coupling these would be semantically wrong."
+      - "No server action, re-fetch via page navigation — would require full page reload on repo change, breaking the smooth combobox UX."
+    rationale: >
+      A focused server action follows the existing pattern (e.g., list-github-repositories.ts,
+      import-github-repository.ts). It resolves IGitHubRepositoryService from the DI container
+      via `resolve<IGitHubRepositoryService>('IGitHubRepositoryService')`, calls
+      getViewerPermission(nameWithOwner), and returns a simple `{ canPushDirectly: boolean }`
+      result. The nameWithOwner is derived from the selected repo's path — the service will
+      need to accept either a nameWithOwner string or a local path. Since the combobox repos
+      are local paths, the server action will resolve the nameWithOwner using git remote parsing.
+
+  - title: "Resolving nameWithOwner from local repo path for permission check"
+    chosen: "Parse the git remote URL in the server action to extract nameWithOwner, then pass to getViewerPermission"
+    rejected:
+      - "Require nameWithOwner to be stored on the Repository entity — would require a domain model change (TypeSpec update, migration) for a UI-only feature. Over-engineered."
+      - "Have getViewerPermission accept a local path and run gh repo view with --cwd — the gh repo view command supports running from a directory via cwd option on execFile. This is actually simpler and aligns with how GitForkService calls gh repo view with { cwd }."
+    rationale: >
+      After further analysis, the simplest approach is to have getViewerPermission accept
+      a repo path and use the `cwd` option when calling `gh repo view`, matching how
+      GitForkService (git-fork.service.ts:26) already calls `gh repo view --json isFork,parent`
+      with `{ cwd }`. This avoids needing to parse remote URLs or store nameWithOwner.
+      The server action receives the repo path directly from the selected repository option.
+
+  - title: "Permission-to-boolean mapping"
+    chosen: "Map ADMIN, MAINTAIN, WRITE to canPushDirectly=true; TRIAGE, READ to false"
+    rejected:
+      - "Only ADMIN and MAINTAIN as push-capable — WRITE permission explicitly grants push access on GitHub. Excluding it would incorrectly show the fork toggle for collaborators with write access."
+      - "Return raw permission string to the UI and let the component decide — leaks domain logic into the presentation layer. The boolean is a cleaner contract."
+    rationale: >
+      GitHub's permission model is well-defined: ADMIN > MAINTAIN > WRITE > TRIAGE > READ.
+      Users with WRITE or above can push directly to the repository. The service method
+      returns the raw permission string, but the server action (or a utility function)
+      maps it to the boolean. This keeps the service generic while the mapping lives
+      close to the UI concern.
+
+  - title: "Conditional rendering approach"
+    chosen: "Do not mount the Fork & PR toggle block when canPushDirectly is true (conditional JSX)"
+    rejected:
+      - "Render with CSS display:none — still mounts the component, leaves DOM nodes, and could cause accessibility issues with hidden interactive elements."
+      - "Render disabled with explanatory text — adds UI complexity for a case where the toggle is simply unnecessary. A missing toggle is cleaner than a greyed-out one with an explanation."
+    rationale: >
+      NFR-4 requires no layout shift. By not rendering the toggle block at all (conditional
+      JSX with `{!canPushDirectly && <Tooltip>...</Tooltip>}`), the layout never includes
+      the toggle when it shouldn't. The toggle area occupies minimal space in the GIT row,
+      so its absence is unnoticeable.
+
+  - title: "State reset strategy when toggle is hidden"
+    chosen: "useEffect that resets forkAndPr to false and reverts dependent states when canPushDirectly changes to true"
+    rejected:
+      - "Reset only forkAndPr, not dependent states — would leave push/openPr in their force-locked state from a previous forkAndPr=true. Must also revert push and openPr to their independent defaults."
+      - "No reset, just ignore forkAndPr in submit payload when hidden — leaks stale state into the submission. The form payload should always reflect visible UI state."
+    rationale: >
+      When forkAndPr is enabled, it forces push=true, openPr=true, and commitSpecs=false
+      (lines 981, 1011, 1085 in feature-create-drawer.tsx). When canPushDirectly becomes true
+      and the toggle hides, we must: (1) set forkAndPr=false, (2) revert push, openPr, and
+      commitSpecs to their workflow default values. A useEffect watching canPushDirectly
+      handles this cleanly.
+
+openQuestions:
+  - question: "Should the server action resolve the repo's nameWithOwner from the local path, or should it use cwd-based gh repo view?"
+    resolved: true
+    options:
+      - option: "Parse git remote URL to extract nameWithOwner"
+        description: "Read the git remote origin URL from the repo at the given path, parse it with parseGitHubUrl(), then pass nameWithOwner to gh repo view --json viewerPermission. Requires two operations but is explicit."
+        selected: false
+      - option: "Use cwd option with gh repo view"
+        description: "Pass the repo path as cwd to execFile when running gh repo view --json viewerPermission. The gh CLI auto-detects the repo from the current directory. Matches GitForkService pattern exactly."
+        selected: true
+      - option: "Store nameWithOwner on Repository entity"
+        description: "Add a remoteNameWithOwner field to the Repository domain model via TypeSpec. Would require schema migration and is over-engineered for this use case."
+        selected: false
+    selectionRationale: >
+      Using cwd with gh repo view is the simplest approach and matches the exact pattern
+      already used in GitForkService (git-fork.service.ts:26). The gh CLI handles remote
+      resolution internally. No extra parsing or domain model changes needed.
+
+  - question: "Should the initial permission check in create/page.tsx block rendering or be non-blocking?"
+    resolved: true
+    options:
+      - option: "Block rendering (await in Promise.all)"
+        description: "Add the permission check to the existing Promise.all in create/page.tsx. The drawer won't render until all data is ready. Simplest approach, but adds latency to drawer open time."
+        selected: true
+      - option: "Non-blocking with optimistic default"
+        description: "Start the permission check but don't await it. Default to showing the toggle, then hide it when the check completes. Matches NFR-1 suggestion but causes potential layout shift."
+        selected: false
+      - option: "Hybrid — race with timeout"
+        description: "Await the permission check with a timeout (e.g., 2s). If it doesn't complete, default to showing the toggle. Complex to implement for marginal benefit."
+        selected: false
+    selectionRationale: >
+      The create/page.tsx already blocks on three Promise.all calls (listFeatures, listRepos,
+      getWorkflowDefaults). Adding one more gh CLI call (~200-500ms) to the parallel batch
+      is negligible since it runs concurrently. This guarantees zero layout shift (NFR-4) and
+      avoids the complexity of non-blocking approaches. The gh CLI call is fast on local repos.
+
+  - question: "How should the FeatureCreateDrawer receive and manage the canPushDirectly state for dynamic repo changes?"
+    resolved: true
+    options:
+      - option: "Prop + internal state with server action callback"
+        description: "Pass initial canPushDirectly as a prop. Maintain internal state via useState initialized from the prop. On repo change, call the server action and update internal state. Clean separation of initial vs dynamic state."
+        selected: true
+      - option: "Prop only, lift state to parent"
+        description: "Keep canPushDirectly state in CreateDrawerClient. Pass an onRepoChange callback that triggers the server action from the parent. Requires threading more callbacks."
+        selected: false
+      - option: "Context provider"
+        description: "Create a PermissionContext that wraps the drawer and provides canPushDirectly + a refresh function. Over-abstraction for a single boolean consumed by one component."
+        selected: false
+    selectionRationale: >
+      The FeatureCreateDrawer already manages all form state internally (push, openPr,
+      forkAndPr, selectedRepoPath, etc.). Adding canPushDirectly as another internal state
+      initialized from a prop follows the exact same pattern as workflowDefaults (received
+      as prop, synced to state via useEffect). The server action call on repo change fits
+      naturally in the existing selectedRepoPath change handler.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Permission Detection Method
+
+  **Chosen:** `gh repo view --json viewerPermission`
+
+  **Rejected:**
+  - `gh api /repos/{owner}/{repo}` — requires parsing owner/repo from local path and constructing the API call; over-complex
+  - Git remote parsing + GitHub REST API — multiple steps for a single field
+
+  **Rationale:** The codebase already uses `gh repo view --json <fields>` in GitForkService
+  (git-fork.service.ts:26). The `viewerPermission` field returns ADMIN, MAINTAIN, WRITE,
+  TRIAGE, or READ. Verified locally: output is `{"viewerPermission":"ADMIN"}`.
+
+  ### 2. Service Method Location
+
+  **Chosen:** Add `getViewerPermission(repoPath: string)` to existing `IGitHubRepositoryService`
+
+  **Rejected:**
+  - New `IGitHubPermissionService` — over-abstraction for one method
+  - Add to `IGitForkService` — permission is general, not fork-specific
+
+  **Rationale:** `IGitHubRepositoryService` handles auth, listing, URL parsing, cloning —
+  all general GitHub operations. Permission detection belongs here. Already registered in
+  DI container (container.ts:230-233).
+
+  ### 3. Data Flow to UI
+
+  **Chosen:** Fetch in `create/page.tsx` server component + new server action for re-check
+
+  **Rejected:**
+  - Extend `WorkflowDefaults` — couples permissions to user preferences
+  - Client-side only via `useEffect` — causes layout shift (violates NFR-4)
+
+  **Rationale:** The server component already runs `Promise.all([listFeatures, listRepos,
+  getWorkflowDefaults])`. Adding one more concurrent call provides the initial value with
+  zero layout shift. A dedicated `get-viewer-permission.ts` server action handles repo
+  change re-checks.
+
+  ### 4. Repo Identification for Permission Check
+
+  **Chosen:** Use `cwd` option with `gh repo view` (pass local repo path as working directory)
+
+  **Rejected:**
+  - Parse git remote URL to extract `nameWithOwner` — extra step
+  - Store `nameWithOwner` on Repository entity — requires TypeSpec/schema change
+
+  **Rationale:** Matches the exact pattern in GitForkService (git-fork.service.ts:26)
+  where `gh repo view --json isFork,parent` is called with `{ cwd }`. The gh CLI
+  auto-detects the repo from the working directory.
+
+  ### 5. Conditional Rendering Approach
+
+  **Chosen:** Conditional JSX — do not mount toggle when `canPushDirectly` is true
+
+  **Rejected:**
+  - CSS `display:none` — leaves DOM nodes, accessibility issues
+  - Render disabled with text — unnecessary UI complexity
+
+  **Rationale:** `{!canPushDirectly && <Tooltip>...</Tooltip>}` prevents layout shift
+  by never including the element. The toggle takes minimal space in the GIT row.
+
+  ### 6. State Reset Strategy
+
+  **Chosen:** `useEffect` watching `canPushDirectly` — resets `forkAndPr` to false
+  and reverts `push`, `openPr`, `commitSpecs` to workflow defaults
+
+  **Rejected:**
+  - Reset only `forkAndPr` — leaves dependent states in force-locked state
+  - Ignore in payload — leaks stale state
+
+  **Rationale:** When `forkAndPr=true`, it forces `push=true`, `openPr=true`,
+  `commitSpecs=false`. Hiding the toggle must revert all of these.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | GitHub CLI (gh) | Permission detection | Use (existing) | Already integrated; `gh repo view --json viewerPermission` provides exactly what we need |
+  | tsyringe | DI for service resolution | Use (existing) | Service registered as IGitHubRepositoryService singleton |
+  | Vitest | Unit testing | Use (existing) | Existing test suite for GitHubRepositoryService follows mock-exec pattern |
+  | Storybook | Component stories | Use (existing) | Stories demonstrate toggle-visible and toggle-hidden states |
+  | React (useState/useEffect) | State management | Use (existing) | No new state libraries needed; follows existing pattern in FeatureCreateDrawer |
+
+  No new libraries are required. All dependencies are already in the project.
+
+  ## Security Considerations
+
+  - **Permission check runs server-side only** — the `gh repo view` command runs in
+    server actions and the server component. No GitHub tokens or CLI access is exposed
+    to the client. The client only receives a boolean `canPushDirectly`.
+  - **No command injection risk** — the repo path passed to `execFile` as `cwd` option
+    is an object property, not interpolated into the command string. The `ExecFunction`
+    (promisified `execFile`) does not use shell interpretation by default on non-Windows.
+  - **Graceful degradation** — if the permission check fails (gh not installed, not
+    authenticated, network error), the feature defaults to showing the toggle (the
+    pre-existing behavior). This is per NFR-2.
+  - **No new error classes needed** — permission check failures are caught and
+    handled silently (return default). No error surfaces to the user.
+
+  ## Performance Implications
+
+  - **Initial load**: The `gh repo view --json viewerPermission` call adds ~200-500ms
+    but runs in parallel with existing `Promise.all` calls in `create/page.tsx`. Net
+    impact on drawer open time is negligible (bounded by the slowest of the 4 calls).
+  - **Repo change re-check**: The server action call on combobox change adds ~200-500ms
+    per repo switch. This is acceptable as it's user-initiated and infrequent. The UI
+    can optimistically maintain the current toggle state until the response arrives.
+  - **No caching needed** — permission checks are infrequent (once per drawer open,
+    once per repo switch). The overhead doesn't justify caching complexity.
+  - **No bundle size impact** — no new client-side dependencies. The server action
+    is code-split by Next.js automatically.
+
+  ## Architecture Notes
+
+  ### Service Layer (Clean Architecture)
+
+  The change follows the established pattern:
+  - **Interface** (`application/ports/output/`): Add `getViewerPermission(repoPath: string): Promise<string>`
+    to `IGitHubRepositoryService`. Returns the raw permission string (ADMIN, MAINTAIN, etc.).
+  - **Implementation** (`infrastructure/services/external/`): In `GitHubRepositoryService`,
+    implement using `this.execFile('gh', ['repo', 'view', '--json', 'viewerPermission'], { cwd: repoPath })`.
+    Parse the JSON output. Handle ENOENT and other errors by throwing a new `GitHubPermissionError`
+    (or reuse a general error approach — see open question resolution above about silent fallback).
+  - **Error handling in service**: Throw on failure. Let the calling layer decide how to
+    handle (server action catches and returns default).
+
+  ### Presentation Layer
+
+  - **Server component** (`create/page.tsx`): Resolve `IGitHubRepositoryService` from DI,
+    call `getViewerPermission(repoPath)`, map to `canPushDirectly` boolean, pass as prop.
+  - **Server action** (`get-viewer-permission.ts`): `'use server'` directive, resolves
+    service from DI container via `resolve<IGitHubRepositoryService>('IGitHubRepositoryService')`,
+    calls `getViewerPermission(repoPath)`, returns `{ canPushDirectly: boolean }`.
+  - **Client component chain**: `CreateDrawerClient` threads `canPushDirectly` prop to
+    `FeatureCreateDrawer`. The drawer manages internal state and re-checks on repo change.
+
+  ### Component Changes
+
+  `FeatureCreateDrawer`:
+  1. New prop: `canPushDirectly?: boolean` (optional, defaults to false for backwards compat)
+  2. Internal state: `const [canPush, setCanPush] = useState(canPushDirectly ?? false)`
+  3. Sync from prop: `useEffect` to update `canPush` when prop changes
+  4. On repo change: call server action, update `canPush`
+  5. Auto-reset: `useEffect` watching `canPush` — when true, reset `forkAndPr=false`,
+     revert `push`/`openPr`/`commitSpecs` to defaults
+  6. Conditional render: `{!canPush && <Tooltip>...</Tooltip>}` for the Fork & PR block
+
+  ### Testing Strategy
+
+  - **Unit tests** (Vitest): Test `getViewerPermission()` in GitHubRepositoryService:
+    - Returns "ADMIN" for admin repos
+    - Returns "WRITE" for collaborator repos
+    - Throws on ENOENT (gh not installed)
+    - Throws on exec failure (not authenticated)
+  - **Component tests**: Verify Fork & PR toggle renders when `canPushDirectly=false`,
+    does not render when `canPushDirectly=true`
+  - **Storybook stories**: Two new variants — "Toggle Visible (No Push Access)" and
+    "Toggle Hidden (Has Push Access)" — using the existing `CreateDrawerTrigger` pattern

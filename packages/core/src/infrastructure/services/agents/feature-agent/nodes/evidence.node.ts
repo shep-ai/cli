@@ -105,8 +105,9 @@ export function createEvidenceNode(executor: IAgentExecutor) {
     }
 
     // --- Configuration ---
+    // Use feature-level state for commitEvidence; fall back to global for retries config
+    const commitEvidence = state.commitEvidence;
     const settings = hasSettings() ? getSettings() : undefined;
-    const commitEvidence = settings?.workflow.commitEvidence ?? false;
     const maxRetries = settings?.workflow.evidenceRetries ?? DEFAULT_MAX_RETRIES;
     const options = buildExecutorOptions(state);
     const tasks = parseTasks(state.specDir);
@@ -153,8 +154,14 @@ export function createEvidenceNode(executor: IAgentExecutor) {
           evidence = [];
         }
 
-        // Accumulate evidence from all attempts (FR-11)
-        allEvidence = [...allEvidence, ...evidence];
+        // Accumulate evidence from all attempts (FR-11), deduplicating by
+        // type + relativePath so retries that recapture the same files don't
+        // produce duplicate entries in the manifest.
+        const merged = new Map<string, Evidence>();
+        for (const e of [...allEvidence, ...evidence]) {
+          merged.set(`${e.type}:${e.relativePath}`, e);
+        }
+        allEvidence = [...merged.values()];
 
         // --- Validate UI evidence (informational warnings) ---
         const uiResult = validateUiEvidenceHasAppProof(evidence);

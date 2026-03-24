@@ -267,6 +267,36 @@ describe('MergeReview', () => {
     });
   });
 
+  describe('evidence rendering', () => {
+    it('renders multiple evidence items with distinct paths', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          evidence: [
+            {
+              type: 'Screenshot',
+              capturedAt: '2026-03-09T12:00:00Z',
+              description: 'First screenshot',
+              relativePath: '/evidence/gallery-1.png',
+            },
+            {
+              type: 'Screenshot',
+              capturedAt: '2026-03-09T12:01:00Z',
+              description: 'Second screenshot',
+              relativePath: '/evidence/gallery-2.png',
+            },
+          ],
+        },
+      };
+      render(<MergeReview {...props} />);
+
+      expect(screen.getByText('First screenshot')).toBeInTheDocument();
+      expect(screen.getByText('Second screenshot')).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument(); // evidence count badge
+    });
+  });
+
   describe('no PR', () => {
     it('hides PR card and shows alternate description when pr is undefined', () => {
       const props: MergeReviewProps = {

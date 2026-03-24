@@ -158,6 +158,8 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
     openPr: false,
     evidence: [],
     evidenceRetries: 0,
+    enableEvidence: true,
+    commitEvidence: false,
     ...overrides,
   } as FeatureAgentState;
 }
@@ -767,6 +769,58 @@ describe('createEvidenceNode', () => {
         expect.arrayContaining([
           expect.objectContaining({ description: 'Test results' }),
           expect.objectContaining({ description: 'App: settings page screenshot' }),
+        ])
+      );
+    });
+
+    it('should deduplicate evidence when retries recapture the same files', async () => {
+      const sharedEvidence: Evidence[] = [
+        {
+          type: EvidenceType.TestOutput,
+          capturedAt: '2026-03-09T12:00:00Z',
+          description: 'Test results',
+          relativePath: '.shep/evidence/tests.txt',
+        },
+      ];
+      const attempt2Evidence: Evidence[] = [
+        // Same file recaptured with updated description
+        {
+          type: EvidenceType.TestOutput,
+          capturedAt: '2026-03-09T12:01:00Z',
+          description: 'Test results (updated)',
+          relativePath: '.shep/evidence/tests.txt',
+        },
+        // New file only in attempt 2
+        {
+          type: EvidenceType.Screenshot,
+          capturedAt: '2026-03-09T12:01:00Z',
+          description: 'App screenshot',
+          relativePath: '.shep/evidence/app.png',
+        },
+      ];
+
+      mockParseEvidenceRecords.mockReturnValueOnce(sharedEvidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: false, errors: validationErrors });
+
+      mockParseEvidenceRecords.mockReturnValueOnce(attempt2Evidence);
+      mockValidateEvidence.mockResolvedValueOnce({ valid: true, errors: [] });
+
+      const node = createEvidenceNode(executor);
+      const result = await node(baseState());
+
+      // Should have 2 unique entries, not 3 (the duplicate test.txt is deduplicated)
+      expect(result.evidence).toHaveLength(2);
+      // The later attempt's version wins for the duplicate
+      expect(result.evidence).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            description: 'Test results (updated)',
+            relativePath: '.shep/evidence/tests.txt',
+          }),
+          expect.objectContaining({
+            description: 'App screenshot',
+            relativePath: '.shep/evidence/app.png',
+          }),
         ])
       );
     });

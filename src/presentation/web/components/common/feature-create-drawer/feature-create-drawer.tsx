@@ -27,6 +27,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useGuardedDrawerClose } from '@/hooks/drawer-close-guard';
 import { AttachmentChip } from '@/components/common/attachment-chip';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
+import { getViewerPermission } from '@/app/actions/get-viewer-permission';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import { Separator } from '@/components/ui/separator';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
@@ -188,6 +189,8 @@ export interface FeatureCreateDrawerProps {
   currentModel?: string;
   /** Pre-fill the description textarea (e.g. from session context) */
   initialDescription?: string;
+  /** When true, user has push access — Fork & PR toggle will be hidden. */
+  canPushDirectly?: boolean;
 }
 
 export function FeatureCreateDrawer({
@@ -203,6 +206,7 @@ export function FeatureCreateDrawer({
   currentAgentType,
   currentModel,
   initialDescription,
+  canPushDirectly,
 }: FeatureCreateDrawerProps) {
   const createSound = useSoundAction('create');
   // Validate repositoryPath from URL against active repos — prevents stale URL params
@@ -282,6 +286,35 @@ export function FeatureCreateDrawer({
       setParentId(initialParentId);
     }
   }, [open, initialParentId]);
+
+  // Permission-aware Fork & PR toggle visibility
+  const [canPush, setCanPush] = useState(canPushDirectly ?? false);
+
+  // Sync canPush from prop when it changes (e.g. initial server-side value)
+  useEffect(() => {
+    setCanPush(canPushDirectly ?? false);
+  }, [canPushDirectly]);
+
+  // Re-check permission when user switches repos via the combobox
+  const prevRepoRef = useRef(selectedRepoPath);
+  useEffect(() => {
+    if (selectedRepoPath && selectedRepoPath !== prevRepoRef.current) {
+      prevRepoRef.current = selectedRepoPath;
+      getViewerPermission(selectedRepoPath)
+        .then((result) => setCanPush(result.canPushDirectly))
+        .catch(() => setCanPush(false));
+    }
+  }, [selectedRepoPath]);
+
+  // Auto-reset forkAndPr and dependent states when canPush becomes true
+  useEffect(() => {
+    if (canPush) {
+      setForkAndPr(false);
+      setPush(defaultPush);
+      setOpenPr(defaultOpenPr);
+      setCommitSpecs(true);
+    }
+  }, [canPush, defaultPush, defaultOpenPr]);
 
   const resetForm = useCallback(() => {
     setDescription('');
@@ -1072,33 +1105,35 @@ export function FeatureCreateDrawer({
                     </TooltipTrigger>
                     <TooltipContent side="bottom">Commit specs to repository.</TooltipContent>
                   </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex cursor-pointer items-center gap-1.5">
-                        <Switch
-                          id="fork-and-pr"
-                          size="sm"
-                          checked={forkAndPr}
-                          onCheckedChange={(v) => {
-                            setForkAndPr(v);
-                            // Auto-flip commitSpecs to false when enabling contribute mode
-                            if (v) setCommitSpecs(false);
-                          }}
-                          disabled={isSubmitting}
-                        />
-                        <Label
-                          htmlFor="fork-and-pr"
-                          className="flex cursor-pointer items-center gap-1 text-xs font-medium"
-                        >
-                          <GitFork className="h-3 w-3" />
-                          Fork & PR
-                        </Label>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      Contribute via fork (PR to upstream).
-                    </TooltipContent>
-                  </Tooltip>
+                  {!canPush && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex cursor-pointer items-center gap-1.5">
+                          <Switch
+                            id="fork-and-pr"
+                            size="sm"
+                            checked={forkAndPr}
+                            onCheckedChange={(v) => {
+                              setForkAndPr(v);
+                              // Auto-flip commitSpecs to false when enabling contribute mode
+                              if (v) setCommitSpecs(false);
+                            }}
+                            disabled={isSubmitting}
+                          />
+                          <Label
+                            htmlFor="fork-and-pr"
+                            className="flex cursor-pointer items-center gap-1 text-xs font-medium"
+                          >
+                            <GitFork className="h-3 w-3" />
+                            Fork & PR
+                          </Label>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        Contribute via fork (PR to upstream).
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
               </div>
             </div>

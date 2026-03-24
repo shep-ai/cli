@@ -1,0 +1,275 @@
+name: "hide-fork-pr-toggle"
+summary: >
+  8 tasks across 3 phases. Phase 1 adds getViewerPermission to the service layer with
+  unit tests. Phase 2 wires the permission check into the server component, creates a
+  server action for re-checks, and threads the prop through CreateDrawerClient. Phase 3
+  implements conditional rendering, state reset logic, component tests, and Storybook stories.
+
+relatedFeatures: []
+technologies:
+  - "React (Next.js App Router)"
+  - "GitHub CLI (gh)"
+  - "TypeScript"
+  - "Server Actions"
+  - "Vitest"
+  - "Storybook"
+
+relatedLinks:
+  - title: "IGitHubRepositoryService interface"
+    url: "packages/core/src/application/ports/output/services/github-repository-service.interface.ts"
+  - title: "GitForkService gh repo view pattern"
+    url: "packages/core/src/infrastructure/services/git/git-fork.service.ts"
+
+tasks:
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Add getViewerPermission to IGitHubRepositoryService interface"
+    description: >
+      Extend the IGitHubRepositoryService interface with a getViewerPermission(repoPath: string)
+      method that returns Promise<string>. Add a GitHubPermissionError class for permission
+      check failures. This defines the contract that the implementation and all consumers depend on.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "IGitHubRepositoryService has a getViewerPermission(repoPath: string): Promise<string> method"
+      - "GitHubPermissionError class exists with name, message, and optional cause"
+      - "JSDoc documents the method signature, return values (ADMIN, MAINTAIN, WRITE, TRIAGE, READ), and throws clause"
+    tdd:
+      red:
+        - "Write a type-level test that asserts IGitHubRepositoryService has getViewerPermission method (compile-time check — the interface change itself causes existing mock implementations to fail type-check)"
+      green:
+        - "Add getViewerPermission(repoPath: string): Promise<string> to the interface"
+        - "Add GitHubPermissionError class following the pattern of GitHubAuthError, GitHubCloneError, etc."
+      refactor:
+        - "Ensure JSDoc is consistent with existing methods in the interface"
+    estimatedEffort: "15min"
+
+  - id: "task-2"
+    phaseId: "phase-1"
+    title: "Implement getViewerPermission in GitHubRepositoryService"
+    description: >
+      Implement the getViewerPermission method using this.execFile('gh', ['repo', 'view',
+      '--json', 'viewerPermission'], { cwd: repoPath }). Parse the JSON output to extract
+      the permission string. Throw GitHubPermissionError on ENOENT (gh not installed) or
+      exec failure. Follows the exact pattern from GitForkService (git-fork.service.ts:26).
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "getViewerPermission returns 'ADMIN' when gh outputs {\"viewerPermission\":\"ADMIN\"}"
+      - "getViewerPermission returns 'WRITE' when gh outputs {\"viewerPermission\":\"WRITE\"}"
+      - "getViewerPermission returns 'READ' when gh outputs {\"viewerPermission\":\"READ\"}"
+      - "getViewerPermission throws GitHubPermissionError when execFile throws ENOENT"
+      - "getViewerPermission throws GitHubPermissionError when execFile throws generic error"
+      - "execFile is called with args ['repo', 'view', '--json', 'viewerPermission'] and { cwd: repoPath }"
+    tdd:
+      red:
+        - "Write test: getViewerPermission returns ADMIN for admin repos (mock execFile to return {\"viewerPermission\":\"ADMIN\"})"
+        - "Write test: getViewerPermission returns WRITE for collaborator repos"
+        - "Write test: getViewerPermission returns READ for read-only repos"
+        - "Write test: getViewerPermission throws GitHubPermissionError on ENOENT"
+        - "Write test: getViewerPermission throws GitHubPermissionError on generic exec failure"
+      green:
+        - "Implement getViewerPermission: call this.execFile, JSON.parse stdout, return viewerPermission field"
+        - "Add error handling: catch ENOENT and generic errors, throw GitHubPermissionError with cause"
+      refactor:
+        - "Ensure error messages are descriptive and consistent with existing error patterns in the service"
+    estimatedEffort: "30min"
+
+  - id: "task-3"
+    phaseId: "phase-2"
+    title: "Create get-viewer-permission server action"
+    description: >
+      Create a new server action at src/presentation/web/app/actions/get-viewer-permission.ts.
+      It resolves IGitHubRepositoryService from DI, calls getViewerPermission(repoPath),
+      maps the permission string to a canPushDirectly boolean (ADMIN/MAINTAIN/WRITE = true),
+      and catches errors to return canPushDirectly=false as graceful degradation.
+      Follows the pattern of list-github-repositories.ts.
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "Server action exports getViewerPermission(repoPath: string): Promise<{ canPushDirectly: boolean }>"
+      - "Returns { canPushDirectly: true } for ADMIN, MAINTAIN, WRITE permissions"
+      - "Returns { canPushDirectly: false } for TRIAGE, READ permissions"
+      - "Returns { canPushDirectly: false } when service throws (graceful degradation)"
+      - "Marked with 'use server' directive"
+      - "Resolves service via resolve<IGitHubRepositoryService>('IGitHubRepositoryService')"
+    tdd:
+      red:
+        - "Write test: server action returns canPushDirectly=true for ADMIN"
+        - "Write test: server action returns canPushDirectly=true for WRITE"
+        - "Write test: server action returns canPushDirectly=false for READ"
+        - "Write test: server action returns canPushDirectly=false when service throws"
+      green:
+        - "Create get-viewer-permission.ts with 'use server' directive"
+        - "Resolve IGitHubRepositoryService, call getViewerPermission, map to boolean"
+        - "Wrap in try/catch, return { canPushDirectly: false } on error"
+      refactor:
+        - "Extract PUSH_PERMISSIONS constant set (ADMIN, MAINTAIN, WRITE) for the mapping"
+    estimatedEffort: "20min"
+
+  - id: "task-4"
+    phaseId: "phase-2"
+    title: "Add initial permission fetch to create/page.tsx"
+    description: >
+      Modify the create drawer server component to fetch the initial canPushDirectly value.
+      Resolve IGitHubRepositoryService, call getViewerPermission on the initial repo path,
+      map to boolean. Add to the existing Promise.all as a fourth concurrent call. Pass
+      canPushDirectly as a prop to CreateDrawerClient.
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "create/page.tsx resolves IGitHubRepositoryService and calls getViewerPermission"
+      - "Permission check runs concurrently in Promise.all with existing calls"
+      - "Permission check failure returns canPushDirectly=false (graceful degradation via .catch)"
+      - "canPushDirectly boolean is passed as prop to CreateDrawerClient"
+      - "When no repo path is provided (empty string), canPushDirectly defaults to false"
+    tdd:
+      red:
+        - "This is a server component integration — verify by reading the code diff and checking that the prop is threaded correctly. No isolated unit test needed for the server component itself."
+      green:
+        - "Import resolve and IGitHubRepositoryService in create/page.tsx"
+        - "Add helper function to check permission: resolve service, call getViewerPermission, map to boolean"
+        - "Add the permission check to Promise.all with .catch(() => false)"
+        - "Pass canPushDirectly to CreateDrawerClient"
+      refactor:
+        - "Extract the permission-to-boolean mapping into a shared utility if duplicated with the server action"
+    estimatedEffort: "20min"
+
+  - id: "task-5"
+    phaseId: "phase-2"
+    title: "Thread canPushDirectly through CreateDrawerClient"
+    description: >
+      Add canPushDirectly prop to CreateDrawerClientProps interface and pass it through
+      to FeatureCreateDrawer. This is pure prop threading — no logic changes.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "CreateDrawerClientProps includes canPushDirectly?: boolean"
+      - "CreateDrawerClient passes canPushDirectly to FeatureCreateDrawer"
+    tdd:
+      red:
+        - "This is prop threading — type-check via compilation ensures correctness"
+      green:
+        - "Add canPushDirectly?: boolean to CreateDrawerClientProps"
+        - "Destructure canPushDirectly in CreateDrawerClient"
+        - "Pass canPushDirectly={canPushDirectly} to FeatureCreateDrawer"
+      refactor:
+        - "No refactoring needed — minimal change"
+    estimatedEffort: "5min"
+
+  - id: "task-6"
+    phaseId: "phase-3"
+    title: "Implement conditional rendering and state reset in FeatureCreateDrawer"
+    description: >
+      Core UI logic: accept canPushDirectly prop, manage internal canPush state, call
+      get-viewer-permission server action on repo change (selectedRepoPath), auto-reset
+      forkAndPr and dependent states (push, openPr, commitSpecs) when canPush becomes true,
+      and conditionally unmount the Fork & PR toggle block with {!canPush && <Tooltip>...}.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+      - "task-5"
+    acceptanceCriteria:
+      - "FeatureCreateDrawerProps includes canPushDirectly?: boolean"
+      - "Internal canPush state is initialized from canPushDirectly prop (defaults to false)"
+      - "useEffect syncs canPush from prop when prop changes"
+      - "On selectedRepoPath change, calls getViewerPermission server action and updates canPush"
+      - "useEffect watching canPush: when true, sets forkAndPr=false, reverts push/openPr/commitSpecs to workflow defaults"
+      - "Fork & PR toggle block (lines 1075-1101) is wrapped in {!canPush && ...}"
+      - "Existing form behavior is unchanged when canPushDirectly is undefined or false"
+      - "Fork & PR is excluded from form submission payload when canPush is true (forkAndPr=false)"
+    tdd:
+      red:
+        - "Write test: Fork & PR toggle renders when canPushDirectly is false"
+        - "Write test: Fork & PR toggle does not render when canPushDirectly is true"
+        - "Write test: forkAndPr state resets to false when canPushDirectly changes from false to true"
+        - "Write test: push and openPr revert to defaults when canPushDirectly becomes true"
+        - "Write test: commitSpecs reverts to default (true) when canPushDirectly becomes true"
+        - "Write test: Fork & PR toggle renders when canPushDirectly is undefined (backwards compat)"
+      green:
+        - "Add canPushDirectly?: boolean to FeatureCreateDrawerProps"
+        - "Add useState for canPush, initialized from prop"
+        - "Add useEffect to sync canPush from prop"
+        - "Add useEffect on selectedRepoPath change to call server action"
+        - "Add useEffect watching canPush to reset forkAndPr and dependent states"
+        - "Wrap Fork & PR toggle block in {!canPush && ...}"
+      refactor:
+        - "Group the canPush-related effects near the other state sync effects for readability"
+    estimatedEffort: "45min"
+
+  - id: "task-7"
+    phaseId: "phase-3"
+    title: "Add Storybook stories for toggle-visible and toggle-hidden states"
+    description: >
+      Add two new story variants to feature-create-drawer.stories.tsx: one showing the
+      toggle visible (canPushDirectly=false, simulating no push access) and one showing
+      the toggle hidden (canPushDirectly=true, simulating push access). Stories must work
+      without a real gh CLI or GitHub authentication.
+    state: "Todo"
+    dependencies:
+      - "task-6"
+    acceptanceCriteria:
+      - "Story 'ForkToggleVisible' renders with canPushDirectly=false — Fork & PR toggle is visible"
+      - "Story 'ForkToggleHidden' renders with canPushDirectly=true — Fork & PR toggle is not in the DOM"
+      - "Stories do not require gh CLI or GitHub auth (props are passed directly)"
+      - "Stories follow existing CreateDrawerTrigger pattern"
+    tdd:
+      red:
+        - "Write story that sets canPushDirectly=false and verify toggle renders (play function asserts Fork & PR label exists)"
+        - "Write story that sets canPushDirectly=true and verify toggle is absent (play function asserts Fork & PR label does not exist)"
+      green:
+        - "Create CreateDrawerTrigger variant that accepts canPushDirectly prop"
+        - "Add ForkToggleVisible story with canPushDirectly=false"
+        - "Add ForkToggleHidden story with canPushDirectly=true"
+        - "Add play functions that assert toggle presence/absence"
+      refactor:
+        - "Ensure story naming is consistent with existing story conventions"
+    estimatedEffort: "20min"
+
+  - id: "task-8"
+    phaseId: "phase-3"
+    title: "Validate and run full test suite"
+    description: >
+      Run pnpm validate (lint + format + typecheck + tsp) and pnpm test to ensure all
+      changes integrate correctly with the existing codebase. Fix any type errors, lint
+      issues, or test failures.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "pnpm validate passes with zero errors"
+      - "pnpm test passes with zero failures"
+      - "pnpm build succeeds"
+      - "No regressions in existing tests"
+    tdd: null
+    estimatedEffort: "15min"
+
+totalEstimate: "2h 50min"
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 8 tasks across 3 phases following the dependency chain:
+  service layer, server integration, then UI.
+
+  **Phase 1 (Service Layer)** establishes the foundation by adding getViewerPermission() to
+  the IGitHubRepositoryService interface and implementing it with gh repo view --json
+  viewerPermission using the cwd pattern from GitForkService. Unit tests verify all permission
+  levels and error paths using mock ExecFunction.
+
+  **Phase 2 (Server Integration)** connects the service to the UI layer. The create/page.tsx
+  server component adds the permission check to its existing Promise.all for the initial load.
+  A new get-viewer-permission server action enables dynamic re-checks when the user switches
+  repos in the combobox. CreateDrawerClient threads the canPushDirectly boolean through to
+  FeatureCreateDrawer.
+
+  **Phase 3 (UI)** implements the visible behavior: conditional rendering of the Fork & PR
+  toggle block, internal canPush state management, server action calls on repo change, and
+  automatic state reset of forkAndPr and its dependent toggles (push, openPr, commitSpecs)
+  when the user has push access. Storybook stories demonstrate both states without requiring
+  a real gh CLI. A final validation task ensures the entire codebase remains green.
