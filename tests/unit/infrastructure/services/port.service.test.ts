@@ -60,7 +60,6 @@ describe('Port Service', () => {
 
       try {
         const port = await findAvailablePort(49155);
-        // Port must be beyond the occupied range (49155, 49156 are taken)
         expect(port).toBeGreaterThanOrEqual(49157);
       } finally {
         await Promise.all(
