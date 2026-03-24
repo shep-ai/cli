@@ -1,7 +1,17 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, CalendarClock, Settings } from 'lucide-react';
+import {
+  Home,
+  Moon,
+  Sun,
+  Volume2,
+  VolumeOff,
+  Wrench,
+  Puzzle,
+  CalendarClock,
+  Settings,
+} from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
