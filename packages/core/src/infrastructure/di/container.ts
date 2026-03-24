@@ -510,6 +510,20 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: (c) => c.resolve(GetBranchSyncStatusUseCase),
   });
 
+  // McpServerFactory is registered as a lazy async factory to avoid importing
+  // @modelcontextprotocol/sdk for non-MCP commands. The factory uses dynamic
+  // import() — the actual SDK import only happens when the factory is called.
+  container.register('McpServerFactory', {
+    useFactory: (c) => {
+      return async () => {
+        const { McpServerService } = await import('../services/mcp/mcp-server.service.js');
+        const versionService = c.resolve<IVersionService>('IVersionService');
+        const { version } = versionService.getVersion();
+        return new McpServerService(version, c);
+      };
+    },
+  });
+
   _initialized = true;
   return container;
 }
