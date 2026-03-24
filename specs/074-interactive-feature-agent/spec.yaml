@@ -1,117 +1,186 @@
 name: "interactive-feature-agent"
 number: 74
-branch: "feat/074-interactive-feature-agent"
-oneLiner: "Add an interactive chat tab to feature detail pages, backed by a persistent per-feature agent process with full worktree context and configurable auto-timeout."
-userQuery: "I want to support interactive mode on features in our UI. We need a new tab which is like classic gtp chatbox with our prompt controls and nice agent/user messages. To support interactive agent, i want to spawn agent instance once, and then use interactive I/O on top of same process. For each feature we need a new tab (feature in ANY phase, even completed). Each feature tab will be correlated 1-1 to db record which tracks the spawned agent, for first time when user clicks on the tab - he will need to click Start interactive agent button which will boot the agent (should take about 8-10s), once ready, it will say something like Hey, how can i help. After setup user can interact with the agent, the agent spawner with worktree as cwd, and it should receive full context of feature its opened in (in consice format). Chat also can be turned off, and has auto-turnoff option with 15m default, all configurable on Settings page! The agent will be able to perform all operation including git/gh etc.\n"
-summary: "Each feature detail page gains a new \"Chat\" tab exposing a classic GPT-style chat interface backed by a single, long-lived agent process per feature (spawned on demand, CWD set to the feature worktree). The agent is bootstrapped with concise feature context, persists across messages in the same OS process, and is automatically torn down after a configurable idle timeout (default 15 min) managed via the global Settings page. Messages are persisted to SQLite and delivered to the browser via the existing SSE infrastructure.\n"
+branch: "feat/interactive-feature-agent"
+oneLiner: "Refactor the interactive chat agent to use @anthropic-ai/claude-agent-sdk, replacing manual CLI process management with the official SDK's V2 session API."
+userQuery: "i want to update current spec files with new iteration, we invented the wheel with claude-code cli wrapper, there is official claude sdk which wraps cli calls! https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk We must adopt it - REFACTOR OUR CODE AND CLEANUP UNUSED"
+summary: >
+  The interactive feature agent (spec 074, iteration 1) was built with manual child_process.spawn(),
+  readline stdout parsing, and hand-rolled JSON-line protocol handling. The official
+  @anthropic-ai/claude-agent-sdk (v0.2.81) wraps all of this — process management, typed message
+  streaming, session persistence, and resumption — behind a clean TypeScript API. This iteration
+  replaces the manual CLI wrapper with the SDK's V2 session API (createSession/resumeSession/send/stream),
+  deletes ~500 lines of process management code, and preserves the existing UI, SSE streaming,
+  SQLite persistence, and idle timeout behavior. A PoC commit (5ab568c4) has already proven
+  persistent sessions work with the SDK.
+
 phase: "Requirements"
-sizeEstimate: "L"
-relatedFeatures: []
+sizeEstimate: "M"
+relatedFeatures:
+  - "074-interactive-feature-agent (iteration 1 — initial implementation)"
 technologies:
   - "TypeScript"
+  - "@anthropic-ai/claude-agent-sdk (V2 session API — createSession, resumeSession, send, stream)"
   - "Next.js 16 (App Router)"
   - "React 19"
   - "SQLite / better-sqlite3"
-  - "TypeSpec"
-  - "Node.js child_process (spawn with stdio pipes)"
   - "Server-Sent Events (SSE)"
   - "tsyringe (DI container)"
   - "Tailwind CSS v4"
   - "assistant-ui/react (ExternalStoreRuntime, ThreadPrimitive, MessagePrimitive, ComposerPrimitive)"
   - "react-markdown (Markdown rendering in assistant messages)"
   - "Vitest"
-  - "Playwright (E2E)"
-  - "umzug (migration runner)"
+  - "zod@^4 (peer dep of claude-agent-sdk)"
 relatedLinks:
-  - title: "Node.js child_process.spawn docs"
-    url: "https://nodejs.org/api/child_process.html#child_processspawncommand-args-options"
-  - title: "Claude Code SDK — interactive stdin/stdout protocol"
+  - title: "@anthropic-ai/claude-agent-sdk npm"
+    url: "https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk"
+  - title: "Claude Agent SDK TypeScript GitHub"
+    url: "https://github.com/anthropics/claude-agent-sdk-typescript"
+  - title: "Claude Code SDK docs"
     url: "https://docs.anthropic.com/en/docs/claude-code/sdk"
 openQuestions:
-  - question: "How should message history be scoped — per session or per feature across all sessions?"
+  - question: "Should we use the stable V1 query() API or the unstable V2 session API?"
     resolved: true
     options:
-      - option: "Per session only"
-        description: "Messages belong to a single session. When the session is stopped (manually or via timeout)\nand later restarted, history is cleared. Simple to implement; no cross-session context bleed.\nDownside: user loses conversation context every restart.\n"
+      - option: "V1 query() — stable, async generator based"
+        description: >
+          The V1 API uses query({ prompt }) returning an AsyncGenerator<SDKMessage>.
+          Multi-turn requires passing an AsyncIterable<SDKUserMessage> as prompt and
+          coordinating when to yield the next message after receiving a result. More
+          complex coordination logic but stable API surface.
         selected: false
-      - option: "Per feature across sessions"
-        description: "All messages for a feature are persisted regardless of session boundaries. Restarting the agent\nreloads the N most-recent messages as context. Provides continuity; users can scroll back through\npast conversations. Slightly more complex (session foreign key on messages, context window trimming).\nRecommended for a richer UX.\n"
+      - option: "V2 unstable_v2_createSession() — simpler session-based API"
+        description: >
+          The V2 API provides createSession()/resumeSession() returning an SDKSession
+          with send(message) and stream() methods. Much simpler for multi-turn interactive
+          use: send a message, iterate the stream, repeat. Marked as unstable/alpha but
+          maps perfectly to our interactive session model.
         selected: true
-    selectionRationale: "Persisting history per feature gives users a persistent audit trail and avoids frustration when the\nsession times out mid-investigation. The added implementation complexity (extra FK, context truncation)\nis modest compared to the UX gain. Context window trimming (last N tokens) is a solved problem.\n"
-    answer: "Per feature across sessions"
-  - question: "How should streaming agent output be delivered to the browser?"
+    selectionRationale: >
+      V2's send()/stream() model maps directly to our InteractiveSessionService's
+      sendMessage/subscribe pattern. The V1 async generator coordination for multi-turn
+      adds unnecessary complexity. The PoC (commit 5ab568c4) already validated V2 works.
+      The "unstable" label means the API may change between SDK versions, but we pin our
+      dependency version and can adapt on upgrade.
+    answer: "V2 unstable_v2_createSession() — simpler session-based API"
+  - question: "Should we keep IAgentExecutorProvider for interactive mode or use SDK directly?"
     resolved: true
     options:
-      - option: "Poll SQLite via existing SSE endpoint"
-        description: "Extend the existing /api/agent-events SSE polling loop (500ms interval) to emit new event types\nfor interactive messages. No new infrastructure; reuses service worker multiplexing. Introduces\nup to 500ms latency per token chunk, which may feel sluggish for streaming responses.\n"
+      - option: "Keep IAgentExecutorProvider abstraction"
+        description: >
+          Continue resolving agent type through IAgentExecutorProvider, then conditionally
+          use the SDK when Claude Code is selected. Maintains architectural consistency
+          with non-interactive agent execution. However, the SDK only supports Claude Code
+          (it bundles the CLI), making the abstraction hollow for interactive mode.
         selected: false
-      - option: "Dedicated per-session SSE stream"
-        description: "New GET /api/interactive/[sessionId]/stream endpoint that holds an open SSE connection and\nflushes stdout chunks as they arrive in real time. Sub-100ms perceived latency; familiar\nGPT-style streaming feel. Requires one extra HTTP connection per open chat tab but is\nwell-supported by Next.js route handlers.\n"
+      - option: "Replace with SDK-specific adapter for interactive mode"
+        description: >
+          Create a thin IInteractiveAgentAdapter interface that wraps the SDK directly.
+          Interactive mode is Claude-Code-only (the SDK bundles it). Non-interactive
+          agent execution continues to use IAgentExecutorProvider for multi-agent support.
+          Cleaner separation of concerns.
         selected: true
-    selectionRationale: "Users expect GPT-style token streaming. The existing 500ms poll loop is optimised for infrequent\nstate-change events, not high-frequency token chunks. A dedicated SSE stream per session delivers\nthe responsive feel users expect and is straightforward with Next.js ReadableStream. The extra\nconnection per tab is negligible for a single-user local tool.\n"
-    answer: "Dedicated per-session SSE stream"
-  - question: "What content should be included in the initial system prompt / feature context injected into the agent?"
+    selectionRationale: >
+      The SDK is inherently Claude-Code-specific (it embeds the CLI binary). Routing
+      through IAgentExecutorProvider for interactive mode adds an unnecessary abstraction
+      layer that can never resolve to anything else. A dedicated IInteractiveAgentAdapter
+      is honest about this constraint while keeping the interface mockable for tests.
+      Non-interactive agent execution retains IAgentExecutorProvider for Cursor/Gemini support.
+    answer: "Replace with SDK-specific adapter for interactive mode"
+  - question: "Should we use the SDK's built-in session persistence or keep our SQLite tables?"
     resolved: true
     options:
-      - option: "Minimal — name, phase, branch only"
-        description: "Injects only the feature name, current lifecycle phase, and git branch. Fastest to build;\navoids any risk of exceeding context limits. However the agent lacks enough context to answer\nmeaningful questions about implementation progress without reading files itself.\n"
+      - option: "SDK persistence only — remove our SQLite tables"
+        description: >
+          The SDK persists sessions to disk and provides listSessions(), getSessionMessages()
+          APIs. Could eliminate our interactive_sessions and interactive_messages tables.
+          However, the SDK stores data in Claude Code's internal format, not queryable
+          by our UI without going through the SDK API for every read.
         selected: false
-      - option: "Concise summary — name, phase, branch, plan tasks, open PRs, worktree path"
-        description: "Injects: feature name, one-liner, lifecycle phase, git branch, worktree absolute path,\nlist of plan tasks with statuses, and open PR links. Fits comfortably in a few hundred tokens.\nAgent has enough context to be immediately useful and can read files on demand.\nRecommended balance of context richness vs token cost.\n"
+      - option: "Dual persistence — SDK for agent context, SQLite for UI queries"
+        description: >
+          Keep our SQLite tables for fast UI queries (message history, session status,
+          feature scoping). The SDK handles its own persistence for agent context
+          resumption. Our tables serve a different purpose: UI state, feature scoping,
+          and cross-session message history that the SDK doesn't provide.
         selected: true
-      - option: "Full spec dump — entire YAML spec serialised as context"
-        description: "Injects the full spec YAML. Maximises agent knowledge but consumes significant context window\ntokens upfront, may hit limits for large specs, and includes stale analysis-phase content.\n"
-        selected: false
-    selectionRationale: "The concise summary gives the agent enough orientation (what the feature is, where it is in\nthe lifecycle, what tasks exist, where to find the code) to answer most questions immediately,\nwhile keeping the prompt lean. The agent can always read spec files directly if deeper context\nis needed.\n"
-    answer: "Concise summary — name, phase, branch, plan tasks, open PRs, worktree path"
-  - question: "How should the auto-timeout idle clock be measured?"
-    resolved: true
-    options:
-      - option: "Time since last user message sent"
-        description: "Idle clock resets when the user sends a message. Simple; the server-side timer only needs\nto track last-message timestamp. Does not reset if the agent is still streaming a long response.\nRecommended for simplicity.\n"
-        selected: false
-      - option: "Time since last any activity (send or receive)"
-        description: "Idle clock resets on both sent messages and received agent chunks. More forgiving for long\nagent responses. Requires the service to observe stdout activity, adding minor complexity.\n"
-        selected: true
-    selectionRationale: "Resetting on user send is the simplest correct behaviour. Long agent responses are bounded by\nthe response itself; once complete the user will typically reply within the timeout window.\nThis avoids the service needing to observe every stdout chunk just for timeout bookkeeping.\n"
-    answer: "Time since last any activity (send or receive)"
-  - question: "Should the Chat tab be accessible for features in ALL lifecycle phases including Archived?"
-    resolved: true
-    options:
-      - option: "All phases including Archived and Completed"
-        description: "The tab is always visible regardless of lifecycle phase. Users can query historical features,\nreview decisions, or ask the agent to explain code even after a feature is done. Matches the\nuser query requirement explicitly.\n"
-        selected: true
-      - option: "Active phases only (excluding Archived/Completed)"
-        description: "Hide the tab for terminal lifecycle states. Simpler tab visibility logic; avoids confusion\nabout whether the agent can still make changes on a completed feature. Contradicts user requirements.\n"
-        selected: false
-    selectionRationale: "The user explicitly requested the tab for features in ANY phase, including completed ones. A\nread-only investigative use case (\\\"explain what was built\\\", \\\"show the final diff\\\") is valuable\neven post-completion. The agent operating in a completed feature's worktree is no different from\nany other — the user bears responsibility for any changes made.\n"
-    answer: "All phases including Archived and Completed"
-  - question: "What is the maximum number of concurrent active sessions allowed?"
-    resolved: true
-    options:
-      - option: "Unlimited concurrent sessions"
-        description: "No cap on simultaneous agent processes. Simple to implement. Risk: users could accidentally\nopen many sessions and exhaust system resources (each agent process may use significant RAM/CPU).\n"
-        selected: false
-      - option: "Configurable cap, default 3"
-        description: "Allow at most N concurrent active sessions (default 3, configurable in Settings). Attempting\nto start a 4th prompts the user to stop an existing session first. Prevents runaway resource\nusage on developer machines. Sensible default for a single-user local tool.\n"
-        selected: true
-    selectionRationale: "A single developer is unlikely to need more than 2-3 concurrent feature chats. A soft cap of 3\nprevents accidental resource exhaustion while still supporting multi-feature workflows. Making it\nconfigurable in Settings respects power users who want to raise or remove the limit.\n"
-    answer: "Configurable cap, default 3"
-  - question: "How should the UI handle the agent boot period (estimated 8-10 seconds)?"
-    resolved: true
-    options:
-      - option: "Simple spinner with status text"
-        description: "Show a spinner and \\\"Booting agent...\\\" text while waiting. Minimal UI work; clear enough for\nan occasional operation. No progress granularity.\n"
-        selected: false
-      - option: "Animated boot sequence with status stages"
-        description: "Display named boot stages (\\\"Spawning process\\\", \\\"Loading context\\\", \\\"Agent ready\\\") each\nwith a status indicator that fills in as SSE events arrive. Feels polished and matches the\nexisting agent execution UI patterns. Recommended for product quality.\n"
-        selected: false
-      - option: "Invisible auto-boot with inline chat status messages"
-        description: "Hide all agent management UI (no start/stop/restart buttons). Prompt is always visible.\nWhen user sends first message, agent auto-boots with a sleek inline \\\"Agent is waking up...\\\"\nstatus message inside the chat thread. Messages queued during boot are sent automatically\nonce ready. Uses assistant-ui ExternalStoreRuntime with StatusMessage pattern.\n"
-        selected: true
-    selectionRationale: "The invisible agent pattern provides the most seamless UX. Users interact with a chat prompt\nthat is always visible — no buttons, no state management visible to the user. Boot status is\ncommunicated as a sleek inline chat message that disappears when the agent is ready. This\nmatches the GPT/Claude web UI experience where the infrastructure is completely hidden.\n"
-    answer: "Invisible auto-boot with inline chat status messages"
-content: "## Problem Statement\n\nUsers interact with the SDLC pipeline through structured approval gates (PRD, plan, merge) but have no\nfree-form conversational way to interrogate a feature, ask follow-up questions, or issue ad-hoc commands\n(e.g. \"show me the diff\", \"run the tests\", \"why did you choose this approach\") without leaving the UI.\nA classic chat interface backed by a persistent, context-aware agent process closes this gap. The Chat tab\nis available for every feature regardless of its lifecycle phase — including completed and archived features\nwhere users may want to explore history or understand prior decisions.\n\n## Success Criteria\n\n- [ ] A \"Chat\" tab is visible on every feature detail page regardless of lifecycle phase (including Archived/Completed)\n- [ ] Clicking the Chat tab for the first time shows a \"Start interactive agent\" button; clicking it boots the agent\n- [ ] Agent boot completes within 15 seconds and surfaces staged status (Spawning → Loading context → Ready)\n- [ ] Once ready, the agent sends an opening greeting message (\"Hey, how can I help?\")\n- [ ] Users can send messages and receive streamed responses with GPT-style token-by-token rendering\n- [ ] Each feature has exactly one active session record in SQLite at any time\n- [ ] The agent process has the feature worktree as its CWD and can execute git, gh, and filesystem commands\n- [ ] The agent is bootstrapped with a concise feature context prompt (name, phase, branch, tasks, PRs, worktree path)\n- [ ] Message history is persisted to SQLite and survives page reloads and session restarts\n- [ ] The idle auto-timeout (default 15 min, measured from last user message) stops the agent process\n- [ ] A manual \"Stop agent\" control is available in the Chat tab\n- [ ] Auto-timeout duration and chat enable/disable toggle are configurable on the Settings page\n- [ ] Concurrent active session count is capped (default 3, configurable in Settings)\n- [ ] All new components have co-located `.stories.tsx` files\n- [ ] Unit tests cover InteractiveSessionService lifecycle (start, message, timeout, stop)\n- [ ] Integration tests cover the SQLite repository (CRUD for sessions and messages)\n- [ ] E2E Playwright test covers the full flow: open tab → start → send message → receive response → stop\n\n## Functional Requirements\n\n- **FR-1**: The system MUST display a \"Chat\" tab on the feature detail page for every feature in every lifecycle phase.\n- **FR-2**: On first visit to the Chat tab (no active session), the system MUST show a \"Start interactive agent\" button and must NOT auto-start the agent.\n- **FR-3**: Clicking \"Start interactive agent\" MUST create an `interactive_sessions` record in SQLite and spawn the agent process with the feature worktree as CWD.\n- **FR-4**: The system MUST inject a concise feature context prompt (name, one-liner, lifecycle phase, git branch, worktree absolute path, plan task list with statuses, open PR links) as the agent's initial system prompt.\n- **FR-5**: The agent process MUST be resolved via `IAgentExecutorProvider` — no hardcoded agent binary path.\n- **FR-6**: The system MUST emit SSE status events (`interactive_session_booting`, `interactive_session_ready`, `interactive_session_stopped`, `interactive_session_error`) and display them as named boot stages in the UI.\n- **FR-7**: Once the agent signals readiness, the system MUST persist and display an opening greeting message from the agent.\n- **FR-8**: Users MUST be able to type and send a message; the message MUST be written to the agent's stdin and persisted to the `interactive_messages` table.\n- **FR-9**: Agent stdout chunks MUST be streamed to the browser in real time via a dedicated per-session SSE endpoint and rendered as a streaming message bubble.\n- **FR-10**: Each completed agent response MUST be persisted as a complete message record in SQLite.\n- **FR-11**: Message history MUST be scoped per feature (not per session) and returned by the GET messages API so users see full history across session restarts.\n- **FR-12**: The system MUST enforce a configurable maximum concurrent active session count (default 3). Attempting to start a session when at the cap MUST return an error and prompt the user to stop an existing session.\n- **FR-13**: The system MUST implement an idle auto-timeout: if no user message is sent within the configured duration (default 15 minutes), the agent process MUST be terminated and the session marked stopped.\n- **FR-14**: The Chat tab MUST provide a \"Stop agent\" button that immediately terminates the process and marks the session stopped.\n- **FR-15**: After a session is stopped (manually or via timeout), the Chat tab MUST show the message history and a \"Restart agent\" button to begin a new session.\n- **FR-16**: The Settings page MUST include an \"Interactive Agent\" section with: enable/disable toggle, auto-timeout duration (minutes), and max concurrent sessions.\n- **FR-17**: When the `enabled` setting is false, the Chat tab MUST be hidden from the tab bar.\n- **FR-18**: All new domain models (`InteractiveSession`, `InteractiveMessage`) MUST be defined in TypeSpec (`tsp/`) first and compiled before any hand-written code references them.\n\n## Non-Functional Requirements\n\n- **NFR-1 — Streaming latency**: Agent stdout chunks MUST be flushed to the browser SSE stream within 100ms of receipt; users must experience GPT-style token streaming.\n- **NFR-2 — Boot time**: Agent process must reach the \"ready\" state and send a greeting within 15 seconds on a typical developer machine; the UI must surface progress during this window.\n- **NFR-3 — Process isolation**: Each interactive session runs in its own OS process. A crashed session MUST NOT affect other sessions or the main Next.js server process.\n- **NFR-4 — Resource safety**: The auto-timeout and concurrent session cap together ensure no more than N agent processes run simultaneously; zombie processes must be reaped on server restart.\n- **NFR-5 — Persistence durability**: All messages and session state MUST survive a Next.js server restart; the SQLite WAL mode ensures write durability.\n- **NFR-6 — Clean Architecture compliance**: No presentation-layer code may import infrastructure types directly; all cross-layer communication goes through application-layer port interfaces.\n- **NFR-7 — Testability**: `InteractiveSessionService` MUST accept all external dependencies (process spawner, repository, settings) via DI constructor injection to enable unit testing without spawning real processes.\n- **NFR-8 — Storybook coverage**: Every new React component (`ChatTab`, `ChatMessage`, `ChatInput`, `AgentStatusBadge`) MUST have a co-located `.stories.tsx` file with at least idle, booting, ready, and stopped story variants.\n- **NFR-9 — Security**: The agent process inherits the local user's OS permissions. No additional sandboxing is applied; this is consistent with the existing feature-agent runner. No user input is interpolated into shell commands — messages are written directly to stdin.\n- **NFR-10 — Accessibility**: The chat input and message list MUST meet WCAG 2.1 AA contrast and keyboard navigation requirements (tab to input, enter to send, scroll through history).\n- **NFR-11 — Settings defaults**: Default values (autoTimeoutMinutes: 15, enabled: true, maxConcurrentSessions: 3) MUST be applied at runtime when settings keys are absent, so no migration of existing settings files is required.\n\n## Product Questions & AI Recommendations\n\n| # | Question | AI Recommendation | Rationale |\n| - | -------- | ----------------- | --------- |\n| 1 | Message history scope | Per feature across sessions | Continuity across restarts improves UX without meaningful complexity cost |\n| 2 | Streaming delivery mechanism | Dedicated per-session SSE stream | Real-time token streaming requires sub-100ms flush; polling loop is too slow |\n| 3 | Initial feature context depth | Concise summary (name, phase, branch, tasks, PRs, worktree) | Enough context for immediate usefulness without bloating the context window |\n| 4 | Idle timeout measurement | Time since last user message sent | Simplest correct behaviour; avoids needing to observe every stdout chunk |\n| 5 | Tab visibility scope | All phases including Archived/Completed | Matches explicit user requirement; read-only investigation of past features is valid |\n| 6 | Concurrent session cap | Configurable cap, default 3 | Prevents resource exhaustion on developer machines; configurable for power users |\n| 7 | Boot UX | Animated boot sequence with named stages | 8-10s is long enough to need progress feedback; consistent with existing agent UI |\n\n## Affected Areas\n\n| Area | Impact | Reasoning |\n| ---- | ------ | --------- |\n| `tsp/agents/` | High | New `InteractiveSession` and `InteractiveMessage` TypeSpec models |\n| `packages/core/src/domain/generated/output.ts` | High | Auto-generated after TypeSpec compile — do not hand-edit |\n| `packages/core/src/infrastructure/persistence/sqlite/migrations/` | High | New migration for `interactive_sessions` and `interactive_messages` tables |\n| `packages/core/src/infrastructure/persistence/sqlite/mappers/` | High | New mappers for InteractiveSession and InteractiveMessage |\n| `packages/core/src/application/ports/` | High | New `IInteractiveSessionService` output-port interface |\n| `packages/core/src/infrastructure/services/interactive/` | High | New `InteractiveSessionService` — spawns process, manages stdin/stdout IPC, heartbeat, auto-timeout |\n| `packages/core/src/infrastructure/di/container.ts` | Medium | Register new service + repository bindings |\n| `src/presentation/web/app/api/interactive/` | High | New API routes: POST start, POST message, GET messages, GET stream (SSE), DELETE stop |\n| `src/presentation/web/components/common/feature-drawer-tabs/` | High | Register new \"chat\" tab; add `ChatTab` component + `.stories.tsx` |\n| `src/presentation/web/components/features/chat/` | High | New `ChatTab`, `ChatMessage`, `ChatInput`, `AgentStatusBadge` components + stories |\n| `src/presentation/web/app/api/agent-events/route.ts` | Medium | Emit SSE events for interactive session status changes |\n| `src/presentation/web/app/(dashboard)/settings/page.tsx` | Medium | New \"Interactive Agent\" settings section: auto-timeout duration, enable/disable, max concurrent sessions |\n| `tsp/common/` | Medium | Extend Settings TypeSpec with `interactiveAgent` config fields |\n| `tests/unit/` | High | Unit tests for InteractiveSessionService, mappers, use cases |\n| `tests/integration/` | Medium | Integration tests for DB repositories |\n| `tests/e2e/` | Medium | Playwright tests for the Chat tab UI flow |\n\n## Dependencies\n\n- **Existing worktree infrastructure** — `IFeatureAgentProcessService` and worktree path resolution already\n  exist; the interactive session service will re-use the same worktree directory as its CWD.\n- **`IAgentExecutorProvider`** — must be used to determine which agent binary to invoke; do not hardcode\n  ClaudeCode or any other type.\n- **`getSettings()`** — singleton settings accessor; the new `interactiveAgent` config block will be read\n  here to apply auto-timeout, enable/disable, and concurrent session cap logic.\n- **SSE infrastructure** — the existing `/api/agent-events` polling loop and service worker will emit new\n  event types for session status changes (`interactive_session_booting`, `interactive_session_ready`,\n  `interactive_session_stopped`). A separate dedicated SSE endpoint handles real-time message streaming.\n- **SQLite connection singleton** — the new repository will obtain the connection the same way as existing\n  repositories (via DI).\n- **umzug migration runner** — new migration file added in numbered sequence (045+).\n- **Feature context builder** — a new utility that serialises a concise feature summary (name, one-liner,\n  lifecycle phase, branch, worktree path, plan tasks with statuses, open PRs) as the initial system prompt.\n\n## Size Estimate\n\n**L (week+)** — This feature spans every architectural layer:\n\n1. TypeSpec model changes + recompile (domain)\n2. DB migration + two new repositories + mappers (infrastructure / persistence)\n3. New application port interface + use cases\n4. New `InteractiveSessionService` with process lifecycle management, stdin/stdout IPC, idle-timeout, and\n   concurrent session cap (infrastructure / services) — the most complex and novel piece\n5. Five+ new Next.js API routes (start, message, messages list, SSE stream, stop)\n6. Four new React components with Storybook stories (ChatTab, ChatMessage, ChatInput, AgentStatusBadge)\n7. Settings page additions + Settings TypeSpec model updates\n8. SSE event extension for session status changes\n9. TDD-first unit, integration, and E2E tests for all of the above\n\nThe IPC design (writing to stdin, reading stdout line-by-line, detecting agent-ready state) and the\nidle-timeout / process lifecycle management are the highest-risk areas and will require careful design\nbefore implementation.\n"
+    selectionRationale: >
+      Our SQLite tables serve the UI layer — fast queries for message lists, feature-scoped
+      history, session status. The SDK's persistence serves the agent's context window.
+      These are complementary, not redundant. Removing our tables would couple the UI
+      to the SDK's internal storage format and require SDK API calls for every page load.
+    answer: "Dual persistence — SDK for agent context, SQLite for UI queries"
+content: |
+  ## Problem Statement
+
+  The interactive feature agent (iteration 1) manually spawns the Claude CLI via child_process.spawn(),
+  parses JSON-line stdout with readline, manages process lifecycle (SIGTERM, stdin writes, process
+  monitoring), and handles session resumption via --resume flags. This is ~500 lines of hand-rolled
+  process management code that duplicates what the official @anthropic-ai/claude-agent-sdk provides
+  out of the box with a clean, typed TypeScript API.
+
+  The SDK (v0.2.81) wraps the Claude CLI internally, handles all IPC protocol complexity, provides
+  typed SDKMessage streams, and offers session create/resume/send/stream primitives. A PoC commit
+  (5ab568c4) has already proven persistent sessions work with the V2 API.
+
+  ## Success Criteria
+
+  - [ ] @anthropic-ai/claude-agent-sdk is installed as a dependency
+  - [ ] InteractiveSessionService uses SDK V2 createSession()/resumeSession() instead of child_process.spawn()
+  - [ ] Message sending uses session.send() instead of stdin.write()
+  - [ ] Response streaming uses session.stream() async generator instead of readline JSON parsing
+  - [ ] InteractiveAgentProcessFactory is replaced with a thin SDK adapter
+  - [ ] All manual CLI flag construction (--output-format, --dangerously-skip-permissions, etc.) is removed
+  - [ ] All readline-based stdout parsing code is removed
+  - [ ] All manual child_process lifecycle management (SIGTERM, spawn, stdio pipe) is removed
+  - [ ] Feature context injection uses SDK systemPrompt option instead of manual stdin writing
+  - [ ] Session resumption uses SDK's resumeSession() instead of manual --resume flag
+  - [ ] SDK permissionMode replaces --dangerously-skip-permissions flag
+  - [ ] Existing SSE streaming to browser continues to work (source changes, delivery unchanged)
+  - [ ] Idle timeout behavior is preserved
+  - [ ] Concurrent session cap is preserved
+  - [ ] All existing unit tests pass (updated for new implementation)
+  - [ ] All existing integration tests pass (SQLite repositories unchanged)
+  - [ ] Message history persistence across session restarts is preserved
+  - [ ] React UI components require zero changes (API contract unchanged)
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | packages/core/src/infrastructure/services/interactive/interactive-session.service.ts | High | Core refactoring target — replace spawn/readline with SDK session API |
+  | packages/core/src/infrastructure/services/interactive/interactive-agent-process.factory.ts | High | Replace with SDK adapter or delete entirely |
+  | packages/core/src/application/ports/output/agents/interactive-agent-process-factory.interface.ts | High | Replace IInteractiveAgentProcessFactory with IInteractiveAgentAdapter |
+  | packages/core/src/infrastructure/services/interactive/feature-context.builder.ts | Medium | Simplify — context now passed as SDK systemPrompt option |
+  | packages/core/src/infrastructure/di/container.ts | Medium | Update DI registrations for new SDK adapter |
+  | package.json | Low | Add @anthropic-ai/claude-agent-sdk dependency |
+  | tests/unit/infrastructure/services/interactive/ | High | Update all unit tests for SDK-based implementation |
+  | src/presentation/web/ | None | API routes and React components unchanged (contract preserved) |
+  | packages/core/src/infrastructure/persistence/sqlite/ | None | SQLite tables, mappers, repositories unchanged |
+
+  ## Dependencies
+
+  - **@anthropic-ai/claude-agent-sdk v0.2.81+** — the SDK to adopt
+  - **zod@^4** — peer dependency of the SDK
+  - **Existing SQLite persistence** — retained for UI queries
+  - **Existing SSE infrastructure** — retained, source changes from readline to SDK stream
+  - **Existing React components** — unchanged, API contract preserved
+
+  ## Size Estimate
+
+  **M (3-5 days)** — This is a focused refactoring within the infrastructure layer:
+
+  1. Install SDK + create adapter interface (S)
+  2. Refactor InteractiveSessionService to use SDK V2 API (L — core work)
+  3. Delete InteractiveAgentProcessFactory and manual process management (S)
+  4. Update FeatureContextBuilder for SDK systemPrompt format (S)
+  5. Update unit tests for new implementation (M)
+  6. Cleanup dead code paths and unused imports (S)
+  7. Verify all existing tests pass (S)
+
+  The refactoring is contained to the infrastructure layer. No domain, application port,
+  presentation, or persistence changes are needed. The API contract between the service
+  and the API routes is preserved.
+
 rejectionFeedback:
   - iteration: 1
     message: "something doesnt work, Startin session is stuck, please test e2e on some claude feature, ask something simple like hey, status, etc and stop the agent!"
@@ -137,3 +206,7 @@ rejectionFeedback:
     message: "open pr"
     phase: "merge"
     timestamp: "2026-03-23T16:20:52.491Z"
+  - iteration: 7
+    message: "adopt @anthropic-ai/claude-agent-sdk — replace manual CLI wrapper with official SDK V2 session API"
+    phase: "refactor"
+    timestamp: "2026-03-24T00:00:00Z"

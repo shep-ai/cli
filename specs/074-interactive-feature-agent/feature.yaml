@@ -2,41 +2,41 @@ feature:
   id: "074-interactive-feature-agent"
   name: "interactive-feature-agent"
   number: 74
-  branch: "feat/074-interactive-feature-agent"
-  lifecycle: "research"
+  branch: "feat/interactive-feature-agent"
+  lifecycle: "implementation"
   createdAt: "2026-03-22T17:03:02Z"
+
 status:
-  phase: "implementation-complete"
+  phase: "ready-to-implement"
   progress:
-    completed: 29
-    total: 29
-    percentage: 100
+    completed: 0
+    total: 11
+    percentage: 0
   currentTask: null
-  lastUpdated: "2026-03-22T19:48:47.107Z"
-  lastUpdatedBy: "feature-agent:implement"
-  completedPhases:
-    - "analyze"
-    - "requirements"
-    - "research"
-    - "plan"
-    - "phase-1"
-    - "phase-2"
-    - "phase-3"
-    - "phase-4"
-    - "phase-5"
-    - "phase-6"
+  lastUpdated: "2026-03-24T00:00:00Z"
+  lastUpdatedBy: "shep-kit:new-feature-fast"
+
 validation:
   lastRun: null
   gatesPassed: []
   autoFixesApplied: []
+
 tasks:
   current: null
   blocked: []
   failed: []
+
 checkpoints:
   - phase: "feature-created"
     completedAt: "2026-03-22T17:03:02Z"
     completedBy: "feature-agent"
+  - phase: "iteration-1-complete"
+    completedAt: "2026-03-23T16:20:52Z"
+    completedBy: "feature-agent:implement"
+  - phase: "iteration-2-spec-complete"
+    completedAt: "2026-03-24T00:00:00Z"
+    completedBy: "shep-kit:new-feature-fast"
+
 errors:
   current: null
   history: []
