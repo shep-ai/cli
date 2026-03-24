@@ -40,7 +40,6 @@ import {
   type TasksYaml,
 } from './prompts/implement.prompt.js';
 import { createEvidenceNode } from './evidence.node.js';
-import { hasSettings, getSettings } from '../../../settings.service.js';
 
 /**
  * Update feature.yaml with current implementation progress.
@@ -278,8 +277,8 @@ export function createImplementNode(executor: IAgentExecutor) {
         `[implement] Complete: ${totalTasks} tasks across ${totalPhases} phases (${elapsed}s)`
       );
 
-      // --- Evidence sub-agent: capture proof of completion (settings-gated) ---
-      const evidenceEnabled = hasSettings() && getSettings().workflow.enableEvidence;
+      // --- Evidence sub-agent: capture proof of completion (feature-gated) ---
+      const evidenceEnabled = state.enableEvidence;
       let evidenceResult: Partial<FeatureAgentState> = {};
       if (evidenceEnabled) {
         const evidenceNode = createEvidenceNode(executor);

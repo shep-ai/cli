@@ -220,6 +220,8 @@ describe('Graph State Transitions › Resume After Error at Merge', () => {
       approvalGates: ALL_GATES_ENABLED,
       push: false,
       openPr: false,
+      enableEvidence: true,
+      commitEvidence: false,
     };
 
     return { graph, config, initialState, mergeNodeDeps };
@@ -412,6 +414,8 @@ describe('Graph State Transitions › Resume After Error at Merge', () => {
       approvalGates: PRD_PLAN_ALLOWED, // allowMerge=false
       push: false,
       openPr: false,
+      enableEvidence: true,
+      commitEvidence: false,
     };
 
     // Make merge-commit (7th call) throw

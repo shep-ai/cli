@@ -105,8 +105,9 @@ export function createEvidenceNode(executor: IAgentExecutor) {
     }
 
     // --- Configuration ---
+    // Use feature-level state for commitEvidence; fall back to global for retries config
+    const commitEvidence = state.commitEvidence;
     const settings = hasSettings() ? getSettings() : undefined;
-    const commitEvidence = settings?.workflow.commitEvidence ?? false;
     const maxRetries = settings?.workflow.evidenceRetries ?? DEFAULT_MAX_RETRIES;
     const options = buildExecutorOptions(state);
     const tasks = parseTasks(state.specDir);
