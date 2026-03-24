@@ -6,14 +6,17 @@ import type { FeatureActionsState } from '@/components/common/feature-drawer/use
 const defaultActions: FeatureActionsState = {
   openInIde: fn().mockName('openInIde'),
   openInShell: fn().mockName('openInShell'),
+  openFolder: fn().mockName('openFolder'),
   openSpecsFolder: fn().mockName('openSpecsFolder'),
   rebaseOnMain: fn().mockName('rebaseOnMain'),
   ideLoading: false,
   shellLoading: false,
+  folderLoading: false,
   specsLoading: false,
   rebaseLoading: false,
   ideError: null,
   shellError: null,
+  folderError: null,
   specsError: null,
   rebaseError: null,
 };

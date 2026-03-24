@@ -601,13 +601,15 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
 
         {featureActionsInput ? (
           <div className="flex items-center gap-2 pt-2" data-testid="feature-drawer-actions">
-            <OpenActionMenu
-              actions={featureActions}
-              repositoryPath={featureActionsInput.repositoryPath}
-              worktreePath={featureActionsInput.worktreePath}
-              showSpecs={!!featureActionsInput.specPath}
-            />
-            {featureFlags.envDeploy && featureDeployTarget ? (
+            {featureNode?.state !== 'done' ? (
+              <OpenActionMenu
+                actions={featureActions}
+                repositoryPath={featureActionsInput.repositoryPath}
+                worktreePath={featureActionsInput.worktreePath}
+                showSpecs={!!featureActionsInput.specPath}
+              />
+            ) : null}
+            {featureNode?.state !== 'done' && featureFlags.envDeploy && featureDeployTarget ? (
               <>
                 <TooltipProvider>
                   <Tooltip>

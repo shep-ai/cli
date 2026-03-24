@@ -11,6 +11,7 @@ const mockInput = {
 // --- Server action mocks ---
 const mockOpenIde = vi.fn();
 const mockOpenShell = vi.fn();
+const mockOpenFolder = vi.fn();
 
 vi.mock('@/app/actions/open-ide', () => ({
   openIde: (...args: unknown[]) => mockOpenIde(...args),
@@ -18,6 +19,10 @@ vi.mock('@/app/actions/open-ide', () => ({
 
 vi.mock('@/app/actions/open-shell', () => ({
   openShell: (...args: unknown[]) => mockOpenShell(...args),
+}));
+
+vi.mock('@/app/actions/open-folder', () => ({
+  openFolder: (...args: unknown[]) => mockOpenFolder(...args),
 }));
 
 vi.mock('@/app/actions/rebase-feature', () => ({
@@ -331,6 +336,119 @@ describe('useFeatureActions', () => {
 
       expect(result.current.shellError).toBe('Network error');
       expect(result.current.shellLoading).toBe(false);
+    });
+  });
+
+  describe('openFolder', () => {
+    it('calls openFolder server action with worktreePath when available', async () => {
+      mockOpenFolder.mockResolvedValue({ success: true, path: '/some/path' });
+
+      const inputWithWorktree = {
+        ...mockInput,
+        worktreePath: '/home/user/my-repo/.worktrees/feat-auth-module',
+      };
+      const { result } = renderHook(() => useFeatureActions(inputWithWorktree));
+
+      await act(async () => {
+        await result.current.openFolder();
+      });
+
+      expect(mockOpenFolder).toHaveBeenCalledWith('/home/user/my-repo/.worktrees/feat-auth-module');
+    });
+
+    it('falls back to repositoryPath when worktreePath is not available', async () => {
+      mockOpenFolder.mockResolvedValue({ success: true, path: '/some/path' });
+
+      const { result } = renderHook(() => useFeatureActions(mockInput));
+
+      await act(async () => {
+        await result.current.openFolder();
+      });
+
+      expect(mockOpenFolder).toHaveBeenCalledWith('/home/user/my-repo');
+    });
+
+    it('sets folderLoading to true during action and false after', async () => {
+      let resolvePromise!: (value: { success: boolean }) => void;
+      mockOpenFolder.mockReturnValue(
+        new Promise((resolve) => {
+          resolvePromise = resolve;
+        })
+      );
+
+      const { result } = renderHook(() => useFeatureActions(mockInput));
+
+      expect(result.current.folderLoading).toBe(false);
+
+      let actionPromise: Promise<void>;
+      act(() => {
+        actionPromise = result.current.openFolder();
+      });
+
+      expect(result.current.folderLoading).toBe(true);
+
+      await act(async () => {
+        resolvePromise({ success: true });
+        await actionPromise!;
+      });
+
+      expect(result.current.folderLoading).toBe(false);
+    });
+
+    it('sets folderError when server action returns error', async () => {
+      mockOpenFolder.mockResolvedValue({ success: false, error: 'Folder not found' });
+
+      const { result } = renderHook(() => useFeatureActions(mockInput));
+
+      await act(async () => {
+        await result.current.openFolder();
+      });
+
+      expect(result.current.folderError).toBe('Folder not found');
+    });
+
+    it('auto-clears folderError after 5 seconds', async () => {
+      mockOpenFolder.mockResolvedValue({ success: false, error: 'Folder not found' });
+
+      const { result } = renderHook(() => useFeatureActions(mockInput));
+
+      await act(async () => {
+        await result.current.openFolder();
+      });
+
+      expect(result.current.folderError).toBe('Folder not found');
+
+      act(() => {
+        vi.advanceTimersByTime(5000);
+      });
+
+      expect(result.current.folderError).toBeNull();
+    });
+
+    it('is no-op when input is null', async () => {
+      mockOpenFolder.mockResolvedValue({ success: true });
+
+      const { result } = renderHook(() => useFeatureActions(null));
+
+      await act(async () => {
+        await result.current.openFolder();
+      });
+
+      expect(mockOpenFolder).not.toHaveBeenCalled();
+      expect(result.current.folderLoading).toBe(false);
+    });
+
+    it('catches network error and sets folderError', async () => {
+      mockOpenFolder.mockRejectedValue(new Error('Network error'));
+
+      const { result } = renderHook(() => useFeatureActions(mockInput));
+
+      await act(async () => {
+        await result.current.openFolder();
+      });
+
+      expect(result.current.folderError).toBe('Network error');
+      expect(result.current.folderLoading).toBe(false);
     });
   });
 

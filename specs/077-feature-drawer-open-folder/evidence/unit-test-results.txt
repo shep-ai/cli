@@ -1,0 +1,44 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-drawer-open-folder
+
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInIde > calls openIde server action with correct input 8ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInIde > sets ideLoading to true during action and false after 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInIde > sets ideError when server action returns error 2ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInIde > auto-clears ideError after 5 seconds 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInIde > clears ideError on next successful openInIde call 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInIde > is no-op when input is null 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInIde > is no-op while ideLoading is true 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInIde > catches network error and sets ideError 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInShell > calls openShell server action with correct input 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInShell > sets shellLoading to true during action and false after 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInShell > sets shellError when server action returns error 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInShell > auto-clears shellError after 5 seconds 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInShell > clears shellError on next successful openInShell call 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInShell > is no-op when input is null 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInShell > is no-op while shellLoading is true 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openInShell > catches network error and sets shellError 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openFolder > calls openFolder server action with worktreePath when available 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openFolder > falls back to repositoryPath when worktreePath is not available 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openFolder > sets folderLoading to true during action and false after 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openFolder > sets folderError when server action returns error 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openFolder > auto-clears folderError after 5 seconds 0ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openFolder > is no-op when input is null 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > openFolder > catches network error and sets folderError 1ms
+ ✓  web  tests/unit/presentation/web/components/common/feature-drawer/use-feature-actions.test.ts > useFeatureActions > timer cleanup > cleans up auto-clear timers on unmount 1ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > renders the Open trigger button 64ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > shows dropdown items when clicked 44ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > calls openInIde when IDE item is clicked 39ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > calls openInShell when Terminal item is clicked 33ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > calls openFolder when Folder item is clicked 33ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > calls openSpecsFolder when Specs Folder item is clicked 33ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > disables trigger button when any action is loading 3ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > disables Specs Folder item when showSpecs is false 19ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > shows Copy path item in the dropdown 20ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > copies repositoryPath when worktreePath is not provided 35ms
+ ✓  web  tests/unit/presentation/web/components/common/open-action-menu/open-action-menu.test.tsx > OpenActionMenu > copies worktreePath when provided 34ms
+
+ Test Files  2 passed (2)
+      Tests  35 passed (35)
+   Start at  22:23:31
+   Duration  871ms (transform 125ms, setup 155ms, import 217ms, tests 381ms, environment 444ms)
+

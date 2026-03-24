@@ -7,14 +7,17 @@ import type { FeatureActionsState } from '@/components/common/feature-drawer/use
 const defaultActions: FeatureActionsState = {
   openInIde: vi.fn(),
   openInShell: vi.fn(),
+  openFolder: vi.fn(),
   openSpecsFolder: vi.fn(),
   rebaseOnMain: vi.fn(),
   ideLoading: false,
   shellLoading: false,
+  folderLoading: false,
   specsLoading: false,
   rebaseLoading: false,
   ideError: null,
   shellError: null,
+  folderError: null,
   specsError: null,
   rebaseError: null,
 };
@@ -34,6 +37,7 @@ describe('OpenActionMenu', () => {
 
     expect(screen.getByText('IDE')).toBeInTheDocument();
     expect(screen.getByText('Terminal')).toBeInTheDocument();
+    expect(screen.getByText('Folder')).toBeInTheDocument();
     expect(screen.getByText('Specs Folder')).toBeInTheDocument();
     expect(screen.getByText('Copy path')).toBeInTheDocument();
   });
@@ -58,6 +62,17 @@ describe('OpenActionMenu', () => {
     await user.click(screen.getByText('Terminal'));
 
     expect(actions.openInShell).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls openFolder when Folder item is clicked', async () => {
+    const actions = { ...defaultActions, openFolder: vi.fn() };
+    const user = userEvent.setup();
+    render(<OpenActionMenu actions={actions} repositoryPath="/home/user/repo" showSpecs />);
+
+    await user.click(screen.getByRole('button', { name: /open/i }));
+    await user.click(screen.getByText('Folder'));
+
+    expect(actions.openFolder).toHaveBeenCalledTimes(1);
   });
 
   it('calls openSpecsFolder when Specs Folder item is clicked', async () => {
