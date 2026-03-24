@@ -1,3 +1,10 @@
+# [1.151.0](https://github.com/shep-ai/cli/compare/v1.150.2...v1.151.0) (2026-03-24)
+
+
+### Features
+
+* **web:** hide fork and pr toggle when user has push access ([#467](https://github.com/shep-ai/cli/issues/467)) ([0034890](https://github.com/shep-ai/cli/commit/0034890739be2b66d5d760a07f0e50e0074f7022))
+
 ## [1.150.2](https://github.com/shep-ai/cli/compare/v1.150.1...v1.150.2) (2026-03-24)
 
 
