@@ -70,6 +70,18 @@ export class GitHubForkError extends Error {
   }
 }
 
+/**
+ * Thrown when checking the viewer's permission on a repository fails.
+ */
+export class GitHubPermissionError extends Error {
+  constructor(message: string, cause?: Error) {
+    super(message);
+    this.name = 'GitHubPermissionError';
+    Object.setPrototypeOf(this, new.target.prototype);
+    if (cause) this.cause = cause;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -208,4 +220,16 @@ export interface IGitHubRepositoryService {
    * @throws {GitHubForkError} if the fork operation fails
    */
   forkRepository(repoNameWithOwner: string): Promise<ForkResult>;
+
+  /**
+   * Get the authenticated user's permission level on a GitHub repository.
+   *
+   * Uses `gh repo view --json viewerPermission` with the given repo path
+   * as the working directory.
+   *
+   * @param repoPath - Absolute path to a local clone of the repository
+   * @returns The viewer's permission level: "ADMIN", "MAINTAIN", "WRITE", "TRIAGE", or "READ"
+   * @throws {GitHubPermissionError} if the permission check fails (e.g. gh not installed, not authenticated)
+   */
+  getViewerPermission(repoPath: string): Promise<string>;
 }

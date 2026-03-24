@@ -5,6 +5,7 @@ import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
 import type { FeatureCreateDrawerProps } from '@/components/common/feature-create-drawer';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 
 // Mock pickFiles client helper
 const mockPickFiles = vi.fn<() => Promise<FileAttachment[] | null>>();
@@ -28,6 +29,13 @@ const mockAddRepository =
   >();
 vi.mock('@/app/actions/add-repository', () => ({
   addRepository: (input: { path: string; name?: string }) => mockAddRepository(input),
+}));
+
+// Mock getViewerPermission server action
+const mockGetViewerPermission =
+  vi.fn<(repoPath: string) => Promise<{ canPushDirectly: boolean }>>();
+vi.mock('@/app/actions/get-viewer-permission', () => ({
+  getViewerPermission: (repoPath: string) => mockGetViewerPermission(repoPath),
 }));
 
 const mockCreatePlay = vi.fn();
@@ -59,6 +67,7 @@ beforeEach(() => {
   mockPickFiles.mockResolvedValue(null);
   mockPickFolder.mockResolvedValue(null);
   mockAddRepository.mockResolvedValue({ error: 'Not mocked' });
+  mockGetViewerPermission.mockResolvedValue({ canPushDirectly: false });
 });
 
 const descriptionPlaceholder =
@@ -1209,6 +1218,202 @@ describe('FeatureCreateDrawer', () => {
 
       expect(onSubmit).toHaveBeenCalledOnce();
       expect(onSubmit.mock.calls[0][0].repositoryPath).toBe('/Users/dev/new-project');
+    });
+  });
+
+  describe('canPushDirectly — Fork & PR toggle visibility', () => {
+    it('renders Fork & PR toggle when canPushDirectly is false', () => {
+      renderDrawer({ canPushDirectly: false });
+      expect(screen.getByLabelText('Fork & PR')).toBeInTheDocument();
+    });
+
+    it('does not render Fork & PR toggle when canPushDirectly is true', () => {
+      renderDrawer({ canPushDirectly: true });
+      expect(screen.queryByLabelText('Fork & PR')).not.toBeInTheDocument();
+    });
+
+    it('renders Fork & PR toggle when canPushDirectly is undefined (backwards compat)', () => {
+      renderDrawer();
+      expect(screen.getByLabelText('Fork & PR')).toBeInTheDocument();
+    });
+
+    it('resets forkAndPr state to false when canPushDirectly changes from false to true', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      const { rerender } = render(
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={vi.fn()}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+            canPushDirectly={false}
+          />
+        </DrawerCloseGuardProvider>
+      );
+
+      // Enable Fork & PR
+      await user.click(screen.getByLabelText('Fork & PR'));
+      expect(screen.getByLabelText('Fork & PR')).toBeChecked();
+
+      // Now switch to canPushDirectly=true — toggle should disappear and state should reset
+      rerender(
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={vi.fn()}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+            canPushDirectly={true}
+          />
+        </DrawerCloseGuardProvider>
+      );
+
+      // Fork & PR toggle should be gone
+      expect(screen.queryByLabelText('Fork & PR')).not.toBeInTheDocument();
+
+      // Submit and verify forkAndPr is false in payload
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+      expect(onSubmit.mock.calls[0][0].forkAndPr).toBe(false);
+    });
+
+    it('reverts push and openPr to defaults when canPushDirectly becomes true', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      const defaults: WorkflowDefaults = {
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        push: false,
+        openPr: false,
+        ciWatchEnabled: true,
+        enableEvidence: false,
+        commitEvidence: false,
+      };
+      const { rerender } = render(
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={vi.fn()}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+            workflowDefaults={defaults}
+            canPushDirectly={false}
+          />
+        </DrawerCloseGuardProvider>
+      );
+
+      // Enable Fork & PR — this forces push=true, openPr=true
+      await user.click(screen.getByLabelText('Fork & PR'));
+      expect(screen.getByLabelText('Push')).toBeChecked();
+      expect(screen.getByLabelText('PR')).toBeChecked();
+
+      // Switch to canPushDirectly=true — dependent states should revert to defaults
+      rerender(
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={vi.fn()}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+            workflowDefaults={defaults}
+            canPushDirectly={true}
+          />
+        </DrawerCloseGuardProvider>
+      );
+
+      // Push and PR should revert to workflow defaults (false)
+      expect(screen.getByLabelText('Push')).not.toBeChecked();
+      expect(screen.getByLabelText('PR')).not.toBeChecked();
+    });
+
+    it('reverts commitSpecs to default (true) when canPushDirectly becomes true', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      const { rerender } = render(
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={vi.fn()}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+            canPushDirectly={false}
+          />
+        </DrawerCloseGuardProvider>
+      );
+
+      // Enable Fork & PR — this auto-flips commitSpecs to false
+      await user.click(screen.getByLabelText('Fork & PR'));
+      expect(screen.getByLabelText('Commit Specs')).not.toBeChecked();
+
+      // Switch to canPushDirectly=true — commitSpecs should revert to true (default)
+      rerender(
+        <DrawerCloseGuardProvider>
+          <FeatureCreateDrawer
+            open={true}
+            onClose={vi.fn()}
+            onSubmit={onSubmit}
+            repositoryPath="/repo"
+            canPushDirectly={true}
+          />
+        </DrawerCloseGuardProvider>
+      );
+
+      expect(screen.getByLabelText('Commit Specs')).toBeChecked();
+    });
+
+    it('calls getViewerPermission on repo change and updates toggle visibility', async () => {
+      const sampleRepos = [
+        { id: 'repo-001', name: 'owned-repo', path: '/Users/dev/owned' },
+        { id: 'repo-002', name: 'contrib-repo', path: '/Users/dev/contrib' },
+      ];
+      // First repo: user has push access; second: no push access
+      mockGetViewerPermission
+        .mockResolvedValueOnce({ canPushDirectly: true })
+        .mockResolvedValueOnce({ canPushDirectly: false });
+
+      const user = userEvent.setup();
+      renderDrawer({
+        repositoryPath: '',
+        repositories: sampleRepos,
+        canPushDirectly: false,
+      });
+
+      // Fork & PR toggle should be visible initially (canPushDirectly=false)
+      expect(screen.getByLabelText('Fork & PR')).toBeInTheDocument();
+
+      // Select owned-repo — should call getViewerPermission and hide toggle
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('repository-option-repo-001'));
+
+      await waitFor(() => {
+        expect(mockGetViewerPermission).toHaveBeenCalledWith('/Users/dev/owned');
+      });
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Fork & PR')).not.toBeInTheDocument();
+      });
+
+      // Select contrib-repo — should call getViewerPermission and show toggle
+      await user.click(screen.getByTestId('repository-combobox'));
+      await user.click(screen.getByTestId('repository-option-repo-002'));
+
+      await waitFor(() => {
+        expect(mockGetViewerPermission).toHaveBeenCalledWith('/Users/dev/contrib');
+      });
+      await waitFor(() => {
+        expect(screen.getByLabelText('Fork & PR')).toBeInTheDocument();
+      });
+    }, 10_000);
+
+    it('excludes forkAndPr from submission payload when canPush is true', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit, canPushDirectly: true });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My feature');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0].forkAndPr).toBe(false);
     });
   });
 });

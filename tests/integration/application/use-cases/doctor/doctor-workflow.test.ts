@@ -128,6 +128,7 @@ function createMockRepoService(options?: {
       nameWithOwner: opts.forkNameWithOwner,
       cloneUrl: `https://github.com/${opts.forkNameWithOwner}.git`,
     }),
+    getViewerPermission: vi.fn().mockResolvedValue('READ'),
   };
 }
 

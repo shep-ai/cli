@@ -51,6 +51,7 @@ describe('ImportGitHubRepositoryUseCase', () => {
         nameWithOwner: 'user/repo',
         cloneUrl: 'https://github.com/user/repo.git',
       }),
+      getViewerPermission: vi.fn().mockResolvedValue('ADMIN'),
     };
 
     mockRepoRepository = {

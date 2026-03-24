@@ -256,6 +256,7 @@ describe('IGitHubRepositoryService', () => {
         nameWithOwner: 'user/cli',
         cloneUrl: 'https://github.com/user/cli.git',
       }),
+      getViewerPermission: async () => 'ADMIN',
     };
 
     const methodNames: (keyof IGitHubRepositoryService)[] = [
@@ -265,9 +266,10 @@ describe('IGitHubRepositoryService', () => {
       'parseGitHubUrl',
       'checkPushAccess',
       'forkRepository',
+      'getViewerPermission',
     ];
 
-    expect(methodNames).toHaveLength(6);
+    expect(methodNames).toHaveLength(7);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

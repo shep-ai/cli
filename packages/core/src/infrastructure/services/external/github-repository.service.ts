@@ -22,6 +22,7 @@ import {
   GitHubAuthError,
   GitHubCloneError,
   GitHubForkError,
+  GitHubPermissionError,
   GitHubRepoListError,
   GitHubUrlParseError,
 } from '../../../application/ports/output/services/github-repository-service.interface.js';
@@ -238,6 +239,31 @@ export class GitHubRepositoryService implements IGitHubRepositoryService {
       const cause = error instanceof Error ? error : undefined;
       throw new GitHubForkError(
         `Failed to fork ${repoNameWithOwner}: ${cause?.message ?? String(error)}`,
+        cause
+      );
+    }
+  }
+
+  async getViewerPermission(repoPath: string): Promise<string> {
+    try {
+      const { stdout } = await this.execFile('gh', ['repo', 'view', '--json', 'viewerPermission'], {
+        cwd: repoPath,
+      });
+      const parsed = JSON.parse(stdout) as { viewerPermission: string };
+      return parsed.viewerPermission;
+    } catch (error) {
+      const cause = error instanceof Error ? error : undefined;
+      const errnoCode = (error as NodeJS.ErrnoException)?.code;
+
+      if (errnoCode === 'ENOENT') {
+        throw new GitHubPermissionError(
+          'GitHub CLI (gh) is not installed. Install it from https://cli.github.com/',
+          cause
+        );
+      }
+
+      throw new GitHubPermissionError(
+        `Failed to check repository permission: ${cause?.message ?? String(error)}`,
         cause
       );
     }

@@ -130,3 +130,7 @@ rejectionFeedback:
     message: "shep doctors should support feature spesific issues/error as well so we need to be able to pass it a feature id (optional)"
     phase: "merge"
     timestamp: "2026-03-22T07:59:40.070Z"
+  - iteration: 3
+    message: "Resolve merge conflicts"
+    phase: "merge"
+    timestamp: "2026-03-24T17:26:02.461Z"

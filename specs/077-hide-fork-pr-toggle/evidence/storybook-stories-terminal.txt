@@ -1,0 +1,26 @@
+=== Storybook Stories Terminal Verification ===
+
+--- Story file grep: canPushDirectly prop threading ---
+95:  canPushDirectly,
+99:  canPushDirectly?: boolean;
+120:        canPushDirectly={canPushDirectly}
+699: * Fork & PR toggle visibility stories (canPushDirectly)
+703: * Fork & PR toggle visible — user does NOT have push access (canPushDirectly=false).
+706:export const ForkToggleVisible: Story = {
+707:  render: () => <CreateDrawerTrigger label="Open (Fork Toggle Visible)" canPushDirectly={false} />,
+719: * Fork & PR toggle hidden — user HAS push access (canPushDirectly=true).
+722:export const ForkToggleHidden: Story = {
+723:  render: () => <CreateDrawerTrigger label="Open (Fork Toggle Hidden)" canPushDirectly={true} />,
+
+--- Storybook index verification ---
+Story registered: drawers-feature-featurecreatedrawer--fork-and-pr-enabled
+Story registered: drawers-feature-featurecreatedrawer--fork-and-pr-with-commit-specs
+Story registered: drawers-feature-featurecreatedrawer--fork-toggle-visible
+Story registered: drawers-feature-featurecreatedrawer--fork-toggle-hidden
+
+--- HTTP status for ForkToggleVisible story ---
+HTTP status: 200
+--- HTTP status for ForkToggleHidden story ---
+HTTP status: 200
+
+=== Verification Complete ===

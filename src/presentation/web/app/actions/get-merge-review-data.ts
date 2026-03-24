@@ -114,7 +114,15 @@ export async function getMergeReviewData(featureId: string): Promise<GetMergeRev
         const manifestPath = join(evidenceDir, 'manifest.json');
         if (existsSync(manifestPath)) {
           const raw: MergeReviewEvidence[] = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-          evidence = normalizeEvidencePaths(raw, evidenceDir);
+          const normalized = normalizeEvidencePaths(raw, evidenceDir);
+          // Deduplicate: same type + relativePath means the same evidence entry
+          const seen = new Set<string>();
+          evidence = normalized.filter((e) => {
+            const key = `${e.type}:${e.relativePath}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
         }
       } catch {
         // Evidence unavailable — not critical

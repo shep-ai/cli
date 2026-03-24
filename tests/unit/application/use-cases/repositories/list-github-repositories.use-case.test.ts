@@ -45,6 +45,7 @@ describe('ListGitHubRepositoriesUseCase', () => {
         nameWithOwner: 'user/repo',
         cloneUrl: 'https://github.com/user/repo.git',
       }),
+      getViewerPermission: vi.fn().mockResolvedValue('ADMIN'),
     };
 
     useCase = new ListGitHubRepositoriesUseCase(mockGitHubService);

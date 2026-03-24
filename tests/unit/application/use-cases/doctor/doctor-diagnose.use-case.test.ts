@@ -105,6 +105,7 @@ function createMocks() {
       nameWithOwner: 'user/cli',
       cloneUrl: 'https://github.com/user/cli.git',
     }),
+    getViewerPermission: vi.fn().mockResolvedValue('READ'),
   };
 
   const prService: IGitPrService = {
