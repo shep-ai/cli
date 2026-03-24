@@ -143,3 +143,7 @@ rejectionFeedback:
     message: "The whole scheduled workflow should be behind feature flag, and only when enabled we should se it and its related settings."
     phase: "merge"
     timestamp: "2026-03-22T08:00:26.629Z"
+  - iteration: 2
+    message: "Resolve merge conflicts"
+    phase: "merge"
+    timestamp: "2026-03-24T09:40:10.582Z"

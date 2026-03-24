@@ -779,19 +779,19 @@ export type Plan = BaseEntity & {
   workPlan?: GanttViewData;
 };
 export enum SdlcLifecycle {
-  Started = "Started",
-  Analyze = "Analyze",
-  Requirements = "Requirements",
-  Research = "Research",
-  Planning = "Planning",
-  Implementation = "Implementation",
-  Review = "Review",
-  Maintain = "Maintain",
-  Blocked = "Blocked",
-  Pending = "Pending",
-  Deleting = "Deleting",
-  AwaitingUpstream = "AwaitingUpstream",
-  Archived = "Archived",
+  Started = 'Started',
+  Analyze = 'Analyze',
+  Requirements = 'Requirements',
+  Research = 'Research',
+  Planning = 'Planning',
+  Implementation = 'Implementation',
+  Review = 'Review',
+  Maintain = 'Maintain',
+  Blocked = 'Blocked',
+  Pending = 'Pending',
+  Deleting = 'Deleting',
+  AwaitingUpstream = 'AwaitingUpstream',
+  Archived = 'Archived',
 }
 
 /**
