@@ -1,0 +1,656 @@
+name: "interactive-feature-agent"
+summary: >
+  The interactive feature agent adds a persistent, per-feature chat interface backed by a
+  long-lived OS process (resolved via IAgentExecutorProvider) communicating over stdio pipes.
+  Sessions are tracked in two new SQLite tables, streamed to the browser via a dedicated
+  per-session SSE endpoint, and managed by a new InteractiveSessionService that handles
+  process lifecycle, idle-timeout, and concurrent-session capping. All new domain models
+  are TypeSpec-first; the feature follows the exact same Clean Architecture, DI, mapper,
+  and repository conventions already established in the codebase.
+
+relatedFeatures: []
+
+technologies:
+  - "TypeScript"
+  - "Node.js child_process.spawn (stdio: pipe)"
+  - "Next.js 16 App Router (route handlers)"
+  - "React 19"
+  - "SQLite / better-sqlite3"
+  - "TypeSpec (tsp compiler)"
+  - "tsyringe (DI container)"
+  - "Server-Sent Events (ReadableStream)"
+  - "Tailwind CSS v4"
+  - "assistant-ui/react v0.12+ (ExternalStoreRuntime, ThreadPrimitive, MessagePrimitive, ComposerPrimitive)"
+  - "react-markdown (Markdown rendering in assistant messages)"
+  - "Vitest (unit + integration tests)"
+  - "Playwright (E2E tests)"
+  - "umzug (migration runner)"
+  - "Node.js readline (line-buffered stdout parsing)"
+
+relatedLinks:
+  - title: "Node.js child_process.spawn docs"
+    url: "https://nodejs.org/api/child_process.html#child_processspawncommand-args-options"
+  - title: "Claude Code SDK — interactive stdin/stdout protocol"
+    url: "https://docs.anthropic.com/en/docs/claude-code/sdk"
+  - title: "Node.js readline.createInterface"
+    url: "https://nodejs.org/api/readline.html#readlinecreateinterfaceoptions"
+  - title: "Next.js Route Handlers (ReadableStream SSE)"
+    url: "https://nextjs.org/docs/app/building-your-application/routing/route-handlers"
+  - title: "umzug migration runner"
+    url: "https://github.com/sequelize/umzug"
+
+decisions:
+  - title: "Interactive Process IPC Protocol"
+    chosen: |
+      Spawn the agent CLI (resolved via IAgentExecutorProvider) in interactive stdin/stdout
+      mode with stdio: 'pipe'. Write each user message as a newline-terminated string to
+      stdin. Read stdout line-by-line using Node.js readline.createInterface, emitting each
+      chunk to the SSE stream in real-time. Use the Claude Code SDK's JSON-streaming protocol
+      (--output-format stream-json flag already used by existing ClaudeCodeExecutor) to detect
+      message boundaries: the assistant_response_complete event signals end-of-turn.
+    rejected:
+      - "WebSocket bidirectional channel — adds ws dependency and complexity; SSE + REST POST achieves the same without extra infrastructure on a single-user local tool"
+      - "Polling SQLite for new chunks — 500ms round-trip destroys the GPT-style streaming feel required by NFR-1; the existing /api/agent-events poller is optimised for infrequent lifecycle events, not per-token throughput"
+      - "Raw text stdio without structured framing — no reliable way to detect end-of-turn without a sentinel that could appear in agent output; JSON events provide clean message boundaries already used by the existing executor"
+    rationale: |
+      The existing ClaudeCodeExecutor already spawns the claude CLI with --output-format stream-json
+      and parses JSON lines from stdout. The interactive session service extends this pattern:
+      instead of collecting all output then returning, it keeps the process alive between turns
+      and flushes each JSON line to the browser SSE stream immediately.
+      readline.createInterface is the idiomatic Node.js API for line-buffered stdout and
+      requires no additional dependencies.
+
+  - title: "Session Persistence Schema"
+    chosen: |
+      Two new SQLite tables: interactive_sessions (id UUID PK, feature_id FK, status TEXT,
+      started_at INTEGER ms, stopped_at INTEGER ms nullable, last_activity_at INTEGER ms)
+      and interactive_messages (id UUID PK, feature_id TEXT, session_id FK nullable,
+      role TEXT CHECK user or assistant, content TEXT, created_at INTEGER ms).
+      Messages are scoped per feature_id (not per session) for cross-session history continuity.
+      Single migration file 045-create-interactive-tables.ts following the existing umzug pattern.
+    rejected:
+      - "Embed messages in the session row as a JSON blob — prevents incremental writes during streaming, breaks full-text search later, violates the row-per-event pattern used by agent_run_events"
+      - "Store history in-memory only — violates NFR-5 (survive server restart); users lose conversation context on every timeout"
+      - "Reuse the existing agent_run_events table — that table is coupled to AgentRun lifecycle semantics; mixing interactive messages there creates confusion and requires schema changes that affect existing queries"
+    rationale: |
+      Matching the established repository pattern (sqlite-feature.repository.ts, agent-run.repository.ts)
+      means two dedicated tables with clear foreign keys. Dates stored as INTEGER ms and
+      snake_case columns follow every existing migration. Scoping messages to feature_id (with
+      session_id as an optional FK) fulfils the spec requirement that history persists across
+      session restarts without losing the ability to query per-session if needed later.
+
+  - title: "SSE Streaming Architecture"
+    chosen: |
+      Two distinct SSE channels:
+      (A) Existing /api/agent-events extended with new event types (interactive_session_booting,
+      interactive_session_ready, interactive_session_stopped, interactive_session_error) for
+      coarse-grained session lifecycle notifications consumed by the existing useAgentEvents hook.
+      (B) New GET /api/interactive/sessions/[id]/stream route — a per-session ReadableStream SSE
+      endpoint that flushes stdout chunks within 100ms. The browser opens this stream only after
+      the session reaches 'ready' state. Each chunk event carries delta and sessionId.
+      A final done event signals end-of-turn so the UI can finalise the message bubble.
+    rejected:
+      - "Single SSE channel for both lifecycle events and message chunks — conflates two very different event frequencies (500ms poll vs per-token) and requires the existing agent-events consumers to filter noise"
+      - "Long-polling REST endpoint for message chunks — each poll introduces a round-trip; token streaming feels choppy; contradicts spec NFR-1 requiring sub-100ms flush"
+      - "WebSocket for streaming — unnecessary bidirectional overhead; SSE is sufficient for server-to-client streaming; avoids adding ws dependency"
+    rationale: |
+      Separating coarse lifecycle events (existing SSE) from fine-grained token chunks (new
+      per-session SSE) keeps each channel optimised for its use case. The existing route.ts
+      for /api/agent-events already uses ReadableStream with a 30s heartbeat; the new stream
+      route follows exactly the same Next.js pattern. This requires zero additional libraries.
+
+  - title: "Idle Timeout Implementation"
+    chosen: |
+      InteractiveSessionService stores a NodeJS.Timeout handle per session in a private Map.
+      The timer is started after session reaches 'ready' and is cleared+restarted on every
+      activity event (user message sent OR stdout chunk received from agent). When the timer
+      fires, the service calls stopSession() which sends SIGTERM to the process and marks the
+      session stopped. The timeout duration is read from settings.interactiveAgent.autoTimeoutMinutes
+      at timer creation time so runtime changes take effect on the next message.
+      On server restart, all non-stopped sessions are bulk-marked stopped in initializeContainer().
+    rejected:
+      - "Cron job polling DB for stale sessions — less precise; timer-per-session fires immediately when idle window expires without polling overhead"
+      - "Reset only on user message sent, not agent activity — a long agent response followed by timeout would kill the process mid-response; resetting on stdout activity is safer"
+      - "Client-side timer with server notification — client tab may be closed; server must own the authoritative timer to guarantee cleanup"
+    rationale: |
+      Server-side setTimeout per session is the simplest correct approach. The existing
+      feature-agent runner in the codebase uses a similar promise+timeout pattern in
+      claude-code-executor.service.ts. The InteractiveSessionService is registered as a
+      singleton in the DI container so it owns all timer state across the server process
+      lifetime. Zombie process cleanup on server restart is handled by querying all
+      booting or ready sessions on startup and marking them stopped.
+
+  - title: "Feature Context Injection Format"
+    chosen: |
+      A FeatureContextBuilder utility in packages/core/src/infrastructure/services/interactive/
+      serialises a concise system prompt (~400-600 tokens) containing: feature name, one-liner,
+      lifecycle phase, git branch, absolute worktree path, plan task list with statuses (max 30),
+      and open PR URLs. Written to stdin as the first message before the greeting exchange,
+      framed as a system-level instruction block.
+    rejected:
+      - "Full spec YAML dump — consumes 2000-5000 tokens upfront for large features; risks hitting context limits; includes stale analysis-phase content irrelevant to current questions"
+      - "Minimal name and branch only — agent cannot answer meaningful questions about implementation progress without reading files itself on every single query; degrades UX significantly"
+    rationale: |
+      The concise summary gives the agent immediate orientation (what, where, current state)
+      while staying well within typical context window budgets. The agent retains full access
+      to the filesystem (worktree CWD) to read spec files, code, and git history on demand.
+      This matches the spec decision selected in the open questions section.
+
+  - title: "IAgentExecutorProvider Integration for Interactive Mode"
+    chosen: |
+      Introduce IInteractiveAgentProcessFactory (application port) with a single method
+      spawn(worktreePath: string) returning a ChildProcessWithoutNullStreams. The implementation
+      (InteractiveAgentProcessFactory) calls IAgentExecutorProvider.getExecutor() to determine
+      the configured agent type, then spawns the corresponding CLI in interactive/stdin-pipe
+      mode with the correct flags for that agent type. The factory is injected into
+      InteractiveSessionService via DI constructor injection. This preserves the
+      IAgentExecutorProvider abstraction without hardcoding agent binary paths.
+    rejected:
+      - "Extend the existing IAgentExecutor interface with an interactive() method — IAgentExecutor is designed for one-shot run(); refactoring it risks breaking all existing executor unit tests and the feature agent runner"
+      - "Hardcode claude binary path in InteractiveSessionService — violates FR-5 and the MANDATORY agent resolution rule in AGENTS.md; would break when users switch to Cursor or Gemini CLI"
+    rationale: |
+      A thin, purpose-built factory keeps the existing IAgentExecutor contract intact while
+      giving InteractiveSessionService exactly the abstraction it needs (a ChildProcess with
+      piped stdio). The factory is trivially mockable in unit tests by substituting a test
+      double that returns a fake ChildProcess with controlled stdout and stdin streams.
+
+  - title: "Concurrent Session Cap Enforcement"
+    chosen: |
+      InteractiveSessionService.startSession() queries the repository for sessions with
+      status in ('booting', 'ready') before spawning a new process. If count >= configured
+      cap (default 3, from settings.interactiveAgent.maxConcurrentSessions), the method
+      throws a ConcurrentSessionLimitError that the API route translates to HTTP 429 with
+      a descriptive message. The UI displays this error in-line in the Chat tab.
+    rejected:
+      - "Enforce cap only in the API route — service layer can be called from CLI or other consumers; cap logic belongs in the service where it has full repository access"
+      - "No cap (unlimited sessions) — each interactive agent process may use 200-500MB RAM; on a typical developer laptop, uncapped growth leads to OOM or sluggishness"
+    rationale: |
+      Centralising cap enforcement in the service (not the route) follows the Clean Architecture
+      rule that business rules live in the application/domain layer, not the presentation layer.
+      The default of 3 is sufficient for typical multi-feature workflows while preventing
+      runaway resource usage. Making it configurable in Settings respects power users.
+
+  - title: "TypeSpec Model Design"
+    chosen: |
+      Two new TypeSpec models in tsp/agents/:
+      (1) InteractiveSession extends BaseEntity with featureId uuid, status InteractiveSessionStatus,
+          startedAt utcDateTime, stoppedAt optional utcDateTime, lastActivityAt utcDateTime.
+      (2) InteractiveMessage extends BaseEntity with featureId string, sessionId optional string,
+          role InteractiveMessageRole, content string.
+      New enums: InteractiveSessionStatus (booting, ready, stopped, error),
+      InteractiveMessageRole (user, assistant).
+      Settings extended in tsp/common/settings.tsp with interactiveAgent: InteractiveAgentConfig
+      containing enabled boolean, autoTimeoutMinutes int32, maxConcurrentSessions int32.
+      Default values applied at runtime (not via migration) using nullish coalescing.
+    rejected:
+      - "Reuse AgentSession from tsp/agents/agent-session.tsp — that model is tightly coupled to the SDLC phase runner (threadId, phaseType); mixing interactive sessions there creates semantic confusion and migration complexity"
+      - "Skip TypeSpec and hand-write domain types — violates MANDATORY TypeSpec-first rule in CLAUDE.md; would create inconsistency in the generated output.ts file"
+    rationale: |
+      Following the MANDATORY TypeSpec-first rule ensures generated types stay in sync with
+      the SQLite schema via the compiler. The BaseEntity base class (id, createdAt, updatedAt)
+      is inherited from the existing tsp/common/base-entity.tsp pattern. Placing models in
+      tsp/agents/ is consistent with AgentRun and AgentSession which live there.
+
+  - title: "React Component Architecture"
+    chosen: |
+      assistant-ui library (@assistant-ui/react v0.12+) replaces custom chat components.
+      Three files under src/presentation/web/components/:
+      - assistant-ui/thread.tsx — Custom Thread component using ThreadPrimitive, MessagePrimitive,
+        ComposerPrimitive with Markdown rendering via react-markdown. Defines UserMessage,
+        AssistantMessage (with Markdown), Composer (always visible), and ThreadEmpty components.
+      - features/chat/useChatRuntime.ts — Custom hook using ExternalStoreRuntime connecting
+        assistant-ui to the backend API. Handles auto-boot (invisible agent management),
+        session restore from localStorage, SSE streaming, message polling, and StatusMessage
+        pattern for inline boot/error status messages within the chat thread.
+      - features/chat/ChatTab.tsx — Minimal orchestrator (~30 lines): just AssistantRuntimeProvider
+        + Thread. No start/stop/restart buttons visible to user.
+      ChatTab.stories.tsx uses MockChatProvider with useExternalStoreRuntime for Storybook.
+      Agent management is completely invisible: prompt is always visible, first message auto-boots
+      the agent with an inline "Agent is waking up..." status message, messages queued during boot.
+    rejected:
+      - "Custom hand-built chat components (ChatMessageBubble, ChatInput, ChatMessageList, AgentStatusBadge) — reinvents what assistant-ui provides out of the box with better accessibility, keyboard handling, auto-scroll, and streaming support"
+      - "CopilotKit — opinionated full-stack framework requiring CopilotKit backend; too heavyweight for a custom backend integration"
+      - "Vercel AI SDK useChat — tightly coupled to Vercel AI SDK backend protocol; our backend uses custom SSE + REST API"
+      - "Visible agent management UI (start/stop/restart buttons) — adds UX friction; invisible auto-boot with inline status messages provides a seamless GPT-like experience"
+    rationale: |
+      assistant-ui provides production-grade composable primitives (ThreadPrimitive, MessagePrimitive,
+      ComposerPrimitive) that handle auto-scroll, keyboard navigation, streaming state, and
+      accessibility out of the box. The ExternalStoreRuntime adapter pattern allows full control
+      over the backend connection while leveraging assistant-ui's rendering layer. This eliminates
+      the need for 4 custom components (ChatMessageBubble, ChatInput, ChatMessageList,
+      AgentStatusBadge) and their associated Storybook stories, reducing UI code by ~70%.
+      The invisible agent pattern (no visible start/stop/restart) was chosen after multiple
+      iterations of user feedback preferring a seamless, GPT-like experience.
+
+  - title: "API Route Design"
+    chosen: |
+      Five new routes under src/presentation/web/app/api/interactive/:
+      POST   /api/interactive/sessions               - start session (returns sessionId, status)
+      DELETE /api/interactive/sessions/[id]          - stop session
+      POST   /api/interactive/sessions/[id]/messages - send user message (returns 202)
+      GET    /api/interactive/sessions/[id]/messages - list all messages for session feature
+      GET    /api/interactive/sessions/[id]/stream   - SSE stream for real-time chunks
+      All routes resolve services via container.resolve() using string tokens registered in
+      the DI container, following the exact pattern of existing API routes.
+    rejected:
+      - "Single /api/interactive route with action query params — violates REST conventions; harder to reason about caching and permissions per action type"
+      - "GraphQL subscriptions for streaming — adds Apollo/graphql-ws dependency; massive overkill for a local single-user tool with one streaming use case"
+    rationale: |
+      RESTful resource-based routes follow the existing API structure (e.g., /api/features,
+      /api/agent-runs). The DELETE verb for stopping aligns with REST semantics. The separate
+      /stream route for SSE follows the same isolation principle as the two-channel SSE design.
+      Route handlers use container.resolve() with string tokens matching every existing route.
+
+openQuestions:
+  - question: "How should the interactive agent detect end-of-turn to finalise a streaming message bubble?"
+    resolved: true
+    options:
+      - option: "JSON event sentinel from Claude Code stream-json protocol"
+        description: |
+          Claude Code's --output-format stream-json emits structured JSON lines including a
+          final result event when the assistant finishes responding. Parse each stdout line as
+          JSON and treat the result type event as the end-of-turn signal. The UI closes the
+          streaming bubble on receipt of this event. Already understood by the existing
+          ClaudeCodeExecutor; no new protocol work needed.
+        selected: true
+      - option: "Fixed newline sentinel written by a wrapper prompt"
+        description: |
+          Inject a wrapper instruction telling the agent to always end its responses with a
+          unique sentinel string such as AGENT_DONE. Parse stdout for this string to detect
+          end-of-turn. Fragile — the agent could include the sentinel in code blocks or
+          explanations; requires model-level instruction compliance.
+        selected: false
+      - option: "Timeout-based heuristic (N ms of stdout silence equals end-of-turn)"
+        description: |
+          Assume end-of-turn when no stdout activity occurs for 500ms. Simple but unreliable —
+          pauses during tool use or complex reasoning could false-trigger; network latency
+          variation makes the threshold hard to tune.
+        selected: false
+    selectionRationale: |
+      The JSON event sentinel is the only approach that is reliable, already supported by
+      the claude CLI's stream-json output format, and used by the existing ClaudeCodeExecutor.
+      Extending this for interactive mode requires only keeping the readline loop alive between
+      turns instead of closing the process, and treating the final result event as an
+      end-of-turn signal rather than a process-exit signal. No fragile heuristics needed.
+
+  - question: "How should zombie processes from crashed sessions be cleaned up on server restart?"
+    resolved: true
+    options:
+      - option: "Mark all non-stopped sessions as stopped on application startup"
+        description: |
+          On DI container initialization in initializeContainer(), query the DB for all sessions
+          with status in ('booting', 'ready') and bulk-update them to 'stopped'. These OS
+          processes will not survive a server restart so the DB state is definitively stale.
+          Simple, correct, requires no PID storage.
+        selected: true
+      - option: "Store OS PID in the session row and attempt SIGTERM on startup"
+        description: |
+          Persist the child process PID to the interactive_sessions table. On startup, attempt
+          process.kill(pid) for each non-stopped session. More aggressive cleanup but fragile —
+          PIDs are recycled by the OS; the stored PID may belong to a completely different
+          process after a restart.
+        selected: false
+      - option: "No cleanup and let sessions expire via idle timeout"
+        description: |
+          Do nothing on restart. Sessions with status booting or ready will eventually timeout
+          via the idle timer once the service restarts and the timer fires. Problem: the timer
+          only starts after a session message is received; a stale booting session will never
+          receive a message so it will be stuck in the DB indefinitely.
+        selected: false
+    selectionRationale: |
+      Bulk-marking stale sessions as stopped on startup is the simplest and most reliable
+      approach. Since each session's ChildProcess is in-memory (not persisted), a server
+      restart guarantees those processes are gone. The DI container init in container.ts is
+      already the right place for this. PID storage is avoided because OS PID recycling
+      makes it unreliable after a restart.
+
+  - question: "How should the Settings page validate the autoTimeoutMinutes input?"
+    resolved: true
+    options:
+      - option: "Integer input with min=1 max=120 enforced client-side and server-side"
+        description: |
+          Render a number input with min/max HTML attributes. The API route validates the value
+          before passing to the settings repository. Values outside 1-120 return a 400 error.
+          Default is 15 minutes. Sensible bounds prevent accidental 0-minute instant kill
+          or multi-day timeouts.
+        selected: true
+      - option: "Free text input parsed as integer with only client-side validation"
+        description: |
+          Accept any string, parse as int on submit. Validation only in the UI. Risk: direct
+          API calls could set invalid values; no server-side guard provides defence-in-depth.
+        selected: false
+      - option: "Dropdown of preset values (5m, 15m, 30m, 60m, never)"
+        description: |
+          Restrict to fixed preset durations to simplify validation. Less flexible — power
+          users may want custom intervals. The 'never' option requires special-casing in the
+          service (0 or -1 meaning disabled); the enable/disable toggle is a cleaner substitute.
+        selected: false
+    selectionRationale: |
+      A validated integer range (1-120 min) matches the existing pattern for numeric settings
+      in the codebase such as stage timeouts in WorkflowConfig. Both client-side (HTML attrs)
+      and server-side (API route guard) validation provides defence-in-depth. The 'never'
+      option is deferred — it adds complexity in the timeout service and can be added later
+      if users request it.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Interactive Process IPC Protocol
+
+  **Chosen:** stdio pipe via child_process.spawn + readline line-buffering + Claude Code stream-json end-of-turn detection
+
+  **Rejected:**
+  - WebSocket — unnecessary bidirectional overhead; SSE + REST POST is sufficient for this use case
+  - SQLite polling (500ms) — destroys the GPT-style streaming feel required by NFR-1; existing poller is optimised for lifecycle events, not per-token throughput
+  - Raw text stdio without structured framing — no reliable end-of-turn detection
+
+  **Rationale:** The existing ClaudeCodeExecutor already spawns the claude CLI with
+  `--output-format stream-json` and parses JSON lines. The interactive service extends this:
+  instead of collecting all output then exiting, it keeps the process alive between turns and
+  flushes each JSON chunk to the browser SSE stream immediately via readline.
+
+  ---
+
+  ### 2. Session Persistence Schema
+
+  **Chosen:** Two new SQLite tables in migration 045
+
+  ```sql
+  CREATE TABLE interactive_sessions (
+    id TEXT PRIMARY KEY,
+    feature_id TEXT NOT NULL REFERENCES features(id),
+    status TEXT NOT NULL CHECK(status IN ('booting','ready','stopped','error')),
+    started_at INTEGER NOT NULL,
+    stopped_at INTEGER,
+    last_activity_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE interactive_messages (
+    id TEXT PRIMARY KEY,
+    feature_id TEXT NOT NULL,
+    session_id TEXT REFERENCES interactive_sessions(id),
+    role TEXT NOT NULL CHECK(role IN ('user','assistant')),
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX idx_interactive_messages_feature ON interactive_messages(feature_id, created_at);
+  CREATE INDEX idx_interactive_sessions_status ON interactive_sessions(status);
+  ```
+
+  **Rejected:**
+  - JSON blob in session row — prevents incremental writes during streaming
+  - In-memory only — violates NFR-5 (survive server restart)
+  - Reuse agent_run_events — semantic coupling to SDLC phase runner
+
+  ---
+
+  ### 3. SSE Streaming Architecture
+
+  **Chosen:** Two-channel SSE design
+
+  - **Channel A** (existing `/api/agent-events`): extended with coarse lifecycle events
+    - `interactive_session_booting` — includes sessionId, featureId, stage string
+    - `interactive_session_ready` — agent greeting received
+    - `interactive_session_stopped` — manual or timeout
+    - `interactive_session_error` — process crash
+  - **Channel B** (new `/api/interactive/sessions/[id]/stream`): per-session ReadableStream SSE
+    - Flushes stdout JSON chunks as `{ delta, sessionId }` events
+    - Emits `{ done: true, sessionId }` on end-of-turn
+    - Browser opens only after 'ready' event
+
+  **Rejected:**
+  - Single channel for both — conflates two event frequencies
+  - Long-polling — 500ms round-trip
+  - WebSocket — unnecessary dependency
+
+  ---
+
+  ### 4. Idle Timeout Implementation
+
+  **Chosen:** Server-side `NodeJS.Timeout` per session stored in InteractiveSessionService Map
+
+  ```typescript
+  private timers = new Map<string, NodeJS.Timeout>();
+
+  private resetTimer(sessionId: string, timeoutMs: number): void {
+    const existing = this.timers.get(sessionId);
+    if (existing) clearTimeout(existing);
+    this.timers.set(
+      sessionId,
+      setTimeout(() => this.stopSession(sessionId, 'timeout'), timeoutMs)
+    );
+  }
+  ```
+
+  Timer resets on: user message sent AND each stdout chunk received.
+  On server restart: all 'booting'|'ready' sessions are bulk-marked 'stopped'.
+
+  **Rejected:**
+  - Cron polling DB for stale sessions — less precise, adds polling overhead
+  - Client-side timer — client tab may be closed; server must own authoritative timer
+
+  ---
+
+  ### 5. Feature Context Injection
+
+  **Chosen:** `FeatureContextBuilder` utility in `packages/core/src/infrastructure/services/interactive/`
+
+  Generates a system prompt (~400-600 tokens) containing:
+  - Feature name and one-liner summary
+  - Lifecycle phase and git branch
+  - Absolute worktree path (agent CWD)
+  - Plan task list with statuses (max 30 tasks)
+  - Open PR URLs
+
+  Written to stdin as the first exchange before the greeting message.
+
+  **Rejected:**
+  - Full spec YAML dump — 2000-5000 tokens upfront; risks context limits
+  - Minimal name+branch only — agent cannot answer meaningful questions without reading files on every query
+
+  ---
+
+  ### 6. IAgentExecutorProvider Integration
+
+  **Chosen:** New `IInteractiveAgentProcessFactory` application port
+
+  ```typescript
+  interface IInteractiveAgentProcessFactory {
+    spawn(worktreePath: string): Promise<ChildProcessWithoutNullStreams>;
+  }
+  ```
+
+  Implementation queries IAgentExecutorProvider for configured agent type, then spawns
+  the appropriate CLI in interactive mode with stdio: 'pipe'.
+
+  **Rejected:**
+  - Extend IAgentExecutor with interactive() — breaks existing executor contract and tests
+  - Hardcode agent binary — violates FR-5 and MANDATORY agent resolution rule in AGENTS.md
+
+  ---
+
+  ### 7. Concurrent Session Cap
+
+  **Chosen:** Pre-spawn DB check in InteractiveSessionService.startSession()
+
+  ```typescript
+  const active = await this.repo.countActiveSessions();
+  const cap = settings.interactiveAgent?.maxConcurrentSessions ?? 3;
+  if (active >= cap) throw new ConcurrentSessionLimitError(active, cap);
+  ```
+
+  API route translates ConcurrentSessionLimitError to HTTP 429.
+
+  **Rejected:**
+  - Enforce only in API route — business rule belongs in service layer per Clean Architecture
+  - Unlimited sessions — OOM risk on developer laptops
+
+  ---
+
+  ### 8. TypeSpec Models
+
+  **New files:**
+  - `tsp/agents/interactive-session.tsp` — InteractiveSession, InteractiveSessionStatus enum
+  - `tsp/agents/interactive-message.tsp` — InteractiveMessage, InteractiveMessageRole enum
+  - Update `tsp/common/settings.tsp` (or equivalent) — add InteractiveAgentConfig to Settings
+
+  **InteractiveAgentConfig defaults applied at runtime (no migration required):**
+  ```typescript
+  const config = settings.interactiveAgent ?? {
+    enabled: true,
+    autoTimeoutMinutes: 15,
+    maxConcurrentSessions: 3
+  };
+  ```
+
+  **Rejected:**
+  - Reuse AgentSession — semantic mismatch with SDLC phase runner model
+  - Skip TypeSpec — violates MANDATORY TypeSpec-first rule
+
+  ---
+
+  ### 9. React Component Architecture (assistant-ui)
+
+  **Component tree:**
+  ```
+  ChatTab (minimal orchestrator ~30 lines)
+  └── AssistantRuntimeProvider (runtime from useChatRuntime hook)
+      └── Thread (custom assistant-ui component)
+          ├── ThreadPrimitive.Viewport
+          │   ├── ThreadPrimitive.Empty → ThreadEmpty
+          │   └── ThreadPrimitive.Messages
+          │       ├── UserMessage → MessagePrimitive.Content → plain text
+          │       └── AssistantMessage → MessagePrimitive.Content → react-markdown
+          └── Composer (ComposerPrimitive.Root + Input + Send)
+  ```
+
+  **useChatRuntime hook** (features/chat/useChatRuntime.ts):
+  - Uses `useExternalStoreRuntime` from assistant-ui to connect to backend API
+  - Manages session lifecycle invisibly (auto-boot on first message, restore from localStorage)
+  - StatusMessage pattern: non-persisted inline messages ("Agent is waking up...")
+  - SSE streaming via EventSource for real-time delta chunks
+  - Message polling (800ms) as reliability fallback for SSE
+  - Session polling (1000ms) during boot until ready
+
+  **Invisible agent management:**
+  - No start/stop/restart buttons visible to user
+  - Prompt always visible via ComposerPrimitive
+  - First message triggers auto-boot with inline status message
+  - Messages queued via pendingMessageRef during boot
+  - Stopped/errored sessions auto-restart on next message
+
+  **Tab registration** in `feature-drawer-tabs.tsx`:
+  - Add `{ key: 'chat', label: 'Chat' }` to ALL_TABS
+  - Show when `settings.interactiveAgent.enabled === true`
+  - Always visible regardless of lifecycle phase (FR-1, FR-17)
+
+  **Storybook stories (MANDATORY per CLAUDE.md):**
+  - ChatTab.stories.tsx with MockChatProvider using useExternalStoreRuntime
+  - Stories: Empty, WithHistory (code blocks + markdown), AutoBoot, RichMarkdown,
+    LongConversation (12 messages), NonStreaming
+  - Mock generates context-aware responses and simulates word-by-word streaming
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @assistant-ui/react | Chat UI primitives (Thread, Message, Composer) | Use | Production-grade composable primitives with ExternalStoreRuntime adapter; replaces 4 custom components |
+  | react-markdown | Markdown rendering in assistant messages | Use | Lightweight, well-maintained; integrates cleanly with assistant-ui MessagePrimitive |
+  | node:child_process | Spawn interactive agent process | Use | Already used by existing executors; no new dependency |
+  | node:readline | Line-buffer agent stdout | Use | stdlib; idiomatic for line-based stdout parsing; zero npm cost |
+  | better-sqlite3 | SQLite persistence | Use | Already the project DB; no change |
+  | tsyringe | DI container | Use | Already the DI framework; new bindings follow existing pattern |
+  | CopilotKit | Full-stack AI chat framework | Reject | Requires CopilotKit backend; too opinionated for custom backend integration |
+  | Vercel AI SDK (useChat) | Chat hook with streaming | Reject | Tightly coupled to Vercel AI SDK backend protocol; our backend uses custom SSE + REST |
+  | ws / socket.io | Bidirectional comms | Reject | SSE + REST POST is sufficient; avoids new dependency |
+  | @anthropic-ai/sdk | Direct Claude API calls | Reject | Interactive mode uses the claude CLI process; API SDK is for direct model calls not process-based agents |
+  | xterm.js | Terminal emulator in browser | Reject | Over-engineered for a chat UI; plain text rendering is correct for GPT-style UX |
+
+  ---
+
+  ## Security Considerations
+
+  - **No shell interpolation**: User messages are written directly to the agent stdin as plain
+    bytes via `childProcess.stdin.write(message + '\n')`. No shell involvement; no injection risk (NFR-9).
+  - **Process isolation**: Each session runs as a separate OS process. A crashed session cannot
+    affect other sessions or the Next.js server process (NFR-3).
+  - **Worktree scope**: The agent CWD is set to the feature worktree path. The agent inherits
+    the local user OS permissions — consistent with the existing feature-agent runner.
+  - **Input validation**: The POST /messages route validates that content is a non-empty string
+    of at most 32KB before writing to stdin and the DB.
+  - **Concurrent cap**: Prevents resource exhaustion from rapid session creation via the API.
+  - **Session ownership check**: All session routes verify the sessionId belongs to the expected
+    featureId before acting, preventing cross-feature session manipulation.
+
+  ---
+
+  ## Performance Implications
+
+  - **SSE back-pressure**: The per-session ReadableStream uses Node.js built-in back-pressure.
+    If the browser client disconnects, the ReadableStream cancel() closes the connection without
+    buffering unbounded chunks in memory.
+  - **readline buffering**: readline.createInterface buffers by newline. Long agent lines are
+    capped at 1MB to prevent memory accumulation.
+  - **Message history pagination**: GET /messages returns the last 200 messages by default
+    (configurable via ?limit query param). The feature_id + created_at index ensures
+    sub-millisecond SQLite queries on typical history sizes.
+  - **Context window trimming**: When resuming a session, only the last N messages that fit
+    within a configurable token budget (default 8000 tokens) are included, trimming oldest first.
+  - **Concurrent session cap**: Default cap of 3 limits memory pressure. Each claude process
+    uses approximately 150-400MB RAM; 3 sessions equals 450MB-1.2GB peak overhead.
+
+  ---
+
+  ## Architecture Notes
+
+  ### Layer Placement
+
+  Following Clean Architecture (dependencies point inward):
+
+  ```
+  domain/         — InteractiveSession, InteractiveMessage (TypeSpec-generated)
+  application/    — IInteractiveSessionService (output port), IInteractiveSessionRepository,
+                    IInteractiveMessageRepository, IInteractiveAgentProcessFactory
+  infrastructure/ — InteractiveSessionService (impl), SQLiteInteractiveSessionRepository,
+                    SQLiteInteractiveMessageRepository, InteractiveAgentProcessFactory,
+                    FeatureContextBuilder, migration 045
+  presentation/   — 5 API routes, ChatTab + 4 child components + stories
+  ```
+
+  ### DI Registration
+
+  New bindings in `container.ts`:
+  ```typescript
+  container.register('IInteractiveSessionRepository', {
+    useFactory: () => new SQLiteInteractiveSessionRepository(db)
+  });
+  container.register('IInteractiveMessageRepository', {
+    useFactory: () => new SQLiteInteractiveMessageRepository(db)
+  });
+  container.register('IInteractiveAgentProcessFactory', {
+    useFactory: c => new InteractiveAgentProcessFactory(
+      c.resolve('IAgentExecutorProvider'), spawnWithPipe
+    )
+  });
+  container.registerSingleton('IInteractiveSessionService', InteractiveSessionService);
+  ```
+
+  String token aliases for web routes added alongside existing aliases (container.ts lines 410-508).
+
+  ### Startup Cleanup
+
+  Called during `initializeContainer()` after DB and repository registration:
+  ```typescript
+  const sessionRepo = container.resolve<IInteractiveSessionRepository>(
+    'IInteractiveSessionRepository'
+  );
+  await sessionRepo.markAllActiveStopped(); // cleanup zombie sessions from prior restart
+  ```
+
+  ### Migration Ordering
+
+  Next available migration slot is **045**. Filename: `045-create-interactive-tables.ts`.
+  No dependency on any other pending migration; can be added independently.

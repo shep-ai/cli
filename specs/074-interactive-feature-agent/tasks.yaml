@@ -1,0 +1,716 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "interactive-feature-agent"
+summary: >
+  29 tasks across 6 phases. Phase 1 establishes TypeSpec models and compiles generated types.
+  Phase 2 adds the DB migration and TDD-tested repositories. Phase 3 implements application
+  ports and the core InteractiveSessionService. Phase 4 wires DI and API routes. Phase 5
+  integrates assistant-ui library for the chat UI with ExternalStoreRuntime, custom Thread
+  component, useChatRuntime hook (invisible agent management), and Storybook stories.
+  Phase 6 adds Settings integration and validates the full flow with an E2E Playwright test.
+
+relatedFeatures: []
+technologies: []
+relatedLinks:
+  - title: "Node.js child_process.spawn docs"
+    url: "https://nodejs.org/api/child_process.html#child_processspawncommand-args-options"
+  - title: "Claude Code SDK interactive stdin/stdout protocol"
+    url: "https://docs.anthropic.com/en/docs/claude-code/sdk"
+
+tasks:
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 1 — TypeSpec & Domain Foundation
+  # ─────────────────────────────────────────────────────────────
+
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Define InteractiveSession TypeSpec model"
+    description: >
+      Create tsp/agents/interactive-session.tsp with the InteractiveSession model (extends BaseEntity)
+      and the InteractiveSessionStatus enum (booting, ready, stopped, error). Fields: featureId uuid,
+      status InteractiveSessionStatus, startedAt utcDateTime, stoppedAt optional utcDateTime,
+      lastActivityAt utcDateTime.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "tsp/agents/interactive-session.tsp exists with InteractiveSession model and InteractiveSessionStatus enum"
+      - "InteractiveSession extends BaseEntity (id, createdAt, updatedAt)"
+      - "All field types use TypeSpec built-in scalars (uuid, utcDateTime)"
+      - "pnpm tsp:compile runs without errors"
+    tdd: null
+    estimatedEffort: "30min"
+
+  - id: "task-2"
+    phaseId: "phase-1"
+    title: "Define InteractiveMessage TypeSpec model"
+    description: >
+      Create tsp/agents/interactive-message.tsp with the InteractiveMessage model and the
+      InteractiveMessageRole enum (user, assistant). Fields: featureId string, sessionId optional string,
+      role InteractiveMessageRole, content string.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "tsp/agents/interactive-message.tsp exists with InteractiveMessage model and InteractiveMessageRole enum"
+      - "InteractiveMessage extends BaseEntity"
+      - "pnpm tsp:compile runs without errors"
+    tdd: null
+    estimatedEffort: "20min"
+
+  - id: "task-3"
+    phaseId: "phase-1"
+    title: "Extend Settings TypeSpec with InteractiveAgentConfig"
+    description: >
+      Add InteractiveAgentConfig model to tsp/common/settings.tsp (or equivalent settings TypeSpec file)
+      with fields: enabled boolean, autoTimeoutMinutes int32, maxConcurrentSessions int32. Add
+      interactiveAgent optional InteractiveAgentConfig to the root Settings model.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "InteractiveAgentConfig model is present in the settings TypeSpec file"
+      - "Settings model has interactiveAgent?: InteractiveAgentConfig"
+      - "pnpm tsp:compile regenerates output.ts with all three new types"
+    tdd: null
+    estimatedEffort: "20min"
+
+  - id: "task-4"
+    phaseId: "phase-1"
+    title: "Register new tsp files in index and compile"
+    description: >
+      Import interactive-session.tsp and interactive-message.tsp in tsp/agents/index.tsp.
+      Run pnpm tsp:compile and verify that InteractiveSession, InteractiveMessage, InteractiveSessionStatus,
+      InteractiveMessageRole, and InteractiveAgentConfig all appear in packages/core/src/domain/generated/output.ts.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+      - "task-2"
+      - "task-3"
+    acceptanceCriteria:
+      - "tsp/agents/index.tsp imports both new .tsp files"
+      - "pnpm tsp:compile succeeds with zero errors"
+      - "Generated output.ts contains InteractiveSession, InteractiveMessage, InteractiveSessionStatus, InteractiveMessageRole, InteractiveAgentConfig"
+    tdd: null
+    estimatedEffort: "15min"
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 2 — Database & Repository Layer
+  # ─────────────────────────────────────────────────────────────
+
+  - id: "task-5"
+    phaseId: "phase-2"
+    title: "Write migration 045 for interactive tables"
+    description: >
+      Create packages/core/src/infrastructure/persistence/sqlite/migrations/045-create-interactive-tables.ts
+      following the existing umzug pattern. Creates interactive_sessions and interactive_messages tables
+      with the schema from the research doc, plus indexes on feature_id+created_at and status.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "Migration file 045-create-interactive-tables.ts exists and follows the existing umzug migration pattern"
+      - "interactive_sessions table has: id TEXT PK, feature_id TEXT FK, status TEXT CHECK, started_at INTEGER, stopped_at INTEGER nullable, last_activity_at INTEGER"
+      - "interactive_messages table has: id TEXT PK, feature_id TEXT, session_id TEXT FK nullable, role TEXT CHECK, content TEXT, created_at INTEGER"
+      - "Indexes created on interactive_messages(feature_id, created_at) and interactive_sessions(status)"
+      - "Migration runs without errors against a test SQLite database"
+      - "Migration is reversible (down function implemented)"
+    tdd: null
+    estimatedEffort: "30min"
+
+  - id: "task-6"
+    phaseId: "phase-2"
+    title: "Implement InteractiveSession mapper (TDD)"
+    description: >
+      Create packages/core/src/infrastructure/persistence/sqlite/mappers/interactive-session.mapper.ts
+      with toDomain(row) and toRow(session) functions. TDD: write unit tests first in
+      tests/unit/interactive-session.mapper.test.ts before implementing the mapper.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "Mapper converts snake_case DB row to camelCase InteractiveSession domain object correctly"
+      - "Mapper converts InteractiveSession domain object to snake_case DB row correctly"
+      - "Integer timestamp columns are mapped to/from JavaScript Date"
+      - "Nullable stoppedAt is handled (null <-> undefined)"
+      - "Unit tests pass: toDomain roundtrip, toRow roundtrip, null stoppedAt handling"
+    tdd:
+      red:
+        - "Write tests/unit/interactive-session.mapper.test.ts asserting toDomain converts a raw DB row to a correct InteractiveSession domain object"
+        - "Add test for toRow converting domain object back to a DB row"
+        - "Add test for null stoppedAt mapping to undefined and back"
+      green:
+        - "Implement interactive-session.mapper.ts with toDomain and toRow matching the test assertions"
+      refactor:
+        - "Extract shared date-conversion helper if the same pattern exists in other mappers"
+    estimatedEffort: "45min"
+
+  - id: "task-7"
+    phaseId: "phase-2"
+    title: "Implement InteractiveMessage mapper (TDD)"
+    description: >
+      Create packages/core/src/infrastructure/persistence/sqlite/mappers/interactive-message.mapper.ts.
+      TDD: write unit tests in tests/unit/interactive-message.mapper.test.ts first.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "Mapper converts DB row to InteractiveMessage domain object and back"
+      - "Nullable sessionId handled (null <-> undefined)"
+      - "role field maps to InteractiveMessageRole enum values"
+      - "Unit tests pass"
+    tdd:
+      red:
+        - "Write tests/unit/interactive-message.mapper.test.ts with toDomain and toRow assertions including null sessionId case"
+      green:
+        - "Implement interactive-message.mapper.ts to pass all tests"
+      refactor:
+        - "Align style with interactive-session.mapper.ts"
+    estimatedEffort: "30min"
+
+  - id: "task-8"
+    phaseId: "phase-2"
+    title: "Implement SQLiteInteractiveSessionRepository (TDD)"
+    description: >
+      Create packages/core/src/infrastructure/persistence/sqlite/repositories/sqlite-interactive-session.repository.ts
+      implementing IInteractiveSessionRepository. Methods: findById, findByFeatureId, findAllActive (status in
+      booting|ready), create, updateStatus, updateLastActivity, markAllActiveStopped, countActiveSessions.
+      Integration tests in tests/integration/sqlite-interactive-session.repository.test.ts.
+    state: "Todo"
+    dependencies:
+      - "task-5"
+      - "task-6"
+    acceptanceCriteria:
+      - "Repository implements all methods declared in IInteractiveSessionRepository"
+      - "findAllActive returns only sessions with status booting or ready"
+      - "markAllActiveStopped bulk-updates all active sessions to stopped"
+      - "countActiveSessions returns correct count"
+      - "Integration tests cover create, findById, updateStatus, findAllActive, markAllActiveStopped, countActiveSessions"
+    tdd:
+      red:
+        - "Write tests/integration/sqlite-interactive-session.repository.test.ts with in-memory SQLite, testing each method with concrete assertions"
+      green:
+        - "Implement SQLiteInteractiveSessionRepository using better-sqlite3 prepared statements following the existing repository pattern"
+      refactor:
+        - "Extract common query helpers shared with other repositories if applicable"
+    estimatedEffort: "1.5h"
+
+  - id: "task-9"
+    phaseId: "phase-2"
+    title: "Implement SQLiteInteractiveMessageRepository (TDD)"
+    description: >
+      Create packages/core/src/infrastructure/persistence/sqlite/repositories/sqlite-interactive-message.repository.ts
+      implementing IInteractiveMessageRepository. Methods: create, findByFeatureId (ordered by created_at,
+      with limit param), findBySessionId.
+    state: "Todo"
+    dependencies:
+      - "task-5"
+      - "task-7"
+    acceptanceCriteria:
+      - "Repository implements all methods declared in IInteractiveMessageRepository"
+      - "findByFeatureId returns messages ordered by created_at ASC with a configurable limit (default 200)"
+      - "Messages are scoped to feature_id, not session_id, fulfilling cross-session history requirement"
+      - "Integration tests cover create, findByFeatureId with limit, findBySessionId"
+    tdd:
+      red:
+        - "Write tests/integration/sqlite-interactive-message.repository.test.ts testing create, findByFeatureId ordering and limit, findBySessionId"
+      green:
+        - "Implement SQLiteInteractiveMessageRepository with parameterized queries"
+      refactor:
+        - "Ensure prepared statements are cached for performance following existing repository pattern"
+    estimatedEffort: "1h"
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 3 — Application Layer: Ports, Service & Errors
+  # ─────────────────────────────────────────────────────────────
+
+  - id: "task-10"
+    phaseId: "phase-3"
+    title: "Define application port interfaces"
+    description: >
+      Create the four output-port interfaces in packages/core/src/application/ports/output/:
+      IInteractiveSessionRepository, IInteractiveMessageRepository, IInteractiveAgentProcessFactory,
+      and IInteractiveSessionService. Export them from the repositories/index.ts. No implementation yet.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "IInteractiveSessionRepository interface declares: findById, findByFeatureId, findAllActive, create, updateStatus, updateLastActivity, markAllActiveStopped, countActiveSessions"
+      - "IInteractiveMessageRepository interface declares: create, findByFeatureId, findBySessionId"
+      - "IInteractiveAgentProcessFactory interface declares: spawn(worktreePath: string): Promise<ChildProcessWithoutNullStreams>"
+      - "IInteractiveSessionService interface declares: startSession, stopSession, sendMessage, getMessages, getSession"
+      - "All interfaces exported from their respective index.ts barrel files"
+      - "No circular imports; interfaces only import from domain layer"
+    tdd: null
+    estimatedEffort: "45min"
+
+  - id: "task-11"
+    phaseId: "phase-3"
+    title: "Implement ConcurrentSessionLimitError domain error"
+    description: >
+      Create packages/core/src/domain/errors/concurrent-session-limit.error.ts extending a base
+      AppError or Error. Fields: activeSessions number, cap number. The API route translates this
+      to HTTP 429.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "ConcurrentSessionLimitError extends Error (or existing base error class in the project)"
+      - "Constructor accepts activeSessions and cap numbers"
+      - "message property includes both values in human-readable form"
+      - "Exported from domain errors barrel"
+    tdd: null
+    estimatedEffort: "15min"
+
+  - id: "task-12"
+    phaseId: "phase-3"
+    title: "Implement FeatureContextBuilder utility (TDD)"
+    description: >
+      Create packages/core/src/infrastructure/services/interactive/feature-context.builder.ts.
+      Accepts a Feature domain object (with plan tasks, branch, worktree path) and serialises a
+      concise system prompt (~400-600 tokens): name, one-liner, phase, branch, worktree path,
+      plan task list with statuses (max 30), open PR URLs.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "buildContext(feature, worktreePath, openPRs) returns a non-empty string"
+      - "Output includes feature name, one-liner, lifecycle phase, branch name, and worktree path"
+      - "Output includes up to 30 plan tasks with their statuses"
+      - "Output is capped at approximately 600 tokens (verified by character count heuristic)"
+      - "Unit tests cover nominal case, feature with no tasks, feature with 40 tasks (truncated to 30)"
+    tdd:
+      red:
+        - "Write tests/unit/feature-context.builder.test.ts asserting: output contains feature name, phase, branch; tasks truncated at 30; worktree path included"
+      green:
+        - "Implement buildContext producing a structured string prompt"
+      refactor:
+        - "Extract section builders (tasks section, PR section) as private helpers for readability"
+    estimatedEffort: "1h"
+
+  - id: "task-13"
+    phaseId: "phase-3"
+    title: "Implement InteractiveAgentProcessFactory (TDD)"
+    description: >
+      Create packages/core/src/infrastructure/services/interactive/interactive-agent-process.factory.ts
+      implementing IInteractiveAgentProcessFactory. Calls IAgentExecutorProvider.getExecutor() to resolve
+      the configured agent type, then spawns the CLI with stdio: 'pipe', cwd set to worktreePath,
+      and agent-specific flags for interactive mode (e.g. --output-format stream-json for claude).
+    state: "Todo"
+    dependencies:
+      - "task-10"
+    acceptanceCriteria:
+      - "Factory calls IAgentExecutorProvider.getExecutor() — no hardcoded binary path"
+      - "Spawned process has stdio: ['pipe','pipe','pipe'] and correct CWD"
+      - "Factory is injected with a spawn function (dependency injection) for testability"
+      - "Unit tests mock IAgentExecutorProvider and the spawn function; assert correct args passed to spawn"
+    tdd:
+      red:
+        - "Write unit test asserting factory calls provider.getExecutor(), then spawns with cwd=worktreePath and stdio: pipe"
+        - "Write test for unsupported agent type throwing a descriptive error"
+      green:
+        - "Implement InteractiveAgentProcessFactory with DI-injectable spawn function"
+      refactor:
+        - "Move agent-type-to-flags mapping to a small lookup table for clarity"
+    estimatedEffort: "1h"
+
+  - id: "task-14"
+    phaseId: "phase-3"
+    title: "Implement InteractiveSessionService (TDD)"
+    description: >
+      Create packages/core/src/infrastructure/services/interactive/interactive-session.service.ts
+      — the most complex unit. Implements IInteractiveSessionService. Manages: session creation (with
+      concurrent-cap check), process spawning via IInteractiveAgentProcessFactory, readline-based
+      stdout forwarding, stdin message writing, idle timeout (NodeJS.Timeout per session), manual stop,
+      and end-of-turn detection via stream-json result event. All dependencies injected via constructor.
+    state: "Todo"
+    dependencies:
+      - "task-10"
+      - "task-11"
+      - "task-12"
+      - "task-13"
+    acceptanceCriteria:
+      - "startSession throws ConcurrentSessionLimitError when active count >= cap"
+      - "startSession creates a DB record with status=booting, then spawns a process"
+      - "FeatureContextBuilder output is written to stdin as the first exchange"
+      - "stdout chunks forwarded to registered SSE listeners within 100ms (measured in integration)"
+      - "stream-json result event triggers end-of-turn: message persisted to DB, done event emitted"
+      - "Idle timer resets on user message AND on each stdout chunk received"
+      - "Idle timeout fires stopSession() which sends SIGTERM and marks session stopped"
+      - "stopSession is idempotent (calling twice does not throw)"
+      - "Process 'close' event marks session stopped/error and cleans up timer"
+      - "Unit tests use mock ChildProcess with controlled readable/writable streams; no real process spawned"
+    tdd:
+      red:
+        - "Write tests/unit/interactive-session.service.test.ts: test startSession calls process factory; test ConcurrentSessionLimitError when at cap; test sendMessage writes to stdin and persists message; test idle timer fires stopSession after configured duration; test end-of-turn result event persists assistant message"
+      green:
+        - "Implement InteractiveSessionService with private timers Map and processes Map; readline loop on stdout; SIGTERM on stop"
+      refactor:
+        - "Extract startIdleTimer, resetIdleTimer, handleStdoutLine as private methods"
+        - "Ensure error paths (spawn failure, process crash) transition session to error status"
+    estimatedEffort: "3h"
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 4 — API Routes, SSE & DI Wiring
+  # ─────────────────────────────────────────────────────────────
+
+  - id: "task-15"
+    phaseId: "phase-4"
+    title: "Register new DI bindings and startup cleanup"
+    description: >
+      Update packages/core/src/infrastructure/di/container.ts to register:
+      SQLiteInteractiveSessionRepository, SQLiteInteractiveMessageRepository,
+      InteractiveAgentProcessFactory, and InteractiveSessionService (singleton).
+      Also call sessionRepo.markAllActiveStopped() during initializeContainer() after
+      repositories are registered, to clean up zombie sessions from prior server restarts.
+    state: "Todo"
+    dependencies:
+      - "task-8"
+      - "task-9"
+      - "task-13"
+      - "task-14"
+    acceptanceCriteria:
+      - "All four new bindings registered with correct string tokens"
+      - "InteractiveSessionService registered as singleton"
+      - "markAllActiveStopped() called during container initialization before server accepts requests"
+      - "String token aliases added for web route resolution following existing alias pattern"
+      - "Container resolves IInteractiveSessionService without errors"
+    tdd: null
+    estimatedEffort: "45min"
+
+  - id: "task-16"
+    phaseId: "phase-4"
+    title: "Extend /api/agent-events with session lifecycle events"
+    description: >
+      Update src/presentation/web/app/api/agent-events/route.ts to emit four new SSE event types:
+      interactive_session_booting (with sessionId, featureId, stage), interactive_session_ready,
+      interactive_session_stopped, interactive_session_error. The service emits these by calling
+      a registered event emitter; the SSE loop picks them up on its next poll cycle.
+    state: "Todo"
+    dependencies:
+      - "task-15"
+    acceptanceCriteria:
+      - "The four new event types are defined and emitted by InteractiveSessionService at appropriate lifecycle transitions"
+      - "The /api/agent-events SSE stream forwards these events to connected clients"
+      - "Event payload includes at minimum: sessionId and featureId"
+      - "Existing agent-events consumers are unaffected (no breaking changes)"
+    tdd: null
+    estimatedEffort: "1h"
+
+  - id: "task-17"
+    phaseId: "phase-4"
+    title: "Implement POST /api/interactive/sessions (start session)"
+    description: >
+      Create src/presentation/web/app/api/interactive/sessions/route.ts. POST handler: validates
+      featureId in body, resolves IInteractiveSessionService, calls startSession(featureId), returns
+      201 with sessionId and status. Handles ConcurrentSessionLimitError -> 429.
+    state: "Todo"
+    dependencies:
+      - "task-15"
+    acceptanceCriteria:
+      - "POST /api/interactive/sessions with valid featureId returns 201 with { sessionId, status: 'booting' }"
+      - "Missing featureId returns 400"
+      - "ConcurrentSessionLimitError returns 429 with descriptive message"
+      - "Route resolves service via container string token (no direct import of implementation)"
+    tdd: null
+    estimatedEffort: "30min"
+
+  - id: "task-18"
+    phaseId: "phase-4"
+    title: "Implement DELETE /api/interactive/sessions/[id] (stop session)"
+    description: >
+      Create src/presentation/web/app/api/interactive/sessions/[id]/route.ts. DELETE handler: resolves
+      service, calls stopSession(id), returns 204. Returns 404 if session not found.
+    state: "Todo"
+    dependencies:
+      - "task-15"
+    acceptanceCriteria:
+      - "DELETE /api/interactive/sessions/:id returns 204 on success"
+      - "Non-existent sessionId returns 404"
+      - "Route is idempotent (stopping an already-stopped session returns 204 not error)"
+    tdd: null
+    estimatedEffort: "20min"
+
+  - id: "task-19"
+    phaseId: "phase-4"
+    title: "Implement POST and GET /api/interactive/sessions/[id]/messages"
+    description: >
+      Create src/presentation/web/app/api/interactive/sessions/[id]/messages/route.ts.
+      POST handler: validates content (non-empty, max 32KB), calls service.sendMessage(sessionId, content), returns 202.
+      GET handler: calls service.getMessages(sessionId), returns 200 with message array for the feature.
+    state: "Todo"
+    dependencies:
+      - "task-15"
+    acceptanceCriteria:
+      - "POST /api/interactive/sessions/:id/messages with valid content returns 202"
+      - "Empty content or content > 32KB returns 400"
+      - "GET /api/interactive/sessions/:id/messages returns array of InteractiveMessage objects ordered by created_at"
+      - "Session ownership check: sessionId must belong to the correct featureId"
+    tdd: null
+    estimatedEffort: "45min"
+
+  - id: "task-20"
+    phaseId: "phase-4"
+    title: "Implement GET /api/interactive/sessions/[id]/stream (SSE)"
+    description: >
+      Create src/presentation/web/app/api/interactive/sessions/[id]/stream/route.ts. Returns a
+      ReadableStream SSE endpoint that forwards stdout delta chunks and done events from the session
+      service. Sets appropriate SSE headers. Cancels cleanly when the client disconnects.
+    state: "Todo"
+    dependencies:
+      - "task-15"
+      - "task-16"
+    acceptanceCriteria:
+      - "GET /api/interactive/sessions/:id/stream returns Content-Type: text/event-stream with correct SSE headers"
+      - "delta events carry { delta: string, sessionId: string } payload"
+      - "done event carries { done: true, sessionId: string } payload at end-of-turn"
+      - "ReadableStream cancel() handler unregisters the stdout listener to prevent memory leaks"
+      - "Returns 404 if sessionId is unknown"
+    tdd: null
+    estimatedEffort: "1h"
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 5 — React Components & UI (assistant-ui)
+  # ─────────────────────────────────────────────────────────────
+
+  - id: "task-21"
+    phaseId: "phase-5"
+    title: "Install assistant-ui and react-markdown dependencies"
+    description: >
+      Add @assistant-ui/react and react-markdown to the workspace root dependencies.
+      Run pnpm install. Verify no peer dependency conflicts with React 19.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "@assistant-ui/react ^0.12.19 added to package.json dependencies"
+      - "react-markdown added to package.json dependencies (if not already present)"
+      - "pnpm install succeeds without peer dependency errors"
+      - "pnpm typecheck passes with the new dependencies"
+    tdd: null
+    estimatedEffort: "15min"
+
+  - id: "task-22"
+    phaseId: "phase-5"
+    title: "Implement custom Thread component with assistant-ui primitives"
+    description: >
+      Create src/presentation/web/components/assistant-ui/thread.tsx using assistant-ui primitives
+      (ThreadPrimitive, MessagePrimitive, ComposerPrimitive). Includes: Thread (root with viewport,
+      empty state, and messages), UserMessage (right-aligned with primary background), AssistantMessage
+      (left-aligned with muted background and react-markdown rendering), Composer (always visible with
+      auto-focus input and send button), and ThreadEmpty (centered prompt text). Uses Tailwind CSS v4
+      classes matching the project's design system. Markdown components include: p, strong, em, code
+      (inline + block), pre, ul, ol, li, h1-h3, a, blockquote.
+    state: "Todo"
+    dependencies:
+      - "task-21"
+    acceptanceCriteria:
+      - "Thread component renders ThreadPrimitive.Root with Viewport, Empty, and Messages"
+      - "UserMessage renders right-aligned bubble with primary background color"
+      - "AssistantMessage renders left-aligned bubble with muted background and react-markdown"
+      - "Markdown rendering supports: headings, bold, italic, code blocks, lists, links, blockquotes"
+      - "Composer is always visible with auto-focus input and Send button (lucide-react icon)"
+      - "ThreadEmpty shows centered prompt text when no messages exist"
+      - "Component accepts optional className prop for layout integration"
+    tdd: null
+    estimatedEffort: "1.5h"
+
+  - id: "task-23"
+    phaseId: "phase-5"
+    title: "Implement useChatRuntime hook with ExternalStoreRuntime"
+    description: >
+      Create src/presentation/web/components/features/chat/useChatRuntime.ts. Uses assistant-ui's
+      useExternalStoreRuntime to connect to the backend API. Implements invisible agent management:
+      auto-boot on first message (no start button), session restore from localStorage, SSE streaming
+      via EventSource, message polling (800ms) as reliability fallback, session polling (1000ms)
+      during boot, and StatusMessage pattern for inline status messages ("Agent is waking up...").
+      Key patterns: pendingMessageRef for queueing messages during boot, identity convertMessage
+      for ThreadMessageLike generic, combined threadMessages from persisted + status messages.
+    state: "Todo"
+    dependencies:
+      - "task-21"
+      - "task-17"
+      - "task-19"
+      - "task-20"
+    acceptanceCriteria:
+      - "Hook returns { runtime } compatible with AssistantRuntimeProvider"
+      - "Auto-boot: sending a message with no active session triggers POST /api/interactive/sessions"
+      - "Boot status shown as inline assistant message ('Agent is waking up...') via StatusMessage pattern"
+      - "Messages queued during boot via pendingMessageRef, sent automatically when ready"
+      - "Session restore: reads sessionId from localStorage on mount, restores if session exists"
+      - "SSE streaming: opens EventSource to /api/interactive/sessions/:id/stream on session ready"
+      - "Message polling (800ms): fetches /api/interactive/sessions/:id/messages as fallback when SSE fails"
+      - "Session polling (1000ms): polls /api/interactive/sessions/:id until status=ready during boot"
+      - "Stopped/errored sessions auto-restart on next message"
+      - "Cleanup: closes EventSource and clears intervals on unmount"
+      - "Identity convertMessage provided for ExternalStoreAdapter<ThreadMessageLike>"
+    tdd: null
+    estimatedEffort: "3h"
+
+  - id: "task-24"
+    phaseId: "phase-5"
+    title: "Implement ChatTab component with assistant-ui runtime"
+    description: >
+      Create src/presentation/web/components/features/chat/ChatTab.tsx as a minimal orchestrator
+      (~30 lines). Uses useChatRuntime hook and wraps Thread in AssistantRuntimeProvider. No
+      start/stop/restart buttons — all agent management is invisible. Accepts featureId and
+      optional worktreePath props.
+    state: "Todo"
+    dependencies:
+      - "task-22"
+      - "task-23"
+    acceptanceCriteria:
+      - "ChatTab accepts featureId: string and optional worktreePath: string props"
+      - "Renders AssistantRuntimeProvider with runtime from useChatRuntime"
+      - "Renders Thread component inside the provider"
+      - "No visible start/stop/restart buttons"
+      - "Prompt is always visible via the Composer in Thread"
+      - "Component fills available height (flex-col h-full min-h-0)"
+    tdd: null
+    estimatedEffort: "30min"
+
+  - id: "task-25"
+    phaseId: "phase-5"
+    title: "Implement ChatTab Storybook stories with MockChatProvider"
+    description: >
+      Create src/presentation/web/components/features/chat/ChatTab.stories.tsx with a MockChatProvider
+      using useExternalStoreRuntime. Mock generates context-aware responses (test, fix/bug, help
+      keywords) and simulates word-by-word streaming. Identity convertMessage required for
+      ThreadMessageLike generic. Stories: Empty (no messages), WithHistory (4-message conversation
+      with code blocks), AutoBoot (status message), RichMarkdown (headers/lists/blockquotes/code),
+      LongConversation (12 messages for scroll testing), NonStreaming (instant response).
+    state: "Todo"
+    dependencies:
+      - "task-24"
+    acceptanceCriteria:
+      - "MockChatProvider wraps Thread in AssistantRuntimeProvider with mock ExternalStoreRuntime"
+      - "Mock simulates streaming by splitting response into words with random delays"
+      - "Mock generates context-aware responses based on keywords (test, fix/bug, help)"
+      - "Stories cover: Empty, WithHistory, AutoBoot, RichMarkdown, LongConversation, NonStreaming"
+      - "WithHistory story has 4 messages including code blocks and markdown"
+      - "LongConversation story has 12 messages to test scrolling"
+      - "All stories render correctly in Storybook"
+    tdd: null
+    estimatedEffort: "1.5h"
+
+  - id: "task-26"
+    phaseId: "phase-5"
+    title: "Register Chat tab in feature-drawer-tabs"
+    description: >
+      Update src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.tsx to add
+      a 'Chat' tab entry. The tab is visible when settings.interactiveAgent?.enabled !== false.
+      The tab is shown for ALL lifecycle phases including Completed and Archived (FR-1, FR-17).
+    state: "Todo"
+    dependencies:
+      - "task-24"
+    acceptanceCriteria:
+      - "Chat tab appears in the feature drawer tab bar for features in every lifecycle phase"
+      - "Chat tab is hidden when settings.interactiveAgent.enabled === false"
+      - "Selecting the Chat tab renders ChatTab with the current featureId and worktreePath"
+      - "No regression: existing tabs (Overview, Activity, Log, etc.) continue to function"
+    tdd: null
+    estimatedEffort: "30min"
+
+  # ─────────────────────────────────────────────────────────────
+  # PHASE 6 — Settings Integration & E2E Validation
+  # ─────────────────────────────────────────────────────────────
+
+  - id: "task-27"
+    phaseId: "phase-6"
+    title: "Add Interactive Agent section to Settings page"
+    description: >
+      Update src/presentation/web/app/(dashboard)/settings/page.tsx to include an
+      'Interactive Agent' settings section with: enable/disable toggle (enabled),
+      auto-timeout duration number input (autoTimeoutMinutes, min=1, max=120),
+      and max concurrent sessions number input (maxConcurrentSessions, min=1, max=10).
+      Both number inputs are validated client-side (HTML attrs) and server-side (API guard).
+    state: "Todo"
+    dependencies:
+      - "task-26"
+    acceptanceCriteria:
+      - "Settings page has an 'Interactive Agent' section visible to all users"
+      - "Enable/disable toggle persists interactiveAgent.enabled via the settings API"
+      - "Auto-timeout input accepts integers 1-120 only; shows validation error outside range"
+      - "Max concurrent sessions input accepts integers 1-10 only"
+      - "All three fields save on change (same pattern as other settings fields)"
+      - "Default values (enabled: true, autoTimeoutMinutes: 15, maxConcurrentSessions: 3) shown when settings key is absent"
+    tdd: null
+    estimatedEffort: "1.5h"
+
+  - id: "task-28"
+    phaseId: "phase-6"
+    title: "Write E2E Playwright test for Chat tab flow"
+    description: >
+      Create tests/e2e/chat-tab.spec.ts covering the full happy-path flow: navigate to a feature
+      detail page, click the Chat tab, click Start interactive agent, wait for ready state (up to
+      15s), send a message, assert a streaming response appears, click Stop agent.
+      Also cover: tab hidden when settings.enabled=false.
+    state: "Todo"
+    dependencies:
+      - "task-27"
+    acceptanceCriteria:
+      - "E2E test navigates to a feature detail page and clicks the Chat tab"
+      - "Start interactive agent button click causes booting state with progress stages"
+      - "Test waits for ready state with a 15s timeout"
+      - "After ready, test sends a message and asserts response content appears"
+      - "Stop agent button terminates session and shows Stopped state"
+      - "Second test case: set enabled=false in settings and assert Chat tab is absent from tab bar"
+      - "Test uses a seeded test feature with a valid worktree path"
+    tdd:
+      red:
+        - "Write tests/e2e/chat-tab.spec.ts with the full flow described above using Playwright selectors"
+      green:
+        - "Ensure all preceding tasks are complete; the test should pass against a running dev server"
+      refactor:
+        - "Extract shared page object helpers for chat tab interactions (startAgent, sendMessage, stopAgent)"
+    estimatedEffort: "2h"
+
+  - id: "task-29"
+    phaseId: "phase-6"
+    title: "Run full test suite and fix any failures"
+    description: >
+      Run pnpm test (full suite: unit + integration + E2E). Investigate and fix every failure —
+      no failure is pre-existing or unrelated. Verify pnpm validate (lint + format + typecheck + tsp)
+      also passes with zero errors.
+    state: "Todo"
+    dependencies:
+      - "task-28"
+    acceptanceCriteria:
+      - "pnpm test exits with code 0, zero failing tests"
+      - "pnpm validate exits with code 0 (lint, format, typecheck, tsp all clean)"
+      - "No test is skipped or marked as todo to work around failures"
+    tdd: null
+    estimatedEffort: "1h"
+
+totalEstimate: "24h"
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The 29 tasks form a strict dependency chain across 6 phases. The implementation begins with
+  TypeSpec model definitions (tasks 1-4) because every other layer imports from the compiled
+  output. Once the generated types exist, the database migration and mapper/repository layer
+  (tasks 5-9) can be built and TDD-tested in isolation using in-memory SQLite.
+
+  With a stable repository layer, the application ports and service logic (tasks 10-14) are
+  layered on top. The InteractiveSessionService (task-14) is the most complex unit: it orchestrates
+  process spawning, stdin/stdout IPC, idle timeout management, and concurrent session capping. Its
+  TDD cycle uses mock ChildProcess objects so no real agent process is spawned during unit tests.
+
+  API routes and DI wiring (tasks 15-20) are thin adapters that delegate entirely to the service.
+  They are implemented once the service contract is stable. The dedicated SSE stream route (task-20)
+  is the only route with non-trivial logic (ReadableStream lifecycle, back-pressure handling).
+
+  React components (tasks 21-26) use the assistant-ui library (@assistant-ui/react) instead of
+  custom components. Task 21 installs dependencies. Task 22 creates a custom Thread component
+  using assistant-ui primitives (ThreadPrimitive, MessagePrimitive, ComposerPrimitive) with
+  react-markdown for assistant messages. Task 23 implements the useChatRuntime hook using
+  ExternalStoreRuntime with invisible agent management (auto-boot, session restore, SSE streaming,
+  polling fallback, StatusMessage pattern). Task 24 creates the minimal ChatTab orchestrator
+  (~30 lines). Task 25 creates comprehensive Storybook stories with MockChatProvider. Task 26
+  registers the Chat tab in feature-drawer-tabs. This approach eliminates 4 custom components
+  (ChatMessageBubble, ChatInput, ChatMessageList, AgentStatusBadge) and their stories, reducing
+  UI code by ~70%.
+
+  Settings integration (task-27) and E2E validation (tasks 28-29) close the loop, confirming that
+  the feature toggle correctly gates tab visibility and that the full boot-to-stop conversation
+  flow works end-to-end against a live Next.js server.

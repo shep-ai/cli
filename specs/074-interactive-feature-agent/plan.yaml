@@ -1,0 +1,256 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "interactive-feature-agent"
+summary: >
+  Implement a persistent per-feature interactive chat interface spanning all Clean Architecture
+  layers: TypeSpec-first domain models, two new SQLite tables, a process-lifecycle service backed
+  by IAgentExecutorProvider, five REST/SSE API routes, and four React components with Storybook
+  coverage. All wiring follows established DI, mapper, repository, and SSE patterns in the codebase.
+
+relatedFeatures: []
+
+technologies:
+  - "TypeScript"
+  - "Node.js child_process.spawn (stdio: pipe)"
+  - "Node.js readline (line-buffered stdout parsing)"
+  - "Next.js 16 App Router (ReadableStream SSE route handlers)"
+  - "React 19"
+  - "SQLite / better-sqlite3"
+  - "TypeSpec (tsp compiler)"
+  - "tsyringe (DI container)"
+  - "Server-Sent Events (ReadableStream)"
+  - "Tailwind CSS v4"
+  - "assistant-ui/react v0.12+ (ExternalStoreRuntime, ThreadPrimitive, MessagePrimitive, ComposerPrimitive)"
+  - "react-markdown (Markdown rendering in assistant messages)"
+  - "Vitest (unit + integration)"
+  - "Playwright (E2E)"
+  - "umzug (migration runner)"
+
+relatedLinks:
+  - title: "Node.js child_process.spawn docs"
+    url: "https://nodejs.org/api/child_process.html#child_processspawncommand-args-options"
+  - title: "Claude Code SDK interactive stdin/stdout protocol"
+    url: "https://docs.anthropic.com/en/docs/claude-code/sdk"
+  - title: "Node.js readline.createInterface"
+    url: "https://nodejs.org/api/readline.html#readlinecreateinterfaceoptions"
+  - title: "Next.js Route Handlers ReadableStream SSE"
+    url: "https://nextjs.org/docs/app/building-your-application/routing/route-handlers"
+  - title: "umzug migration runner"
+    url: "https://github.com/sequelize/umzug"
+
+phases:
+  - id: "phase-1"
+    name: "TypeSpec & Domain Foundation"
+    description: >
+      Define the two new domain models (InteractiveSession, InteractiveMessage) and the
+      InteractiveAgentConfig settings block in TypeSpec, then compile to regenerate output.ts.
+      This phase must come first because every downstream layer imports from the generated types.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Database & Repository Layer"
+    description: >
+      Add migration 045, implement mappers (row <-> domain), and implement two SQLite repositories
+      following existing mapper/repository conventions. TDD unit tests for mappers and integration
+      tests for repositories are written first.
+    parallel: false
+
+  - id: "phase-3"
+    name: "Application Layer — Ports, Service & Errors"
+    description: >
+      Define output-port interfaces for the two repositories, the process factory, and the session
+      service. Implement the domain error, the FeatureContextBuilder utility, the
+      InteractiveAgentProcessFactory, and the core InteractiveSessionService (process lifecycle,
+      stdin/stdout IPC, idle timeout, concurrent-session cap). All units are TDD-first.
+    parallel: false
+
+  - id: "phase-4"
+    name: "API Routes, SSE & DI Wiring"
+    description: >
+      Register all new bindings in the DI container (including startup zombie cleanup), extend the
+      existing /api/agent-events SSE loop with session lifecycle events, and implement the five new
+      REST/SSE route handlers. Integration-tested via the repository layer already established.
+    parallel: false
+
+  - id: "phase-5"
+    name: "React Components & UI (assistant-ui)"
+    description: >
+      Integrate assistant-ui library for the chat UI. Create a custom Thread component using
+      assistant-ui primitives (ThreadPrimitive, MessagePrimitive, ComposerPrimitive) with
+      react-markdown for assistant messages. Implement useChatRuntime hook using ExternalStoreRuntime
+      to connect to the backend API with invisible agent management (auto-boot, session restore,
+      SSE streaming, polling fallback). ChatTab is a minimal orchestrator (~30 lines). Register
+      the Chat tab in feature-drawer-tabs. Storybook stories use MockChatProvider.
+    parallel: false
+
+  - id: "phase-6"
+    name: "Settings Integration & E2E Validation"
+    description: >
+      Add the Interactive Agent section to the Settings page (enable toggle, auto-timeout minutes,
+      max concurrent sessions). Write the full Playwright E2E test covering the boot-to-stop flow.
+      Final phase validates end-to-end correctness with all layers in place.
+    parallel: false
+
+filesToCreate:
+  - "tsp/agents/interactive-session.tsp"
+  - "tsp/agents/interactive-message.tsp"
+  - "packages/core/src/infrastructure/persistence/sqlite/migrations/045-create-interactive-tables.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/mappers/interactive-session.mapper.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/mappers/interactive-message.mapper.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/repositories/sqlite-interactive-session.repository.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/repositories/sqlite-interactive-message.repository.ts"
+  - "packages/core/src/application/ports/output/repositories/interactive-session-repository.interface.ts"
+  - "packages/core/src/application/ports/output/repositories/interactive-message-repository.interface.ts"
+  - "packages/core/src/application/ports/output/agents/interactive-agent-process-factory.interface.ts"
+  - "packages/core/src/application/ports/output/services/interactive-session-service.interface.ts"
+  - "packages/core/src/domain/errors/concurrent-session-limit.error.ts"
+  - "packages/core/src/infrastructure/services/interactive/feature-context.builder.ts"
+  - "packages/core/src/infrastructure/services/interactive/interactive-agent-process.factory.ts"
+  - "packages/core/src/infrastructure/services/interactive/interactive-session.service.ts"
+  - "src/presentation/web/app/api/interactive/sessions/route.ts"
+  - "src/presentation/web/app/api/interactive/sessions/[id]/route.ts"
+  - "src/presentation/web/app/api/interactive/sessions/[id]/messages/route.ts"
+  - "src/presentation/web/app/api/interactive/sessions/[id]/stream/route.ts"
+  - "src/presentation/web/components/assistant-ui/thread.tsx"
+  - "src/presentation/web/components/features/chat/useChatRuntime.ts"
+  - "src/presentation/web/components/features/chat/ChatTab.tsx"
+  - "src/presentation/web/components/features/chat/ChatTab.stories.tsx"
+  - "tests/unit/interactive-session.mapper.test.ts"
+  - "tests/unit/interactive-message.mapper.test.ts"
+  - "tests/unit/feature-context.builder.test.ts"
+  - "tests/unit/interactive-session.service.test.ts"
+  - "tests/integration/sqlite-interactive-session.repository.test.ts"
+  - "tests/integration/sqlite-interactive-message.repository.test.ts"
+  - "tests/e2e/chat-tab.spec.ts"
+
+filesToModify:
+  - "tsp/agents/index.tsp"
+  - "packages/core/src/application/ports/output/repositories/index.ts"
+  - "packages/core/src/infrastructure/di/container.ts"
+  - "src/presentation/web/app/api/agent-events/route.ts"
+  - "src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.tsx"
+  - "src/presentation/web/app/(dashboard)/settings/page.tsx"
+  - "package.json (add @assistant-ui/react, react-markdown dependencies)"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The interactive chat feature spans every Clean Architecture layer without violating the
+  inward dependency rule. The dependency graph is:
+
+  ```
+  presentation (API routes, React components)
+       ↓
+  application (port interfaces, use cases)
+       ↓
+  infrastructure (service impl, repositories, process factory)
+       ↓
+  domain (TypeSpec-generated models, domain errors)
+  ```
+
+  **Domain layer** receives two new generated types: `InteractiveSession` and `InteractiveMessage`,
+  plus a `ConcurrentSessionLimitError` domain error. These are derived from the TypeSpec models
+  compiled via `pnpm tsp:compile`, consistent with every other domain model in the codebase.
+
+  **Application layer** defines four output-port interfaces:
+  - `IInteractiveSessionRepository` — CRUD for sessions
+  - `IInteractiveMessageRepository` — CRUD for messages
+  - `IInteractiveAgentProcessFactory` — spawns a `ChildProcessWithoutNullStreams` via the resolved agent executor
+  - `IInteractiveSessionService` — public API consumed by API routes (startSession, stopSession, sendMessage, getMessages)
+
+  **Infrastructure layer** contains the implementations:
+  - `SQLiteInteractiveSessionRepository` and `SQLiteInteractiveMessageRepository` — follow the mapper
+    pattern established in `sqlite-feature.repository.ts` and `agent-run.repository.ts`
+  - `InteractiveAgentProcessFactory` — queries `IAgentExecutorProvider`, spawns the CLI in pipe mode
+  - `InteractiveSessionService` — singleton, owns all `NodeJS.Timeout` timers and all live `ChildProcess`
+    handles; manages the full session lifecycle
+  - `FeatureContextBuilder` — serialises a concise feature summary (~400-600 tokens) as the bootstrap
+    system prompt written to stdin before the greeting exchange
+
+  **Presentation layer** has two sub-layers:
+  - API routes under `src/presentation/web/app/api/interactive/` — thin request-parsing + DI resolution,
+    identical in structure to existing routes like `/api/sessions`
+  - React components using assistant-ui library:
+    - `src/presentation/web/components/assistant-ui/thread.tsx` — custom Thread with Markdown rendering
+    - `src/presentation/web/components/features/chat/useChatRuntime.ts` — ExternalStoreRuntime hook
+      with invisible agent management (auto-boot, session restore, SSE, polling)
+    - `src/presentation/web/components/features/chat/ChatTab.tsx` — minimal orchestrator (~30 lines)
+
+  ---
+
+  ## Key Design Decisions
+
+  ### IPC Protocol: stdio pipe + readline + stream-json end-of-turn
+
+  The agent CLI is spawned with `stdio: 'pipe'` and `--output-format stream-json`. Each JSON line
+  emitted to stdout is forwarded immediately to the per-session SSE stream. A `result` type event
+  in the JSON stream signals end-of-turn. This extends the pattern already used by
+  `ClaudeCodeExecutor` — no new protocol work, no new dependencies (just `node:readline`).
+
+  ### Two-Channel SSE Design
+
+  Coarse session lifecycle events (`booting`, `ready`, `stopped`, `error`) travel over the existing
+  `/api/agent-events` 500ms-poll channel. Fine-grained token chunks travel over a new per-session
+  `ReadableStream` route. Each channel is optimised for its event frequency; consumers are not
+  forced to filter noise from mismatched event rates.
+
+  ### Server-Side Idle Timeout
+
+  `InteractiveSessionService` stores one `NodeJS.Timeout` per session in a private `Map`. The timer
+  resets on every user message AND on every stdout chunk received. When the timer fires, `stopSession`
+  is called, `SIGTERM` is sent, and the DB record is updated. On server restart, all sessions with
+  status `booting` or `ready` are bulk-marked `stopped` during `initializeContainer()`.
+
+  ### Concurrent Session Cap
+
+  Enforced inside `startSession()` by querying the active count from the repository before spawning.
+  Returns `ConcurrentSessionLimitError` on breach; the API route translates this to HTTP 429.
+  Business rules stay in the service layer per Clean Architecture.
+
+  ### TypeSpec-First Domain Models
+
+  Two new `.tsp` files in `tsp/agents/` follow the same structure as the existing `agent-session.tsp`
+  and `agent-run.tsp`. Settings extended in `tsp/common/settings.tsp` with `InteractiveAgentConfig`.
+  Default values (`enabled: true`, `autoTimeoutMinutes: 15`, `maxConcurrentSessions: 3`) are applied
+  at runtime via nullish coalescing — no migration of existing settings files required.
+
+  ---
+
+  ## Implementation Strategy
+
+  **Phase 1 must complete before Phase 2** because all layers reference TypeSpec-generated types.
+
+  **Phase 2 (repositories) must complete before Phase 3 (service)** because the service depends
+  on repository interfaces. However, interface definitions in Phase 3 can be written in parallel
+  with Phase 2 implementations — the TDD cycle for the service will mock the repositories.
+
+  **Phase 4 (API routes) depends on Phase 3 (service)** — routes call the service via DI.
+
+  **Phase 5 (React components) can begin once Phase 4 defines the API contract** — the
+  useChatRuntime hook calls the API routes and SSE stream endpoint. assistant-ui handles
+  the rendering layer with minimal custom code.
+
+  **Phase 6 (Settings + E2E) comes last** because the E2E test exercises the entire stack and
+  the settings section depends on the `enabled` flag wiring that gates tab visibility.
+
+  Phase 5 is simplified by assistant-ui: instead of building 4 custom components bottom-up,
+  we create a custom Thread component using assistant-ui primitives and a useChatRuntime hook
+  using ExternalStoreRuntime. The ChatTab orchestrator is ~30 lines.
+
+  ---
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | stdin/stdout framing errors when agent emits multi-line JSON | readline.createInterface handles line-buffering automatically; per-line JSON parse with try/catch drops malformed lines |
+  | Agent process crashes mid-session | readline 'close' event triggers stopSession(); SSE stream closes gracefully; DB record marked error |
+  | Zombie processes on server restart | initializeContainer() calls markAllActiveStopped() before the server accepts requests |
+  | Context window overflow from large task lists | FeatureContextBuilder caps plan tasks at 30 entries; content trimmed to ~600 tokens |
+  | Race condition: two simultaneous start requests for same feature | startSession() checks active count inside a DB transaction; unique constraint on feature_id+status guards against duplicates |
+  | SSE back-pressure when client disconnects mid-stream | ReadableStream cancel() handler calls stopSession() or clears the stdout listener to avoid unbounded buffering |
+  | TypeSpec compile errors blocking all downstream work | Phase 1 is the first thing built; compile errors are caught before any hand-written code references generated types |
+  | Storybook rejecting components without stories | MANDATORY rule; ChatTab.stories.tsx uses MockChatProvider with useExternalStoreRuntime for assistant-ui compatibility |
