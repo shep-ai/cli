@@ -130,3 +130,7 @@ rejectionFeedback:
     message: "Make sure we have sessions support:\nthe session are in CODEX_HOME env if set otherwise using the default ~/.codex\n\nalso the logs need to be verboose I dont see currently in the logs the messages and tooling"
     phase: "merge"
     timestamp: "2026-03-24T13:51:09.906Z"
+  - iteration: 3
+    message: "Resolve merge conflicts"
+    phase: "merge"
+    timestamp: "2026-03-24T17:24:36.455Z"
