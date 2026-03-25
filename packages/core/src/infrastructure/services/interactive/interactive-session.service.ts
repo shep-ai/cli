@@ -271,7 +271,6 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       }
 
       state.handle = handle;
-      state.claudeSessionId = handle.sessionId;
 
       // Send the boot prompt and iterate stream for the greeting
       await handle.send(bootPrompt);
@@ -347,6 +346,12 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               // Use result text if provided and non-empty, otherwise use accumulated buffer
               const resultText =
                 event.content && event.content.length > 0 ? event.content : greetingText;
+
+              // Capture the SDK session ID (available after first message exchange)
+              const sdkSessionId = handle.sessionId;
+              if (sdkSessionId) {
+                state.claudeSessionId = sdkSessionId;
+              }
 
               // Persist greeting and mark session ready
               const greetingMsg: InteractiveMessage = {

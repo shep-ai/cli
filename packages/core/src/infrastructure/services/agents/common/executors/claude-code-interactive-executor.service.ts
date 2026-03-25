@@ -74,7 +74,13 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
   private wrapSession(sdkSession: SDKSession): InteractiveAgentSessionHandle {
     return {
       get sessionId() {
-        return sdkSession.sessionId;
+        // SDK session ID is not available until after the first message exchange.
+        // Return empty string before that — callers should read it after streaming.
+        try {
+          return sdkSession.sessionId;
+        } catch {
+          return '';
+        }
       },
       send: (message: string) => sdkSession.send(message),
       stream: () => this.mapStream(sdkSession),
