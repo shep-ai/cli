@@ -734,10 +734,13 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       if (state.currentAssistantBuffer) {
         streamingText = state.currentAssistantBuffer;
       }
+      // Resolve model display: explicit override > default
+      const displayModel = state.model ?? 'claude-sonnet-4-6';
+
       sessionInfo = {
-        pid: null, // SDK manages process internally — we don't expose PID
+        pid: null, // SDK manages process internally
         sessionId: state.claudeSessionId ?? state.sessionId,
-        model: state.model ?? null,
+        model: displayModel,
         startedAt: dbSession?.startedAt
           ? new Date(dbSession.startedAt as unknown as string).toISOString()
           : new Date().toISOString(),
