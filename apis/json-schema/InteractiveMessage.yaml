@@ -4,7 +4,7 @@ type: object
 properties:
   featureId:
     type: string
-    description: Feature ID this message belongs to
+    description: "Polymorphic scope key: feature UUID, 'repo-<id>', or 'global'. Future: rename to scopeId + scopeType."
   sessionId:
     type: string
     description: Session ID during which this message was sent (optional)

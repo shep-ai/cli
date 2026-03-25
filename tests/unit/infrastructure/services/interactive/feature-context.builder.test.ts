@@ -4,7 +4,20 @@
  * TDD: RED → GREEN → REFACTOR
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Mock execFileSync to avoid slow shep CLI calls that cause timeouts in full suite.
+// The builder calls shep --version and shep --help which are slow in CI.
+vi.mock('node:child_process', () => ({
+  execFileSync: vi.fn((cmd: string, args: string[]) => {
+    if (cmd === 'shep' && args[0] === '--version') return '0.0.0-test';
+    if (cmd === 'shep' && args[0] === '--help')
+      return 'Usage: shep [command]\n  feat  Manage features\n  ui    Launch UI';
+    if (cmd === 'shep' && args[1] === '--help') return `shep ${args[0]} help text`;
+    return '';
+  }),
+}));
+
 import { FeatureContextBuilder } from '@/infrastructure/services/interactive/feature-context.builder.js';
 import type { Feature, Task } from '@/domain/generated/output.js';
 import { SdlcLifecycle, TaskState } from '@/domain/generated/output.js';
@@ -147,7 +160,7 @@ describe('FeatureContextBuilder', () => {
     expect(ctx).toContain('https://github.com/org/repo/pull/42');
   });
 
-  it('produces output under approximately 3600 characters (600 token budget)', () => {
+  it('produces output under approximately 15000 characters (2500 token budget for full system prompt)', () => {
     const tasks = Array.from({ length: 30 }, (_, i) =>
       makeTask({ id: `task-${i}`, title: `Task number ${i} with some description text` })
     );
@@ -167,8 +180,9 @@ describe('FeatureContextBuilder', () => {
       'https://github.com/org/repo/pull/1',
       'https://github.com/org/repo/pull/2',
     ]);
-    // ~6 chars per token heuristic; 600 tokens ≈ 3600 chars
-    expect(ctx.length).toBeLessThanOrEqual(3600);
+    // The builder now produces a full system prompt (identity, behavior, CLI reference,
+    // and feature context). ~6 chars per token heuristic; 2500 tokens ≈ 15000 chars.
+    expect(ctx.length).toBeLessThanOrEqual(15000);
   });
 
   it('includes the feature description/one-liner', () => {

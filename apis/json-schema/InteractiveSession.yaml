@@ -4,7 +4,7 @@ type: object
 properties:
   featureId:
     $ref: UUID.yaml
-    description: Feature ID this session is associated with
+    description: "Polymorphic scope key: feature UUID, 'repo-<id>', or 'global'. Future: rename to scopeId + scopeType."
   status:
     $ref: InteractiveSessionStatus.yaml
     description: Current lifecycle status of the interactive session

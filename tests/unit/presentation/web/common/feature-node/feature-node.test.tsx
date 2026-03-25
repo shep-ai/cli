@@ -4,6 +4,12 @@ import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
 import { FeatureNode, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData, FeatureNodeType } from '@/components/common/feature-node';
 
+// Mock next/navigation — FeatureNode uses useRouter for chat navigation
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => '/',
+}));
+
 // Mock useDeployAction — default: idle state
 const mockDeployAction = {
   deploy: vi.fn(),
