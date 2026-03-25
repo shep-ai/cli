@@ -214,6 +214,36 @@ test.describe('Chat tab — interactive agent flow', () => {
   test('full happy-path: open chat tab → start agent → message → stop', async ({ page }) => {
     await mockInteractiveApis(page);
 
+    // Also mock the feature API so we don't depend on server-side feature loading
+    // which can fail if another test's seeded repo has an invalid path
+    await page.route(`**/api/features/${TEST_FEATURE_ID}`, (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: TEST_FEATURE_ID,
+          name: 'E2E Chat Test Feature',
+          slug: 'e2e-chat-test',
+          description: 'Test interactive chat feature',
+          lifecycle: 'Implementation',
+          branch: 'feature/e2e-chat-test',
+          worktreePath: '/tmp/e2e-chat-worktree',
+          repositoryPath: '/tmp/e2e-chat-repo',
+          messages: [],
+          relatedArtifacts: [],
+          fast: false,
+          push: false,
+          openPr: false,
+          autoMerge: false,
+          allowPrd: true,
+          allowPlan: true,
+          allowMerge: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }),
+      });
+    });
+
     // Navigate to the feature detail page
     await page.goto(`/feature/${TEST_FEATURE_ID}`);
 
