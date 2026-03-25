@@ -609,6 +609,75 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 sub({ delta: '', done: true, log: `Error: ${event.content ?? 'unknown'}` })
               );
               break;
+
+            case 'init':
+              if (event.label) {
+                const initDetail = [event.label, event.detail, event.content]
+                  .filter(Boolean)
+                  .join(' · ');
+                void this.persistToolEvent(state, 'Session started', initDetail);
+                state.subscribers.forEach((sub) =>
+                  sub({
+                    delta: '',
+                    done: false,
+                    activity: { kind: 'system', label: 'Session started', detail: initDetail },
+                  })
+                );
+              }
+              break;
+
+            case 'api_retry':
+              state.subscribers.forEach((sub) =>
+                sub({ delta: '', done: false, log: event.content ?? 'Retrying API call...' })
+              );
+              break;
+
+            case 'rate_limit':
+              state.subscribers.forEach((sub) =>
+                sub({ delta: '', done: false, log: event.content ?? 'Rate limited' })
+              );
+              break;
+
+            case 'task_started':
+              if (event.content) {
+                void this.persistToolEvent(state, 'Subtask started', event.content);
+                state.subscribers.forEach((sub) =>
+                  sub({
+                    delta: '',
+                    done: false,
+                    log: `Subtask: ${event.content}`,
+                    activity: { kind: 'system', label: 'Subtask started', detail: event.content },
+                  })
+                );
+              }
+              break;
+
+            case 'task_progress':
+              if (event.content) {
+                state.subscribers.forEach((sub) =>
+                  sub({ delta: '', done: false, log: `Subtask: ${event.content}` })
+                );
+              }
+              break;
+
+            case 'task_done':
+              if (event.content) {
+                const taskStatus = event.detail ?? 'completed';
+                void this.persistToolEvent(state, `Subtask ${taskStatus}`, event.content);
+                state.subscribers.forEach((sub) =>
+                  sub({
+                    delta: '',
+                    done: false,
+                    log: `Subtask ${taskStatus}: ${event.content}`,
+                    activity: {
+                      kind: 'system',
+                      label: `Subtask ${taskStatus}`,
+                      detail: event.content,
+                    },
+                  })
+                );
+              }
+              break;
           }
         }
       } finally {

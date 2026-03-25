@@ -169,6 +169,13 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
           events.push({
             type: 'done',
             content: msg.result,
+            usage: {
+              costUsd: msg.total_cost_usd,
+              inputTokens: msg.usage?.input_tokens,
+              outputTokens: msg.usage?.output_tokens,
+              numTurns: msg.num_turns,
+              durationMs: msg.duration_ms,
+            },
           });
         } else {
           // SDKResultError
@@ -183,22 +190,99 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
       }
 
       case 'system': {
-        // SDKStatusMessage or SDKSystemMessage
-        if ('subtype' in msg) {
-          if (msg.subtype === 'status' && 'status' in msg) {
+        if (!('subtype' in msg)) break;
+        switch (msg.subtype) {
+          case 'init':
+            // Session initialized — model, tools, version
+            if ('model' in msg) {
+              const tools = 'tools' in msg && Array.isArray(msg.tools) ? msg.tools : [];
+              const version = 'claude_code_version' in msg ? String(msg.claude_code_version) : '';
+              events.push({
+                type: 'init',
+                label: String(msg.model),
+                detail: `${tools.length} tools`,
+                content: version ? `v${version}` : undefined,
+              });
+            }
+            break;
+          case 'status':
+            if ('status' in msg) {
+              events.push({
+                type: 'status',
+                content: String(msg.status ?? 'ready'),
+              });
+            }
+            break;
+          case 'api_retry':
+            // API retry — let user know agent is retrying
+            if ('attempt' in msg) {
+              const attempt = (msg as { attempt: number }).attempt;
+              const maxRetries =
+                'max_retries' in msg ? (msg as { max_retries: number }).max_retries : '?';
+              const delayMs =
+                'retry_delay_ms' in msg ? (msg as { retry_delay_ms: number }).retry_delay_ms : 0;
+              const delaySec = Math.round(delayMs / 1000);
+              events.push({
+                type: 'api_retry',
+                content: `Retrying API call (attempt ${attempt}/${maxRetries})${delaySec > 0 ? `, waiting ${delaySec}s` : ''}`,
+              });
+            }
+            break;
+          case 'task_started':
+            if ('description' in msg && 'task_id' in msg) {
+              events.push({
+                type: 'task_started',
+                label: String((msg as { task_id: string }).task_id),
+                content: String((msg as { description: string }).description),
+              });
+            }
+            break;
+          case 'task_progress':
+            if ('description' in msg && 'task_id' in msg) {
+              events.push({
+                type: 'task_progress',
+                label: String((msg as { task_id: string }).task_id),
+                content: String((msg as { description: string }).description),
+              });
+            }
+            break;
+          case 'task_notification':
+            if ('summary' in msg && 'task_id' in msg) {
+              const status = 'status' in msg ? String((msg as { status: string }).status) : 'done';
+              events.push({
+                type: 'task_done',
+                label: String((msg as { task_id: string }).task_id),
+                content: String((msg as { summary: string }).summary),
+                detail: status,
+              });
+            }
+            break;
+        }
+        break;
+      }
+
+      case 'rate_limit_event': {
+        if ('rate_limit_info' in msg) {
+          const info = msg.rate_limit_info;
+          const status = info.status;
+          if (status === 'rejected') {
+            const resetsAt = info.resetsAt ? new Date(info.resetsAt).toLocaleTimeString() : 'soon';
             events.push({
-              type: 'status',
-              content: String(msg.status ?? 'ready'),
+              type: 'rate_limit',
+              content: `Rate limited — resets at ${resetsAt}`,
+            });
+          } else if (status === 'allowed_warning') {
+            const pct = info.utilization ? `${Math.round(info.utilization * 100)}%` : '';
+            events.push({
+              type: 'rate_limit',
+              content: `Rate limit warning${pct ? ` (${pct} used)` : ''}`,
             });
           }
-          // 'init' subtype: could emit a status event if useful, but
-          // typically not needed by callers.
         }
         break;
       }
 
       case 'tool_use_summary': {
-        // SDKToolUseSummaryMessage
         if ('summary' in msg) {
           events.push({
             type: 'tool_result',
@@ -209,7 +293,6 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
       }
 
       case 'tool_progress': {
-        // SDKToolProgressMessage
         if ('tool_name' in msg) {
           events.push({
             type: 'status',
@@ -221,10 +304,9 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
       }
 
       default:
-        // Ignore other message types (user, user_replay, auth_status,
-        // compact_boundary, api_retry, local_command_output, hook_*,
-        // task_notification, task_started, task_progress, files_persisted,
-        // rate_limit, elicitation_complete, prompt_suggestion)
+        // Ignore: user, user_replay, auth_status, compact_boundary,
+        // local_command_output, hook_*, files_persisted,
+        // elicitation_complete, prompt_suggestion
         break;
     }
 

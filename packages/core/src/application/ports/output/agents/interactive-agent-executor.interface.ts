@@ -23,10 +23,30 @@ export interface InteractiveAgentOptions {
 
 /** Event emitted by an interactive agent session stream. */
 export interface InteractiveAgentEvent {
-  type: 'delta' | 'tool_use' | 'tool_result' | 'status' | 'done' | 'error';
+  type:
+    | 'delta' // Streaming text token
+    | 'tool_use' // Agent is calling a tool
+    | 'tool_result' // Tool execution summary
+    | 'status' // Status update (tool progress, compacting, etc.)
+    | 'done' // Turn complete
+    | 'error' // Agent error
+    | 'init' // Session initialized (model, tools, version)
+    | 'api_retry' // API call being retried
+    | 'rate_limit' // Rate limit hit
+    | 'task_started' // Background subtask started
+    | 'task_progress' // Background subtask progress
+    | 'task_done'; // Background subtask completed/failed
   content?: string;
   label?: string;
   detail?: string;
+  /** Usage/cost metadata (attached to 'done' events) */
+  usage?: {
+    costUsd?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    numTurns?: number;
+    durationMs?: number;
+  };
 }
 
 /** Handle to a live interactive agent session. */
