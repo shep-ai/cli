@@ -68,7 +68,7 @@ export function ChatComposer({
             autoFocus
             placeholder="Write a message..."
             onPaste={onPaste}
-            className="min-h-0 max-h-[4.5rem] resize-none rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus-visible:ring-0 focus:outline-none"
+            className="max-h-[4.5rem] min-h-0 resize-none rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus:outline-none focus-visible:ring-0"
           />
 
           {/* Attachment chips — between textarea and controls bar */}
@@ -91,9 +91,7 @@ export function ChatComposer({
           ) : null}
 
           {/* Upload error */}
-          {uploadError ? (
-            <p className="text-destructive px-3 pb-2 text-xs">{uploadError}</p>
-          ) : null}
+          {uploadError ? <p className="text-destructive px-3 pb-2 text-xs">{uploadError}</p> : null}
 
           {/* Controls bar — agent picker + status left, actions right */}
           <div className="border-input flex items-center gap-3 border-t px-3 py-1.5">

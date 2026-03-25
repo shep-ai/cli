@@ -13,7 +13,18 @@ import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
-import { SendHorizontal, CircleStop, Copy, Paperclip, Bot, User, Maximize2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  SendHorizontal,
+  CircleStop,
+  Copy,
+  Paperclip,
+  Bot,
+  User,
+  Maximize2,
+  X,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 
 // ── Markdown components for assistant messages ──────────────────────────────
 
@@ -72,7 +83,15 @@ const markdownComponents: Components = {
 
 // ── Thread ──────────────────────────────────────────────────────────────────
 
-export function Thread({ className, statusBar, composer }: { className?: string; statusBar?: React.ReactNode; composer?: React.ReactNode }) {
+export function Thread({
+  className,
+  statusBar,
+  composer,
+}: {
+  className?: string;
+  statusBar?: React.ReactNode;
+  composer?: React.ReactNode;
+}) {
   return (
     <ThreadPrimitive.Root className={cn('flex h-full flex-col', className)}>
       <ThreadPrimitive.Viewport className="flex flex-1 flex-col overflow-y-auto pt-4">
@@ -118,7 +137,7 @@ const UserMessage: FC = () => {
       </div>
 
       <div className="flex max-w-[85%] min-w-0 flex-col gap-0.5">
-        <div className="text-foreground mt-px overflow-hidden break-words rounded-2xl rounded-tl-sm border border-violet-500/15 bg-violet-500/8 px-4 py-2 text-sm leading-relaxed shadow-sm backdrop-blur-md">
+        <div className="text-foreground mt-px overflow-hidden rounded-2xl rounded-tl-sm border border-violet-500/15 bg-violet-500/8 px-4 py-2 text-sm leading-relaxed break-words shadow-sm backdrop-blur-md">
           <MessagePrimitive.Content components={{ Text: UserMessageText }} />
         </div>
 
@@ -152,7 +171,7 @@ const AssistantMessage: FC = () => {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="bg-muted/50 text-foreground mt-px overflow-hidden break-words rounded-2xl rounded-tl-sm border border-white/5 px-4 py-2 text-sm leading-relaxed shadow-sm backdrop-blur-md">
+        <div className="bg-muted/50 text-foreground mt-px overflow-hidden rounded-2xl rounded-tl-sm border border-white/5 px-4 py-2 text-sm leading-relaxed break-words shadow-sm backdrop-blur-md">
           <MessagePrimitive.Content components={{ Text: AssistantMessageText }} />
         </div>
 
@@ -188,20 +207,27 @@ function CollapsibleCode({ children, language }: { children: React.ReactNode; la
 
   return (
     <div className="bg-background/50 relative my-2 overflow-hidden rounded-md">
-      {language && (
+      {language ? (
         <div className="text-muted-foreground/50 border-b border-white/5 px-3 py-1 font-mono text-[10px] uppercase">
           {language}
         </div>
-      )}
+      ) : null}
       <pre
         ref={ref}
         className="overflow-x-auto p-3 font-mono text-xs leading-relaxed transition-[max-height] duration-300 ease-in-out"
-        style={{ maxHeight: expanded ? 'min(60vh, 500px)' : !needsCollapse ? 'min(60vh, 500px)' : `${CODE_COLLAPSED_HEIGHT}px`, overflow: expanded ? 'auto' : undefined }}
+        style={{
+          maxHeight: expanded
+            ? 'min(60vh, 500px)'
+            : !needsCollapse
+              ? 'min(60vh, 500px)'
+              : `${CODE_COLLAPSED_HEIGHT}px`,
+          overflow: expanded ? 'auto' : undefined,
+        }}
       >
         {children}
       </pre>
-      {needsCollapse && !expanded && (
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center bg-gradient-to-t from-black/60 via-black/30 to-transparent pb-3 pt-12">
+      {needsCollapse && !expanded ? (
+        <div className="absolute inset-x-0 bottom-0 flex items-end justify-center bg-gradient-to-t from-black/60 via-black/30 to-transparent pt-12 pb-3">
           <button
             type="button"
             onClick={() => setExpanded(true)}
@@ -211,8 +237,8 @@ function CollapsibleCode({ children, language }: { children: React.ReactNode; la
             Show more
           </button>
         </div>
-      )}
-      {needsCollapse && expanded && (
+      ) : null}
+      {needsCollapse && expanded ? (
         <div className="flex justify-center border-t border-white/5 py-1.5">
           <button
             type="button"
@@ -223,7 +249,7 @@ function CollapsibleCode({ children, language }: { children: React.ReactNode; la
             Show less
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -248,7 +274,9 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
               onClick={() => setShowPreview(false)}
               className={cn(
                 'rounded px-2.5 py-0.5 text-xs font-medium transition-colors',
-                !showPreview ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+                !showPreview
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               Code
@@ -258,14 +286,19 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
               onClick={() => setShowPreview(true)}
               className={cn(
                 'rounded px-2.5 py-0.5 text-xs font-medium transition-colors',
-                showPreview ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+                showPreview
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               Preview
             </button>
             <button
               type="button"
-              onClick={() => { setFullscreenCode(!showPreview); setMaximized(true); }}
+              onClick={() => {
+                setFullscreenCode(!showPreview);
+                setMaximized(true);
+              }}
               className="text-muted-foreground hover:text-foreground ml-1 rounded p-0.5 transition-colors"
               title="Open fullscreen"
             >
@@ -290,74 +323,80 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
       </div>
 
       {/* Fullscreen modal — fake browser chrome, portaled to body */}
-      {maximized && typeof document !== 'undefined' && createPortal(
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setMaximized(false)}
-        >
-          <div
-            className="bg-background relative flex h-[95vh] w-[95vw] flex-col overflow-hidden rounded-xl border shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Toolbar */}
-            <div className="bg-muted/80 flex h-12 shrink-0 items-center justify-between border-b px-5">
-              {/* Left — tabs */}
-              <div className="bg-muted flex items-center gap-0.5 rounded-lg p-1">
-                <button
-                  type="button"
-                  onClick={() => setFullscreenCode(false)}
-                  className={cn(
-                    'rounded-md px-4 py-1.5 text-sm font-medium transition-all',
-                    !fullscreenCode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  Preview
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFullscreenCode(true)}
-                  className={cn(
-                    'rounded-md px-4 py-1.5 text-sm font-medium transition-all',
-                    fullscreenCode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  Code
-                </button>
-              </div>
-
-              {/* Center — stats */}
-              <div className="text-muted-foreground/60 flex items-center gap-4 text-xs">
-                <span>{lines} lines</span>
-                <span>{chars.toLocaleString()} chars</span>
-                <span className="font-mono uppercase">{language}</span>
-              </div>
-
-              {/* Right — close */}
-              <button
-                type="button"
-                onClick={() => setMaximized(false)}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-2 transition-colors"
+      {maximized && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              onClick={() => setMaximized(false)}
+            >
+              <div
+                className="bg-background relative flex h-[95vh] w-[95vw] flex-col overflow-hidden rounded-xl border shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
               >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {/* Content */}
-            {fullscreenCode ? (
-              <pre className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
-                <code>{code}</code>
-              </pre>
-            ) : (
-              <iframe
-                srcDoc={code}
-                sandbox="allow-scripts"
-                className="flex-1 border-0 bg-white dark:bg-neutral-900"
-                title="HTML Preview Fullscreen"
-              />
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
+                {/* Toolbar */}
+                <div className="bg-muted/80 flex h-12 shrink-0 items-center justify-between border-b px-5">
+                  {/* Left — tabs */}
+                  <div className="bg-muted flex items-center gap-0.5 rounded-lg p-1">
+                    <button
+                      type="button"
+                      onClick={() => setFullscreenCode(false)}
+                      className={cn(
+                        'rounded-md px-4 py-1.5 text-sm font-medium transition-all',
+                        !fullscreenCode
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFullscreenCode(true)}
+                      className={cn(
+                        'rounded-md px-4 py-1.5 text-sm font-medium transition-all',
+                        fullscreenCode
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Code
+                    </button>
+                  </div>
+
+                  {/* Center — stats */}
+                  <div className="text-muted-foreground/60 flex items-center gap-4 text-xs">
+                    <span>{lines} lines</span>
+                    <span>{chars.toLocaleString()} chars</span>
+                    <span className="font-mono uppercase">{language}</span>
+                  </div>
+
+                  {/* Right — close */}
+                  <button
+                    type="button"
+                    onClick={() => setMaximized(false)}
+                    className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-2 transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                {/* Content */}
+                {fullscreenCode ? (
+                  <pre className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
+                    <code>{code}</code>
+                  </pre>
+                ) : (
+                  <iframe
+                    srcDoc={code}
+                    sandbox="allow-scripts"
+                    className="flex-1 border-0 bg-white dark:bg-neutral-900"
+                    title="HTML Preview Fullscreen"
+                  />
+                )}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }
@@ -386,13 +425,7 @@ const THINKING_WORDS = [
   'Pondering',
 ];
 
-const BOOTING_WORDS = [
-  'Waking up',
-  'Initializing',
-  'Loading tools',
-  'Preparing',
-  'Connecting',
-];
+const BOOTING_WORDS = ['Waking up', 'Initializing', 'Loading tools', 'Preparing', 'Connecting'];
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -421,9 +454,18 @@ function ThinkingIndicator({ booting }: { booting: boolean }) {
         {words[index]}
       </span>
       <span className="inline-flex gap-0.5">
-        <span className="bg-muted-foreground/60 h-1 w-1 animate-bounce rounded-full" style={{ animationDelay: '0ms' }} />
-        <span className="bg-muted-foreground/60 h-1 w-1 animate-bounce rounded-full" style={{ animationDelay: '150ms' }} />
-        <span className="bg-muted-foreground/60 h-1 w-1 animate-bounce rounded-full" style={{ animationDelay: '300ms' }} />
+        <span
+          className="bg-muted-foreground/60 h-1 w-1 animate-bounce rounded-full"
+          style={{ animationDelay: '0ms' }}
+        />
+        <span
+          className="bg-muted-foreground/60 h-1 w-1 animate-bounce rounded-full"
+          style={{ animationDelay: '150ms' }}
+        />
+        <span
+          className="bg-muted-foreground/60 h-1 w-1 animate-bounce rounded-full"
+          style={{ animationDelay: '300ms' }}
+        />
       </span>
     </span>
   );

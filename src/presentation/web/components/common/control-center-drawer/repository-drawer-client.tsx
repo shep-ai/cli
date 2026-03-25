@@ -37,7 +37,11 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
 
   const deployAction = useDeployAction(
     data.repositoryPath
-      ? { targetId: data.repositoryPath, targetType: 'repository' as const, repositoryPath: data.repositoryPath }
+      ? {
+          targetId: data.repositoryPath,
+          targetType: 'repository' as const,
+          repositoryPath: data.repositoryPath,
+        }
       : null
   );
   const isDeployActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
@@ -53,11 +57,7 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
       modal={false}
       data-testid="repository-drawer"
     >
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="flex min-h-0 flex-1 flex-col"
-      >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
         {/* Header with inline tabs */}
         <div className="shrink-0 px-4 pt-4 pb-3" data-testid="repository-drawer-header">
           <div className="flex items-baseline gap-4 pr-6">
@@ -67,13 +67,13 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
             <TabsList className="h-auto shrink-0 gap-0.5 rounded-none border-0 bg-transparent p-0">
               <TabsTrigger
                 value="overview"
-                className="text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none h-auto rounded-none border-b-2 border-transparent bg-transparent px-2 py-0.5 text-[12px] font-medium shadow-none transition-colors data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                className="text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:border-primary h-auto rounded-none border-b-2 border-transparent bg-transparent px-2 py-0.5 text-[12px] font-medium shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:shadow-none"
               >
                 Overview
               </TabsTrigger>
               <TabsTrigger
                 value="chat"
-                className="text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none h-auto rounded-none border-b-2 border-transparent bg-transparent px-2 py-0.5 text-[12px] font-medium shadow-none transition-colors data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                className="text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:border-primary h-auto rounded-none border-b-2 border-transparent bg-transparent px-2 py-0.5 text-[12px] font-medium shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:shadow-none"
               >
                 Chat
               </TabsTrigger>

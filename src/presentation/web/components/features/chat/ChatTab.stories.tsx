@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { useState, useCallback } from 'react';
 import type { ThreadMessageLike, AppendMessage } from '@assistant-ui/react';
-import {
-  AssistantRuntimeProvider,
-  useExternalStoreRuntime,
-} from '@assistant-ui/react';
+import { AssistantRuntimeProvider, useExternalStoreRuntime } from '@assistant-ui/react';
 import { Thread } from '@/components/assistant-ui/thread';
 
 // ── Mock runtime wrapper for Storybook ──────────────────────────────────────
@@ -26,7 +23,7 @@ function MockChatProvider({
   const onNew = useCallback(
     async (message: AppendMessage) => {
       const textPart = message.content.find((c) => c.type === 'text');
-      if (!textPart || textPart.type !== 'text') return;
+      if (textPart?.type !== 'text') return;
 
       // Add user message
       const userMsg: ThreadMessageLike = {
@@ -60,9 +57,7 @@ function MockChatProvider({
           const text = accumulated;
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: [{ type: 'text', text }] }
-                : m
+              m.id === assistantId ? { ...m, content: [{ type: 'text', text }] } : m
             )
           );
         }
@@ -89,9 +84,7 @@ function MockChatProvider({
     onNew,
   });
 
-  return (
-    <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>
-  );
+  return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
 }
 
 function generateMockResponse(userMessage: string): string {
@@ -125,10 +118,7 @@ function ChatStory({
   simulateStreaming?: boolean;
 }) {
   return (
-    <MockChatProvider
-      initialMessages={initialMessages}
-      simulateStreaming={simulateStreaming}
-    >
+    <MockChatProvider initialMessages={initialMessages} simulateStreaming={simulateStreaming}>
       <Thread />
     </MockChatProvider>
   );
@@ -143,7 +133,14 @@ const meta: Meta<typeof ChatStory> = {
   },
   decorators: [
     (Story) => (
-      <div style={{ height: '600px', maxWidth: '640px', margin: '0 auto', border: '1px solid #e5e7eb' }}>
+      <div
+        style={{
+          height: '600px',
+          maxWidth: '640px',
+          margin: '0 auto',
+          border: '1px solid #e5e7eb',
+        }}
+      >
         <Story />
       </div>
     ),
@@ -168,7 +165,9 @@ export const WithHistory: Story = {
       {
         id: 'msg-1',
         role: 'user' as const,
-        content: [{ type: 'text' as const, text: 'Can you check the test coverage for the auth module?' }],
+        content: [
+          { type: 'text' as const, text: 'Can you check the test coverage for the auth module?' },
+        ],
         createdAt: new Date(Date.now() - 300000),
       },
       {

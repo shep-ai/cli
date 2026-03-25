@@ -60,8 +60,6 @@ export class SQLiteInteractiveMessageRepository implements IInteractiveMessageRe
   }
 
   async deleteByFeatureId(featureId: string): Promise<void> {
-    this.db
-      .prepare(`DELETE FROM interactive_messages WHERE feature_id = ?`)
-      .run(featureId);
+    this.db.prepare(`DELETE FROM interactive_messages WHERE feature_id = ?`).run(featureId);
   }
 }

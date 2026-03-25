@@ -1,12 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ReactFlow,
-  Background,
-  BackgroundVariant,
-  Panel,
-} from '@xyflow/react';
+import { ReactFlow, Background, BackgroundVariant, Panel } from '@xyflow/react';
 import type { Connection, Edge, NodeChange, OnMoveEnd, Viewport } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';

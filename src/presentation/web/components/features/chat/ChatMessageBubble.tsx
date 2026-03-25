@@ -6,9 +6,7 @@ import { cn } from '@/lib/utils';
 import { InteractiveMessageRole } from '@shepai/core/domain/generated/output';
 
 const markdownComponents: Components = {
-  p: ({ children }) => (
-    <p className="mb-2 leading-relaxed last:mb-0">{children}</p>
-  ),
+  p: ({ children }) => <p className="mb-2 leading-relaxed last:mb-0">{children}</p>,
   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
   code: ({ children, className }) =>
@@ -105,9 +103,9 @@ export function ChatMessageBubble({
           />
         ) : null}
       </div>
-      {timeStr && !streaming && (
+      {timeStr && !streaming ? (
         <span className="text-muted-foreground mt-0.5 px-1 text-[10px]">{timeStr}</span>
-      )}
+      ) : null}
     </div>
   );
 }

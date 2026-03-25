@@ -56,7 +56,10 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
+export async function DELETE(
+  _request: NextRequest,
+  { params }: RouteParams
+): Promise<NextResponse> {
   try {
     const { id: sessionId } = await params;
     const service = resolve<IInteractiveSessionService>('IInteractiveSessionService');

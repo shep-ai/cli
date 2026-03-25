@@ -3,16 +3,7 @@
 import { useCallback } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import type { Viewport } from '@xyflow/react';
-import {
-  Plus,
-  FolderPlus,
-  Eye,
-  EyeOff,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
-  RotateCcw,
-} from 'lucide-react';
+import { Plus, FolderPlus, Eye, EyeOff, ZoomIn, ZoomOut, Maximize, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 
@@ -58,7 +49,7 @@ export function CanvasToolbar({
   }, [onResetViewport, setViewport]);
 
   return (
-    <div className="flex items-center gap-1 rounded-xl border bg-background px-2 py-1.5 shadow-md dark:bg-neutral-900">
+    <div className="bg-background flex items-center gap-1 rounded-xl border px-2 py-1.5 shadow-md dark:bg-neutral-900">
       {/* Create actions */}
       <ToolbarButton onClick={onAddFeature} title="New Feature" label="New">
         <Plus className="h-4 w-4" />
@@ -132,9 +123,7 @@ function ToolbarButton({
         'inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
         'hover:bg-accent hover:text-accent-foreground',
         'disabled:pointer-events-none disabled:opacity-50',
-        active
-          ? 'text-primary bg-primary/10'
-          : 'text-muted-foreground'
+        active ? 'text-primary bg-primary/10' : 'text-muted-foreground'
       )}
     >
       {children}

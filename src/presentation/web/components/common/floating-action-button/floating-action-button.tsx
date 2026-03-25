@@ -89,9 +89,7 @@ export function FloatingActionButton({ actions, className }: FloatingActionButto
                   'border-border border',
                   'hover:bg-accent hover:text-accent-foreground',
                   'disabled:pointer-events-none disabled:opacity-50',
-                  open
-                    ? 'translate-x-0 opacity-100'
-                    : 'pointer-events-none translate-x-0 opacity-0'
+                  open ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-0 opacity-0'
                 )}
                 style={{
                   transition: `opacity ${open ? DURATION_MS : 150}ms ease-out ${open ? openDelay : closeDelay}ms`,

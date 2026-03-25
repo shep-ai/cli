@@ -428,7 +428,7 @@ export function FeatureDrawerTabs({
                 <TabsTrigger
                   key={tab.key}
                   value={tab.key}
-                  className="text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none h-auto rounded-none border-b-2 border-transparent bg-transparent px-2 py-0.5 text-[12px] font-medium shadow-none transition-colors data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                  className="text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:border-primary h-auto rounded-none border-b-2 border-transparent bg-transparent px-2 py-0.5 text-[12px] font-medium shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                   {tab.label}
                 </TabsTrigger>
