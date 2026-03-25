@@ -132,19 +132,24 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
       }
 
       case 'assistant': {
-        // SDKAssistantMessage — complete assistant turn
+        // SDKAssistantMessage — complete assistant turn with text + tool_use blocks.
+        // Text blocks contain the agent's reasoning between tool calls (e.g.,
+        // "Let me read that file..." or "I see, now I'll..."). These MUST be
+        // emitted as deltas — stream_event deltas may not be available in V2.
         if ('message' in msg && msg.message?.content) {
           for (const block of msg.message.content) {
-            if (block.type === 'tool_use') {
+            if (block.type === 'text' && block.text) {
+              events.push({
+                type: 'delta',
+                content: block.text,
+              });
+            } else if (block.type === 'tool_use') {
               events.push({
                 type: 'tool_use',
                 label: block.name,
                 detail: JSON.stringify(block.input ?? {}),
               });
             }
-            // We don't emit full text blocks here — they were already streamed
-            // via stream_event deltas. If partial messages are disabled, we
-            // could emit them here, but our default path uses streaming.
           }
         }
 
