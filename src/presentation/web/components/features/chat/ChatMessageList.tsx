@@ -141,16 +141,21 @@ function ThinkingIndicator({ activityLog }: { activityLog: string[] }) {
           </button>
         )}
 
-        {expanded && activityLog.length > 1 && (
+        {expanded && activityLog.length > 1 ? (
           <div className="border-muted-foreground/20 mt-2 border-t pt-2">
+            {/* eslint-disable react/no-array-index-key -- stable append-only log */}
             {activityLog.map((entry, i) => (
-              <div key={i} className="text-muted-foreground flex items-center gap-1.5 py-0.5 text-[11px]">
+              <div
+                key={`${entry.slice(0, 20)}-${i}`}
+                className="text-muted-foreground flex items-center gap-1.5 py-0.5 text-[11px]"
+              >
                 <Activity className="size-2.5 shrink-0 opacity-50" />
                 <span>{entry}</span>
               </div>
             ))}
+            {/* eslint-enable react/no-array-index-key */}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -170,16 +175,21 @@ function ActivityLogCollapsible({ entries }: { entries: string[] }) {
         {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
         {entries.length} agent actions
       </button>
-      {expanded && (
+      {expanded ? (
         <div className="bg-muted/50 ml-2 rounded-md px-3 py-2">
+          {/* eslint-disable react/no-array-index-key -- stable append-only log */}
           {entries.map((entry, i) => (
-            <div key={i} className="text-muted-foreground flex items-center gap-1.5 py-0.5 text-[11px]">
+            <div
+              key={`${entry.slice(0, 20)}-${i}`}
+              className="text-muted-foreground flex items-center gap-1.5 py-0.5 text-[11px]"
+            >
               <Activity className="size-2.5 shrink-0 opacity-50" />
               <span>{entry}</span>
             </div>
           ))}
+          {/* eslint-enable react/no-array-index-key */}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

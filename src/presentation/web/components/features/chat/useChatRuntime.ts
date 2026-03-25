@@ -90,7 +90,11 @@ export interface ChatRuntimeOptions {
  * `featureId` is a polymorphic scope key: a feature UUID, "repo-<id>", or "global".
  * All API calls and SSE subscriptions are scoped to this key.
  */
-export function useChatRuntime(featureId: string, worktreePath?: string, options?: ChatRuntimeOptions) {
+export function useChatRuntime(
+  featureId: string,
+  worktreePath?: string,
+  options?: ChatRuntimeOptions
+) {
   const queryClient = useQueryClient();
 
   // ── TanStack Query: fetch messages from backend ─────────────────────────
@@ -240,10 +244,7 @@ export function useChatRuntime(featureId: string, worktreePath?: string, options
   // Note: sendMutation.isPending is excluded — the 600ms awaitingResponse
   // timer provides a smooth transition without flicker.
   const isRunning =
-    awaitingResponse ||
-    !!streamingText ||
-    !!statusLog ||
-    sessionStatus === 'booting';
+    awaitingResponse || !!streamingText || !!statusLog || sessionStatus === 'booting';
 
   // ── Build thread messages for assistant-ui ─────────────────────────────
   const activeStreamText = streamingText ?? backendStreamingText ?? '';
@@ -330,7 +331,7 @@ export function useChatRuntime(featureId: string, worktreePath?: string, options
 
       setStatusLog(null);
       cancelAwaiting();
-    }, []),
+    }, [cancelAwaiting]),
   });
 
   return { runtime, status, clearChat, stopAgent, sessionInfo, isChatLoading };

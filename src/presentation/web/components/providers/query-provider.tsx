@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
+  // eslint-disable-next-line react/hook-use-state -- intentionally omitting setter; stable instance
   const [queryClient] = useState(
     () =>
       new QueryClient({

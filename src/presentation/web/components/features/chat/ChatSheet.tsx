@@ -53,28 +53,43 @@ export function GlobalChatPopup() {
   const [isMaximized, setIsMaximized] = useState(false);
 
   // Position/size — initialized from localStorage
-  const [pos, _setPos] = useState<Position | null>(() => loadPersistedState().pos);
-  const [size, _setSize] = useState<Size | null>(() => loadPersistedState().size);
+  // eslint-disable-next-line react/hook-use-state -- wrapped setters below
+  const [pos, setPosRaw] = useState<Position | null>(() => loadPersistedState().pos);
+  // eslint-disable-next-line react/hook-use-state -- wrapped setters below
+  const [size, setSizeRaw] = useState<Size | null>(() => loadPersistedState().size);
 
   // Wrapped setters that also persist
-  const setPos = useCallback((v: Position | null | ((prev: Position | null) => Position | null)) => {
-    _setPos((prev) => {
-      const next = typeof v === 'function' ? v(prev) : v;
-      // Defer persist to avoid doing it on every mousemove frame
-      return next;
-    });
-  }, []);
+  const setPos = useCallback(
+    (v: Position | null | ((prev: Position | null) => Position | null)) => {
+      setPosRaw((prev) => {
+        const next = typeof v === 'function' ? v(prev) : v;
+        // Defer persist to avoid doing it on every mousemove frame
+        return next;
+      });
+    },
+    []
+  );
 
   const setSize = useCallback((v: Size | null | ((prev: Size | null) => Size | null)) => {
-    _setSize((prev) => {
+    setSizeRaw((prev) => {
       const next = typeof v === 'function' ? v(prev) : v;
       return next;
     });
   }, []);
 
   const panelRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
-  const resizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    startPosX: number;
+    startPosY: number;
+  } | null>(null);
+  const resizeRef = useRef<{
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+  } | null>(null);
 
   const toggle = useCallback(() => {
     setIsOpen((prev) => {
@@ -102,7 +117,7 @@ export function GlobalChatPopup() {
       }
       return !prev;
     });
-  }, [isOpen, pos, size]);
+  }, [isOpen, pos, size, setPos, setSize]);
 
   // Keyboard shortcuts: Cmd/Ctrl+Shift+K = toggle, Cmd/Ctrl+Shift+M = maximize
   useEffect(() => {
@@ -172,7 +187,7 @@ export function GlobalChatPopup() {
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     },
-    [pos]
+    [pos, setPos]
   );
 
   // ── Resize handling (from top-right corner) ────────────────────────────
@@ -206,7 +221,7 @@ export function GlobalChatPopup() {
         });
         // Move top edge up as height increases
         if (pos) {
-          setPos((prev) => prev ? { ...prev, y: (prev.y ?? 0) + dy } : prev);
+          setPos((prev) => (prev ? { ...prev, y: (prev.y ?? 0) + dy } : prev));
         }
       };
 
@@ -219,7 +234,7 @@ export function GlobalChatPopup() {
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     },
-    [size, pos]
+    [size, pos, setPos, setSize]
   );
 
   // Reset position/size on close for clean reopen
@@ -252,18 +267,16 @@ export function GlobalChatPopup() {
           ref={panelRef}
           className={cn(
             isMaximized
-              ? 'absolute inset-0 z-30 flex flex-col overflow-hidden bg-background dark:bg-neutral-900'
+              ? 'bg-background absolute inset-0 z-30 flex flex-col overflow-hidden dark:bg-neutral-900'
               : cn(
                   !pos && 'absolute bottom-24 left-4',
                   'z-30 flex flex-col overflow-hidden rounded-lg',
-                  'border border-border/60 dark:border-white/10',
+                  'border-border/60 border dark:border-white/10',
                   'bg-background dark:bg-neutral-900',
-                  'shadow-[0_8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_8px_40px_-8px_rgba(0,0,0,0.6)]',
+                  'shadow-[0_8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_8px_40px_-8px_rgba(0,0,0,0.6)]'
                 ),
             'transition-opacity duration-300 ease-out',
-            isOpen
-              ? 'pointer-events-auto opacity-100'
-              : 'pointer-events-none opacity-0'
+            isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
           )}
           style={panelStyle}
         >
@@ -288,7 +301,7 @@ export function GlobalChatPopup() {
               !isMaximized && 'cursor-grab active:cursor-grabbing'
             )}
           >
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-foreground/[0.02] via-transparent to-foreground/[0.02]" />
+            <div className="from-foreground/[0.02] to-foreground/[0.02] pointer-events-none absolute inset-0 bg-gradient-to-r via-transparent" />
             {!isMaximized ? (
               <GripVertical className="text-foreground/15 relative h-3.5 w-3.5 shrink-0" />
             ) : null}
@@ -297,7 +310,9 @@ export function GlobalChatPopup() {
             </div>
             <div className="relative flex items-baseline gap-2">
               <span className="text-foreground/90 text-base font-bold tracking-tight">Shep</span>
-              <span className="text-foreground/30 text-xs font-medium tracking-widest uppercase">global</span>
+              <span className="text-foreground/30 text-xs font-medium tracking-widest uppercase">
+                global
+              </span>
             </div>
             <div className="relative ml-auto flex items-center gap-0.5">
               <button
@@ -306,7 +321,11 @@ export function GlobalChatPopup() {
                 className="text-foreground/30 hover:text-foreground/60 rounded-md p-1 transition-colors"
                 title={isMaximized ? 'Restore (⌘⇧M)' : 'Maximize (⌘⇧M)'}
               >
-                {isMaximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                {isMaximized ? (
+                  <Minimize2 className="h-3.5 w-3.5" />
+                ) : (
+                  <Maximize2 className="h-3.5 w-3.5" />
+                )}
               </button>
               <button
                 type="button"
@@ -359,7 +378,12 @@ export function GlobalChatPopup() {
       ) : null}
 
       {/* Floating chat button — hidden when maximized */}
-      <div className={cn('group/fab absolute bottom-4 left-4 z-30 flex items-center', isMaximized && 'hidden')}>
+      <div
+        className={cn(
+          'group/fab absolute bottom-4 left-4 z-30 flex items-center',
+          isMaximized && 'hidden'
+        )}
+      >
         <Button
           size="icon"
           onClick={toggle}
@@ -385,8 +409,8 @@ export function GlobalChatPopup() {
           />
         </Button>
         {/* Tooltip — slides in from left on hover */}
-        <div className="pointer-events-none ml-3 flex items-center gap-2 opacity-0 transition-all duration-200 translate-x-[-4px] group-hover/fab:opacity-100 group-hover/fab:translate-x-0">
-          <div className="rounded-lg bg-foreground px-3 py-1.5 shadow-lg">
+        <div className="pointer-events-none ml-3 flex translate-x-[-4px] items-center gap-2 opacity-0 transition-all duration-200 group-hover/fab:translate-x-0 group-hover/fab:opacity-100">
+          <div className="bg-foreground rounded-lg px-3 py-1.5 shadow-lg">
             <p className="text-background text-xs font-medium">Shep Chat</p>
             <p className="text-background/50 mt-0.5 flex items-center gap-1 text-[10px]">
               <kbd className="bg-background/15 rounded px-1 py-px font-mono">⌘</kbd>

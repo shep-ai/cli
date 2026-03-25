@@ -46,15 +46,22 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
         const uploadRes = await fetch('/api/attachments/upload-from-path', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: filePath, sessionId: 'chat-' + featureId }),
+          body: JSON.stringify({ path: filePath, sessionId: `chat-${featureId}` }),
         });
         if (!uploadRes.ok) continue;
-        const uploaded = (await uploadRes.json()) as { id: string; name: string; size: number; mimeType: string; path: string };
+        const uploaded = (await uploadRes.json()) as {
+          id: string;
+          name: string;
+          size: number;
+          mimeType: string;
+          path: string;
+        };
         att.addAttachment(uploaded);
       }
     } catch {
       // Native picker not available — ignore
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- att.addAttachment is a stable callback from useAttachments
   }, [featureId, att.addAttachment]);
 
   const composer = (
@@ -195,7 +202,9 @@ function ChatHeader({
         {sessionInfo ? (
           <>
             <ToolbarButton
-              onClick={() => { void onStop(); }}
+              onClick={() => {
+                void onStop();
+              }}
               title="Force stop agent process"
               variant="danger"
             >
@@ -206,7 +215,9 @@ function ChatHeader({
           </>
         ) : null}
         <ToolbarButton
-          onClick={() => { void onClear(); }}
+          onClick={() => {
+            void onClear();
+          }}
           title="Clear chat history"
         >
           <Trash2 className="h-2.5 w-2.5" />
@@ -216,7 +227,6 @@ function ChatHeader({
     </div>
   );
 }
-
 
 // ── Toolbar button ──────────────────────────────────────────────────────────
 
