@@ -6,10 +6,6 @@
  * that imports from the SDK.
  *
  * Design decisions:
- * - SDKSessionOptions (V2) does not expose a `cwd` parameter. We use
- *   process.chdir() before session creation so the embedded Claude Code
- *   process inherits the correct working directory. This is safe in the
- *   single-threaded Node.js event loop where session creation is sequential.
  * - The CLAUDECODE env var is stripped to prevent nested-session detection
  *   errors when shep itself is running inside a Claude Code session.
  * - SDK message types are mapped to our own InteractiveAgentEvent to
@@ -33,18 +29,9 @@ const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
 export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor {
   async createSession(options: InteractiveAgentOptions): Promise<InteractiveAgentSessionHandle> {
-    // V2 SDKSessionOptions does not accept a cwd parameter directly.
-    // Use process.chdir() so the embedded Claude Code process inherits the
-    // correct working directory. Safe in Node.js single-threaded context.
-    process.chdir(options.cwd);
-
-    const sdkSession = unstable_v2_createSession({
-      model: options.model ?? DEFAULT_MODEL,
-      permissionMode: 'bypassPermissions',
-      // Strip CLAUDECODE env var to prevent nested-session detection errors.
-      env: { ...process.env, CLAUDECODE: undefined },
-    });
-
+    const sdkSession = this.withCwd(options.cwd, () =>
+      unstable_v2_createSession(this.buildSdkOptions(options))
+    );
     return this.wrapSession(sdkSession);
   }
 
@@ -52,17 +39,36 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
     sessionId: string,
     options: InteractiveAgentOptions
   ): Promise<InteractiveAgentSessionHandle> {
-    // Apply cwd before resuming for the same reason as createSession.
-    process.chdir(options.cwd);
-
-    const sdkSession = unstable_v2_resumeSession(sessionId, {
-      model: options.model ?? DEFAULT_MODEL,
-      permissionMode: 'bypassPermissions',
-      // Strip CLAUDECODE env var to prevent nested-session detection errors.
-      env: { ...process.env, CLAUDECODE: undefined },
-    });
-
+    const sdkSession = this.withCwd(options.cwd, () =>
+      unstable_v2_resumeSession(sessionId, this.buildSdkOptions(options))
+    );
     return this.wrapSession(sdkSession);
+  }
+
+  /**
+   * SDKSessionOptions (V2) does not support a `cwd` parameter.
+   * Temporarily change process.cwd() for session creation, then restore.
+   * This is safe because Node.js is single-threaded and SDK session creation
+   * is synchronous (returns immediately, spawns process in background).
+   */
+  private withCwd<T>(cwd: string, fn: () => T): T {
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(cwd);
+      return fn();
+    } finally {
+      process.chdir(originalCwd);
+    }
+  }
+
+  private buildSdkOptions(options: InteractiveAgentOptions) {
+    // Strip CLAUDECODE env var to prevent nested-session detection errors.
+    const { CLAUDECODE: _, ...cleanEnv } = process.env;
+    return {
+      model: options.model ?? DEFAULT_MODEL,
+      permissionMode: 'bypassPermissions' as const,
+      env: cleanEnv,
+    };
   }
 
   private wrapSession(sdkSession: SDKSession): InteractiveAgentSessionHandle {
