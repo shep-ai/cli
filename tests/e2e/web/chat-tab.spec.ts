@@ -25,10 +25,6 @@ function getDb(): Database.Database {
 
 function seedFeature(db: Database.Database): void {
   const now = Date.now();
-  const repo = db.prepare('SELECT id, path FROM repositories LIMIT 1').get() as
-    | { id: string; path: string }
-    | undefined;
-
   db.prepare(
     `INSERT OR REPLACE INTO features (
       id, name, slug, description, user_query, repository_path, branch,
@@ -51,7 +47,7 @@ function seedFeature(db: Database.Database): void {
     'e2e-chat-test',
     'Test interactive chat feature',
     'Test interactive chat',
-    repo?.path ?? '/tmp/e2e-test-repo',
+    '/tmp/e2e-chat-repo',
     'feature/e2e-chat-test',
     'Implementation',
     '[]',
@@ -67,7 +63,7 @@ function seedFeature(db: Database.Database): void {
     1,
     1,
     '/tmp/e2e-chat-worktree',
-    repo?.id ?? null,
+    null,
     null,
     null,
     null,
