@@ -24,6 +24,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from 'lucide-react';
 
 // ── Markdown components for assistant messages ──────────────────────────────
@@ -401,14 +402,32 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
   );
 }
 
+const ACTIVITY_MARKER_RE = /^\*⏳ (.+)\*$/;
+
 function AssistantMessageText({ text }: { text: string }) {
   if (text === '*Thinking...*' || text === '*Agent is waking up...*') {
     return <ThinkingIndicator booting={text.includes('waking')} />;
   }
+
+  // Live activity indicator (e.g. "Using tool: Bash", "Running: Read")
+  const activityMatch = ACTIVITY_MARKER_RE.exec(text);
+  if (activityMatch) {
+    return <ActivityIndicator label={activityMatch[1]} />;
+  }
+
   return (
     <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
       {text}
     </Markdown>
+  );
+}
+
+function ActivityIndicator({ label }: { label: string }) {
+  return (
+    <span className="text-muted-foreground inline-flex items-center gap-2 text-sm italic">
+      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      <span>{label}</span>
+    </span>
   );
 }
 

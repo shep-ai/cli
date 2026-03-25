@@ -98,7 +98,6 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
       <ChatHeader
         sessionInfo={sessionInfo}
         isAgentActive={status.isRunning}
-        statusText={status.statusText}
         onClear={clearChat}
         onStop={stopAgent}
       />
@@ -162,13 +161,11 @@ interface SessionInfo {
 function ChatHeader({
   sessionInfo,
   isAgentActive,
-  statusText,
   onClear,
   onStop,
 }: {
   sessionInfo: SessionInfo | null;
   isAgentActive: boolean;
-  statusText: string | null;
   onClear: () => Promise<void>;
   onStop: () => Promise<void>;
 }) {
@@ -184,13 +181,9 @@ function ChatHeader({
               <Cpu className="text-muted-foreground/40 h-3 w-3 shrink-0" />
             )}
             <span className="text-muted-foreground font-mono text-[10px]">
-              pid {sessionInfo.pid ?? '—'}
+              {sessionInfo.model ?? 'agent'}
+              {sessionInfo.sessionId ? ` · ${sessionInfo.sessionId.slice(0, 8)}` : ''}
             </span>
-            {isAgentActive ? (
-              <span className="text-muted-foreground truncate text-[10px]">
-                · {statusText ?? 'Working...'}
-              </span>
-            ) : null}
           </>
         ) : (
           <span className="text-muted-foreground/40 text-[11px]">No session</span>

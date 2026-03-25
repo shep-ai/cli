@@ -252,12 +252,20 @@ export function useChatRuntime(
   const threadMessages: ThreadMessageLike[] = useMemo(() => {
     const result: ThreadMessageLike[] = messages.map(toThreadMessage);
 
-    // Streaming text as the last message
+    // Streaming text as the last message — may include a live activity suffix
     if (activeStreamText.trim()) {
+      const parts: { type: 'text'; text: string }[] = [{ type: 'text', text: activeStreamText }];
+      // Append live activity indicator when agent is doing tool work
+      if (statusLog) {
+        parts.push({ type: 'text', text: `*⏳ ${statusLog}*` });
+      }
+      result.push({ id: 'streaming', role: 'assistant', content: parts });
+    } else if (statusLog) {
+      // No streaming text yet but agent is actively working (tool calls, etc.)
       result.push({
         id: 'streaming',
         role: 'assistant',
-        content: [{ type: 'text', text: activeStreamText }],
+        content: [{ type: 'text', text: `*⏳ ${statusLog}*` }],
       });
     } else if (awaitingResponse || sessionStatus === 'booting') {
       // Note: sendMutation.isPending is NOT included here — the 600ms
@@ -275,7 +283,7 @@ export function useChatRuntime(
     }
 
     return result;
-  }, [messages, activeStreamText, awaitingResponse, sessionStatus]);
+  }, [messages, activeStreamText, awaitingResponse, sessionStatus, statusLog]);
 
   // ── Status info for typing indicator ──────────────────────────────────
   const status: ChatStatus = useMemo(() => {
