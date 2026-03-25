@@ -736,7 +736,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       }
       sessionInfo = {
         pid: null, // SDK manages process internally — we don't expose PID
-        sessionId: state.handle?.sessionId ?? state.claudeSessionId ?? state.sessionId,
+        sessionId: state.claudeSessionId ?? state.sessionId,
         model: state.model ?? null,
         startedAt: dbSession?.startedAt
           ? new Date(dbSession.startedAt as unknown as string).toISOString()
