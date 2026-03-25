@@ -81,47 +81,8 @@ function cleanupFeature(db: Database.Database): void {
   db.prepare('DELETE FROM features WHERE id = ?').run(TEST_FEATURE_ID);
 }
 
-/** Mock all interactive session API endpoints on the given page. */
-async function mockInteractiveApis(page: Page): Promise<void> {
-  // POST /api/interactive/sessions — start session
-  await page.route('**/api/interactive/sessions', (route) => {
-    if (route.request().method() === 'POST') {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ sessionId: TEST_SESSION_ID }),
-      });
-    }
-    return route.continue();
-  });
-
-  // GET /api/interactive/sessions/:id — check session status (returns 'ready')
-  await page.route(`**/api/interactive/sessions/${TEST_SESSION_ID}`, (route) => {
-    if (route.request().method() === 'GET') {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: TEST_SESSION_ID,
-          featureId: TEST_FEATURE_ID,
-          status: 'ready',
-          startedAt: Date.now(),
-          lastActivityAt: Date.now(),
-        }),
-      });
-    }
-    // DELETE /api/interactive/sessions/:id — stop session
-    if (route.request().method() === 'DELETE') {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true }),
-      });
-    }
-    return route.continue();
-  });
-
-  // GET /api/interactive/sessions/:id/messages — list messages
+/** Mock all feature-scoped chat API endpoints on the given page. */
+async function mockChatApis(page: Page): Promise<void> {
   let messages: {
     id: string;
     featureId: string;
@@ -129,48 +90,65 @@ async function mockInteractiveApis(page: Page): Promise<void> {
     content: string;
     createdAt: string;
     updatedAt: string;
-  }[] = [
-    {
-      id: 'msg-greeting',
-      featureId: TEST_FEATURE_ID,
-      role: 'assistant',
-      content: 'Hey, how can I help?',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ];
-  await page.route(`**/api/interactive/sessions/${TEST_SESSION_ID}/messages`, (route) => {
+  }[] = [];
+
+  let sessionActive = false;
+
+  // GET + POST + DELETE /api/interactive/chat/:featureId/messages
+  await page.route(`**/api/interactive/chat/${TEST_FEATURE_ID}/messages`, (route) => {
     if (route.request().method() === 'GET') {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(messages),
+        body: JSON.stringify({
+          messages,
+          sessionStatus: sessionActive ? 'ready' : null,
+          streamingText: null,
+          sessionInfo: sessionActive
+            ? {
+                pid: 12345,
+                sessionId: TEST_SESSION_ID,
+                model: 'claude-sonnet-4-6',
+                startedAt: new Date().toISOString(),
+                idleTimeoutMinutes: 30,
+                lastActivityAt: new Date().toISOString(),
+              }
+            : null,
+        }),
       });
     }
-    // POST — send user message (202 accepted)
+    // POST — send user message (auto-starts session)
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON() as { content: string };
-      messages = [
-        ...messages,
-        {
-          id: `msg-user-${Date.now()}`,
-          featureId: TEST_FEATURE_ID,
-          role: 'user',
-          content: body.content,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: `msg-response-${Date.now()}`,
-          featureId: TEST_FEATURE_ID,
-          role: 'assistant',
-          content: 'I can help you with that feature.',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
+      sessionActive = true;
+      const userMsg = {
+        id: `msg-user-${Date.now()}`,
+        featureId: TEST_FEATURE_ID,
+        role: 'user',
+        content: body.content,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const assistantMsg = {
+        id: `msg-response-${Date.now()}`,
+        featureId: TEST_FEATURE_ID,
+        role: 'assistant',
+        content: 'I can help you with that feature.',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      messages = [...messages, userMsg, assistantMsg];
       return route.fulfill({
-        status: 202,
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ message: userMsg }),
+      });
+    }
+    // DELETE — clear chat
+    if (route.request().method() === 'DELETE') {
+      messages = [];
+      return route.fulfill({
+        status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ ok: true }),
       });
@@ -178,11 +156,25 @@ async function mockInteractiveApis(page: Page): Promise<void> {
     return route.continue();
   });
 
-  // GET /api/interactive/sessions/:id/stream — SSE with a greeting delta+done
-  await page.route(`**/api/interactive/sessions/${TEST_SESSION_ID}/stream`, (route) => {
+  // POST /api/interactive/chat/:featureId/stop — stop agent
+  await page.route(`**/api/interactive/chat/${TEST_FEATURE_ID}/stop`, (route) => {
+    if (route.request().method() === 'POST') {
+      sessionActive = false;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      });
+    }
+    return route.continue();
+  });
+
+  // GET /api/interactive/chat/:featureId/stream — SSE
+  await page.route(`**/api/interactive/chat/${TEST_FEATURE_ID}/stream`, (route) => {
     const sseBody = [
-      `event: delta\ndata: {"delta":"I can help you with that feature.","sessionId":"${TEST_SESSION_ID}"}\n\n`,
-      `event: done\ndata: {"done":true,"sessionId":"${TEST_SESSION_ID}"}\n\n`,
+      `: connected\n\n`,
+      `event: delta\ndata: {"delta":"I can help you with that feature.","featureId":"${TEST_FEATURE_ID}"}\n\n`,
+      `event: done\ndata: {"done":true,"featureId":"${TEST_FEATURE_ID}"}\n\n`,
     ].join('');
     return route.fulfill({
       status: 200,
@@ -211,8 +203,8 @@ test.describe('Chat tab — interactive agent flow', () => {
     }
   });
 
-  test('full happy-path: open chat tab → start agent → message → stop', async ({ page }) => {
-    await mockInteractiveApis(page);
+  test('full happy-path: open chat tab → send message → stop', async ({ page }) => {
+    await mockChatApis(page);
 
     // Also mock the feature API so we don't depend on server-side feature loading
     // which can fail if another test's seeded repo has an invalid path
@@ -257,43 +249,31 @@ test.describe('Chat tab — interactive agent flow', () => {
     await expect(chatTabButton).toBeVisible({ timeout: 5_000 });
     await chatTabButton.click();
 
-    // Idle state: "Start interactive agent" button visible
-    const startButton = page.getByRole('button', { name: /start interactive agent/i });
-    await expect(startButton).toBeVisible({ timeout: 5_000 });
+    // Empty state: chat input should be immediately visible (no start button needed)
+    const chatInput = page.getByRole('textbox', { name: /message|write/i });
+    await expect(chatInput).toBeVisible({ timeout: 5_000 });
 
-    // Click start
-    await startButton.click();
-
-    // Booting state: expect a boot stage indicator — use .first() since both
-    // the status badge and the status text may match
-    await expect(page.getByText(/spawning|loading.context|starting session/i).first()).toBeVisible({
+    // Empty state text should be shown
+    await expect(page.getByText('Send a message to start chatting with the agent.')).toBeVisible({
       timeout: 5_000,
     });
 
-    // Wait for ready state — session mock returns 'ready' immediately, so polling finds it fast
-    // The chat input should appear when ready
-    const chatInput = page.getByRole('textbox', { name: /message|chat/i });
-    await expect(chatInput).toBeVisible({ timeout: 15_000 });
-
-    // The greeting message from the mock should appear
-    await expect(page.getByText('Hey, how can I help?')).toBeVisible({ timeout: 5_000 });
-
-    // Send a message
-    await chatInput.fill('What is the current status?');
+    // Type a message using keyboard events to trigger React state updates properly
+    await chatInput.click();
+    await chatInput.pressSequentially('Hello agent', { delay: 20 });
     await chatInput.press('Enter');
 
     // User message should appear (either optimistically or after refetch)
-    await expect(page.getByText('What is the current status?')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Hello agent')).toBeVisible({ timeout: 10_000 });
 
-    // Stop agent button should be visible
+    // Stop button should be visible in the header when session is active
     const stopButton = page.getByRole('button', { name: /stop/i });
     await expect(stopButton).toBeVisible({ timeout: 5_000 });
     await stopButton.click();
 
-    // After stop: Restart agent button should appear
-    await expect(page.getByRole('button', { name: /restart agent/i })).toBeVisible({
-      timeout: 5_000,
-    });
+    // After stop: Clear button should still be visible, chat input should remain usable
+    await expect(page.getByRole('button', { name: /clear/i })).toBeVisible({ timeout: 5_000 });
+    await expect(chatInput).toBeVisible();
   });
 });
 
