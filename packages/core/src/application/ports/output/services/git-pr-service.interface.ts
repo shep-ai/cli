@@ -470,4 +470,44 @@ export interface IGitPrService {
     featureBranch: string,
     baseBranch: string
   ): Promise<{ ahead: number; behind: number }>;
+
+  /**
+   * Get the current branch name.
+   * Returns 'HEAD' if the repository is in detached HEAD state.
+   *
+   * @param cwd - Working directory path
+   * @returns The current branch name
+   */
+  getCurrentBranch(cwd: string): Promise<string>;
+
+  /**
+   * Get the commit history for a branch.
+   *
+   * @param cwd - Working directory path
+   * @param branch - Branch name to get history for
+   * @param limit - Maximum number of commits to return (default 50)
+   * @returns Array of commit info objects ordered newest first
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  getCommitHistory(cwd: string, branch: string, limit?: number): Promise<CommitInfo[]>;
+}
+
+/**
+ * Information about a single git commit.
+ */
+export interface CommitInfo {
+  /** Full 40-character SHA hash */
+  hash: string;
+  /** Short 7-character SHA hash */
+  shortHash: string;
+  /** Commit subject line (first line of commit message) */
+  subject: string;
+  /** Author display name */
+  authorName: string;
+  /** Author email address */
+  authorEmail: string;
+  /** Author date in ISO 8601 format */
+  date: string;
+  /** Ref names (e.g. ["HEAD -> main", "origin/main", "v1.0.0"]) */
+  refs: string[];
 }

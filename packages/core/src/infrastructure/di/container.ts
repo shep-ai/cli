@@ -123,6 +123,7 @@ import { ArchiveFeatureUseCase } from '../../application/use-cases/features/arch
 import { UnarchiveFeatureUseCase } from '../../application/use-cases/features/unarchive-feature.use-case.js';
 import { UpgradeCliUseCase } from '../../application/use-cases/upgrade/upgrade-cli.use-case.js';
 import { SyncRepositoryMainUseCase } from '../../application/use-cases/repositories/sync-repository-main.use-case.js';
+import { GetRepositoryCommitsUseCase } from '../../application/use-cases/repositories/get-repository-commits.use-case.js';
 import { RebaseFeatureOnMainUseCase } from '../../application/use-cases/features/rebase-feature-on-main.use-case.js';
 import { GetBranchSyncStatusUseCase } from '../../application/use-cases/features/get-branch-sync-status.use-case.js';
 import { ConflictResolutionService } from '../services/agents/conflict-resolution/conflict-resolution.service.js';
@@ -407,6 +408,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(SyncRepositoryMainUseCase);
   container.registerSingleton(RebaseFeatureOnMainUseCase);
   container.registerSingleton(GetBranchSyncStatusUseCase);
+  container.registerSingleton(GetRepositoryCommitsUseCase);
 
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
@@ -523,6 +525,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('GetBranchSyncStatusUseCase', {
     useFactory: (c) => c.resolve(GetBranchSyncStatusUseCase),
+  });
+  container.register('GetRepositoryCommitsUseCase', {
+    useFactory: (c) => c.resolve(GetRepositoryCommitsUseCase),
   });
 
   // Register interactive session infrastructure

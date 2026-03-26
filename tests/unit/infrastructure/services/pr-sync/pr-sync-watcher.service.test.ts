@@ -106,6 +106,8 @@ function createMockGitPrService(): IGitPrService {
     rebaseContinue: vi.fn().mockResolvedValue(undefined),
     rebaseAbort: vi.fn().mockResolvedValue(undefined),
     getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
+    getCurrentBranch: vi.fn().mockResolvedValue('main'),
+    getCommitHistory: vi.fn().mockResolvedValue([]),
   };
 }
 
