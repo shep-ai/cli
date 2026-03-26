@@ -1,5 +1,18 @@
 # CI/CD Rules (STRICT)
 
+## Pre-Push Local Verification
+
+- Before pushing, run every CI check that can execute locally — catch failures in seconds, not minutes
+- The local verification sequence mirrors CI and MUST pass before any push:
+  1. `pnpm lint` + `pnpm format:check` — code quality
+  2. `pnpm typecheck` — type safety
+  3. `pnpm test:unit && pnpm test:int` — correctness
+  4. `pnpm build` — compilation
+- If ANY local check fails, fix it before pushing — do not push and hope CI passes
+- For UI changes, also run `pnpm build:storybook` locally — broken stories are a CI failure
+- For E2E-affecting changes, run the relevant `pnpm test:e2e:*` suite locally when feasible
+- The goal is: **CI should never tell you something you could have caught locally**
+
 ## Watching CI Runs
 
 - A single push can trigger MULTIPLE workflow runs (e.g., CI/CD + PR validation)

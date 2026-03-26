@@ -132,6 +132,7 @@ import { StartInteractiveSessionUseCase } from '../../application/use-cases/inte
 import { SendInteractiveMessageUseCase } from '../../application/use-cases/interactive/send-interactive-message.use-case.js';
 import { StopInteractiveSessionUseCase } from '../../application/use-cases/interactive/stop-interactive-session.use-case.js';
 import { GetInteractiveChatStateUseCase } from '../../application/use-cases/interactive/get-interactive-chat-state.use-case.js';
+import { RespondToInteractionUseCase } from '../../application/use-cases/interactive/respond-to-interaction.use-case.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -563,6 +564,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(SendInteractiveMessageUseCase);
   container.registerSingleton(StopInteractiveSessionUseCase);
   container.registerSingleton(GetInteractiveChatStateUseCase);
+  container.registerSingleton(RespondToInteractionUseCase);
 
   // String-token aliases for web routes (Turbopack can't resolve .js→.ts
   // imports inside @shepai/core, so routes use string tokens instead of class refs)
@@ -577,6 +579,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('GetInteractiveChatStateUseCase', {
     useFactory: (c) => c.resolve(GetInteractiveChatStateUseCase),
+  });
+  container.register('RespondToInteractionUseCase', {
+    useFactory: (c) => c.resolve(RespondToInteractionUseCase),
   });
 
   // Startup cleanup: mark any zombie sessions (booting/ready from a prior server run) as stopped

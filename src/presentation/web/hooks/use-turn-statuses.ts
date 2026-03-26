@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-export type TurnStatus = 'idle' | 'processing' | 'unread';
+export type TurnStatus = 'idle' | 'processing' | 'unread' | 'awaiting_input';
 
 /**
  * Polls ALL active turn statuses from the backend.
@@ -17,7 +17,7 @@ export function useAllTurnStatuses(): Record<string, TurnStatus> {
       if (!res.ok) return {};
       return res.json();
     },
-    refetchInterval: 5_000,
+    refetchInterval: 2_000,
   });
 
   return data ?? {};

@@ -214,15 +214,33 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     [fitView, guardedNavigate, router]
   );
 
-  // Wrapper: add repo + auto-focus if canvas was empty
+  // Smoothly pan/zoom to a specific node after it appears on canvas
+  const focusOnNode = useCallback(
+    (nodeId: string) => {
+      // Wait for next render so the node exists in the DOM
+      setTimeout(() => {
+        fitView({
+          nodes: [{ id: nodeId }],
+          maxZoom: 1.0,
+          padding: 0.4,
+          duration: 600,
+        });
+      }, 0);
+    },
+    [fitView]
+  );
+
+  // Wrapper: add repo + auto-focus on the new node
   const addRepoAndFocus = useCallback(
     (path: string) => {
-      const { wasEmpty, repoPath } = handleAddRepository(path);
+      const { wasEmpty, repoPath, tempNodeId } = handleAddRepository(path);
       if (wasEmpty) {
         focusAndOpenDrawer(repoPath);
+      } else {
+        focusOnNode(tempNodeId);
       }
     },
-    [handleAddRepository, focusAndOpenDrawer]
+    [handleAddRepository, focusAndOpenDrawer, focusOnNode]
   );
 
   // Listen for global "add repository" events from the top bar button

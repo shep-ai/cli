@@ -10,6 +10,7 @@ import { composeUserInput } from '@/app/actions/compose-user-input';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import { useChatRuntime } from './useChatRuntime';
 import { ChatComposer } from './ChatComposer';
+import { InteractionBubble } from './InteractionBubble';
 
 export interface ChatTabProps {
   featureId: string;
@@ -30,11 +31,19 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
     [att.completedAttachments]
   );
 
-  const { runtime, status, clearChat, stopAgent, sessionInfo, isChatLoading } = useChatRuntime(
-    featureId,
-    worktreePath,
-    { contentTransform, onMessageSent: att.clearAttachments }
-  );
+  const {
+    runtime,
+    status,
+    clearChat,
+    stopAgent,
+    sessionInfo,
+    isChatLoading,
+    pendingInteraction,
+    respondToInteraction,
+  } = useChatRuntime(featureId, worktreePath, {
+    contentTransform,
+    onMessageSent: att.clearAttachments,
+  });
 
   const handlePickFiles = useCallback(async () => {
     try {
@@ -106,7 +115,17 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
           <ChatSkeleton />
         ) : (
           <AssistantRuntimeProvider runtime={runtime}>
-            <Thread composer={composer} />
+            <Thread
+              composer={composer}
+              afterMessages={
+                pendingInteraction ? (
+                  <InteractionBubble
+                    interaction={pendingInteraction}
+                    onSubmit={respondToInteraction}
+                  />
+                ) : undefined
+              }
+            />
           </AssistantRuntimeProvider>
         )}
       </div>
