@@ -5,7 +5,6 @@ import { useReactFlow } from '@xyflow/react';
 import type { Viewport } from '@xyflow/react';
 import { Eye, EyeOff, ZoomIn, ZoomOut, Maximize, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
 
 export interface CanvasToolbarProps {
   showArchived: boolean;
@@ -46,11 +45,12 @@ export function CanvasToolbar({
         onClick={onToggleArchived}
         title={showArchived ? 'Hide archived' : 'Show archived'}
         active={showArchived}
+        label={showArchived ? 'Hide' : 'Show'}
       >
         {showArchived ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
       </ToolbarButton>
 
-      <Separator orientation="vertical" className="mx-1 h-6" />
+      <div className="bg-border mx-1 h-5 w-px" />
 
       {/* Zoom controls */}
       <ToolbarButton onClick={handleZoomOut} title="Zoom out">
@@ -77,11 +77,13 @@ function ToolbarButton({
   children,
   onClick,
   title,
+  label,
   active,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   title: string;
+  label?: string;
   active?: boolean;
 }) {
   return (
@@ -96,6 +98,7 @@ function ToolbarButton({
       )}
     >
       {children}
+      {label ? <span>{label}</span> : null}
     </button>
   );
 }
