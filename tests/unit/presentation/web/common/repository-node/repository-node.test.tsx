@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
+
+vi.mock('@/hooks/use-turn-statuses', () => ({
+  useTurnStatuses: () => ({}),
+}));
 import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeData, RepositoryNodeType } from '@/components/common/repository-node';
 

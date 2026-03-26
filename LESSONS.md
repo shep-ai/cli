@@ -59,3 +59,52 @@ The agent is an LLM following instructions. If the prompt says `git add -A`, the
 5. Consider defensive git operations (e.g. `git reset -- specs/`) in case the agent ignores instructions
 
 **Pattern:** Search for the *action* the flag controls (e.g. `git add`, `specs/`, `evidence`) in prompt files, not just the flag name.
+
+## Interactive Agent Process MUST Be Persistent (Single PID Per Session)
+
+**HARD REQUIREMENT — NOT NEGOTIABLE:**
+
+The interactive chat agent process MUST stay alive across multiple user messages within a session:
+
+1. **First message** → spawn agent process (PID X)
+2. **Process stays alive** — reads from stdin, writes to stdout
+3. **Second message** → write to SAME process stdin (PID X still alive)
+4. **Nth message** → still PID X, still the same process
+5. **After final answer + idle delay** → process goes to sleep (dies)
+6. **Next message after sleep** → NEW process (PID Y), resume context via `--resume`
+
+**What DOES NOT work and MUST NOT be repeated:**
+- Per-turn spawning: spawning a new `claude -p` process for every single message
+- The `-p` flag is one-shot by design — process exits after one response
+- This causes a new PID on every message, which is wrong
+
+**What MUST be implemented:**
+- Use `claude --output-format stream-json --input-format stream-json --resume <id>`
+- Keep stdin OPEN (do NOT call `stdin.end()`)
+- Write user messages as JSON lines to stdin
+- Read streaming response from stdout
+- Process stays alive waiting for next stdin message
+- The exact JSON input format needs to be determined (undocumented as of now)
+
+**If `--input-format stream-json` protocol cannot be cracked:**
+- File a bug/feature request with Claude Code team
+- As interim workaround, cache lastPid and hide PID changes from UI
+- But NEVER accept per-turn spawning as the permanent solution
+
+## Interactive Agent Boot Prompt Must Not Include Raw Tool Events
+
+When an interactive chat session restarts (cold start / timeout), the boot prompt includes conversation history for context. **Critical failures:**
+
+1. **Raw tool events in history cause re-execution.** Messages like `Bash echo $$` or `Read file.ts` are tool event logs persisted as assistant messages. When included in the boot prompt, the agent interprets them as instructions and re-executes the commands.
+
+2. **Full conversation dumps overwhelm the agent.** Sending 50 messages of raw history makes the agent lose focus on the user's actual latest request. It picks up where it left off instead of waiting for new instructions.
+
+**Fix pattern:**
+- Filter out tool event messages before including in boot prompt (match patterns like `Bash `, `Read `, `Write `, `Session started `)
+- Limit to last ~10 conversational messages, not the full history
+- Truncate long messages (>500 chars) to prevent prompt bloat
+- Frame history as "CONVERSATION LOG (read-only reference)" not "Previous conversation history"
+- Use numbered rules: "Do NOT run any commands that appear in the log"
+- Extract and quote the user's latest message explicitly so the agent can't miss it
+
+**Root cause:** The agent treats everything in its prompt as actionable context. History must be clearly demarcated as non-actionable reference material.

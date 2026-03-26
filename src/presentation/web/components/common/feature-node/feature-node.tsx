@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Handle, Position } from '@xyflow/react';
 import {
   Plus,
@@ -15,12 +16,15 @@ import {
   Eye,
   Archive,
   ArchiveRestore,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button/action-button';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ChatDotIndicator } from '@/components/features/chat/ChatDotIndicator';
+import { useTurnStatus } from '@/hooks/turn-statuses-provider';
 import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import {
@@ -91,12 +95,15 @@ export function FeatureNode({
   selected?: boolean;
   [key: string]: unknown;
 }) {
+  const router = useRouter();
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const featureFlags = useFeatureFlags();
+
+  const chatTurnStatus = useTurnStatus(data.featureId);
 
   const deployTarget =
     featureFlags.envDeploy && data.repositoryPath && data.branch
@@ -418,6 +425,32 @@ export function FeatureNode({
                   repositoryPath={data.worktreePath ?? data.repositoryPath}
                 />
               ) : null}
+              {/* Chat button */}
+              {data.state !== 'creating' && data.state !== 'deleting' && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        aria-label="Open chat"
+                        data-testid="feature-node-chat-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/feature/${data.featureId}/chat`);
+                        }}
+                        className="nodrag relative cursor-pointer text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300"
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        <ChatDotIndicator status={chatTurnStatus} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Chat with agent</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {deployTarget && data.state !== 'deleting' && data.state !== 'creating' ? (
                 <>
                   <span className="bg-border h-3 w-px shrink-0" />

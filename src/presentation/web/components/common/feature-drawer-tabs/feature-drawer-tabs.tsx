@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import { getFeaturePhaseTimings } from '@/app/actions/get-feature-phase-timings';
 import type {
   PhaseTimingData,
@@ -27,6 +28,7 @@ import { OverviewTab } from './overview-tab';
 import { ActivityTab } from './activity-tab';
 import { LogTab } from './log-tab';
 import { PlanTab } from './plan-tab';
+import { ChatTab } from '@/components/features/chat/ChatTab';
 import { useFeatureLogs } from '@/hooks/use-feature-logs';
 import { useTabDataFetch } from './use-tab-data-fetch';
 import type { TabFetchers } from './use-tab-data-fetch';
@@ -52,10 +54,14 @@ const ALL_TABS: TabDef[] = [
   { key: 'tech-decisions', label: 'Tech Decisions' },
   { key: 'product-decisions', label: 'Product' },
   { key: 'merge-review', label: 'Merge Review' },
+  { key: 'chat', label: 'Chat' },
 ];
 
 /** Compute which tabs are visible based on feature lifecycle + state. */
-function computeVisibleTabs(node: FeatureNodeData): FeatureTabKey[] {
+function computeVisibleTabs(
+  node: FeatureNodeData,
+  interactiveAgentEnabled = true
+): FeatureTabKey[] {
   const tabs: FeatureTabKey[] = ['overview', 'activity'];
 
   if (node.hasAgentRun) {
@@ -78,10 +84,19 @@ function computeVisibleTabs(node: FeatureNodeData): FeatureTabKey[] {
     tabs.push('merge-review');
   }
 
+  // Chat tab is visible for ALL lifecycle phases when interactive agent is enabled
+  if (interactiveAgentEnabled) {
+    tabs.push('chat');
+  }
+
   return tabs;
 }
 
 export interface FeatureDrawerTabsProps {
+  /** Feature name rendered in the inline header. */
+  featureName?: string;
+  /** Additional header content (repo info, actions) rendered below the title row. */
+  headerContent?: React.ReactNode;
   featureNode: FeatureNodeData;
   featureId: string;
   initialTab?: FeatureTabKey;
@@ -128,6 +143,10 @@ export interface FeatureDrawerTabsProps {
   isRejecting?: boolean;
   chatInput?: string;
   onChatInputChange?: (value: string) => void;
+
+  // Interactive agent
+  /** When false, the Chat tab is hidden from the tab bar (FR-17). Defaults to true. */
+  interactiveAgentEnabled?: boolean;
 }
 
 interface ActivityData {
@@ -153,6 +172,8 @@ const TAB_FETCHERS: TabFetchers<LazyTabKey> = {
 };
 
 export function FeatureDrawerTabs({
+  featureName,
+  headerContent,
   featureNode,
   featureId,
   initialTab,
@@ -183,10 +204,14 @@ export function FeatureDrawerTabs({
   chatInput,
   onChatInputChange,
   sseEvents,
+  interactiveAgentEnabled = true,
 }: FeatureDrawerTabsProps) {
   const pathname = usePathname();
 
-  const visibleTabs = useMemo(() => computeVisibleTabs(featureNode), [featureNode]);
+  const visibleTabs = useMemo(
+    () => computeVisibleTabs(featureNode, interactiveAgentEnabled),
+    [featureNode, interactiveAgentEnabled]
+  );
   const visibleTabDefs = useMemo(
     () =>
       ALL_TABS.filter((t) => visibleTabs.includes(t.key)).map((t) =>
@@ -248,9 +273,9 @@ export function FeatureDrawerTabs({
     const pathTab = segments.length >= 4 ? (segments[3] as FeatureTabKey) : undefined;
     const resolved = pathTab && visibleTabs.includes(pathTab) ? pathTab : 'overview';
     if (resolved !== activeTab) {
-      setActiveTab(resolved);
+      setActiveTab(resolved as FeatureTabKey);
       if (resolved === 'activity' || resolved === 'plan') {
-        fetchTab(resolved);
+        fetchTab(resolved as LazyTabKey);
       }
     }
   }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -389,15 +414,31 @@ export function FeatureDrawerTabs({
         onValueChange={handleTabChange}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="shrink-0 overflow-x-auto px-4 pt-4">
-          <TabsList className="flex w-full">
-            {visibleTabDefs.map((tab) => (
-              <TabsTrigger key={tab.key} value={tab.key} className="flex-1">
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        {/* Integrated header: title + inline tabs + actions */}
+        <div className="shrink-0 px-4 pt-4 pb-3" data-testid="feature-drawer-header">
+          {/* Row 1: Feature name (left) + tab triggers (right) */}
+          <div className="flex items-baseline gap-4 pr-6">
+            {featureName ? (
+              <h2 className="text-foreground min-w-0 shrink truncate text-base font-semibold tracking-tight">
+                {featureName}
+              </h2>
+            ) : null}
+            <TabsList className="h-auto shrink-0 gap-0.5 rounded-none border-0 bg-transparent p-0">
+              {visibleTabDefs.map((tab) => (
+                <TabsTrigger
+                  key={tab.key}
+                  value={tab.key}
+                  className="text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:border-primary h-auto rounded-none border-b-2 border-transparent bg-transparent px-2 py-0.5 text-[12px] font-medium shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          {/* Row 2+: repo info, actions */}
+          {headerContent}
         </div>
+        <Separator />
 
         <TabsContent value="overview" className="mt-0 flex-1 overflow-y-auto">
           <OverviewTab
@@ -528,6 +569,13 @@ export function FeatureDrawerTabs({
                 )}
               </div>
             )}
+          </TabsContent>
+        ) : null}
+
+        {/* Chat tab — always visible when interactive agent is enabled (FR-1, FR-17) */}
+        {visibleTabs.includes('chat') ? (
+          <TabsContent value="chat" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ChatTab featureId={featureId} worktreePath={featureNode.worktreePath} />
           </TabsContent>
         ) : null}
       </Tabs>

@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Settings2,
   Timer,
+  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ import type {
   Settings,
   FeatureFlags,
   NotificationPreferences,
+  InteractiveAgentConfig,
 } from '@shepai/core/domain/generated/output';
 import type { AvailableTerminal } from '@/app/actions/get-available-terminals';
 
@@ -61,6 +63,7 @@ const SECTIONS = [
   { id: 'stage-timeouts', label: 'Timeouts', icon: Timer },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'feature-flags', label: 'Flags', icon: Flag },
+  { id: 'interactive-agent', label: 'Chat', icon: MessageSquare },
   { id: 'database', label: 'Database', icon: Database },
 ] as const;
 
@@ -423,6 +426,20 @@ export function SettingsPageClient({
   const analyzeRepoConfig = settings.workflow.analyzeRepoTimeouts;
   const [analyzeRepoTimeout, setAnalyzeRepoTimeout] = useState(
     String(Math.round((analyzeRepoConfig?.analyzeMs ?? 600_000) / 1000))
+  );
+
+  // Interactive agent state
+  const interactiveAgentConfig: InteractiveAgentConfig = settings.interactiveAgent ?? {
+    enabled: true,
+    autoTimeoutMinutes: 15,
+    maxConcurrentSessions: 3,
+  };
+  const [interactiveEnabled, setInteractiveEnabled] = useState(interactiveAgentConfig.enabled);
+  const [interactiveTimeout, setInteractiveTimeout] = useState(
+    String(interactiveAgentConfig.autoTimeoutMinutes)
+  );
+  const [interactiveSessions, setInteractiveSessions] = useState(
+    String(interactiveAgentConfig.maxConcurrentSessions)
   );
 
   // Notification state
@@ -1477,6 +1494,99 @@ export function SettingsPageClient({
             Experimental features that are still under development. Enable at your own risk — they
             may change or be removed in future versions. Debug mode adds verbose logging useful for
             troubleshooting.
+          </SectionHint>
+        </div>
+
+        {/* ── Interactive Agent ── */}
+        <div
+          id="section-interactive-agent"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+        >
+          <SettingsSection
+            icon={MessageSquare}
+            title="Interactive Agent"
+            description="Chat tab settings for per-feature interactive agent sessions"
+            testId="interactive-agent-settings-section"
+          >
+            <SwitchRow
+              label="Enable Chat tab"
+              description="Show the Chat tab on all feature detail pages"
+              id="interactive-agent-enabled"
+              testId="switch-interactive-agent-enabled"
+              checked={interactiveEnabled}
+              onChange={(v) => {
+                setInteractiveEnabled(v);
+                save({
+                  interactiveAgent: {
+                    enabled: v,
+                    autoTimeoutMinutes: parseInt(interactiveTimeout, 10) || 15,
+                    maxConcurrentSessions: parseInt(interactiveSessions, 10) || 3,
+                  },
+                });
+              }}
+            />
+            <SettingsRow
+              label="Auto-timeout"
+              description="Minutes of inactivity before the agent is stopped automatically (1–120)"
+              htmlFor="interactive-agent-timeout"
+            >
+              <NumberStepper
+                id="interactive-agent-timeout"
+                testId="input-interactive-agent-timeout"
+                value={interactiveTimeout}
+                placeholder="15"
+                min={1}
+                max={120}
+                suffix="min"
+                onChange={setInteractiveTimeout}
+                onBlur={() => {
+                  const n = parseInt(interactiveTimeout, 10);
+                  const clamped = Number.isNaN(n) ? 15 : Math.min(120, Math.max(1, n));
+                  const clamped_str = String(clamped);
+                  setInteractiveTimeout(clamped_str);
+                  save({
+                    interactiveAgent: {
+                      enabled: interactiveEnabled,
+                      autoTimeoutMinutes: clamped,
+                      maxConcurrentSessions: parseInt(interactiveSessions, 10) || 3,
+                    },
+                  });
+                }}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Max concurrent sessions"
+              description="Maximum number of active interactive agent sessions at once (1–10)"
+              htmlFor="interactive-agent-sessions"
+            >
+              <NumberStepper
+                id="interactive-agent-sessions"
+                testId="input-interactive-agent-sessions"
+                value={interactiveSessions}
+                placeholder="3"
+                min={1}
+                max={10}
+                onChange={setInteractiveSessions}
+                onBlur={() => {
+                  const n = parseInt(interactiveSessions, 10);
+                  const clamped = Number.isNaN(n) ? 3 : Math.min(10, Math.max(1, n));
+                  const clamped_str = String(clamped);
+                  setInteractiveSessions(clamped_str);
+                  save({
+                    interactiveAgent: {
+                      enabled: interactiveEnabled,
+                      autoTimeoutMinutes: parseInt(interactiveTimeout, 10) || 15,
+                      maxConcurrentSessions: clamped,
+                    },
+                  });
+                }}
+              />
+            </SettingsRow>
+          </SettingsSection>
+          <SectionHint>
+            The Chat tab spawns a persistent agent process per feature. Auto-timeout stops idle
+            sessions automatically to conserve resources. The concurrent session cap prevents
+            runaway resource usage on developer machines.
           </SectionHint>
         </div>
 

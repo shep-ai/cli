@@ -1,15 +1,11 @@
 'use client';
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { Plus, FolderPlus, Github, GitBranch } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
-import {
-  FloatingActionButton,
-  type FloatingActionButtonAction,
-} from '@/components/common/floating-action-button';
 import { ReactFileManagerDialog } from '@/components/common/react-file-manager-dialog';
+import { GlobalChatPopup } from '@/components/features/chat/ChatSheet';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
 import { GitHubImportDialog } from '@/components/common/github-import-dialog';
 import { AgentEventsProvider } from '@/hooks/agent-events-provider';
@@ -18,6 +14,7 @@ import {
   SidebarFeaturesProvider,
   useSidebarFeaturesContext,
 } from '@/hooks/sidebar-features-context';
+import { TurnStatusesProvider } from '@/hooks/turn-statuses-provider';
 
 import { useNotifications } from '@/hooks/use-notifications';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
@@ -28,32 +25,15 @@ interface AppShellProps {
   sidebarOpen?: boolean;
 }
 
-/** Control center route prefixes where the FAB should be visible. */
-const CONTROL_CENTER_PREFIXES = ['/', '/create', '/adopt', '/feature', '/repository'];
-
-function isControlCenterRoute(pathname: string): boolean {
-  return CONTROL_CENTER_PREFIXES.some(
-    (prefix) => pathname === prefix || (prefix !== '/' && pathname.startsWith(`${prefix}/`))
-  );
-}
-
 function AppShellInner({ children, sidebarOpen }: AppShellProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const { guardedNavigate } = useDrawerCloseGuard();
   const featureFlags = useFeatureFlags();
 
   // Subscribe to agent lifecycle events and dispatch toast/browser notifications
   useNotifications();
 
-  const { features, hasRepositories } = useSidebarFeaturesContext();
-  const handleNewFeature = useCallback(() => {
-    guardedNavigate(() => router.push('/create'));
-  }, [router, guardedNavigate]);
-
-  const handleAdoptBranch = useCallback(() => {
-    guardedNavigate(() => router.push('/adopt'));
-  }, [router, guardedNavigate]);
+  const { features } = useSidebarFeaturesContext();
 
   const handleFeatureClick = useCallback(
     (featureId: string) => {
@@ -88,15 +68,20 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
     }
   }, [addingRepo, featureFlags.reactFileManager]);
 
+  // Listen for pick-folder events from the canvas toolbar
+  useEffect(() => {
+    const handler = () => {
+      void handleAddRepository();
+    };
+    window.addEventListener('shep:pick-folder', handler);
+    return () => window.removeEventListener('shep:pick-folder', handler);
+  }, [handleAddRepository]);
+
   const handleReactPickerSelect = useCallback((path: string | null) => {
     if (path) {
       window.dispatchEvent(new CustomEvent('shep:add-repository', { detail: { path } }));
     }
     setShowReactPicker(false);
-  }, []);
-
-  const handleImportFromGitHub = useCallback(() => {
-    setGithubDialogOpen(true);
   }, []);
 
   const handleGitHubImportComplete = useCallback((repository: { path?: string }) => {
@@ -106,51 +91,6 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
       );
     }
   }, []);
-
-  const fabActions: FloatingActionButtonAction[] = useMemo(() => {
-    const actions: FloatingActionButtonAction[] = [
-      {
-        id: 'new-feature',
-        label: 'New Feature',
-        icon: <Plus className="h-4 w-4" />,
-        onClick: handleNewFeature,
-      },
-      ...(featureFlags.adoptBranch
-        ? [
-            {
-              id: 'adopt-branch',
-              label: 'Adopt Branch',
-              icon: <GitBranch className="h-4 w-4" />,
-              onClick: handleAdoptBranch,
-            },
-          ]
-        : []),
-      {
-        id: 'add-repository',
-        label: 'Add Repository',
-        icon: <FolderPlus className="h-4 w-4" />,
-        onClick: handleAddRepository,
-        loading: addingRepo,
-      },
-    ];
-    if (featureFlags.githubImport) {
-      actions.push({
-        id: 'import-github',
-        label: 'Import from GitHub',
-        icon: <Github className="h-4 w-4" />,
-        onClick: handleImportFromGitHub,
-      });
-    }
-    return actions;
-  }, [
-    handleNewFeature,
-    handleAdoptBranch,
-    handleAddRepository,
-    addingRepo,
-    handleImportFromGitHub,
-    featureFlags.githubImport,
-    featureFlags.adoptBranch,
-  ]);
 
   return (
     <SidebarProvider defaultOpen={sidebarOpen ?? false}>
@@ -162,9 +102,8 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
       <SidebarInset>
         <div className="relative h-full">
           <main className="h-full">{children}</main>
-          {isControlCenterRoute(pathname) && hasRepositories ? (
-            <FloatingActionButton actions={fabActions} />
-          ) : null}
+          {/* Global chat popup — always visible, persists through navigation */}
+          <GlobalChatPopup />
           {featureFlags.githubImport ? (
             <GitHubImportDialog
               open={githubDialogOpen}
@@ -185,12 +124,21 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
   );
 }
 
+/** Wraps children with TurnStatusesProvider, collecting scope IDs from sidebar features. */
+function TurnStatusesBridge({ children }: { children: ReactNode }) {
+  const { features } = useSidebarFeaturesContext();
+  const scopeIds = useMemo(() => ['global', ...features.map((f) => f.featureId)], [features]);
+  return <TurnStatusesProvider scopeIds={scopeIds}>{children}</TurnStatusesProvider>;
+}
+
 export function AppShell({ children, sidebarOpen }: AppShellProps) {
   return (
     <AgentEventsProvider>
       <DrawerCloseGuardProvider>
         <SidebarFeaturesProvider>
-          <AppShellInner sidebarOpen={sidebarOpen}>{children}</AppShellInner>
+          <TurnStatusesBridge>
+            <AppShellInner sidebarOpen={sidebarOpen}>{children}</AppShellInner>
+          </TurnStatusesBridge>
         </SidebarFeaturesProvider>
       </DrawerCloseGuardProvider>
     </AgentEventsProvider>

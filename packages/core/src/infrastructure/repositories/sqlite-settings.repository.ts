@@ -68,7 +68,9 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_github_import, feature_flag_adopt_branch, feature_flag_git_rebase_sync,
         feature_flag_react_file_manager,
         workflow_enable_evidence, workflow_commit_evidence,
-        hide_ci_status
+        hide_ci_status,
+        interactive_agent_enabled, interactive_agent_auto_timeout_minutes,
+        interactive_agent_max_concurrent_sessions
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement, @model_default,
@@ -94,7 +96,9 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug, @feature_flag_github_import, @feature_flag_adopt_branch, @feature_flag_git_rebase_sync,
         @feature_flag_react_file_manager,
         @workflow_enable_evidence, @workflow_commit_evidence,
-        @hide_ci_status
+        @hide_ci_status,
+        @interactive_agent_enabled, @interactive_agent_auto_timeout_minutes,
+        @interactive_agent_max_concurrent_sessions
       )
     `);
 
@@ -199,7 +203,10 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         feature_flag_react_file_manager = @feature_flag_react_file_manager,
         workflow_enable_evidence = @workflow_enable_evidence,
         workflow_commit_evidence = @workflow_commit_evidence,
-        hide_ci_status = @hide_ci_status
+        hide_ci_status = @hide_ci_status,
+        interactive_agent_enabled = @interactive_agent_enabled,
+        interactive_agent_auto_timeout_minutes = @interactive_agent_auto_timeout_minutes,
+        interactive_agent_max_concurrent_sessions = @interactive_agent_max_concurrent_sessions
       WHERE id = @id
     `);
 

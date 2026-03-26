@@ -1,0 +1,23 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: InteractiveMessage.yaml
+type: object
+properties:
+  featureId:
+    type: string
+    description: "Polymorphic scope key: feature UUID, 'repo-<id>', or 'global'. Future: rename to scopeId + scopeType."
+  sessionId:
+    type: string
+    description: Session ID during which this message was sent (optional)
+  role:
+    $ref: InteractiveMessageRole.yaml
+    description: "Author role: user or assistant"
+  content:
+    type: string
+    description: Full message content (finalised after streaming for assistant messages)
+required:
+  - featureId
+  - role
+  - content
+allOf:
+  - $ref: BaseEntity.yaml
+description: A single chat message in a per-feature interactive agent session

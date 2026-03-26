@@ -1,0 +1,268 @@
+name: "interactive-feature-agent"
+summary: >
+  Iteration 2: Adopt @anthropic-ai/claude-agent-sdk via the IAgentExecutor pattern,
+  add use cases as presentation boundary, and thread agent/model selection end-to-end.
+  The SDK is encapsulated inside ClaudeCodeInteractiveExecutor, not a standalone adapter.
+
+relatedFeatures:
+  - "074-interactive-feature-agent (iteration 1)"
+
+technologies:
+  - "TypeScript"
+  - "@anthropic-ai/claude-agent-sdk v0.2.81+ (V2 session API)"
+  - "tsyringe (@injectable, @inject decorators for DI)"
+  - "zod@^4 (peer dep of SDK)"
+
+relatedLinks:
+  - title: "@anthropic-ai/claude-agent-sdk npm"
+    url: "https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk"
+  - title: "Claude Agent SDK GitHub"
+    url: "https://github.com/anthropics/claude-agent-sdk-typescript"
+
+decisions:
+  - title: "IInteractiveAgentExecutor via IAgentExecutorFactory"
+    chosen: |
+      Create a new IInteractiveAgentExecutor interface (application port) alongside
+      IAgentExecutor. Add createInteractiveExecutor(agentType, config) to the existing
+      IAgentExecutorFactory interface. Each agent type that supports interactive mode
+      registers its own implementation:
+
+      - ClaudeCode → ClaudeCodeInteractiveExecutor (uses @anthropic-ai/claude-agent-sdk)
+      - Cursor → future implementation
+      - Gemini → future implementation
+
+      The executor returns an InteractiveAgentSessionHandle that abstracts all
+      agent-specific session management (send, stream, close). The session service
+      only interacts with the handle, never with SDK types directly.
+
+      interface InteractiveAgentSessionHandle {
+        sessionId: string;
+        send(message: string): void;
+        stream(): AsyncIterable<InteractiveAgentEvent>;
+        close(): Promise<void>;
+      }
+
+      interface InteractiveAgentEvent {
+        type: 'delta' | 'tool_use' | 'tool_result' | 'status' | 'done' | 'error';
+        content?: string;
+        label?: string;
+        detail?: string;
+      }
+
+      interface IInteractiveAgentExecutor {
+        createSession(options: InteractiveAgentOptions): Promise<InteractiveAgentSessionHandle>;
+        resumeSession(sessionId: string, options: InteractiveAgentOptions): Promise<InteractiveAgentSessionHandle>;
+      }
+    rejected:
+      - "Standalone IInteractiveAgentAdapter — creates parallel resolution path, duplicates agent-type handling, doesn't integrate with existing factory"
+      - "Add optional methods to IAgentExecutor — pollutes the interface; not all executors support interactive"
+      - "Hardcode SDK in session service — couples service to Claude-specific types; violates agent resolution rule"
+    rationale: |
+      Follows the established codebase pattern exactly: IAgentExecutorFactory resolves
+      the correct executor per agent type. The executor encapsulates all agent-specific
+      logic. The session service is agent-agnostic. Future agent types (Cursor, Gemini)
+      just register their own IInteractiveAgentExecutor implementations.
+
+  - title: "Use Cases as Presentation Boundary"
+    chosen: |
+      Create four use case classes following the existing @injectable() + @inject() pattern:
+
+      1. StartInteractiveSessionUseCase
+         Input: { featureId, worktreePath, agentType?, model? }
+         Output: InteractiveSession
+
+      2. SendInteractiveMessageUseCase
+         Input: { featureId, content, worktreePath }
+         Output: InteractiveMessage
+
+      3. StopInteractiveSessionUseCase
+         Input: { featureId }
+         Output: void
+
+      4. GetInteractiveChatStateUseCase
+         Input: { featureId }
+         Output: ChatState
+
+      API routes use: resolve<UseCase>('UseCaseName').execute(input)
+      Use cases delegate to IInteractiveSessionService.
+
+      The use case is thin — it provides the boundary and can evolve independently
+      (e.g., adding authorization, logging, validation) without changing routes or services.
+    rejected:
+      - "Call services directly from API routes — violates the established pattern; every other route uses use cases"
+      - "Fat use cases with business logic — business logic belongs in the service; use cases are thin delegation"
+    rationale: |
+      Every API route in the codebase follows resolve<UseCase>('TokenName'). The
+      interactive session routes are the only exception. This creates inconsistency
+      and bypasses the application boundary that Clean Architecture requires between
+      presentation and application layers.
+
+  - title: "Agent/Model Selection Threading"
+    chosen: |
+      Thread agentType and model from UI through the full chain:
+
+      1. UI: Chat tab agent/model selector sends { agentType?, model? } with requests
+      2. API route: Passes to use case input
+      3. Use case: Passes to service.startSession(featureId, worktreePath, agentType, model)
+      4. Service: Resolves executor via factory.createInteractiveExecutor(agentType, config)
+      5. Executor: Uses model in session creation (e.g., SDK model option)
+
+      If agentType is omitted, defaults to getSettings().agent.type (same as IAgentExecutorProvider).
+      If model is omitted, uses the executor's default model.
+
+      The SessionState stores both agentType and model so they persist across session
+      lifecycle and are returned in SessionInfo for the UI toolbar display.
+    rejected:
+      - "Hardcode model in adapter — ignores user selection; breaks UI contract"
+      - "Model only from settings — can't override per-session; chat UI selector is useless"
+    rationale: |
+      The chat UI shows an agent+model picker (screenshot confirms: "Claude Code / Sonnet 4.6").
+      This selection must be honored. Threading through the full chain ensures the user's
+      choice reaches the actual agent process.
+
+  - title: "SDK Encapsulation Inside ClaudeCodeInteractiveExecutor"
+    chosen: |
+      The @anthropic-ai/claude-agent-sdk is imported ONLY inside
+      ClaudeCodeInteractiveExecutor (in the executors/ directory alongside
+      claude-code-executor.service.ts). The executor:
+
+      - Creates SDK sessions via unstable_v2_createSession()
+      - Resumes via unstable_v2_resumeSession()
+      - Maps SDK message types to InteractiveAgentEvent:
+        SDKPartialAssistantMessage → { type: 'delta', content }
+        SDKAssistantMessage tool_use blocks → { type: 'tool_use', label, detail }
+        SDKResultMessage success → { type: 'done' }
+        SDKResultMessage error → { type: 'error', content }
+        SDKStatusMessage → { type: 'status', content }
+        SDKToolUseSummaryMessage → { type: 'tool_result', label, detail }
+      - Wraps the SDK session in an InteractiveAgentSessionHandle
+
+      The InteractiveSessionService never imports from the SDK — it only works
+      with InteractiveAgentSessionHandle and InteractiveAgentEvent.
+    rejected:
+      - "Map SDK types in session service — couples service to SDK; violates agent-agnostic design"
+      - "Expose raw SDK session to service — leaks implementation detail through the boundary"
+    rationale: |
+      Encapsulation inside the executor means:
+      - The session service is fully agent-agnostic
+      - SDK upgrades only affect one file (the executor)
+      - Adding new agent types doesn't touch the service
+      - Unit tests for the service mock the executor, not the SDK
+
+  - title: "Dual Persistence Strategy (unchanged from iteration 1)"
+    chosen: |
+      Keep both persistence layers: SDK handles agent context, our SQLite tables
+      handle UI state (feature-scoped message history, session status tracking).
+    rejected:
+      - "SDK only — not feature-scoped, not queryable by our UI"
+    rationale: |
+      Complementary purposes. Our tables serve fast UI queries. SDK serves agent context.
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  ```
+  Presentation Layer (API routes, React components)
+       │
+       │ resolve<UseCase>('StartInteractiveSessionUseCase')
+       ▼
+  Application Layer (Use Cases)
+       │
+       │ delegates to
+       ▼
+  Application Layer (IInteractiveSessionService port)
+       │
+       │ resolves executor via
+       ▼
+  Application Layer (IAgentExecutorFactory port)
+       │
+       │ createInteractiveExecutor(agentType, config)
+       ▼
+  Infrastructure Layer (ClaudeCodeInteractiveExecutor)
+       │
+       │ uses internally
+       ▼
+  @anthropic-ai/claude-agent-sdk (V2 session API)
+       │
+       │ spawns internally
+       ▼
+  Claude Code CLI (bundled in SDK)
+  ```
+
+  ## Key Interfaces
+
+  ### IInteractiveAgentExecutor (new port)
+  ```typescript
+  interface InteractiveAgentOptions {
+    cwd: string;
+    model?: string;
+    systemPrompt?: string;
+  }
+
+  interface InteractiveAgentSessionHandle {
+    sessionId: string;
+    send(message: string): void;
+    stream(): AsyncIterable<InteractiveAgentEvent>;
+    close(): Promise<void>;
+  }
+
+  interface InteractiveAgentEvent {
+    type: 'delta' | 'tool_use' | 'tool_result' | 'status' | 'done' | 'error';
+    content?: string;
+    label?: string;
+    detail?: string;
+  }
+
+  interface IInteractiveAgentExecutor {
+    createSession(options: InteractiveAgentOptions): Promise<InteractiveAgentSessionHandle>;
+    resumeSession(sessionId: string, options: InteractiveAgentOptions): Promise<InteractiveAgentSessionHandle>;
+  }
+  ```
+
+  ### IAgentExecutorFactory (extended)
+  ```typescript
+  interface IAgentExecutorFactory {
+    // existing
+    createExecutor(agentType, authConfig): IAgentExecutor;
+    getSupportedAgents(): AgentType[];
+    getSupportedModels(agentType): string[];
+    getCliInfo(): AgentCliInfo[];
+    // NEW
+    createInteractiveExecutor(agentType: AgentType, authConfig: AgentConfig): IInteractiveAgentExecutor;
+    supportsInteractive(agentType: AgentType): boolean;
+  }
+  ```
+
+  ### Use Case Pattern
+  ```typescript
+  @injectable()
+  export class StartInteractiveSessionUseCase {
+    constructor(
+      @inject('IInteractiveSessionService') private service: IInteractiveSessionService,
+    ) {}
+
+    async execute(input: StartInteractiveSessionInput): Promise<InteractiveSession> {
+      return this.service.startSession(input.featureId, input.worktreePath, input.agentType, input.model);
+    }
+  }
+  ```
+
+  ## Code to Delete
+
+  | File | Reason |
+  | ---- | ------ |
+  | interactive-agent-process.factory.ts | Replaced by ClaudeCodeInteractiveExecutor |
+  | interactive-agent-process-factory.interface.ts | Replaced by IInteractiveAgentExecutor |
+  | claude-agent-sdk.adapter.ts | Wrong pattern — SDK lives inside executor |
+  | interactive-agent-adapter.interface.ts | Wrong pattern — replaced by executor interface |
+
+  ## Library Analysis
+
+  | Library | Decision | Reasoning |
+  | ------- | -------- | --------- |
+  | @anthropic-ai/claude-agent-sdk | Adopt (inside executor) | Official SDK; replaces manual process management |
+  | zod@^4 | Add (peer dep) | Required by SDK |
+  | node:child_process | Remove usage | SDK manages processes internally |
+  | node:readline | Remove usage | SDK handles IPC protocol |

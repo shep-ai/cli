@@ -1,0 +1,172 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "interactive-feature-agent"
+summary: >
+  5 phases: (1) Create IInteractiveAgentExecutor interface and ClaudeCodeInteractiveExecutor
+  using SDK, extend IAgentExecutorFactory. (2) Create use cases and update API routes.
+  (3) Refactor InteractiveSessionService to use executor pattern. (4) Delete dead code
+  (process factory, wrong adapter). (5) Update tests and verify.
+
+relatedFeatures:
+  - "074-interactive-feature-agent (iteration 1)"
+
+technologies:
+  - "TypeScript"
+  - "@anthropic-ai/claude-agent-sdk v0.2.81+"
+  - "tsyringe (DI)"
+  - "Vitest"
+
+relatedLinks:
+  - title: "@anthropic-ai/claude-agent-sdk npm"
+    url: "https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk"
+
+phases:
+  - id: "phase-1"
+    name: "Executor Pattern Extension"
+    description: >
+      Create IInteractiveAgentExecutor port interface with InteractiveAgentSessionHandle.
+      Extend IAgentExecutorFactory with createInteractiveExecutor(). Implement
+      ClaudeCodeInteractiveExecutor using @anthropic-ai/claude-agent-sdk V2 session API.
+      Register in AgentExecutorFactory.
+    parallel: false
+    taskIds:
+      - "task-1"
+      - "task-2"
+      - "task-3"
+
+  - id: "phase-2"
+    name: "Use Cases & API Route Updates"
+    description: >
+      Create four interactive session use cases following the @injectable() pattern.
+      Update all interactive API routes to use resolve<UseCase>() instead of resolving
+      services directly. Thread agentType and model parameters through the chain.
+    parallel: false
+    taskIds:
+      - "task-4"
+      - "task-5"
+
+  - id: "phase-3"
+    name: "Session Service Refactoring"
+    description: >
+      Refactor InteractiveSessionService to accept IAgentExecutorFactory instead of
+      IInteractiveAgentProcessFactory. Use executor.createSession() / resumeSession()
+      instead of spawn(). Replace manual JSON parsing with executor's stream() async
+      iterable. Accept agentType and model in startSession().
+    parallel: false
+    taskIds:
+      - "task-6"
+      - "task-7"
+
+  - id: "phase-4"
+    name: "Dead Code Cleanup"
+    description: >
+      Delete InteractiveAgentProcessFactory, ClaudeAgentSdkAdapter, their interfaces,
+      and all unused imports. Remove manual process management utilities.
+    parallel: false
+    taskIds:
+      - "task-8"
+
+  - id: "phase-5"
+    name: "Test Updates & Verification"
+    description: >
+      Update unit tests for the new architecture. Write executor tests, use case tests,
+      update service tests. Verify full suite passes.
+    parallel: false
+    taskIds:
+      - "task-9"
+      - "task-10"
+
+filesToCreate:
+  - "packages/core/src/application/ports/output/agents/interactive-agent-executor.interface.ts"
+  - "packages/core/src/infrastructure/services/agents/common/executors/claude-code-interactive-executor.service.ts"
+  - "packages/core/src/application/use-cases/interactive/start-interactive-session.use-case.ts"
+  - "packages/core/src/application/use-cases/interactive/send-interactive-message.use-case.ts"
+  - "packages/core/src/application/use-cases/interactive/stop-interactive-session.use-case.ts"
+  - "packages/core/src/application/use-cases/interactive/get-interactive-chat-state.use-case.ts"
+  - "tests/unit/infrastructure/services/agents/common/executors/claude-code-interactive-executor.test.ts"
+  - "tests/unit/application/use-cases/interactive/start-interactive-session.use-case.test.ts"
+
+filesToModify:
+  - "packages/core/src/application/ports/output/agents/agent-executor-factory.interface.ts"
+  - "packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts"
+  - "packages/core/src/infrastructure/services/interactive/interactive-session.service.ts"
+  - "packages/core/src/application/ports/output/services/interactive-session-service.interface.ts"
+  - "packages/core/src/infrastructure/services/interactive/feature-context.builder.ts"
+  - "packages/core/src/infrastructure/di/container.ts"
+  - "src/presentation/web/app/api/interactive/sessions/route.ts"
+  - "src/presentation/web/app/api/interactive/sessions/[id]/route.ts"
+  - "src/presentation/web/app/api/interactive/sessions/[id]/messages/route.ts"
+  - "src/presentation/web/app/api/interactive/sessions/[id]/stream/route.ts"
+  - "src/presentation/web/app/api/interactive/chat/[featureId]/messages/route.ts"
+  - "src/presentation/web/app/api/interactive/chat/[featureId]/stream/route.ts"
+  - "src/presentation/web/app/api/interactive/chat/[featureId]/stop/route.ts"
+  - "tests/unit/infrastructure/services/interactive/interactive-session.service.test.ts"
+
+filesToDelete:
+  - "packages/core/src/infrastructure/services/interactive/interactive-agent-process.factory.ts"
+  - "packages/core/src/infrastructure/services/interactive/claude-agent-sdk.adapter.ts"
+  - "packages/core/src/application/ports/output/agents/interactive-agent-process-factory.interface.ts"
+  - "packages/core/src/application/ports/output/agents/interactive-agent-adapter.interface.ts"
+  - "tests/unit/infrastructure/services/interactive/interactive-agent-process.factory.test.ts"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  ```
+  Presentation (routes)
+       │ resolve<UseCase>()
+  Application (use cases → IInteractiveSessionService → IAgentExecutorFactory)
+       │ createInteractiveExecutor()
+  Infrastructure (ClaudeCodeInteractiveExecutor → SDK → CLI)
+  ```
+
+  ## Implementation Strategy
+
+  **Phase 1 first**: The executor interface and implementation are the foundation.
+  Everything else depends on this.
+
+  **Phase 2 after Phase 1**: Use cases need the service interface, which needs the
+  executor. But the use case classes themselves are thin and can be created once
+  the service interface signature is settled (accept agentType, model).
+
+  **Phase 3 after Phase 2**: The session service refactoring is the core work.
+  It replaces the process factory dependency with the executor factory and rewrites
+  the message exchange loop.
+
+  **Phase 4 after Phase 3**: Dead code cleanup only after the service no longer
+  references the old factory.
+
+  **Phase 5 last**: Tests are updated throughout, but final comprehensive verification
+  runs after all code changes are complete.
+
+  ## Key Refactoring: Session Service
+
+  Before:
+  ```
+  constructor(sessionRepo, messageRepo, processFactory, featureRepo, contextBuilder)
+  startSession() → processFactory.spawn() → ChildProcess → readline → JSON.parse
+  sendMessage() → executeTurn() → spawnTurnProcess() → stdin.write → stdout parse
+  ```
+
+  After:
+  ```
+  constructor(sessionRepo, messageRepo, executorFactory, featureRepo, contextBuilder)
+  startSession(featureId, worktreePath, agentType?, model?) →
+    executorFactory.createInteractiveExecutor(agentType) →
+    executor.createSession({ cwd, model, systemPrompt }) →
+    InteractiveAgentSessionHandle stored in SessionState
+  sendMessage() → handle.send(content) → for await (event of handle.stream()) → emit SSE
+  stopSession() → handle.close()
+  ```
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | SDK V2 unstable API | Pin version; executor isolates SDK surface |
+  | New use cases add boilerplate | Thin delegation — 4 files, ~20 lines each |
+  | Factory extension breaks existing executors | createInteractiveExecutor() is additive; existing methods unchanged |
+  | Model selection breaks existing sessions | Default to settings when omitted; backward compatible |

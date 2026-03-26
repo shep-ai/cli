@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Edge, Viewport } from '@xyflow/react';
-import { Panel, useReactFlow } from '@xyflow/react';
-import { Eye, EyeOff } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useReactFlow } from '@xyflow/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
+import { CanvasToolbar } from '@/components/features/features-canvas/canvas-toolbar';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
@@ -408,24 +407,18 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     );
   }, [nodes, isCreateDrawerOpen]);
 
-  const archiveToggle = (
-    <Panel position="top-right">
-      <button
-        type="button"
-        aria-label={showArchived ? 'Hide archived features' : 'Show archived features'}
-        data-testid="archive-toggle-button"
-        onClick={() => setShowArchived(!showArchived)}
-        className={cn(
-          'bg-card flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium shadow-sm transition-colors',
-          showArchived
-            ? 'border-primary/30 text-primary'
-            : 'text-muted-foreground hover:text-foreground'
-        )}
-      >
-        {showArchived ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-        {showArchived ? 'Archived visible' : 'Show archived'}
-      </button>
-    </Panel>
+  const handlePickFolder = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('shep:pick-folder'));
+  }, []);
+
+  const canvasToolbar = (
+    <CanvasToolbar
+      showArchived={showArchived}
+      onToggleArchived={() => setShowArchived(!showArchived)}
+      onAddFeature={handleAddFeature}
+      onAddRepository={handlePickFolder}
+      onResetViewport={resetViewport}
+    />
   );
 
   return (
@@ -441,8 +434,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       onNodeClick={handleNodeClick}
       onPaneClick={handleClearDrawers}
       onMoveEnd={handleMoveEnd}
-      onResetViewport={resetViewport}
-      toolbar={archiveToggle}
+      toolbar={canvasToolbar}
       emptyState={<ControlCenterEmptyState onRepositorySelect={addRepoAndFocus} />}
     />
   );

@@ -17,7 +17,7 @@ function seedRepo(db: Database.Database): void {
   const now = Date.now();
   db.prepare(
     `INSERT OR REPLACE INTO repositories (id, name, path, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
-  ).run(TEST_REPO_ID, 'E2E Test Repo', '/fake/e2e-test-repo', now, now);
+  ).run(TEST_REPO_ID, 'E2E Test Repo', '/tmp/e2e-test-repo', now, now);
 }
 
 function cleanupRepo(db: Database.Database): void {

@@ -1,0 +1,88 @@
+/**
+ * Interactive Session Repository Interface
+ *
+ * Output port for InteractiveSession persistence operations.
+ *
+ * Following Clean Architecture:
+ * - Domain and Application layers depend on this interface
+ * - Infrastructure layer provides the SQLite implementation
+ */
+
+import type {
+  InteractiveSession,
+  InteractiveSessionStatus,
+} from '../../../../domain/generated/output.js';
+
+/**
+ * Repository interface for InteractiveSession entity persistence.
+ */
+export interface IInteractiveSessionRepository {
+  /**
+   * Create a new interactive session record.
+   */
+  create(session: InteractiveSession): Promise<void>;
+
+  /**
+   * Find a session by its unique ID.
+   */
+  findById(id: string): Promise<InteractiveSession | null>;
+
+  /**
+   * Find the most recent session for a given feature.
+   *
+   * @param featureId - Polymorphic scope key: may be a spec ID, repo ID, or any
+   *   future entity that owns an interactive chat. Not a FK to a single table.
+   */
+  findByFeatureId(featureId: string): Promise<InteractiveSession | null>;
+
+  /**
+   * Find all sessions with status 'booting' or 'ready'.
+   * Used for concurrent session cap enforcement and zombie cleanup.
+   */
+  findAllActive(): Promise<InteractiveSession[]>;
+
+  /**
+   * Update session status and optionally set stoppedAt.
+   */
+  updateStatus(id: string, status: InteractiveSessionStatus, stoppedAt?: Date): Promise<void>;
+
+  /**
+   * Update the lastActivityAt timestamp for a session.
+   */
+  updateLastActivity(id: string, lastActivityAt: Date): Promise<void>;
+
+  /**
+   * Mark all sessions with status 'booting' or 'ready' as 'stopped'.
+   * Called on server startup to clean up zombie sessions from prior restart.
+   */
+  markAllActiveStopped(): Promise<void>;
+
+  /**
+   * Count sessions with status 'booting' or 'ready'.
+   * Used to enforce the concurrent session cap.
+   */
+  countActiveSessions(): Promise<number>;
+
+  /**
+   * Persist the agent SDK session ID for resumption across service restarts.
+   * Agent-agnostic: works with Claude, Cursor, Codex, or any future agent.
+   */
+  updateAgentSessionId(id: string, agentSessionId: string): Promise<void>;
+
+  /**
+   * Retrieve the agent SDK session ID for a given session.
+   */
+  getAgentSessionId(id: string): Promise<string | null>;
+
+  /**
+   * Update the turn status for a session.
+   * Values: 'idle' | 'processing' | 'unread'
+   */
+  updateTurnStatus(id: string, turnStatus: string): Promise<void>;
+
+  /**
+   * Get turn statuses for multiple feature IDs in a single query.
+   * Returns a map of featureId → turnStatus for features that have an active session.
+   */
+  getTurnStatuses(featureIds: string[]): Promise<Map<string, string>>;
+}

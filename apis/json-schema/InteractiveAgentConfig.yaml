@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: InteractiveAgentConfig.yaml
+type: object
+properties:
+  enabled:
+    type: boolean
+    default: true
+    description: "Whether the interactive agent Chat tab is enabled (default: true)"
+  autoTimeoutMinutes:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    default: 15
+    description: "Idle timeout in minutes before auto-stopping the agent (default: 15, range: 1-120)"
+  maxConcurrentSessions:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    default: 3
+    description: "Maximum number of concurrent active interactive sessions (default: 3)"
+required:
+  - enabled
+  - autoTimeoutMinutes
+  - maxConcurrentSessions
+description: Interactive agent chat tab configuration

@@ -34,7 +34,6 @@ import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
-import { DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
@@ -57,9 +56,15 @@ export interface FeatureDrawerClientProps {
   view: DrawerView;
   /** Tab key extracted from the URL path segment (e.g. /feature/[id]/activity → 'activity'). */
   urlTab?: FeatureTabKey;
+  /** When false, the Chat tab is hidden from the tab bar (FR-17). Defaults to true. */
+  interactiveAgentEnabled?: boolean;
 }
 
-export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawerClientProps) {
+export function FeatureDrawerClient({
+  view: initialView,
+  urlTab,
+  interactiveAgentEnabled = true,
+}: FeatureDrawerClientProps) {
   const featureFlags = useFeatureFlags();
   const router = useRouter();
   const rejectSound = useSoundAction('reject');
@@ -565,7 +570,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
 
   // ── Header ────────────────────────────────────────────────────────────
 
-  let header: React.ReactNode = undefined;
+  let headerContent: React.ReactNode = undefined;
 
   if (featureNode) {
     const shortId = featureNode.featureId.slice(0, 8);
@@ -573,34 +578,29 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
       featureNode.repositoryName ??
       featureNode.repositoryPath.split('/').filter(Boolean).at(-1) ??
       '';
-    header = (
+    headerContent = (
       <>
-        <div data-testid="feature-drawer-header">
-          <DrawerTitle>{featureNode.name}</DrawerTitle>
-          {repoName ? (
-            <div className="flex items-center gap-1.5 pt-0.5">
-              <Code2 className="text-muted-foreground size-3.5 shrink-0" />
-              {featureNode.remoteUrl ? (
-                <a
-                  href={featureNode.remoteUrl as string}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
-                  data-testid="feature-drawer-repo-link"
-                >
-                  {repoName}
-                  <ExternalLink className="size-3" />
-                </a>
-              ) : (
-                <span className="text-muted-foreground text-xs">{repoName}</span>
-              )}
-            </div>
-          ) : null}
-          <DrawerDescription className="sr-only">{featureNode.name}</DrawerDescription>
-        </div>
-
+        {repoName ? (
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <Code2 className="text-muted-foreground size-3.5 shrink-0" />
+            {featureNode.remoteUrl ? (
+              <a
+                href={featureNode.remoteUrl as string}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
+                data-testid="feature-drawer-repo-link"
+              >
+                {repoName}
+                <ExternalLink className="size-3" />
+              </a>
+            ) : (
+              <span className="text-muted-foreground text-xs">{repoName}</span>
+            )}
+          </div>
+        ) : null}
         {featureActionsInput ? (
-          <div className="flex items-center gap-2 pt-2" data-testid="feature-drawer-actions">
+          <div className="flex items-center gap-2 pt-1" data-testid="feature-drawer-actions">
             {featureNode?.state !== 'done' ? (
               <OpenActionMenu
                 actions={featureActions}
@@ -755,6 +755,8 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     };
     body = (
       <FeatureDrawerTabs
+        featureName={featureNode.name}
+        headerContent={headerContent}
         featureNode={enrichedNode}
         featureId={featureNode.featureId}
         initialTab={view.initialTab}
@@ -785,6 +787,7 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
         isRejecting={isRejecting}
         chatInput={chatInput}
         onChatInputChange={setChatInput}
+        interactiveAgentEnabled={interactiveAgentEnabled}
       />
     );
   }
@@ -793,9 +796,8 @@ export function FeatureDrawerClient({ view: initialView, urlTab }: FeatureDrawer
     <BaseDrawer
       open={isOpen}
       onClose={attemptClose}
-      size="md"
+      size="lg"
       modal={false}
-      header={header}
       data-testid={view.type === 'feature' ? 'feature-drawer' : 'repository-drawer'}
     >
       {body}

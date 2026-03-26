@@ -19,6 +19,7 @@
 
 import type { AgentType, AgentConfig } from '../../../../domain/generated/output.js';
 import type { IAgentExecutor } from './agent-executor.interface.js';
+import type { IInteractiveAgentExecutor } from './interactive-agent-executor.interface.js';
 
 /**
  * CLI binary info for an agent executor, used for version detection.
@@ -73,4 +74,25 @@ export interface IAgentExecutorFactory {
    * @returns Array of model identifier strings, or empty array for unknown/dev agents
    */
   getSupportedModels(agentType: AgentType): string[];
+
+  /**
+   * Create an interactive executor for multi-turn agent sessions.
+   *
+   * @param agentType - The type of agent to create an interactive executor for
+   * @param authConfig - Agent authentication and configuration
+   * @returns A configured interactive agent executor
+   * @throws Error if the agent type does not support interactive sessions
+   */
+  createInteractiveExecutor(
+    agentType: AgentType,
+    authConfig: AgentConfig
+  ): IInteractiveAgentExecutor;
+
+  /**
+   * Check whether the given agent type supports interactive sessions.
+   *
+   * @param agentType - The agent type to query
+   * @returns true if createInteractiveExecutor can be called for this type
+   */
+  supportsInteractive(agentType: AgentType): boolean;
 }

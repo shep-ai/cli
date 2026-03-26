@@ -1,16 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ReactFlow,
-  Background,
-  BackgroundVariant,
-  Controls,
-  ControlButton,
-  useReactFlow,
-} from '@xyflow/react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ReactFlow, Background, BackgroundVariant, Panel } from '@xyflow/react';
 import type { Connection, Edge, NodeChange, OnMoveEnd, Viewport } from '@xyflow/react';
-import { Plus, RotateCcw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
@@ -35,27 +28,11 @@ export interface FeaturesCanvasProps {
   onConnect?: (connection: Connection) => void;
   onCanvasDrag?: () => void;
   onMoveEnd?: OnMoveEnd;
-  onResetViewport?: () => Viewport;
   toolbar?: React.ReactNode;
   emptyState?: React.ReactNode;
 }
 
 const FALLBACK_VIEWPORT: Viewport = { x: 30, y: 30, zoom: 0.85 };
-
-function ResetButton({ onResetViewport }: { onResetViewport: () => Viewport }) {
-  const { setViewport } = useReactFlow();
-
-  const handleReset = useCallback(() => {
-    const viewport = onResetViewport();
-    setViewport(viewport, { duration: 400 });
-  }, [onResetViewport, setViewport]);
-
-  return (
-    <ControlButton onClick={handleReset} title="Reset view" aria-label="Reset view">
-      <RotateCcw style={{ fill: 'none' }} />
-    </ControlButton>
-  );
-}
 
 export function FeaturesCanvas({
   nodes,
@@ -70,7 +47,6 @@ export function FeaturesCanvas({
   onPaneClick,
   onCanvasDrag,
   onMoveEnd,
-  onResetViewport,
   toolbar,
   emptyState,
 }: FeaturesCanvasProps) {
@@ -192,12 +168,11 @@ export function FeaturesCanvas({
           color="#b8bcc4"
           className="dark:[&_circle]:!fill-white/[0.1]"
         />
-        {!isEmpty && (
-          <Controls showInteractive={false}>
-            {onResetViewport ? <ResetButton onResetViewport={onResetViewport} /> : null}
-          </Controls>
-        )}
-        {toolbar}
+        {!isEmpty && toolbar ? (
+          <Panel position="bottom-center" className="!mb-4">
+            {toolbar}
+          </Panel>
+        ) : null}
       </ReactFlow>
       {showOverlay && overlayContent ? (
         <div

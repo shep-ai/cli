@@ -127,6 +127,12 @@ import { RebaseFeatureOnMainUseCase } from '../../application/use-cases/features
 import { GetBranchSyncStatusUseCase } from '../../application/use-cases/features/get-branch-sync-status.use-case.js';
 import { ConflictResolutionService } from '../services/agents/conflict-resolution/conflict-resolution.service.js';
 
+// Interactive session use cases
+import { StartInteractiveSessionUseCase } from '../../application/use-cases/interactive/start-interactive-session.use-case.js';
+import { SendInteractiveMessageUseCase } from '../../application/use-cases/interactive/send-interactive-message.use-case.js';
+import { StopInteractiveSessionUseCase } from '../../application/use-cases/interactive/stop-interactive-session.use-case.js';
+import { GetInteractiveChatStateUseCase } from '../../application/use-cases/interactive/get-interactive-chat-state.use-case.js';
+
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
 import { StubSessionRepository } from '../services/agents/sessions/stub-session.repository.js';
@@ -138,6 +144,15 @@ import { AgentType } from '../../domain/generated/output.js';
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
 import { runSQLiteMigrations } from '../persistence/sqlite/migrations.js';
+
+// Interactive session infrastructure
+import type { IInteractiveSessionRepository } from '../../application/ports/output/repositories/interactive-session-repository.interface.js';
+import type { IInteractiveMessageRepository } from '../../application/ports/output/repositories/interactive-message-repository.interface.js';
+import type { IInteractiveSessionService } from '../../application/ports/output/services/interactive-session-service.interface.js';
+import { SQLiteInteractiveSessionRepository } from '../repositories/sqlite-interactive-session.repository.js';
+import { SQLiteInteractiveMessageRepository } from '../repositories/sqlite-interactive-message.repository.js';
+import { InteractiveSessionService } from '../services/interactive/interactive-session.service.js';
+import { FeatureContextBuilder } from '../services/interactive/feature-context.builder.js';
 
 let _initialized = false;
 
@@ -509,6 +524,63 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('GetBranchSyncStatusUseCase', {
     useFactory: (c) => c.resolve(GetBranchSyncStatusUseCase),
   });
+
+  // Register interactive session infrastructure
+  container.register<IInteractiveSessionRepository>('IInteractiveSessionRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteInteractiveSessionRepository(database);
+    },
+  });
+
+  container.register<IInteractiveMessageRepository>('IInteractiveMessageRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteInteractiveMessageRepository(database);
+    },
+  });
+
+  const interactiveSessionRepo = container.resolve<IInteractiveSessionRepository>(
+    'IInteractiveSessionRepository'
+  );
+  const interactiveMessageRepo = container.resolve<IInteractiveMessageRepository>(
+    'IInteractiveMessageRepository'
+  );
+  const interactiveSessionService = new InteractiveSessionService(
+    interactiveSessionRepo,
+    interactiveMessageRepo,
+    container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory'),
+    container.resolve<IFeatureRepository>('IFeatureRepository'),
+    new FeatureContextBuilder()
+  );
+  container.registerInstance<IInteractiveSessionService>(
+    'IInteractiveSessionService',
+    interactiveSessionService
+  );
+
+  // Register interactive session use cases
+  container.registerSingleton(StartInteractiveSessionUseCase);
+  container.registerSingleton(SendInteractiveMessageUseCase);
+  container.registerSingleton(StopInteractiveSessionUseCase);
+  container.registerSingleton(GetInteractiveChatStateUseCase);
+
+  // String-token aliases for web routes (Turbopack can't resolve .js→.ts
+  // imports inside @shepai/core, so routes use string tokens instead of class refs)
+  container.register('StartInteractiveSessionUseCase', {
+    useFactory: (c) => c.resolve(StartInteractiveSessionUseCase),
+  });
+  container.register('SendInteractiveMessageUseCase', {
+    useFactory: (c) => c.resolve(SendInteractiveMessageUseCase),
+  });
+  container.register('StopInteractiveSessionUseCase', {
+    useFactory: (c) => c.resolve(StopInteractiveSessionUseCase),
+  });
+  container.register('GetInteractiveChatStateUseCase', {
+    useFactory: (c) => c.resolve(GetInteractiveChatStateUseCase),
+  });
+
+  // Startup cleanup: mark any zombie sessions (booting/ready from a prior server run) as stopped
+  await interactiveSessionRepo.markAllActiveStopped();
 
   _initialized = true;
   return container;

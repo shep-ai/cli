@@ -10,6 +10,10 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
 }));
 
+vi.mock('@/hooks/use-turn-statuses', () => ({
+  useTurnStatuses: () => ({}),
+}));
+
 import { AppShell } from '@/components/layouts/app-shell';
 import { FeatureFlagsProvider } from '@/hooks/feature-flags-context';
 import { useSidebarFeaturesContext } from '@/hooks/sidebar-features-context';
@@ -106,43 +110,11 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: /control center/i })).toBeInTheDocument();
   });
 
-  describe('FAB visibility by route', () => {
-    it.each([
-      ['/', 'root'],
-      ['/create', 'create feature'],
-      ['/feature/abc-123', 'feature detail'],
-      ['/feature/abc-123/activity', 'feature tab'],
-      ['/repository/repo-1', 'repository detail'],
-    ])('renders the FAB on control center route %s (%s) when repositories exist', (pathname) => {
-      mockPathname = pathname;
-      // FAB shows when there are repositories (hidden only during onboarding)
-      renderShell(
-        <>
-          <ContextPublisher
-            features={[{ featureId: 'f1', name: 'Test', status: 'in-progress' }]}
-            hasRepositories
-          />
-          <div>Content</div>
-        </>
-      );
-      expect(screen.getByTestId('fab-trigger')).toBeInTheDocument();
-    });
-
-    it('hides the FAB on control center route when no repositories exist (onboarding)', () => {
-      mockPathname = '/';
+  describe('global chat popup', () => {
+    it('renders the chat toggle button', () => {
       renderShell(<div>Content</div>);
-      expect(screen.queryByTestId('fab-trigger')).not.toBeInTheDocument();
-    });
-
-    it.each([
-      ['/settings', 'settings page'],
-      ['/skills', 'skills page'],
-      ['/tools', 'tools page'],
-      ['/version', 'version page'],
-    ])('does not render the FAB on non-control-center route %s (%s)', (pathname) => {
-      mockPathname = pathname;
-      renderShell(<div>Content</div>);
-      expect(screen.queryByTestId('fab-trigger')).not.toBeInTheDocument();
+      // GlobalChatPopup renders a "Shep Chat" tooltip label
+      expect(screen.getByText('Shep Chat')).toBeInTheDocument();
     });
   });
 });

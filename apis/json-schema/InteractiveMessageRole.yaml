@@ -1,0 +1,7 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: InteractiveMessageRole.yaml
+type: string
+enum:
+  - user
+  - assistant
+description: Author role for an interactive chat message

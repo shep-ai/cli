@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { RepositoryNode } from '@/components/common/repository-node/repository-node';
+
+vi.mock('@/hooks/use-turn-statuses', () => ({
+  useTurnStatuses: () => ({}),
+}));
 import type { RepositoryNodeData } from '@/components/common/repository-node/repository-node-config';
 
 // Mock next/navigation
