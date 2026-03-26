@@ -6,7 +6,22 @@
  * Fallback: raw string lines
  */
 
-export type LogEventTag = 'tool' | 'text' | 'result' | 'tokens' | 'raw' | 'worker' | 'info';
+export type LogEventTag =
+  | 'tool'
+  | 'tool-result'
+  | 'text'
+  | 'delta'
+  | 'result'
+  | 'tokens'
+  | 'cmd'
+  | 'file'
+  | 'turn'
+  | 'thread'
+  | 'error'
+  | 'event'
+  | 'raw'
+  | 'worker'
+  | 'info';
 
 export interface ParsedLogLine {
   /** ISO timestamp */
@@ -37,7 +52,8 @@ export interface ParsedLogLine {
 const LOG_LINE_REGEX =
   /^\[(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\]\s+(?:\[([^\]]+)\]\s+)?(?:\[([^\]|]+)(?:\|([^\]]+))?\]\s+)?(.*)$/;
 
-const TAG_REGEX = /^\[(tool|text|result|tokens|raw|WORKER)\]\s*(.*)/;
+const TAG_REGEX =
+  /^\[(tool-result|tool|text|delta|result|tokens|cmd|file|turn|thread|error|event|raw|WORKER)\]\s*(.*)/;
 
 export function parseLogLine(raw: string): ParsedLogLine {
   const match = raw.match(LOG_LINE_REGEX);

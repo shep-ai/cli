@@ -87,6 +87,69 @@ describe('parseLogLine', () => {
     expect(result.tag).toBe('raw');
     expect(result.message).toBe('');
   });
+
+  it('parses a [cmd] event from codex cli', () => {
+    const line =
+      '[2026-03-26T10:00:06.000Z] [implement] [codex-cli|gpt-5.4] [cmd] running: cat src/auth.ts';
+    const result = parseLogLine(line);
+
+    expect(result.tag).toBe('cmd');
+    expect(result.agent).toBe('codex-cli');
+    expect(result.message).toBe('running: cat src/auth.ts');
+  });
+
+  it('parses a [tool-result] event from codex cli', () => {
+    const line =
+      '[2026-03-26T10:00:07.000Z] [implement] [codex-cli|gpt-5.4] [tool-result] export function login() { ... }';
+    const result = parseLogLine(line);
+
+    expect(result.tag).toBe('tool-result');
+    expect(result.message).toBe('export function login() { ... }');
+  });
+
+  it('parses a [file] event from codex cli', () => {
+    const line =
+      '[2026-03-26T10:00:08.000Z] [implement] [codex-cli|gpt-5.4] [file] modified: src/auth.ts';
+    const result = parseLogLine(line);
+
+    expect(result.tag).toBe('file');
+    expect(result.message).toBe('modified: src/auth.ts');
+  });
+
+  it('parses a [delta] event from codex cli', () => {
+    const line =
+      '[2026-03-26T10:00:09.000Z] [implement] [codex-cli|gpt-5.4] [delta] Analyzing the code...';
+    const result = parseLogLine(line);
+
+    expect(result.tag).toBe('delta');
+    expect(result.message).toBe('Analyzing the code...');
+  });
+
+  it('parses a [turn] event from codex cli', () => {
+    const line = '[2026-03-26T10:00:10.000Z] [implement] [codex-cli|gpt-5.4] [turn] completed';
+    const result = parseLogLine(line);
+
+    expect(result.tag).toBe('turn');
+    expect(result.message).toBe('completed');
+  });
+
+  it('parses a [thread] event from codex cli', () => {
+    const line =
+      '[2026-03-26T10:00:05.000Z] [implement] [codex-cli|gpt-5.4] [thread] started thread_id=abc123';
+    const result = parseLogLine(line);
+
+    expect(result.tag).toBe('thread');
+    expect(result.message).toBe('started thread_id=abc123');
+  });
+
+  it('parses an [error] event from codex cli', () => {
+    const line =
+      '[2026-03-26T10:00:11.000Z] [implement] [codex-cli|gpt-5.4] [error] Rate limit exceeded';
+    const result = parseLogLine(line);
+
+    expect(result.tag).toBe('error');
+    expect(result.message).toBe('Rate limit exceeded');
+  });
 });
 
 describe('parseToolCall', () => {

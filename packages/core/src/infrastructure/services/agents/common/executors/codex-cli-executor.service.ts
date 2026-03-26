@@ -99,6 +99,9 @@ export class CodexCliExecutorService implements IAgentExecutor {
       this.log(
         `Prompt length: ${prompt.length} chars${isResume ? ' (positional arg for resume)' : ' (piped via stdin)'}`
       );
+      // Log the actual prompt for debugging (truncate very long prompts)
+      const promptPreview = prompt.length > 500 ? `${prompt.slice(0, 497)}...` : prompt;
+      this.log(`[text] Prompt: ${promptPreview.replace(/\n/g, ' ')}`);
 
       // For initial executions, pipe the prompt via stdin.
       // For resume, the prompt is already in the CLI args.
@@ -133,18 +136,14 @@ export class CodexCliExecutorService implements IAgentExecutor {
 
             if (type === 'thread.started' && parsed.thread_id) {
               sessionId = parsed.thread_id;
-            } else if (type === 'item.completed' && parsed.item?.type === 'agent_message') {
+            } else if (
+              type === 'item.completed' &&
+              CodexCliExecutorService.MESSAGE_ITEM_TYPES.has(parsed.item?.type)
+            ) {
               // Accumulate response text from completed agent messages
-              const content = parsed.item.content;
-              if (Array.isArray(content)) {
-                for (const block of content) {
-                  if (block.type === 'text' && block.text) {
-                    resultText += block.text;
-                  }
-                }
-              } else if (typeof content === 'string') {
-                resultText += content;
-              }
+              // Codex CLI uses item.text directly; fallback to content blocks
+              const text = this.extractItemText(parsed);
+              if (text) resultText += text;
             } else if (type === 'turn.completed' && parsed.usage) {
               usage = this.extractUsage(parsed.usage);
             }
@@ -307,12 +306,14 @@ export class CodexCliExecutorService implements IAgentExecutor {
             return;
           }
 
-          if (type === 'item.started' && parsed.item?.type === 'agent_message') {
+          const isMessage = CodexCliExecutorService.MESSAGE_ITEM_TYPES.has(parsed.item?.type);
+
+          if (type === 'item.started' && isMessage) {
             enqueue({ type: 'progress', content: '', timestamp: new Date() });
             return;
           }
 
-          if (type === 'item.updated' && parsed.item?.type === 'agent_message') {
+          if (type === 'item.updated' && isMessage) {
             const delta = this.extractDeltaText(parsed);
             if (delta) {
               enqueue({ type: 'progress', content: delta, timestamp: new Date() });
@@ -320,7 +321,7 @@ export class CodexCliExecutorService implements IAgentExecutor {
             return;
           }
 
-          if (type === 'item.completed' && parsed.item?.type === 'agent_message') {
+          if (type === 'item.completed' && isMessage) {
             const text = this.extractItemText(parsed);
             if (text) resultText += text;
             return;
@@ -463,10 +464,14 @@ export class CodexCliExecutorService implements IAgentExecutor {
    * Extracts tool calls (function_call), assistant text, command executions,
    * and result summaries for verbose debugging.
    */
+  /** Item types that represent assistant text messages */
+  private static readonly MESSAGE_ITEM_TYPES = new Set(['agent_message', 'message']);
+
   private logStreamEvent(line: string): void {
     try {
       const parsed = JSON.parse(line);
       const type = parsed.type as string;
+      const itemType = parsed.item?.type as string | undefined;
 
       // Thread lifecycle
       if (type === 'thread.started') {
@@ -474,32 +479,58 @@ export class CodexCliExecutorService implements IAgentExecutor {
         return;
       }
 
-      // Agent message text — log the content
-      if (type === 'item.completed' && parsed.item?.type === 'agent_message') {
+      // Agent/assistant message text — log the content
+      if (
+        type === 'item.completed' &&
+        itemType &&
+        CodexCliExecutorService.MESSAGE_ITEM_TYPES.has(itemType)
+      ) {
         const text = this.extractItemText(parsed);
         if (text) {
-          // Truncate long messages for log readability
           const preview = text.length > 200 ? `${text.slice(0, 197)}...` : text;
           this.log(`[text] ${preview.replace(/\n/g, ' ')}`);
         }
         return;
       }
 
+      // Delta/partial updates for messages — log text fragments
+      if (
+        type === 'item.updated' &&
+        itemType &&
+        CodexCliExecutorService.MESSAGE_ITEM_TYPES.has(itemType)
+      ) {
+        const delta = this.extractDeltaText(parsed);
+        if (delta) {
+          this.log(`[delta] ${delta.replace(/\n/g, ' ')}`);
+        }
+        return;
+      }
+
+      // Reasoning items — model's chain-of-thought
+      if (type === 'item.completed' && itemType === 'reasoning') {
+        const text = this.extractItemText(parsed);
+        if (text) {
+          const preview = text.length > 200 ? `${text.slice(0, 197)}...` : text;
+          this.log(`[text] Reasoning: ${preview.replace(/\n/g, ' ')}`);
+        }
+        return;
+      }
+
       // Function/tool calls — log name and arguments
-      if (type === 'item.started' && parsed.item?.type === 'function_call') {
+      if (type === 'item.started' && itemType === 'function_call') {
         const name = parsed.item.name ?? parsed.item.call_id ?? 'unknown';
         const args = parsed.item.arguments ?? '';
         this.log(`[tool] ${name} ${typeof args === 'string' ? args : JSON.stringify(args)}`);
         return;
       }
-      if (type === 'item.completed' && parsed.item?.type === 'function_call') {
+      if (type === 'item.completed' && itemType === 'function_call') {
         const name = parsed.item.name ?? 'unknown';
         this.log(`[tool] ${name} completed`);
         return;
       }
 
       // Function call output — log truncated result
-      if (type === 'item.completed' && parsed.item?.type === 'function_call_output') {
+      if (type === 'item.completed' && itemType === 'function_call_output') {
         const output = parsed.item.output ?? '';
         const preview =
           typeof output === 'string'
@@ -512,12 +543,12 @@ export class CodexCliExecutorService implements IAgentExecutor {
       }
 
       // Command executions (Codex shell tool)
-      if (type === 'item.started' && parsed.item?.type === 'command_execution') {
+      if (type === 'item.started' && itemType === 'command_execution') {
         const cmd = parsed.item.command ?? parsed.item.name ?? 'command';
         this.log(`[cmd] running: ${cmd}`);
         return;
       }
-      if (type === 'item.completed' && parsed.item?.type === 'command_execution') {
+      if (type === 'item.completed' && itemType === 'command_execution') {
         const exitCode = parsed.item.exit_code ?? '';
         const output = parsed.item.output ?? '';
         const preview =
@@ -533,12 +564,12 @@ export class CodexCliExecutorService implements IAgentExecutor {
       }
 
       // File changes
-      if (type === 'item.started' && parsed.item?.type === 'file_change') {
+      if (type === 'item.started' && itemType === 'file_change') {
         const file = parsed.item.file ?? parsed.item.path ?? '';
         this.log(`[file] modifying: ${file}`);
         return;
       }
-      if (type === 'item.completed' && parsed.item?.type === 'file_change') {
+      if (type === 'item.completed' && itemType === 'file_change') {
         const file = parsed.item.file ?? parsed.item.path ?? '';
         this.log(`[file] modified: ${file}`);
         return;
@@ -550,7 +581,7 @@ export class CodexCliExecutorService implements IAgentExecutor {
         if (u) {
           const inTokens = u.input_tokens ?? 0;
           const outTokens = u.output_tokens ?? 0;
-          this.log(`[turn] completed, tokens: ${inTokens} in / ${outTokens} out`);
+          this.log(`[tokens] ${inTokens} in / ${outTokens} out`);
         } else {
           this.log('[turn] completed');
         }
@@ -570,14 +601,10 @@ export class CodexCliExecutorService implements IAgentExecutor {
         return;
       }
 
-      // Delta/partial updates — log text fragments
-      if (type === 'item.updated' && parsed.item?.type === 'agent_message') {
-        const delta = this.extractDeltaText(parsed);
-        if (delta) {
-          this.log(`[delta] ${delta.replace(/\n/g, ' ')}`);
-        }
-        return;
-      }
+      // Catch-all: log any unhandled event so nothing is silently dropped
+      const summary = itemType ? `${type} (${itemType})` : type;
+      const snippet = line.length > 200 ? `${line.slice(0, 197)}...` : line;
+      this.log(`[event] ${summary}: ${snippet}`);
     } catch {
       // Non-JSON line — log raw
       if (line.length > 0) {
@@ -661,10 +688,14 @@ export class CodexCliExecutorService implements IAgentExecutor {
 
   /**
    * Extract delta text from an item.updated event.
+   * Codex CLI uses `item.text` directly, while other formats use content blocks or `item.delta`.
    */
   private extractDeltaText(parsed: Record<string, unknown>): string | undefined {
     const item = parsed.item as Record<string, unknown> | undefined;
     if (!item) return undefined;
+    // Codex CLI format: item.text is a plain string (accumulated so far)
+    if (typeof item.text === 'string' && item.text) return item.text;
+    // Fallback: content block array
     const content = item.content;
     if (Array.isArray(content)) {
       for (const block of content) {
@@ -677,10 +708,14 @@ export class CodexCliExecutorService implements IAgentExecutor {
 
   /**
    * Extract final text from an item.completed event.
+   * Codex CLI uses `item.text` directly, while other formats use `item.content` blocks.
    */
   private extractItemText(parsed: Record<string, unknown>): string | undefined {
     const item = parsed.item as Record<string, unknown> | undefined;
     if (!item) return undefined;
+    // Codex CLI format: item.text is a plain string
+    if (typeof item.text === 'string' && item.text) return item.text;
+    // Fallback: content block array format
     const content = item.content;
     if (Array.isArray(content)) {
       const parts: string[] = [];
