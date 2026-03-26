@@ -17,9 +17,7 @@ export async function up({ context: db }: MigrationParams<Database.Database>): P
   const names = new Set(columns.map((c) => c.name));
 
   if (!names.has('turn_status')) {
-    db.exec(
-      `ALTER TABLE interactive_sessions ADD COLUMN turn_status TEXT NOT NULL DEFAULT 'idle'`
-    );
+    db.exec(`ALTER TABLE interactive_sessions ADD COLUMN turn_status TEXT NOT NULL DEFAULT 'idle'`);
   }
 }
 

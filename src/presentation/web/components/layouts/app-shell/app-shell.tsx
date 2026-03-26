@@ -127,10 +127,7 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
 /** Wraps children with TurnStatusesProvider, collecting scope IDs from sidebar features. */
 function TurnStatusesBridge({ children }: { children: ReactNode }) {
   const { features } = useSidebarFeaturesContext();
-  const scopeIds = useMemo(
-    () => ['global', ...features.map((f) => f.featureId)],
-    [features]
-  );
+  const scopeIds = useMemo(() => ['global', ...features.map((f) => f.featureId)], [features]);
   return <TurnStatusesProvider scopeIds={scopeIds}>{children}</TurnStatusesProvider>;
 }
 

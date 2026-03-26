@@ -19,9 +19,7 @@ export function ChatDotIndicator({ status, className = '' }: ChatDotIndicatorPro
   return (
     <span
       className={`absolute -top-0.5 -right-0.5 block rounded-full ${
-        status === 'processing'
-          ? 'h-2.5 w-2.5 animate-pulse bg-blue-500'
-          : 'h-2 w-2 bg-green-500'
+        status === 'processing' ? 'h-2.5 w-2.5 animate-pulse bg-blue-500' : 'h-2 w-2 bg-green-500'
       } ${className}`}
     />
   );
