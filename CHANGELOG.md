@@ -1,3 +1,10 @@
+# [1.153.0](https://github.com/shep-ai/cli/compare/v1.152.0...v1.153.0) (2026-03-26)
+
+
+### Features
+
+* **web:** fix chat concurrency, optimize polling, refactor fabs ([#476](https://github.com/shep-ai/cli/issues/476)) ([b41abdd](https://github.com/shep-ai/cli/commit/b41abdd66e5ebb111e6b357a676623e3c4a328a3))
+
 # [1.152.0](https://github.com/shep-ai/cli/compare/v1.151.2...v1.152.0) (2026-03-26)
 
 
