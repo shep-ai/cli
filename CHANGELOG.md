@@ -1,3 +1,10 @@
+# [1.152.0](https://github.com/shep-ai/cli/compare/v1.151.2...v1.152.0) (2026-03-26)
+
+
+### Features
+
+* **agents:** interactive feature agent with claude agent sdk ([#460](https://github.com/shep-ai/cli/issues/460)) ([113a47a](https://github.com/shep-ai/cli/commit/113a47ac26f4cdbe4a173e2e1308d6328b5f2b6a))
+
 ## [1.151.2](https://github.com/shep-ai/cli/compare/v1.151.1...v1.151.2) (2026-03-24)
 
 
