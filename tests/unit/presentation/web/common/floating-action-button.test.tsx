@@ -58,7 +58,7 @@ describe('FloatingActionButton', () => {
 
     expect(onClick).toHaveBeenCalledOnce();
     // Should close after clicking action
-    expect(screen.getByTestId('fab-trigger')).toHaveAttribute('aria-label', 'Open actions');
+    expect(screen.getByTestId('fab-trigger')).toHaveAttribute('aria-label', 'Create new');
   });
 
   it('closes when clicking outside', async () => {
@@ -69,7 +69,7 @@ describe('FloatingActionButton', () => {
     expect(screen.getByTestId('fab-overlay')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('fab-overlay'));
-    expect(screen.getByTestId('fab-trigger')).toHaveAttribute('aria-label', 'Open actions');
+    expect(screen.getByTestId('fab-trigger')).toHaveAttribute('aria-label', 'Create new');
   });
 
   it('closes when escape is pressed', async () => {
@@ -80,7 +80,7 @@ describe('FloatingActionButton', () => {
     expect(screen.getByTestId('fab-trigger')).toHaveAttribute('aria-label', 'Close actions');
 
     await user.keyboard('{Escape}');
-    expect(screen.getByTestId('fab-trigger')).toHaveAttribute('aria-label', 'Open actions');
+    expect(screen.getByTestId('fab-trigger')).toHaveAttribute('aria-label', 'Create new');
   });
 
   it('shows loading spinner when action is loading', async () => {
@@ -104,7 +104,7 @@ describe('FloatingActionButton', () => {
     render(<FloatingActionButton actions={createActions()} />);
 
     const trigger = screen.getByTestId('fab-trigger');
-    expect(trigger).toHaveAttribute('aria-label', 'Open actions');
+    expect(trigger).toHaveAttribute('aria-label', 'Create new');
 
     await user.click(trigger);
     expect(trigger).toHaveAttribute('aria-label', 'Close actions');
