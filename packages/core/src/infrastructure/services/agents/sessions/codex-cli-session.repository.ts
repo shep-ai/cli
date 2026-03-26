@@ -293,7 +293,6 @@ export class CodexCliSessionRepository implements IAgentSessionRepository {
     const lines = content.split('\n').filter((l) => l.trim().length > 0);
 
     let cwd: string | undefined;
-    let _cliVersion: string | undefined;
     let firstMessageAt: Date | undefined;
     let lastMessageAt: Date | undefined;
     let preview: string | undefined;
@@ -314,7 +313,6 @@ export class CodexCliSessionRepository implements IAgentSessionRepository {
       if (type === 'session_meta') {
         const payload = entry.payload as SessionMetaPayload;
         if (payload?.cwd) cwd = payload.cwd;
-        if (payload?.cli_version) _cliVersion = payload.cli_version;
         continue;
       }
 
