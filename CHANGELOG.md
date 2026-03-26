@@ -1,3 +1,10 @@
+# [1.154.0](https://github.com/shep-ai/cli/compare/v1.153.0...v1.154.0) (2026-03-26)
+
+
+### Features
+
+* **agents:** add openai codex cli as supported agent executor ([#468](https://github.com/shep-ai/cli/issues/468)) ([1a51279](https://github.com/shep-ai/cli/commit/1a512794a73b96f4c1d87763d68bcc06791bbaed))
+
 # [1.153.0](https://github.com/shep-ai/cli/compare/v1.152.0...v1.153.0) (2026-03-26)
 
 
