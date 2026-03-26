@@ -41,7 +41,7 @@ vi.mock('@/app/actions/delete-repository', () => ({
 
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
 import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
-
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { FeaturesCanvasProps } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -110,11 +110,13 @@ const initialNodes: CanvasNodeType[] = [repoNodeDefault, featureNodeA, featureNo
 
 function renderControlCenter(nodes = initialNodes) {
   return render(
-    <DrawerCloseGuardProvider>
-      <SidebarFeaturesProvider>
-        <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
-      </SidebarFeaturesProvider>
-    </DrawerCloseGuardProvider>
+    <SidebarProvider>
+      <DrawerCloseGuardProvider>
+        <SidebarFeaturesProvider>
+          <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
+        </SidebarFeaturesProvider>
+      </DrawerCloseGuardProvider>
+    </SidebarProvider>
   );
 }
 

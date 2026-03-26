@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { useTurnStatuses, type TurnStatus } from './use-turn-statuses';
+import { useAllTurnStatuses, type TurnStatus } from './use-turn-statuses';
 
 interface TurnStatusesContextValue {
   /** Get turn status for a scope key (featureId / "repo-<id>" / "global") */
@@ -12,18 +12,12 @@ const TurnStatusesContext = createContext<TurnStatusesContextValue>({
   getStatus: () => 'idle',
 });
 
-interface TurnStatusesProviderProps {
-  /** All scope IDs to poll turn statuses for */
-  scopeIds: string[];
-  children: ReactNode;
-}
-
 /**
- * Polls turn statuses for all provided scope IDs in a single API call.
+ * Polls ALL active turn statuses in a single API call (no IDs needed).
  * Children use `useTurnStatus(scopeId)` to read individual statuses.
  */
-export function TurnStatusesProvider({ scopeIds, children }: TurnStatusesProviderProps) {
-  const statuses = useTurnStatuses(scopeIds);
+export function TurnStatusesProvider({ children }: { children: ReactNode }) {
+  const statuses = useAllTurnStatuses();
 
   const value = useMemo<TurnStatusesContextValue>(
     () => ({

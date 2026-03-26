@@ -65,12 +65,12 @@ vi.mock('next/image', () => ({
 }));
 
 vi.mock('@/hooks/use-turn-statuses', () => ({
-  useTurnStatuses: () => ({}),
+  useAllTurnStatuses: () => ({}),
 }));
 
 import { ControlCenter } from '@/components/features/control-center';
 import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
-
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
@@ -110,22 +110,26 @@ const mockFeatureNode2: FeatureNodeType = {
 describe('ControlCenter', () => {
   it('renders the control-center container', () => {
     render(
-      <DrawerCloseGuardProvider>
-        <SidebarFeaturesProvider>
-          <ControlCenter initialNodes={[]} initialEdges={[]} />
-        </SidebarFeaturesProvider>
-      </DrawerCloseGuardProvider>
+      <SidebarProvider>
+        <DrawerCloseGuardProvider>
+          <SidebarFeaturesProvider>
+            <ControlCenter initialNodes={[]} initialEdges={[]} />
+          </SidebarFeaturesProvider>
+        </DrawerCloseGuardProvider>
+      </SidebarProvider>
     );
     expect(screen.getByTestId('control-center')).toBeInTheDocument();
   });
 
   it('shows empty state with agent setup when no nodes provided', async () => {
     render(
-      <DrawerCloseGuardProvider>
-        <SidebarFeaturesProvider>
-          <ControlCenter initialNodes={[]} initialEdges={[]} />
-        </SidebarFeaturesProvider>
-      </DrawerCloseGuardProvider>
+      <SidebarProvider>
+        <DrawerCloseGuardProvider>
+          <SidebarFeaturesProvider>
+            <ControlCenter initialNodes={[]} initialEdges={[]} />
+          </SidebarFeaturesProvider>
+        </DrawerCloseGuardProvider>
+      </SidebarProvider>
     );
     await waitFor(() => {
       expect(screen.getByTestId('control-center-empty-state')).toBeInTheDocument();
@@ -143,18 +147,20 @@ describe('ControlCenter', () => {
     } as CanvasNodeType;
 
     render(
-      <DrawerCloseGuardProvider>
-        <SidebarFeaturesProvider>
-          <ControlCenter
-            initialNodes={[
-              repoNode,
-              mockFeatureNode as CanvasNodeType,
-              mockFeatureNode2 as CanvasNodeType,
-            ]}
-            initialEdges={[]}
-          />
-        </SidebarFeaturesProvider>
-      </DrawerCloseGuardProvider>
+      <SidebarProvider>
+        <DrawerCloseGuardProvider>
+          <SidebarFeaturesProvider>
+            <ControlCenter
+              initialNodes={[
+                repoNode,
+                mockFeatureNode as CanvasNodeType,
+                mockFeatureNode2 as CanvasNodeType,
+              ]}
+              initialEdges={[]}
+            />
+          </SidebarFeaturesProvider>
+        </DrawerCloseGuardProvider>
+      </SidebarProvider>
     );
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
     expect(screen.getByText('Another Feature')).toBeInTheDocument();

@@ -32,9 +32,14 @@ function loadPersistedState(): { pos: Position | null; size: Size | null } {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { pos: null, size: null };
     const parsed = JSON.parse(raw);
+    let size: Size | null = parsed.size ?? null;
+    // Clamp persisted size to minimums — prevents invisible panel from bad state
+    if (size && (size.w < MIN_W || size.h < MIN_H)) {
+      size = { w: Math.max(MIN_W, size.w), h: Math.max(MIN_H, size.h) };
+    }
     return {
       pos: parsed.pos ?? null,
-      size: parsed.size ?? null,
+      size,
     };
   } catch {
     return { pos: null, size: null };
@@ -152,6 +157,19 @@ export function GlobalChatPopup() {
     return () => clearTimeout(timer);
   }, [pos, size]);
 
+  /** Clamp position so the header (top 48px) stays within viewport. */
+  const clampPos = useCallback((x: number, y: number, w: number): Position => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const HEADER_H = 48;
+    return {
+      // Keep at least 100px of width visible horizontally
+      x: Math.max(-w + 100, Math.min(x, vw - 100)),
+      // Keep header on screen: top >= 0, top <= viewport - header height
+      y: Math.max(0, Math.min(y, vh - HEADER_H)),
+    };
+  }, []);
+
   // ── Drag handling ──────────────────────────────────────────────────────
   const onDragStart = useCallback(
     (e: React.MouseEvent) => {
@@ -159,7 +177,6 @@ export function GlobalChatPopup() {
       const panel = panelRef.current;
       if (!panel) return;
 
-      // If no custom position yet, compute from current DOM position
       const rect = panel.getBoundingClientRect();
       const currentX = pos?.x ?? rect.left;
       const currentY = pos?.y ?? rect.top;
@@ -171,14 +188,13 @@ export function GlobalChatPopup() {
         startPosY: currentY,
       };
 
+      const panelW = size?.w ?? rect.width;
+
       const onMove = (ev: MouseEvent) => {
         if (!dragRef.current) return;
         const dx = ev.clientX - dragRef.current.startX;
         const dy = ev.clientY - dragRef.current.startY;
-        setPos({
-          x: dragRef.current.startPosX + dx,
-          y: dragRef.current.startPosY + dy,
-        });
+        setPos(clampPos(dragRef.current.startPosX + dx, dragRef.current.startPosY + dy, panelW));
       };
 
       const onUp = () => {
@@ -190,7 +206,7 @@ export function GlobalChatPopup() {
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     },
-    [pos, setPos]
+    [pos, size, setPos, clampPos]
   );
 
   // ── Resize handling (from top-right corner) ────────────────────────────
@@ -202,30 +218,29 @@ export function GlobalChatPopup() {
       if (!panel) return;
 
       const rect = panel.getBoundingClientRect();
-      resizeRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        startW: size?.w ?? rect.width,
-        startH: size?.h ?? rect.height,
-      };
+      const startW = size?.w ?? rect.width;
+      const startH = size?.h ?? rect.height;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startPosY = pos?.y ?? rect.top;
 
-      // Also capture position if not set yet
+      resizeRef.current = { startX, startY, startW, startH };
+
+      // Capture position if not set yet
       if (!pos) {
         setPos({ x: rect.left, y: rect.top });
       }
 
       const onMove = (ev: MouseEvent) => {
         if (!resizeRef.current) return;
-        const dx = ev.clientX - resizeRef.current.startX;
-        const dy = ev.clientY - resizeRef.current.startY;
-        setSize({
-          w: Math.max(MIN_W, resizeRef.current.startW + dx),
-          h: Math.max(MIN_H, resizeRef.current.startH - dy),
-        });
-        // Move top edge up as height increases
-        if (pos) {
-          setPos((prev) => (prev ? { ...prev, y: (prev.y ?? 0) + dy } : prev));
-        }
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        const newW = Math.max(MIN_W, startW + dx);
+        const newH = Math.max(MIN_H, startH - dy);
+        // Top edge moves with height change, clamped to viewport
+        const newY = Math.max(0, startPosY + dy);
+        setSize({ w: newW, h: newH });
+        setPos((prev) => clampPos(prev?.x ?? rect.left, newY, newW));
       };
 
       const onUp = () => {
@@ -237,7 +252,7 @@ export function GlobalChatPopup() {
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     },
-    [size, pos, setPos, setSize]
+    [size, pos, setPos, setSize, clampPos]
   );
 
   // Reset position/size on close for clean reopen
@@ -270,10 +285,10 @@ export function GlobalChatPopup() {
           ref={panelRef}
           className={cn(
             isMaximized
-              ? 'bg-background absolute inset-0 z-30 flex flex-col overflow-hidden dark:bg-neutral-900'
+              ? 'bg-background fixed inset-0 z-[60] flex flex-col overflow-hidden dark:bg-neutral-900'
               : cn(
-                  !pos && 'absolute bottom-24 left-4',
-                  'z-30 flex flex-col overflow-hidden rounded-lg',
+                  !pos && 'fixed right-8 bottom-24',
+                  'z-[60] flex flex-col overflow-hidden rounded-lg',
                   'border-border/60 border dark:border-white/10',
                   'bg-background dark:bg-neutral-900',
                   'shadow-[0_8px_40px_-8px_rgba(0,0,0,0.2)] dark:shadow-[0_8px_40px_-8px_rgba(0,0,0,0.6)]'
@@ -362,9 +377,10 @@ export function GlobalChatPopup() {
                 if (!pos) setPos({ x: rect.left, y: rect.top });
 
                 const onMove = (ev: MouseEvent) => {
+                  const maxH = window.innerHeight - (pos?.y ?? rect.top);
                   setSize({
                     w: Math.max(MIN_W, startW + (ev.clientX - startX)),
-                    h: Math.max(MIN_H, startH + (ev.clientY - startY)),
+                    h: Math.max(MIN_H, Math.min(startH + (ev.clientY - startY), maxH)),
                   });
                 };
                 const onUp = () => {
@@ -380,13 +396,8 @@ export function GlobalChatPopup() {
         </div>
       ) : null}
 
-      {/* Floating chat button — hidden when maximized */}
-      <div
-        className={cn(
-          'group/fab absolute bottom-4 left-4 z-30 flex items-center',
-          isMaximized && 'hidden'
-        )}
-      >
+      {/* Chat FAB — right corner, hidden when maximized */}
+      <div className={cn('group/fab fixed right-8 bottom-6 z-30', isMaximized && 'hidden')}>
         <Button
           size="icon"
           onClick={toggle}
@@ -412,11 +423,11 @@ export function GlobalChatPopup() {
           />
           {!isOpen && <ChatDotIndicator status={globalChatTurnStatus} className="top-0 right-0" />}
         </Button>
-        {/* Tooltip — slides in from left on hover */}
-        <div className="pointer-events-none ml-3 flex translate-x-[-4px] items-center gap-2 opacity-0 transition-all duration-200 group-hover/fab:translate-x-0 group-hover/fab:opacity-100">
-          <div className="bg-foreground rounded-lg px-3 py-1.5 shadow-lg">
-            <p className="text-background text-xs font-medium">Shep Chat</p>
-            <p className="text-background/50 mt-0.5 flex items-center gap-1 text-[10px]">
+        {/* Tooltip — slides up on hover */}
+        <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 translate-y-1 opacity-0 transition-all duration-200 group-hover/fab:translate-y-0 group-hover/fab:opacity-100">
+          <div className="bg-foreground rounded-lg px-3 py-1.5 text-center shadow-lg">
+            <p className="text-background text-xs font-medium whitespace-nowrap">Shep Chat</p>
+            <p className="text-background/50 mt-0.5 flex items-center justify-center gap-1 text-[10px]">
               <kbd className="bg-background/15 rounded px-1 py-px font-mono">⌘</kbd>
               <kbd className="bg-background/15 rounded px-1 py-px font-mono">⇧</kbd>
               <kbd className="bg-background/15 rounded px-1 py-px font-mono">K</kbd>

@@ -169,7 +169,7 @@ export function FeaturesCanvas({
           className="dark:[&_circle]:!fill-white/[0.1]"
         />
         {!isEmpty && toolbar ? (
-          <Panel position="bottom-center" className="!mb-4">
+          <Panel position="top-right" className="!mt-3 !mr-3">
             {toolbar}
           </Panel>
         ) : null}
