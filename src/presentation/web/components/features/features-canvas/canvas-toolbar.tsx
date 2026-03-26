@@ -45,7 +45,7 @@ export function CanvasToolbar({
         onClick={onToggleArchived}
         title={showArchived ? 'Hide archived' : 'Show archived'}
         active={showArchived}
-        label={showArchived ? 'Hide' : 'Show'}
+        label={showArchived ? 'Hide Archived' : 'Show Archived'}
       >
         {showArchived ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
       </ToolbarButton>
