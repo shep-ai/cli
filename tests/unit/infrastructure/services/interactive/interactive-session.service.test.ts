@@ -227,6 +227,7 @@ describe('InteractiveSessionService', () => {
       getAgentSessionId: vi.fn().mockResolvedValue(null),
       updateTurnStatus: vi.fn().mockResolvedValue(undefined),
       getTurnStatuses: vi.fn().mockResolvedValue(new Map()),
+      getAllActiveTurnStatuses: vi.fn().mockResolvedValue(new Map()),
     };
 
     messageRepo = {

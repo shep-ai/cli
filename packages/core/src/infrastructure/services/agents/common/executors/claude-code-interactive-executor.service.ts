@@ -68,6 +68,14 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
       model: options.model ?? DEFAULT_MODEL,
       permissionMode: 'bypassPermissions' as const,
       env: cleanEnv,
+      // Forward system prompt using preset+append pattern
+      ...(options.systemPrompt && {
+        systemPrompt: {
+          type: 'preset' as const,
+          preset: 'claude_code' as const,
+          append: options.systemPrompt,
+        },
+      }),
     };
   }
 

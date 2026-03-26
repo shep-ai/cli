@@ -211,4 +211,10 @@ export interface IInteractiveSessionService {
    * Used by UI to show dot indicators on all chat buttons.
    */
   getTurnStatuses(featureIds: string[]): Promise<Map<string, string>>;
+
+  /**
+   * Get ALL non-idle turn statuses. No IDs needed — returns every
+   * active session's status ('processing' | 'unread').
+   */
+  getAllActiveTurnStatuses(): Promise<Map<string, string>>;
 }

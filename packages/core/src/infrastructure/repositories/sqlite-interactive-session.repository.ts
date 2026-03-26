@@ -150,4 +150,23 @@ export class SQLiteInteractiveSessionRepository implements IInteractiveSessionRe
     }
     return result;
   }
+
+  async getAllActiveTurnStatuses(): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    const rows = this.db
+      .prepare(
+        `SELECT feature_id, turn_status FROM interactive_sessions
+         WHERE status IN ('booting','ready')
+           AND turn_status != 'idle'
+         ORDER BY created_at DESC`
+      )
+      .all() as { feature_id: string; turn_status: string }[];
+
+    for (const row of rows) {
+      if (!result.has(row.feature_id)) {
+        result.set(row.feature_id, row.turn_status);
+      }
+    }
+    return result;
+  }
 }

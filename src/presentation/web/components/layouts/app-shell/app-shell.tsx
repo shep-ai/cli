@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
@@ -77,6 +77,13 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
     return () => window.removeEventListener('shep:pick-folder', handler);
   }, [handleAddRepository]);
 
+  // Listen for GitHub import event from (+) FAB
+  useEffect(() => {
+    const handler = () => setGithubDialogOpen(true);
+    window.addEventListener('shep:open-github-import', handler);
+    return () => window.removeEventListener('shep:open-github-import', handler);
+  }, []);
+
   const handleReactPickerSelect = useCallback((path: string | null) => {
     if (path) {
       window.dispatchEvent(new CustomEvent('shep:add-repository', { detail: { path } }));
@@ -102,7 +109,7 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
       <SidebarInset>
         <div className="relative h-full">
           <main className="h-full">{children}</main>
-          {/* Global chat popup — always visible, persists through navigation */}
+          {/* Global chat popup — fixed, visible across all pages */}
           <GlobalChatPopup />
           {featureFlags.githubImport ? (
             <GitHubImportDialog
@@ -124,11 +131,9 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
   );
 }
 
-/** Wraps children with TurnStatusesProvider, collecting scope IDs from sidebar features. */
+/** Wraps children with TurnStatusesProvider (polls all active statuses from backend). */
 function TurnStatusesBridge({ children }: { children: ReactNode }) {
-  const { features } = useSidebarFeaturesContext();
-  const scopeIds = useMemo(() => ['global', ...features.map((f) => f.featureId)], [features]);
-  return <TurnStatusesProvider scopeIds={scopeIds}>{children}</TurnStatusesProvider>;
+  return <TurnStatusesProvider>{children}</TurnStatusesProvider>;
 }
 
 export function AppShell({ children, sidebarOpen }: AppShellProps) {

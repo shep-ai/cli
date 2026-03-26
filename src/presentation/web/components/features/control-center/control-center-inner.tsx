@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { Sparkles, FolderPlus, Github, GitBranch } from 'lucide-react';
 import type { Edge, Viewport } from '@xyflow/react';
 import { useReactFlow } from '@xyflow/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
@@ -10,15 +11,21 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
 import {
+  FloatingActionButton,
+  type FloatingActionButtonAction,
+} from '@/components/common/floating-action-button';
+import {
   useSidebarFeaturesContext,
   mapNodeStateToSidebarStatus,
 } from '@/hooks/sidebar-features-context';
+import { useFeatureFlags } from '@/hooks/feature-flags-context';
 
 import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
 import { useSelectedRepository } from '@/hooks/use-selected-repository';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
 import { useViewportPersistence } from '@/hooks/use-viewport-persistence';
+import { useSidebar } from '@/components/ui/sidebar';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -411,31 +418,103 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     window.dispatchEvent(new CustomEvent('shep:pick-folder'));
   }, []);
 
+  const featureFlags = useFeatureFlags();
+
+  // (+) FAB actions — only visible on control center
+  const fabActions = useMemo<FloatingActionButtonAction[]>(() => {
+    const actions: FloatingActionButtonAction[] = [
+      {
+        id: 'new-feature',
+        label: 'New Feature',
+        icon: <Sparkles className="h-4 w-4" />,
+        onClick: () => {
+          clickSound.play();
+          guardedNavigate(() => router.push('/create'));
+        },
+      },
+      {
+        id: 'add-local-repo',
+        label: 'Local Folder',
+        icon: <FolderPlus className="h-4 w-4" />,
+        onClick: handlePickFolder,
+      },
+    ];
+    if (featureFlags.adoptBranch) {
+      actions.push({
+        id: 'adopt-branch',
+        label: 'Adopt Branch',
+        icon: <GitBranch className="h-4 w-4" />,
+        onClick: () => {
+          guardedNavigate(() => router.push('/adopt'));
+        },
+      });
+    }
+    if (featureFlags.githubImport) {
+      actions.push({
+        id: 'add-github-repo',
+        label: 'From GitHub',
+        icon: <Github className="h-4 w-4" />,
+        onClick: () => {
+          window.dispatchEvent(new CustomEvent('shep:open-github-import'));
+        },
+      });
+    }
+    return actions;
+  }, [
+    clickSound,
+    guardedNavigate,
+    router,
+    handlePickFolder,
+    featureFlags.adoptBranch,
+    featureFlags.githubImport,
+  ]);
+
   const canvasToolbar = (
     <CanvasToolbar
       showArchived={showArchived}
       onToggleArchived={() => setShowArchived(!showArchived)}
-      onAddFeature={handleAddFeature}
-      onAddRepository={handlePickFolder}
       onResetViewport={resetViewport}
     />
   );
 
   return (
-    <FeaturesCanvas
-      nodes={showCanvas ? displayNodes : []}
-      edges={showCanvas ? edges : []}
-      selectedFeatureId={selectedFeatureId}
-      selectedRepository={selectedRepository}
-      defaultViewport={defaultViewport}
-      onNodesChange={onNodesChange}
-      onConnect={handleConnect}
-      onAddFeature={handleAddFeature}
-      onNodeClick={handleNodeClick}
-      onPaneClick={handleClearDrawers}
-      onMoveEnd={handleMoveEnd}
-      toolbar={canvasToolbar}
-      emptyState={<ControlCenterEmptyState onRepositorySelect={addRepoAndFocus} />}
+    <>
+      <FeaturesCanvas
+        nodes={showCanvas ? displayNodes : []}
+        edges={showCanvas ? edges : []}
+        selectedFeatureId={selectedFeatureId}
+        selectedRepository={selectedRepository}
+        defaultViewport={defaultViewport}
+        onNodesChange={onNodesChange}
+        onConnect={handleConnect}
+        onAddFeature={handleAddFeature}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handleClearDrawers}
+        onMoveEnd={handleMoveEnd}
+        toolbar={canvasToolbar}
+        emptyState={<ControlCenterEmptyState onRepositorySelect={addRepoAndFocus} />}
+      />
+      {/* (+) FAB — bottom-left, moves with sidebar */}
+      {showCanvas ? <CreateFab actions={fabActions} /> : null}
+    </>
+  );
+}
+
+/** (+) FAB that tracks sidebar width via CSS var + transition. */
+function CreateFab({ actions }: { actions: FloatingActionButtonAction[] }) {
+  const { state } = useSidebar();
+  // Sidebar expanded = var(--sidebar-width) = 16rem, collapsed = var(--sidebar-width-icon) = 3rem
+  // Position just outside the sidebar edge with 16px gap
+  const left =
+    state === 'expanded'
+      ? 'calc(var(--sidebar-width) + 32px)'
+      : 'calc(var(--sidebar-width-icon) + 32px)';
+
+  return (
+    <FloatingActionButton
+      actions={actions}
+      className="!fixed bottom-6"
+      style={{ left, transition: 'left 200ms ease-in-out' }}
     />
   );
 }

@@ -37,7 +37,7 @@ import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
 import { ChatDotIndicator } from '@/components/features/chat/ChatDotIndicator';
-import { useTurnStatuses, type TurnStatus } from '@/hooks/use-turn-statuses';
+import { useTurnStatus } from '@/hooks/turn-statuses-provider';
 import {
   FeatureSessionsDropdown,
   type SessionSummary,
@@ -55,8 +55,7 @@ export function RepositoryNode({
   const featureFlags = useFeatureFlags();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const repoScopeId = data.id ? `repo-${data.id}` : `repo-${data.name}`;
-  const turnStatuses = useTurnStatuses([repoScopeId]);
-  const chatTurnStatus: TurnStatus = (turnStatuses[repoScopeId] as TurnStatus) ?? 'idle';
+  const chatTurnStatus = useTurnStatus(repoScopeId);
   const actions = useRepositoryActions(
     data.repositoryPath ? { repositoryId: data.id, repositoryPath: data.repositoryPath } : null
   );

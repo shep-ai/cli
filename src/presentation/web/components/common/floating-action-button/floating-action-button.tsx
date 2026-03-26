@@ -23,8 +23,10 @@ export interface FloatingActionButtonAction {
 export interface FloatingActionButtonProps {
   /** Action items shown when the FAB is expanded. */
   actions: FloatingActionButtonAction[];
-  /** Additional CSS classes for the container. */
+  /** Additional CSS classes for the wrapper. */
   className?: string;
+  /** Inline styles for the wrapper (e.g. dynamic positioning). */
+  style?: React.CSSProperties;
 }
 
 /** Stagger delay between each item animation in ms. */
@@ -33,7 +35,11 @@ const STAGGER_MS = 50;
 /** Total animation duration in ms. */
 const DURATION_MS = 250;
 
-export function FloatingActionButton({ actions, className }: FloatingActionButtonProps) {
+/**
+ * (+) FAB with expandable action menu.
+ * Renders inline — parent controls positioning.
+ */
+export function FloatingActionButton({ actions, className, style }: FloatingActionButtonProps) {
   const [open, setOpen] = useState(false);
 
   // Close on Escape key
@@ -60,22 +66,21 @@ export function FloatingActionButton({ actions, className }: FloatingActionButto
         />
       ) : null}
 
-      {/* FAB container — horizontal: + left, chat right */}
       <div
         data-testid="floating-action-button"
-        className={cn('fixed right-6 bottom-6 z-50', className)}
+        className={cn('relative z-50', className)}
+        style={style}
       >
-        {/* Action chips — expand upward from the + button */}
+        {/* Action chips — expand upward */}
         <div
           className={cn(
-            'absolute right-[calc(100%+12px)] bottom-0 flex flex-col items-end gap-2',
+            'absolute bottom-[calc(100%+24px)] left-0 flex flex-col items-start gap-2',
             !open && 'pointer-events-none'
           )}
           data-testid="fab-actions"
         >
           {actions.map((action, i) => {
             const openDelay = (actions.length - 1 - i) * STAGGER_MS;
-            const closeDelay = i * STAGGER_MS;
 
             return (
               <button
@@ -84,15 +89,16 @@ export function FloatingActionButton({ actions, className }: FloatingActionButto
                 aria-label={action.label}
                 disabled={action.disabled ?? action.loading}
                 className={cn(
-                  'flex h-12 w-52 items-center justify-center gap-3 rounded-full px-4',
-                  'bg-background text-foreground shadow-sm',
+                  'flex h-10 items-center gap-2.5 rounded-full px-4',
+                  'bg-background text-foreground shadow-md',
                   'border-border border',
                   'hover:bg-accent hover:text-accent-foreground',
                   'disabled:pointer-events-none disabled:opacity-50',
-                  open ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-0 opacity-0'
+                  'text-sm font-medium whitespace-nowrap',
+                  open ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-0 opacity-0'
                 )}
                 style={{
-                  transition: `opacity ${open ? DURATION_MS : 150}ms ease-out ${open ? openDelay : closeDelay}ms`,
+                  transition: `opacity ${open ? DURATION_MS : 120}ms ease-out ${open ? openDelay : 0}ms, transform ${open ? DURATION_MS : 120}ms ease-out ${open ? openDelay : 0}ms`,
                 }}
                 onClick={() => {
                   action.onClick();
@@ -100,43 +106,41 @@ export function FloatingActionButton({ actions, className }: FloatingActionButto
                 }}
               >
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                  {action.loading ? <Loader2 className="h-5 w-5 animate-spin" /> : action.icon}
+                  {action.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : action.icon}
                 </span>
-                <span className="text-sm font-medium whitespace-nowrap">{action.label}</span>
+                <span>{action.label}</span>
               </button>
             );
           })}
         </div>
 
         {/* FAB trigger */}
-        <div className="flex items-center">
-          <Button
-            size="icon"
-            data-testid="fab-trigger"
-            aria-label={open ? 'Close actions' : 'Open actions'}
+        <Button
+          size="icon"
+          data-testid="fab-trigger"
+          aria-label={open ? 'Close actions' : 'Create new'}
+          className={cn(
+            'relative h-14 w-14 rounded-full shadow-lg',
+            'bg-indigo-500 text-white hover:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400',
+            'transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95'
+          )}
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          <Plus
             className={cn(
-              'relative h-14 w-14 rounded-full shadow-lg',
-              'bg-indigo-500 text-white hover:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400',
-              'transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95'
+              'absolute h-7 w-7 stroke-[2.5] transition-all',
+              open ? 'scale-0 rotate-90 opacity-0' : 'scale-100 rotate-0 opacity-100'
             )}
-            onClick={() => setOpen((prev) => !prev)}
-          >
-            <Plus
-              className={cn(
-                'absolute h-8 w-8 stroke-[2.5] transition-all',
-                open ? 'scale-0 rotate-90 opacity-0' : 'scale-100 rotate-0 opacity-100'
-              )}
-              style={{ transitionDuration: `${DURATION_MS}ms` }}
-            />
-            <X
-              className={cn(
-                'absolute h-8 w-8 stroke-[2.5] transition-all',
-                open ? 'scale-100 rotate-0 opacity-100' : 'scale-0 -rotate-90 opacity-0'
-              )}
-              style={{ transitionDuration: `${DURATION_MS}ms` }}
-            />
-          </Button>
-        </div>
+            style={{ transitionDuration: `${DURATION_MS}ms` }}
+          />
+          <X
+            className={cn(
+              'absolute h-6 w-6 stroke-[2.5] transition-all',
+              open ? 'scale-100 rotate-0 opacity-100' : 'scale-0 -rotate-90 opacity-0'
+            )}
+            style={{ transitionDuration: `${DURATION_MS}ms` }}
+          />
+        </Button>
       </div>
     </>
   );

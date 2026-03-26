@@ -85,4 +85,10 @@ export interface IInteractiveSessionRepository {
    * Returns a map of featureId → turnStatus for features that have an active session.
    */
   getTurnStatuses(featureIds: string[]): Promise<Map<string, string>>;
+
+  /**
+   * Get ALL non-idle turn statuses across all active sessions.
+   * Returns a map of featureId → turnStatus (only 'processing' | 'unread' entries).
+   */
+  getAllActiveTurnStatuses(): Promise<Map<string, string>>;
 }

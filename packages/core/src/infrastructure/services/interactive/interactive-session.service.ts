@@ -67,6 +67,10 @@ interface SessionState {
   agentType?: string;
   /** AbortController to cancel active stream iteration on stop. */
   streamAbort?: AbortController;
+  /** Whether a turn is currently executing (prevents concurrent turns). */
+  turnInProgress: boolean;
+  /** Queue of user messages waiting to be sent after the current turn completes. */
+  turnQueue: string[];
 }
 
 /**
@@ -159,6 +163,8 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       currentAssistantBuffer: '',
       toolEventsLog: [],
       subscribers: new Set(),
+      turnInProgress: false,
+      turnQueue: [],
     };
     this.sessions.set(session.id, state);
 
@@ -454,11 +460,13 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       new Error().stack?.split('\n').slice(1, 4).join(' <- ')
     );
 
-    // Abort any active stream iteration
+    // Abort any active stream iteration and clear pending turns
     if (state.streamAbort) {
       state.streamAbort.abort();
       state.streamAbort = undefined;
     }
+    state.turnQueue.length = 0;
+    state.turnInProgress = false;
 
     this.clearTimer(state);
     // Cache agentSessionId so resumption works when session restarts
@@ -509,8 +517,13 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     this.resetTimer(state);
     await this.sessionRepo.updateLastActivity(sessionId, now);
 
-    // Execute turn via SDK handle — fire-and-forget, response streams to subscribers
-    void this.executeAndPersistTurn(state, content);
+    // Guard: only one turn at a time per session (SDK stream is not concurrent-safe)
+    if (state.turnInProgress) {
+      state.turnQueue.push(content);
+    } else {
+      state.turnInProgress = true;
+      void this.executeAndPersistTurn(state, content);
+    }
 
     return message;
   }
@@ -719,12 +732,40 @@ export class InteractiveSessionService implements IInteractiveSessionService {
         state.currentAssistantBuffer = '';
         state.toolEventsLog = [];
         state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+      } else if (!responseText) {
+        // Stream ended without any response — SDK session likely died.
+        // Mark as error so the next message triggers a fresh session.
+        // eslint-disable-next-line no-console
+        console.error(
+          `[InteractiveSession] stream ended without response for session ${state.sessionId} — session may have died`
+        );
+        state.subscribers.forEach((sub) =>
+          sub({ delta: '', done: true, log: 'Session disconnected — will restart on next message' })
+        );
+        if (state.agentSessionId) {
+          this.stoppedAgentSessionIds.set(state.featureId, state.agentSessionId);
+        }
+        this.sessions.delete(state.sessionId);
+        try {
+          await this.sessionRepo.updateStatus(state.sessionId, InteractiveSessionStatus.error);
+        } catch {
+          // Best-effort DB update
+        }
+        return; // Skip queue drain — session is dead
       }
     } catch (err) {
       // If session was already stopped, ignore
       if (!this.sessions.has(state.sessionId)) return;
       // eslint-disable-next-line no-console
       console.error(`[InteractiveSession] turn failed for session ${state.sessionId}:`, err);
+    } finally {
+      // Release the turn lock and drain the queue
+      state.turnInProgress = false;
+      if (this.sessions.has(state.sessionId) && state.turnQueue.length > 0) {
+        const nextContent = state.turnQueue.shift()!;
+        state.turnInProgress = true;
+        void this.executeAndPersistTurn(state, nextContent);
+      }
     }
   }
 
@@ -784,10 +825,15 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     if (state) {
       const dbSession = await this.sessionRepo.findById(state.sessionId);
       if (dbSession?.status === InteractiveSessionStatus.ready) {
-        // Session ready — send to agent
+        // Session ready — send to agent (guarded: one turn at a time)
         this.resetTimer(state);
         await this.sessionRepo.updateLastActivity(state.sessionId, now);
-        void this.executeAndPersistTurn(state, content);
+        if (state.turnInProgress) {
+          state.turnQueue.push(content);
+        } else {
+          state.turnInProgress = true;
+          void this.executeAndPersistTurn(state, content);
+        }
       } else if (dbSession?.status === InteractiveSessionStatus.booting) {
         // Session booting — queue the message
         state.pendingUserContent = content;
@@ -939,6 +985,10 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 
   async getTurnStatuses(featureIds: string[]): Promise<Map<string, string>> {
     return this.sessionRepo.getTurnStatuses(featureIds);
+  }
+
+  async getAllActiveTurnStatuses(): Promise<Map<string, string>> {
+    return this.sessionRepo.getAllActiveTurnStatuses();
   }
 
   /** Find the in-memory state for an active session for a feature. */
