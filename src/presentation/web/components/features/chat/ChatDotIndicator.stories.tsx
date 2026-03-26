@@ -28,3 +28,7 @@ export const Processing: Story = {
 export const Unread: Story = {
   args: { status: 'unread' },
 };
+
+export const AwaitingInput: Story = {
+  args: { status: 'awaiting_input' },
+};

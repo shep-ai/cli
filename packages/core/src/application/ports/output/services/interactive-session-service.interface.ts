@@ -14,6 +14,7 @@ import type {
   InteractiveSession,
   InteractiveMessage,
 } from '../../../../domain/generated/output.js';
+import type { UserInteractionData } from '../agents/interactive-agent-executor.interface.js';
 
 /**
  * A single streaming chunk forwarded from agent stdout to an SSE consumer.
@@ -27,6 +28,8 @@ export interface StreamChunk {
   log?: string;
   /** Structured activity event for rich rendering in the thread */
   activity?: StreamActivity;
+  /** Pending user interaction (AskUserQuestion) — agent is waiting for user response */
+  interaction?: UserInteractionData;
 }
 
 /**
@@ -58,8 +61,10 @@ export interface ChatState {
   streamingText: string | null;
   /** Session info for the toolbar (null if no active session) */
   sessionInfo: SessionInfo | null;
-  /** Turn activity status: 'idle' | 'processing' | 'unread' (for dot indicators) */
+  /** Turn activity status: 'idle' | 'processing' | 'unread' | 'awaiting_input' (for dot indicators) */
   turnStatus: string;
+  /** Pending user interaction — agent is waiting for user response (null when no interaction pending) */
+  pendingInteraction: UserInteractionData | null;
 }
 
 /** Live session metadata for the frontend toolbar. */
@@ -217,4 +222,18 @@ export interface IInteractiveSessionService {
    * active session's status ('processing' | 'unread').
    */
   getAllActiveTurnStatuses(): Promise<Map<string, string>>;
+
+  /**
+   * Respond to a pending user interaction (AskUserQuestion).
+   * Sends the user's answers back to the agent as a tool result,
+   * clears the pending interaction, and resumes the agent's turn.
+   *
+   * @param featureId - The feature scope key
+   * @param answers - Map of question text → selected answer(s)
+   * @param annotations - Optional per-question annotations (notes, preview)
+   */
+  respondToInteraction(
+    featureId: string,
+    answers: Record<string, string>
+  ): Promise<void>;
 }

@@ -50,6 +50,14 @@ export async function GET(request: NextRequest, { params }: RouteParams): Promis
         const unsubscribe = service.subscribeByFeature(featureId, (chunk) => {
           if (chunk.done) {
             enqueue(`event: done\ndata: ${JSON.stringify({ done: true, featureId })}\n\n`);
+          } else if (chunk.interaction) {
+            // Agent is asking the user a question — emit interaction event
+            enqueue(
+              `event: interaction\ndata: ${JSON.stringify({ interaction: chunk.interaction, featureId })}\n\n`
+            );
+            if (chunk.log) {
+              enqueue(`event: log\ndata: ${JSON.stringify({ log: chunk.log, featureId })}\n\n`);
+            }
           } else if (chunk.activity) {
             enqueue(
               `event: activity\ndata: ${JSON.stringify({ activity: chunk.activity, featureId })}\n\n`

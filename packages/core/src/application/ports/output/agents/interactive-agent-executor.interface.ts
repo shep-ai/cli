@@ -11,6 +11,14 @@
  * - No SDK types leak through this boundary
  */
 
+/**
+ * Callback invoked when the agent calls AskUserQuestion.
+ * The SDK stream is PAUSED until this resolves — the agent waits for the user's answers.
+ */
+export type OnUserQuestionCallback = (
+  interaction: UserInteractionData
+) => Promise<Record<string, string>>;
+
 /** Options for creating/resuming an interactive agent session. */
 export interface InteractiveAgentOptions {
   /** Absolute worktree path (CWD for agent) */
@@ -19,6 +27,31 @@ export interface InteractiveAgentOptions {
   model?: string;
   /** Feature context string to append to system prompt */
   systemPrompt?: string;
+  /**
+   * Called when agent uses AskUserQuestion. Must return user's answers keyed by question text.
+   * The SDK stream pauses until this resolves — the agent cannot continue without answers.
+   */
+  onUserQuestion?: OnUserQuestionCallback;
+}
+
+/** A single question within an AskUserQuestion tool call. */
+export interface UserQuestionOption {
+  label: string;
+  description: string;
+  preview?: string;
+}
+
+export interface UserQuestion {
+  question: string;
+  header: string;
+  options: UserQuestionOption[];
+  multiSelect: boolean;
+}
+
+/** Data for a pending user interaction (AskUserQuestion). */
+export interface UserInteractionData {
+  toolCallId: string;
+  questions: UserQuestion[];
 }
 
 /** Event emitted by an interactive agent session stream. */
@@ -35,7 +68,8 @@ export interface InteractiveAgentEvent {
     | 'rate_limit' // Rate limit hit
     | 'task_started' // Background subtask started
     | 'task_progress' // Background subtask progress
-    | 'task_done'; // Background subtask completed/failed
+    | 'task_done' // Background subtask completed/failed
+    | 'user_question'; // Agent is asking the user a question (AskUserQuestion)
   content?: string;
   label?: string;
   detail?: string;
@@ -47,14 +81,24 @@ export interface InteractiveAgentEvent {
     numTurns?: number;
     durationMs?: number;
   };
+  /** Interaction data (attached to 'user_question' events) */
+  interaction?: UserInteractionData;
+}
+
+/** Structured tool result message sent back to the agent. */
+export interface ToolResultMessage {
+  toolCallId: string;
+  result: unknown;
 }
 
 /** Handle to a live interactive agent session. */
 export interface InteractiveAgentSessionHandle {
   /** The agent's session ID (used for resumption) */
   readonly sessionId: string;
-  /** Send a user message to the agent */
+  /** Send a user text message to the agent */
   send(message: string): Promise<void>;
+  /** Send a tool result back to the agent (e.g. AskUserQuestion response) */
+  sendToolResult(toolResult: ToolResultMessage): Promise<void>;
   /** Iterate response events from the agent */
   stream(): AsyncIterable<InteractiveAgentEvent>;
   /** Terminate the session */
