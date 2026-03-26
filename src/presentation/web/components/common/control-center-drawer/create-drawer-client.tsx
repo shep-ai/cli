@@ -19,6 +19,7 @@ export interface CreateDrawerClientProps {
   workflowDefaults?: WorkflowDefaults;
   currentAgentType?: string;
   currentModel?: string;
+  canPushDirectly?: boolean;
 }
 
 export function CreateDrawerClient({
@@ -30,6 +31,7 @@ export function CreateDrawerClient({
   workflowDefaults,
   currentAgentType,
   currentModel,
+  canPushDirectly,
 }: CreateDrawerClientProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,6 +109,7 @@ export function CreateDrawerClient({
       isSubmitting={isSubmitting}
       currentAgentType={currentAgentType}
       currentModel={currentModel}
+      canPushDirectly={canPushDirectly}
     />
   );
 }

@@ -1,3 +1,24 @@
+## [1.151.2](https://github.com/shep-ai/cli/compare/v1.151.1...v1.151.2) (2026-03-24)
+
+
+### Bug Fixes
+
+* **agents:** deduplicate evidence across retry attempts ([#474](https://github.com/shep-ai/cli/issues/474)) ([1f0f4fa](https://github.com/shep-ai/cli/commit/1f0f4fa0e31e1b11d975bd2ded6f98ceacfae22e))
+
+## [1.151.1](https://github.com/shep-ai/cli/compare/v1.151.0...v1.151.1) (2026-03-24)
+
+
+### Bug Fixes
+
+* **agents:** read evidence settings from feature state not global singleton ([#473](https://github.com/shep-ai/cli/issues/473)) ([9daa85a](https://github.com/shep-ai/cli/commit/9daa85a6e8b6f1ab27862f182a14b6f0cc25a187))
+
+# [1.151.0](https://github.com/shep-ai/cli/compare/v1.150.2...v1.151.0) (2026-03-24)
+
+
+### Features
+
+* **web:** hide fork and pr toggle when user has push access ([#467](https://github.com/shep-ai/cli/issues/467)) ([0034890](https://github.com/shep-ai/cli/commit/0034890739be2b66d5d760a07f0e50e0074f7022))
+
 ## [1.150.2](https://github.com/shep-ai/cli/compare/v1.150.1...v1.150.2) (2026-03-24)
 
 

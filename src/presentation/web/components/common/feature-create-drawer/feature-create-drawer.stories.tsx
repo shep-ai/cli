@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { within, userEvent, fn } from '@storybook/test';
+import { within, userEvent, fn, expect } from '@storybook/test';
 import { FeatureCreateDrawer } from './feature-create-drawer';
 import type { FeatureCreatePayload, RepositoryOption } from './feature-create-drawer';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
@@ -92,9 +92,11 @@ const logClose = fn().mockName('onClose');
 function CreateDrawerTrigger({
   label = 'Open Create Feature',
   workflowDefaults,
+  canPushDirectly,
 }: {
   label?: string;
   workflowDefaults?: WorkflowDefaults;
+  canPushDirectly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -115,6 +117,7 @@ function CreateDrawerTrigger({
         }}
         repositoryPath="/Users/dev/my-repo"
         workflowDefaults={workflowDefaults}
+        canPushDirectly={canPushDirectly}
         currentAgentType="claude-code"
         currentModel="claude-sonnet-4-6"
       />
@@ -689,5 +692,44 @@ export const WithRepoSelectorEmpty: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Open (No Repos)' }));
+  },
+};
+
+/* ---------------------------------------------------------------------------
+ * Fork & PR toggle visibility stories (canPushDirectly)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Fork & PR toggle visible — user does NOT have push access (canPushDirectly=false).
+ * The Fork & PR toggle is rendered in the GIT row.
+ */
+export const ForkToggleVisible: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Fork Toggle Visible)" canPushDirectly={false} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fork Toggle Visible)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const forkToggle = await body.findByLabelText('Fork & PR');
+    await expect(forkToggle).toBeInTheDocument();
+  },
+};
+
+/**
+ * Fork & PR toggle hidden — user HAS push access (canPushDirectly=true).
+ * The Fork & PR toggle is not rendered in the GIT row.
+ */
+export const ForkToggleHidden: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Fork Toggle Hidden)" canPushDirectly={true} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Fork Toggle Hidden)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    // Wait for drawer to render
+    await body.findByText('GIT');
+    // Fork & PR toggle should NOT be in the DOM
+    const forkToggle = body.queryByLabelText('Fork & PR');
+    await expect(forkToggle).toBeNull();
   },
 };

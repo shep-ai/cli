@@ -111,23 +111,27 @@ describe('Graph State Transitions › Evidence Flow (with merge)', () => {
     expectInterruptAt(result, 'merge');
 
     // Verify evidence was populated in state
-    // Evidence accumulates across all 3 validation retry attempts (2 records per attempt = 6 total)
+    // Evidence is deduplicated by type:relativePath — same 2 records across 3 attempts = 2 unique
     expect(result.evidence).toBeDefined();
     expect(Array.isArray(result.evidence)).toBe(true);
-    expect(result.evidence.length).toBe(6);
+    expect(result.evidence.length).toBe(2);
 
-    // Verify individual evidence records (first pair from attempt 1)
-    expect(result.evidence[0]).toMatchObject({
-      type: EvidenceType.Screenshot,
-      description: 'Homepage with new feature',
-      relativePath: '.shep/evidence/homepage.png',
-      taskRef: 'task-1',
-    });
-    expect(result.evidence[1]).toMatchObject({
-      type: EvidenceType.TestOutput,
-      description: 'Unit tests passing',
-      relativePath: '.shep/evidence/test-output.txt',
-    });
+    // Verify individual evidence records (deduplicated, latest attempt wins)
+    expect(result.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: EvidenceType.Screenshot,
+          description: 'Homepage with new feature',
+          relativePath: '.shep/evidence/homepage.png',
+          taskRef: 'task-1',
+        }),
+        expect.objectContaining({
+          type: EvidenceType.TestOutput,
+          description: 'Unit tests passing',
+          relativePath: '.shep/evidence/test-output.txt',
+        }),
+      ])
+    );
   });
 
   it('should return empty evidence when agent returns no evidence data', async () => {
@@ -259,11 +263,15 @@ describe('Graph State Transitions › Evidence Flow (without merge)', () => {
     const result = await ctx.graph.invoke(state, config);
 
     expectNoInterrupts(result);
-    // Evidence accumulates across all 3 validation retry attempts (2 records per attempt = 6 total)
+    // Evidence is deduplicated by type:relativePath — same 2 records across 3 attempts = 2 unique
     expect(result.evidence).toBeDefined();
-    expect(result.evidence.length).toBe(6);
-    expect(result.evidence[0].type).toBe(EvidenceType.Screenshot);
-    expect(result.evidence[1].type).toBe(EvidenceType.TestOutput);
+    expect(result.evidence.length).toBe(2);
+    expect(result.evidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: EvidenceType.Screenshot }),
+        expect.objectContaining({ type: EvidenceType.TestOutput }),
+      ])
+    );
   });
 
   it('should handle empty evidence gracefully when graph ends after implement', async () => {
@@ -614,7 +622,7 @@ describe('Graph State Transitions › Evidence Validation Retry Loop', () => {
     expect(completionMsg).toBeDefined();
     expect(completionMsg).toContain('3 attempt(s)');
 
-    // Evidence from all 3 attempts accumulated (3 records total)
-    expect(result.evidence.length).toBe(3);
+    // Evidence deduplicated by type:relativePath — same record across 3 attempts = 1 unique
+    expect(result.evidence.length).toBe(1);
   });
 });
