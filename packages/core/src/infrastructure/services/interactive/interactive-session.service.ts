@@ -20,7 +20,10 @@ import type {
 import type { IInteractiveSessionRepository } from '../../../application/ports/output/repositories/interactive-session-repository.interface.js';
 import type { IInteractiveMessageRepository } from '../../../application/ports/output/repositories/interactive-message-repository.interface.js';
 import type { IAgentExecutorFactory } from '../../../application/ports/output/agents/agent-executor-factory.interface.js';
-import type { InteractiveAgentSessionHandle } from '../../../application/ports/output/agents/interactive-agent-executor.interface.js';
+import type {
+  InteractiveAgentSessionHandle,
+  UserInteractionData,
+} from '../../../application/ports/output/agents/interactive-agent-executor.interface.js';
 import type { IFeatureRepository } from '../../../application/ports/output/repositories/feature-repository.interface.js';
 import type { InteractiveSession, InteractiveMessage } from '../../../domain/generated/output.js';
 import {
@@ -71,6 +74,10 @@ interface SessionState {
   turnInProgress: boolean;
   /** Queue of user messages waiting to be sent after the current turn completes. */
   turnQueue: string[];
+  /** Pending user interaction (AskUserQuestion) — agent stream is paused, waiting for response. */
+  pendingInteraction: UserInteractionData | null;
+  /** Resolver for the pending interaction Promise — call to resume the agent. */
+  pendingInteractionResolver: ((answers: Record<string, string>) => void) | null;
 }
 
 /**
@@ -139,6 +146,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     };
     await this.sessionRepo.create(session);
 
+    // Mark as processing immediately so the FAB shows the spinner during boot
+    void this.sessionRepo.updateTurnStatus(session.id, 'processing');
+
     // Carry over agentSessionId from previous session so resumption works
     let previousAgentSessionId: string | undefined;
     for (const [, s] of this.sessions) {
@@ -173,6 +183,8 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       subscribers: new Set(),
       turnInProgress: false,
       turnQueue: [],
+      pendingInteraction: null,
+      pendingInteractionResolver: null,
     };
     this.sessions.set(session.id, state);
 
@@ -276,6 +288,10 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       );
       let handle: InteractiveAgentSessionHandle;
 
+      // Build the onUserQuestion callback that pauses the SDK stream
+      // and waits for user input via the UI.
+      const onUserQuestion = this.buildOnUserQuestionCallback(state);
+
       const previousAgentSessionId = state.agentSessionId;
       if (previousAgentSessionId) {
         // Resume existing SDK session
@@ -283,6 +299,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
           cwd: worktreePath,
           model: state.model,
           systemPrompt: context,
+          onUserQuestion,
         });
       } else {
         // Create new SDK session
@@ -290,6 +307,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
           cwd: worktreePath,
           model: state.model,
           systemPrompt: context,
+          onUserQuestion,
         });
       }
 
@@ -731,6 +749,13 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 });
               }
               break;
+
+            case 'user_question':
+              // AskUserQuestion is now handled by the canUseTool callback
+              // (buildOnUserQuestionCallback) which pauses the SDK stream.
+              // This event should not appear in the stream anymore, but if it
+              // does (e.g. from a different code path), ignore it here.
+              break;
           }
         }
       } finally {
@@ -988,7 +1013,10 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       }
     }
 
-    return { messages, sessionStatus, streamingText, sessionInfo, turnStatus };
+    // Include pending interaction if one exists
+    const pendingInteraction = state?.pendingInteraction ?? null;
+
+    return { messages, sessionStatus, streamingText, sessionInfo, turnStatus, pendingInteraction };
   }
 
   subscribeByFeature(featureId: string, onChunk: (chunk: StreamChunk) => void): UnsubscribeFn {
@@ -1035,6 +1063,106 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 
   async getAllActiveTurnStatuses(): Promise<Map<string, string>> {
     return this.sessionRepo.getAllActiveTurnStatuses();
+  }
+
+  async respondToInteraction(
+    featureId: string,
+    answers: Record<string, string>
+  ): Promise<void> {
+    const state = this.findActiveStateForFeature(featureId);
+    if (!state || !state.pendingInteraction || !state.pendingInteractionResolver) {
+      throw new Error(`No pending interaction for feature ${featureId}`);
+    }
+
+    // Persist the user's answers as a structured user message.
+    // The {{interaction}} prefix lets the frontend detect and render it
+    // as a compact green bubble instead of a regular text message.
+    const interactionPayload = {
+      questions: state.pendingInteraction.questions.map((q) => ({
+        header: q.header,
+        question: q.question,
+      })),
+      answers,
+    };
+    const now = new Date();
+    const userMsg: InteractiveMessage = {
+      id: crypto.randomUUID(),
+      featureId: state.featureId,
+      sessionId: state.sessionId,
+      role: InteractiveMessageRole.user,
+      content: `{{interaction}}${JSON.stringify(interactionPayload)}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.messageRepo.create(userMsg);
+
+    // Resolve the Promise that the canUseTool callback is awaiting.
+    // This unblocks the SDK stream — the agent resumes with the user's answers.
+    state.pendingInteractionResolver(answers);
+
+    // Clear pending interaction state
+    state.pendingInteraction = null;
+    state.pendingInteractionResolver = null;
+
+    // Update turn status back to processing
+    void this.sessionRepo.updateTurnStatus(state.sessionId, 'processing');
+
+    // Clear the "Waiting for your response..." log
+    state.subscribers.forEach((sub) => sub({ delta: '', done: false }));
+  }
+
+  /**
+   * Build the onUserQuestion callback for a session.
+   * Called by the SDK's canUseTool when the agent invokes AskUserQuestion.
+   * Returns a Promise that doesn't resolve until the user submits their answers.
+   */
+  private buildOnUserQuestionCallback(state: SessionState) {
+    return async (interaction: UserInteractionData): Promise<Record<string, string>> => {
+      // Flush any accumulated assistant text as a separate message BEFORE
+      // the interaction. This ensures the agent's question text appears
+      // above the green answer bubble in the conversation history.
+      if (state.currentAssistantBuffer.trim()) {
+        const now = new Date();
+        const msg: InteractiveMessage = {
+          id: crypto.randomUUID(),
+          featureId: state.featureId,
+          sessionId: state.sessionId,
+          role: InteractiveMessageRole.assistant,
+          content: state.currentAssistantBuffer,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await this.messageRepo.create(msg);
+        state.currentAssistantBuffer = '';
+        state.toolEventsLog = [];
+
+        // Notify subscribers so the frontend picks up the new message
+        state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+        // Small delay so the refetch completes before the interaction appears
+        await new Promise<void>((r) => setTimeout(r, 100));
+      }
+
+      // Store the interaction data for the frontend
+      state.pendingInteraction = interaction;
+
+      // Update turn status so the dot indicator shows amber
+      void this.sessionRepo.updateTurnStatus(state.sessionId, 'awaiting_input');
+
+      // Notify subscribers so SSE pushes the interaction to the frontend
+      state.subscribers.forEach((sub) =>
+        sub({
+          delta: '',
+          done: false,
+          log: 'Waiting for your response...',
+          interaction,
+        })
+      );
+
+      // Create a Promise that will be resolved when the user calls respondToInteraction
+      return new Promise<Record<string, string>>((resolve) => {
+        state.pendingInteractionResolver = resolve;
+      });
+    };
   }
 
   /** Find the in-memory state for an active session for a feature. */

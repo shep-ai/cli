@@ -28,8 +28,12 @@ export class DeleteRepositoryUseCase {
       throw new Error(`Repository not found: "${id}"`);
     }
 
-    // Delete all child features (cancels agent runs, removes worktrees)
-    const features = await this.featureRepo.list({ repositoryPath: repository.path });
+    // Delete all child features (cancels agent runs, removes worktrees).
+    // Include archived features so they don't survive as orphans.
+    const features = await this.featureRepo.list({
+      repositoryPath: repository.path,
+      includeArchived: true,
+    });
     for (const feature of features) {
       await this.deleteFeature.execute(feature.id);
     }

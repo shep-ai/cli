@@ -197,6 +197,87 @@
   animation: theme-reveal 400ms ease-in-out;
 }
 
+/* Chat FAB — shared conic-gradient ring for both states */
+@keyframes fab-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes fab-shimmer {
+  0% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.6);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+/* Processing: spinning violet ring */
+.chat-fab-spinning::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  padding: 3px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 50%,
+    rgba(167, 139, 250, 0.95) 85%,
+    rgba(139, 92, 246, 1) 95%,
+    transparent 100%
+  );
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: fab-spin 1s linear infinite;
+  pointer-events: none;
+}
+
+/* Unread: static emerald ring + shimmer */
+.chat-fab-glow-unread::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  padding: 3px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(52, 211, 153, 0.7),
+    rgba(16, 185, 129, 0.95),
+    rgba(52, 211, 153, 0.7),
+    rgba(16, 185, 129, 0.95),
+    rgba(52, 211, 153, 0.7)
+  );
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: fab-shimmer 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Awaiting input: static violet/white ring + faster shimmer */
+.chat-fab-glow-awaiting::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  padding: 3px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(196, 181, 253, 0.7),
+    rgba(255, 255, 255, 0.95),
+    rgba(196, 181, 253, 0.7),
+    rgba(255, 255, 255, 0.95),
+    rgba(196, 181, 253, 0.7)
+  );
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: fab-shimmer 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
 @keyframes attention-wave {
   0%,
   100% {
@@ -260,180 +341,20 @@
   transition: d 300ms ease;
 }
 
-/* ─── @cubone/react-file-manager — shadcn theme integration ─────────────── */
-.shep-file-manager {
-  /* Hide the left navigation pane — navigation is handled via onFileOpen */
-  & .navigation-pane,
-  & .sidebar-resize {
-    display: none !important;
+/* ─── Folder picker row entrance ──────────────────────────────────────────── */
+@keyframes folder-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-  /* Root container */
-  & .file-explorer {
-    border: none;
-    background: var(--color-background);
-    color: var(--color-foreground);
-    font-family: var(--font-sans);
-    font-size: 14px;
-  }
-
-  /* ── Toolbar ─────────────────────────────────────────────────── */
-  & .toolbar {
-    background: var(--color-background);
-    border-bottom: 1px solid var(--color-border);
-    height: 40px;
-    min-height: 40px;
-    max-height: 40px;
-    padding: 0 12px;
-  }
-
-  & .file-action,
-  & .item-action {
-    background: transparent;
-    color: var(--color-muted-foreground);
-    border-radius: 6px;
-    border: none;
-    font-size: 13px;
-  }
-
-  & .file-action:hover:not(:disabled),
-  & .item-action:hover:not(:disabled) {
-    background-color: var(--color-muted) !important;
-    color: var(--color-foreground) !important;
-    text-shadow: none !important;
-    border-radius: 6px;
-  }
-
-  & .file-action:hover:disabled {
-    background-color: transparent !important;
-    color: var(--color-muted-foreground) !important;
-  }
-
-  /* Toggle view dropdown */
-  & .toggle-view {
-    background: var(--color-background);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    box-shadow: var(--shadow-md);
-    font-size: 13px;
-  }
-
-  & .toggle-view ul li:hover {
-    background-color: var(--color-muted);
-  }
-
-  /* ── Breadcrumb / path bar ───────────────────────────────────── */
-  & .bread-crumb-container {
-    background: var(--color-background);
-    border-bottom: 1px solid var(--color-border);
-    color: var(--color-muted-foreground);
-    font-size: 13px;
-  }
-
-  & .bread-crumb-container a,
-  & .bread-crumb-container span {
-    color: var(--color-primary);
-  }
-
-  & .bread-crumb-container .active-list-item {
-    color: var(--color-foreground);
-    font-weight: 500;
-  }
-
-  /* ── Files list header ───────────────────────────────────────── */
-  & .files-header {
-    background: var(--color-muted);
-    border-bottom: 1px solid var(--color-border);
-    color: var(--color-muted-foreground);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  & .sort-indicator {
-    color: var(--color-primary);
-  }
-
-  /* ── File / folder rows ──────────────────────────────────────── */
-  & .file-item {
-    border-bottom: 1px solid var(--color-border);
-    color: var(--color-foreground);
-    transition: background 80ms ease;
-  }
-
-  & .file-item:hover {
-    background: var(--color-muted);
-  }
-
-  /* Selected state — replaces the library's purple */
-  & .file-selected,
-  & .item-selected,
-  & .file-item.file-selected,
-  & .file-item.item-selected {
-    background-color: color-mix(in srgb, var(--color-primary) 10%, transparent) !important;
-  }
-
-  & .file-icon,
-  & .folder-icon-default,
-  & .folder-open-icon,
-  & .folder-close-icon {
-    color: var(--color-muted-foreground);
-  }
-
-  & .file-name,
-  & .folder-name {
-    color: var(--color-foreground);
-    font-size: 14px;
-    font-weight: 400;
-  }
-
-  /* Prevent date from wrapping to two lines */
-  & .modified-date,
-  & .file-date {
-    color: var(--color-muted-foreground);
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  & .size,
-  & .file-size {
-    color: var(--color-muted-foreground);
-    font-size: 12px;
-    white-space: nowrap;
-  }
-
-  /* Empty folder state */
-  & .empty-folder {
-    color: var(--color-muted-foreground);
-    font-size: 14px;
-  }
-
-  /* ── Scrollbar styling ───────────────────────────────────────── */
-  & ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-
-  & ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  & ::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--color-foreground) 15%, transparent);
-    border-radius: 9999px;
-  }
-
-  & ::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in srgb, var(--color-foreground) 30%, transparent);
-  }
-
-  /* ── Dark mode overrides ─────────────────────────────────────── */
-  &:is(.dark *) .file-explorer,
-  .dark & .file-explorer {
-    background: var(--color-background);
-    color: var(--color-foreground);
-  }
+.folder-row {
+  animation: folder-row-in 200ms ease-out both;
 }
 
 /* ── RTL font overrides — applied dynamically when language is Arabic or Hebrew ── */

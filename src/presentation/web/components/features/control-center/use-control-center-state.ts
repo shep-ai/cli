@@ -597,7 +597,7 @@ export function useControlCenterState(
   );
 
   const handleAddRepository = useCallback(
-    (path: string): { wasEmpty: boolean; repoPath: string } => {
+    (path: string): { wasEmpty: boolean; repoPath: string; tempNodeId: string } => {
       const wasEmpty = getRepoMapSize() === 0;
       const tempId = `repo-temp-${++nextRepoTempId}`;
       const repoName =
@@ -639,7 +639,7 @@ export function useControlCenterState(
         })
         .finally(() => endMutation());
 
-      return { wasEmpty, repoPath: path };
+      return { wasEmpty, repoPath: path, tempNodeId: tempId };
     },
     [
       addRepositoryToMap,
