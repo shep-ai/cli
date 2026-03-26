@@ -135,6 +135,7 @@ import { GetInteractiveChatStateUseCase } from '../../application/use-cases/inte
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
+import { CodexCliSessionRepository } from '../services/agents/sessions/codex-cli-session.repository.js';
 import { StubSessionRepository } from '../services/agents/sessions/stub-session.repository.js';
 import { AgentSessionRepositoryRegistry } from '../../application/services/agents/agent-session-repository.registry.js';
 import { ListAgentSessionsUseCase } from '../../application/use-cases/agents/list-agent-sessions.use-case.js';
@@ -417,6 +418,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register(`IAgentSessionRepository:${AgentType.GeminiCli}`, {
     useFactory: () => new StubSessionRepository(AgentType.GeminiCli),
+  });
+  container.register(`IAgentSessionRepository:${AgentType.CodexCli}`, {
+    useFactory: () => new CodexCliSessionRepository(),
   });
 
   container.registerSingleton(AgentSessionRepositoryRegistry);

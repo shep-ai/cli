@@ -18,6 +18,7 @@ export interface AgentModelGroup {
 
 const AGENT_LABELS: Record<string, string> = {
   'claude-code': 'Claude Code',
+  'codex-cli': 'Codex CLI',
   cursor: 'Cursor CLI',
   'gemini-cli': 'Gemini CLI',
   dev: 'Demo',
@@ -26,8 +27,9 @@ const AGENT_LABELS: Record<string, string> = {
 /** Sort weight — higher = further down. Demo always last. */
 const AGENT_ORDER: Record<string, number> = {
   'claude-code': 0,
-  cursor: 1,
-  'gemini-cli': 2,
+  'codex-cli': 1,
+  cursor: 2,
+  'gemini-cli': 3,
   dev: 99,
 };
 

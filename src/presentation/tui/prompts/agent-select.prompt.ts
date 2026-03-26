@@ -11,8 +11,8 @@ import { shepTheme } from '../themes/shep.theme.js';
 /**
  * Creates the @inquirer/select configuration for selecting an AI coding agent.
  *
- * Only Claude Code is currently available. Other agents are shown as
- * disabled with a "Coming Soon" badge.
+ * Active agents are selectable. Agents not yet implemented are shown
+ * as disabled with a "Coming Soon" badge.
  */
 export function createAgentSelectConfig() {
   return {
@@ -27,6 +27,11 @@ export function createAgentSelectConfig() {
         name: 'Gemini CLI',
         value: AgentType.GeminiCli,
         description: 'Google Gemini CLI',
+      },
+      {
+        name: 'Codex CLI',
+        value: AgentType.CodexCli,
+        description: "OpenAI's Codex CLI terminal agent (GPT models)",
       },
       {
         name: 'Cursor',

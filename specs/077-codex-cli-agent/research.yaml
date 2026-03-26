@@ -1,0 +1,501 @@
+name: "codex-cli-agent"
+summary: >
+  Comprehensive technical research for integrating OpenAI Codex CLI as a new agent executor
+  in Shep's settings-driven agent system. The implementation follows the established
+  subprocess-based executor pattern (ClaudeCodeExecutorService, GeminiCliExecutorService),
+  spawning the `codex exec` binary with --json JSONL output, stdin prompt piping, and
+  danger-full-access sandbox mode. No new npm dependencies required.
+
+relatedFeatures: []
+
+technologies:
+  - "TypeSpec (domain enum extension for AgentType)"
+  - "TypeScript (executor service implementation)"
+  - "Node.js child_process (subprocess spawning via SpawnFunction)"
+  - "OpenAI Codex CLI (codex exec --json --sandbox danger-full-access)"
+  - "JSONL (newline-delimited JSON event stream parsing)"
+  - "Vitest (unit and integration testing)"
+  - "Next.js (web UI agent selection components)"
+  - "Storybook (UI component story variants)"
+  - "Inquirer.js (TUI agent selection prompt)"
+
+relatedLinks:
+  - title: "Codex CLI documentation"
+    url: "https://developers.openai.com/codex/cli"
+  - title: "Codex CLI non-interactive mode"
+    url: "https://developers.openai.com/codex/noninteractive"
+  - title: "Codex CLI command reference"
+    url: "https://developers.openai.com/codex/cli/reference"
+  - title: "Codex configuration reference"
+    url: "https://developers.openai.com/codex/config-reference"
+  - title: "Codex models"
+    url: "https://developers.openai.com/codex/models"
+  - title: "Codex CLI GitHub repository"
+    url: "https://github.com/openai/codex"
+  - title: "Codex SDK TypeScript"
+    url: "https://github.com/openai/codex/tree/main/sdk/typescript"
+
+decisions:
+  - title: "Executor architecture pattern"
+    chosen: "Single-class subprocess executor following ClaudeCodeExecutorService and GeminiCliExecutorService pattern"
+    rejected:
+      - "SDK-based integration via @openai/codex-sdk — would add an npm dependency and introduce a different integration pattern than all other executors. Every existing executor uses raw subprocess spawning via SpawnFunction for consistency and testability."
+      - "JSON-RPC protocol integration via app-server — over-engineered for our needs. The codex exec CLI already provides a clean JSONL interface. Going through the JSON-RPC layer would require managing a persistent server process and WebSocket connections."
+    rationale: |
+      All existing executors (ClaudeCode, GeminiCli, Cursor) use the same architecture:
+      constructor-injected SpawnFunction, spawn the CLI binary, pipe prompt via stdin,
+      parse structured JSON output from stdout. This pattern is proven, testable (mock
+      SpawnFunction), and maintains zero external dependencies. The Codex CLI's
+      `codex exec --json` mode produces JSONL events on stdout that map directly to
+      our AgentExecutionStreamEvent types.
+
+  - title: "Sandbox mode for codex exec"
+    chosen: "--sandbox danger-full-access"
+    rejected:
+      - "--full-auto flag — provides workspace-write sandbox with auto-approval. While safer, it restricts writes to the workspace directory only, which may break SDLC workflows that need to write to paths outside the current workspace (e.g., global config, package manager caches). Other executors like Claude Code use --dangerously-skip-permissions which grants full access."
+      - "--sandbox read-only — default mode but prevents the agent from writing any files or running commands without approval, making it useless for autonomous SDLC execution."
+      - "--sandbox workspace-write without --full-auto — requires separately configuring approval policy and still has the workspace directory restriction."
+    rationale: |
+      The spec's open question resolved to danger-full-access. This matches the pattern
+      where Claude Code uses --dangerously-skip-permissions (full access) and Cursor
+      uses equivalent unrestricted modes. Shep's SDLC workflows are inherently
+      autonomous — the agent must be able to write files, run commands, and modify
+      the project without interactive approval gates. The danger-full-access mode
+      removes all sandbox restrictions, consistent with how other executors operate.
+      Security is maintained at the Shep level, not the subprocess sandbox level.
+
+  - title: "Prompt delivery method"
+    chosen: "Stdin pipe (write prompt to proc.stdin, then end)"
+    rejected:
+      - "Positional CLI argument — risks ENAMETOOLONG on Windows for prompts >32KB and requires complex shell escaping of special characters in the prompt text."
+      - "Temporary file with -o flag — adds file I/O overhead, temp file cleanup complexity, and an extra code path. Only Cursor uses this pattern due to Windows .cmd script limitations."
+    rationale: |
+      Stdin piping is the established convention for ClaudeCodeExecutorService and
+      GeminiCliExecutorService. Both pass the prompt via `proc.stdin.write(prompt)`
+      followed by `proc.stdin.end()`. Codex CLI supports stdin input via the `-`
+      argument (`codex exec -`). This avoids Windows argument length limits,
+      eliminates shell escaping concerns, and maintains codebase consistency.
+
+  - title: "Output parsing format"
+    chosen: "Always use --json flag for JSONL event stream parsing"
+    rejected:
+      - "Plain text for non-streaming — loses thread_id and usage metadata, would require two different parsing paths."
+      - "File-based output via --output-last-message — loses streaming, adds file I/O overhead and cleanup."
+    rationale: |
+      The --json flag produces a JSONL event stream on stdout with structured event
+      types: thread.started (provides thread_id), item.started/updated/completed
+      (progress tracking), turn.completed (usage stats). Using --json for both
+      execute() and executeStream() means a single parsing codepath. This follows
+      the same rationale as ClaudeCode's --output-format json and GeminiCli's
+      --output-format json — all executors use structured JSON for consistent
+      metadata extraction.
+
+  - title: "Session resume implementation"
+    chosen: "Use codex exec resume <session_id> subcommand with thread_id from thread.started events"
+    rejected:
+      - "Skip session resume initially — would limit multi-phase SDLC workflow continuity. Since Shep's core value is multi-phase autonomous workflows (requirements -> research -> plan -> implement), losing context between phases degrades the experience significantly."
+      - "Use Codex SDK's resumeThread() method — introduces an npm dependency and a different integration pattern. The CLI's exec resume subcommand provides the same functionality via subprocess."
+    rationale: |
+      Codex CLI outputs a thread.started event with thread_id in the JSONL stream.
+      This thread_id maps directly to AgentExecutionResult.sessionId. To resume,
+      the syntax is `codex exec resume <thread_id> "follow-up prompt"`. This mirrors
+      how ClaudeCodeExecutorService uses `--resume <session_id>`. The existing
+      AgentExecutionOptions.resumeSession field carries the session ID, and
+      supportsFeature('session-resume') advertises the capability.
+
+  - title: "Authentication strategy"
+    chosen: "Inject CODEX_API_KEY env var for token auth; fall back to saved credentials for session auth"
+    rejected:
+      - "Use OPENAI_API_KEY env var — more generic but may conflict with other OpenAI tools in the same environment. CODEX_API_KEY is the Codex-specific variable documented by OpenAI."
+      - "Always require codex login — breaks CI/CD and headless environments where interactive browser auth is not possible."
+    rationale: |
+      Follows the exact pattern from GeminiCliExecutorService: when authConfig.authMethod
+      is 'token', inject CODEX_API_KEY into the spawned process environment. When
+      authConfig.authMethod is 'session', do not inject any env var — Codex will use
+      credentials saved by `codex login` in ~/.codex/auth.json. The env var name
+      CODEX_API_KEY is documented at https://developers.openai.com/codex/auth and
+      avoids conflicts with OPENAI_API_KEY used by other tools.
+
+  - title: "JSONL event mapping to AgentExecutionStreamEvent"
+    chosen: "Map Codex JSONL events to existing AgentExecutionStreamEvent types using a stateful line parser"
+    rejected:
+      - "Use Codex SDK event emitter — adds dependency, different pattern from other executors."
+      - "Raw stdout buffering without line parsing — loses streaming capability, buffers entire response before yielding."
+    rationale: |
+      Codex CLI JSONL events map to our stream event types:
+      - thread.started -> extract thread_id for sessionId (no yield)
+      - item.started (type: agent_message) -> yield progress event
+      - item.updated (type: agent_message) -> yield progress event with delta text
+      - item.completed (type: agent_message) -> accumulate final response text
+      - item.started/completed (type: command_execution) -> yield progress event
+      - item.started/completed (type: file_change) -> yield progress event
+      - turn.completed -> extract usage, yield result event with accumulated text
+      - turn.failed / error -> yield error event
+
+      This follows the same line-buffered parsing pattern used by both
+      ClaudeCodeExecutorService and GeminiCliExecutorService: read stdout chunks,
+      split on newlines, parse each complete line as JSON, handle partial lines
+      across chunk boundaries.
+
+  - title: "Model list strategy"
+    chosen: "Include all 12 documented models as static array in factory's getSupportedModels()"
+    rejected:
+      - "Only include top 4 recommended models — unnecessarily restricts users who have access to older or specialized models through their OpenAI plans."
+      - "Dynamic model discovery via codex CLI — would require spawning a subprocess just to list models, adding latency to UI rendering. No existing executor does dynamic discovery."
+    rationale: |
+      The factory's getSupportedModels() returns a static array (same as CLAUDE_CODE_MODELS,
+      GEMINI_CLI_MODELS, CURSOR_MODELS). This is informational for the UI model picker —
+      the executor passes whatever model the user configures via --model flag. Including
+      all documented models ensures users can select any model their OpenAI plan supports.
+
+  - title: "Web UI icon"
+    chosen: "OpenAI brand SVG icon at /public/icons/agents/openai.svg"
+    rejected:
+      - "Custom Codex-specific icon — Codex CLI does not have a distinct brand mark separate from OpenAI. Creating a custom icon would be inconsistent with the convention where agents use their parent company's brand."
+      - "Text-only label without icon — breaks the visual pattern where every agent type has an icon in the selection dropdowns and feature nodes."
+    rationale: |
+      Follows the established pattern: Claude Code uses claude-ai-icon.svg (Anthropic brand),
+      Gemini CLI uses gemini-cli.jpeg (Google brand), Cursor uses cursor.jpeg (Cursor brand).
+      Codex CLI is an OpenAI product, so the OpenAI brand icon is the natural choice. The
+      icon will be placed at /public/icons/agents/ following the existing convention.
+
+  - title: "Feature support declaration"
+    chosen: "Support session-resume, streaming, and structured-output; do not support system-prompt, tool-scoping, or session-listing"
+    rejected:
+      - "Support all features — Codex CLI does not have an --append-system-prompt flag, so system-prompt cannot be supported. Session listing would require reading ~/.codex/sessions/ which is implementation-specific and may change."
+      - "Support only streaming — would miss session resume which is critical for multi-phase SDLC workflows."
+    rationale: |
+      Based on Codex CLI's documented capabilities:
+      - session-resume: Supported via `codex exec resume <thread_id>`
+      - streaming: Supported via --json JSONL event stream
+      - structured-output: Supported via --output-schema flag
+      - system-prompt: Not supported (no --append-system-prompt or equivalent flag)
+      - tool-scoping: Not supported (no --allowedTools equivalent)
+      - session-listing: Not supported initially (would require filesystem access to ~/.codex/sessions/)
+
+      This matches the supportsFeature() pattern where each executor declares
+      its capabilities via a static SUPPORTED_FEATURES Set.
+
+openQuestions:
+  - question: "Should the executor handle Codex CLI's --output-schema for structured output?"
+    resolved: true
+    options:
+      - option: "Pass --output-schema when options.outputSchema is provided"
+        description: "Map AgentExecutionOptions.outputSchema to Codex CLI's --output-schema flag. This enables structured JSON responses validated against a schema, useful for phases that expect specific output formats (metadata, research YAML)."
+        selected: true
+      - option: "Ignore structured output initially"
+        description: "Skip --output-schema support for v1. Simpler implementation but loses a capability that the spec lists in FR-13 and that other executors like Claude Code support via --json-schema."
+        selected: false
+      - option: "Write schema to temp file and pass path"
+        description: "Codex CLI's --output-schema expects a file path. Write the JSON schema to a temp file, pass the path, then clean up. Adds complexity but matches the CLI's expected input."
+        selected: false
+    selectionRationale: |
+      The --output-schema flag accepts a file path to a JSON Schema. When
+      options.outputSchema is provided, the executor should write it to a temp
+      file and pass the path. This is more complex than Claude Code's inline
+      --json-schema but necessary because Codex CLI requires a file path.
+      The temp file should be cleaned up in a finally block.
+
+  - question: "How should the executor handle the --skip-git-repo-check flag?"
+    resolved: true
+    options:
+      - option: "Always pass --skip-git-repo-check"
+        description: "Codex CLI normally requires being run inside a git repository. Since Shep manages its own working directories that may or may not be git repos (especially during init), always skipping this check avoids unexpected failures."
+        selected: true
+      - option: "Only pass when cwd is not a git repo"
+        description: "Check if the cwd contains a .git directory and only pass the flag when it doesn't. More conservative but adds a filesystem check on every invocation."
+        selected: false
+      - option: "Never pass --skip-git-repo-check"
+        description: "Let Codex CLI enforce its git repo requirement. May fail in some Shep workflows where the working directory isn't yet a git repo."
+        selected: false
+    selectionRationale: |
+      Always passing --skip-git-repo-check is safest because Shep orchestrates
+      workflows that may run before git init (e.g., project scaffolding). The
+      flag has no downside — it simply removes a prerequisite check. This is
+      analogous to how Claude Code executor doesn't require any repo structure.
+
+  - question: "Should the executor strip ANSI color codes from Codex CLI output?"
+    resolved: true
+    options:
+      - option: "Pass --color never to disable colors"
+        description: "Codex CLI supports --color never|always|auto. Since we parse JSONL from stdout, colors should not appear in --json mode, but passing --color never as a safety measure prevents any ANSI escape sequences from contaminating the JSON parsing."
+        selected: true
+      - option: "Strip ANSI codes during parsing"
+        description: "Post-process stdout to remove ANSI sequences. Adds complexity and is a workaround rather than a proper solution."
+        selected: false
+      - option: "Rely on --json mode to suppress colors"
+        description: "The --json flag should output clean JSON without ANSI codes. Trust the CLI implementation. May break if stderr output leaks into stdout buffer."
+        selected: false
+    selectionRationale: |
+      Passing --color never is a defensive measure that costs nothing and prevents
+      potential JSON parsing issues. While --json mode should output clean JSONL,
+      the --color never flag provides an explicit guarantee. This follows defensive
+      programming principles consistent with the codebase's error resilience
+      requirements (NFR-3).
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Executor Architecture Pattern
+
+  **Chosen:** Single-class subprocess executor following ClaudeCodeExecutorService and GeminiCliExecutorService pattern
+
+  **Rejected:**
+  - SDK-based integration via @openai/codex-sdk — adds npm dependency, different integration pattern from all other executors
+  - JSON-RPC protocol integration via app-server — over-engineered, requires managing persistent server process
+
+  **Rationale:** All existing executors use SpawnFunction injection, CLI binary spawning, stdin prompt piping, and structured JSON parsing. This pattern is proven, testable, and dependency-free.
+
+  ### 2. Sandbox Mode
+
+  **Chosen:** `--sandbox danger-full-access`
+
+  **Rejected:**
+  - `--full-auto` — restricts writes to workspace directory only, may break workflows writing outside workspace
+  - `--sandbox read-only` — prevents autonomous file writing and command execution
+  - `--sandbox workspace-write` — same workspace restriction as --full-auto
+
+  **Rationale:** Matches Claude Code's `--dangerously-skip-permissions` pattern. Shep's autonomous SDLC workflows require unrestricted file and command access. Security is enforced at the Shep level, not the subprocess sandbox level.
+
+  ### 3. Prompt Delivery
+
+  **Chosen:** Stdin pipe via `proc.stdin.write(prompt); proc.stdin.end()`
+
+  **Rejected:**
+  - Positional CLI argument — risks ENAMETOOLONG on Windows (>32KB prompts)
+  - Temporary file — adds I/O overhead and cleanup complexity
+
+  **Rationale:** Established convention in ClaudeCodeExecutorService and GeminiCliExecutorService. Codex CLI supports stdin via `codex exec -` syntax.
+
+  ### 4. Output Parsing Format
+
+  **Chosen:** Always use `--json` flag for JSONL event stream
+
+  **Rejected:**
+  - Plain text for non-streaming — loses thread_id and usage metadata
+  - File-based output via --output-last-message — loses streaming, adds file I/O
+
+  **Rationale:** JSONL events provide thread_id (session resume), usage stats (token tracking), and structured progress events in both execute() and executeStream().
+
+  ### 5. Session Resume
+
+  **Chosen:** `codex exec resume <thread_id>` with thread_id from thread.started events
+
+  **Rejected:**
+  - Skip initially — degrades multi-phase SDLC workflow continuity
+  - Codex SDK resumeThread() — adds dependency, different pattern
+
+  **Rationale:** thread_id from JSONL maps to AgentExecutionResult.sessionId. Resume syntax mirrors ClaudeCode's --resume pattern.
+
+  ### 6. Authentication Strategy
+
+  **Chosen:** Inject CODEX_API_KEY env var for token auth; saved credentials for session auth
+
+  **Rejected:**
+  - OPENAI_API_KEY — may conflict with other OpenAI tools
+  - Always require codex login — breaks CI/CD
+
+  **Rationale:** Follows GeminiCliExecutorService pattern (GEMINI_API_KEY injection). CODEX_API_KEY is the documented Codex-specific env var.
+
+  ### 7. JSONL Event Mapping
+
+  **Chosen:** Stateful line parser mapping Codex events to AgentExecutionStreamEvent types
+
+  **Event Mapping Table:**
+
+  | Codex JSONL Event | Our Event Type | Action |
+  | --- | --- | --- |
+  | thread.started | (internal) | Extract thread_id for sessionId |
+  | turn.started | (internal) | Track turn state |
+  | item.started (agent_message) | progress | Yield with empty/initial text |
+  | item.updated (agent_message) | progress | Yield with delta text |
+  | item.completed (agent_message) | progress | Accumulate final text |
+  | item.started (command_execution) | progress | Yield "Running: command" |
+  | item.completed (command_execution) | progress | Yield with exit code |
+  | item.started (file_change) | progress | Yield "Modifying files" |
+  | item.completed (file_change) | progress | Yield with change summary |
+  | turn.completed | result | Yield with accumulated text + usage |
+  | turn.failed | error | Yield with error details |
+  | error | error | Yield with error message |
+
+  **Rejected:**
+  - Codex SDK event emitter — adds dependency
+  - Raw buffering without line parsing — loses streaming
+
+  **Rationale:** Same line-buffered chunk parsing used by ClaudeCode and GeminiCli executors.
+
+  ### 8. Model List
+
+  **Chosen:** All 12 documented models as static array in factory
+
+  | Model ID | Description |
+  | --- | --- |
+  | gpt-5.4 | Flagship frontier model (default) |
+  | gpt-5.4-mini | Fast, efficient mini model |
+  | gpt-5.3-codex | Industry-leading coding model |
+  | gpt-5.3-codex-spark | Text-only real-time coding |
+  | gpt-5.2-codex | Previous gen coding model |
+  | gpt-5.2 | Previous gen general model |
+  | gpt-5.1-codex-max | Earlier coding model |
+  | gpt-5.1-codex | Earlier coding model |
+  | gpt-5.1 | Earlier general model |
+  | gpt-5-codex | Original Codex model |
+  | gpt-5-codex-mini | Original Codex mini |
+  | gpt-5 | Original GPT-5 |
+
+  **Rejected:**
+  - Top 4 only — restricts users with access to specific models
+  - Dynamic discovery — adds latency, no executor does this
+
+  **Rationale:** Static list is informational for UI; executor passes any model via --model flag.
+
+  ### 9. Web UI Icon
+
+  **Chosen:** OpenAI brand SVG at /public/icons/agents/openai.svg
+
+  **Rejected:**
+  - Custom Codex icon — no distinct Codex brand mark exists
+  - Text-only — breaks visual pattern
+
+  **Rationale:** Follows convention: Claude->Anthropic icon, Gemini->Google icon, Codex->OpenAI icon.
+
+  ### 10. Feature Support Declaration
+
+  **Chosen:** Support session-resume, streaming, structured-output; not system-prompt, tool-scoping, session-listing
+
+  **Rejected:**
+  - Support all features — no --append-system-prompt flag exists
+  - Streaming only — misses critical session resume for SDLC workflows
+
+  **Rationale:** Based on documented Codex CLI flags and capabilities.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | @openai/codex (CLI) | Agent binary | Use (external) | Spawned as subprocess, same as claude/gemini/cursor binaries |
+  | @openai/codex-sdk | TypeScript SDK | Reject | Adds npm dependency; subprocess pattern is established and sufficient |
+  | Node.js child_process | Process spawning | Use (built-in) | Already used via SpawnFunction injection for all executors |
+  | TypeSpec compiler | Domain model generation | Use (existing) | Required to add CodexCli variant to AgentType enum |
+  | Vitest | Testing | Use (existing) | Project's test framework; TDD required per CLAUDE.md |
+  | Storybook | UI component stories | Use (existing) | Required per CLAUDE.md for all web UI components |
+
+  ## Security Considerations
+
+  ### API Key Protection
+  - CODEX_API_KEY is injected into spawned process env only, never logged
+  - The buildSpawnOptions() method must strip sensitive vars from log output
+  - Follow GeminiCliExecutorService pattern: conditional env injection based on authConfig.authMethod
+
+  ### Sandbox Mode Risk
+  - `--sandbox danger-full-access` removes all Codex CLI sandbox restrictions
+  - This is acceptable because Shep already uses equivalent unrestricted modes for other agents
+  - The --dangerously-bypass-approvals-and-sandbox (--yolo) flag must NEVER be used per NFR-5
+  - Security boundary is at the Shep orchestration level, not the subprocess level
+
+  ### Process Security
+  - Never use `shell: true` when spawning (prevents command injection, avoids DEP0190)
+  - Use `windowsHide: true` on Windows to prevent blank console windows
+  - Strip CLAUDECODE env var from child process env (prevents nested session detection)
+
+  ## Performance Implications
+
+  ### Subprocess Overhead
+  - Codex CLI is a Rust binary — startup time is minimal (~50ms)
+  - Executor overhead (arg building, JSON parsing) must be <10ms per NFR-4
+  - No buffering of entire response before yielding in streaming mode
+
+  ### JSONL Parsing
+  - Line-by-line parsing with chunk boundary handling (same as existing executors)
+  - Each JSON.parse() call is O(n) on line length — acceptable for typical event sizes
+  - Partial lines buffered across chunks to handle split boundaries
+
+  ### Structured Output
+  - When --output-schema is used, a temp file must be written and cleaned up
+  - Use os.tmpdir() for cross-platform temp file location
+  - Cleanup in finally block to prevent temp file leaks
+
+  ## Architecture Notes
+
+  ### File Structure
+  The new executor follows the established directory structure:
+  ```
+  packages/core/src/infrastructure/services/agents/common/executors/
+    claude-code-executor.service.ts  (existing)
+    cursor-executor.service.ts       (existing)
+    dev-executor.service.ts          (existing)
+    gemini-cli-executor.service.ts   (existing)
+    codex-cli-executor.service.ts    (NEW — ~400 lines)
+  ```
+
+  ### Constructor Signature
+  Following GeminiCliExecutorService (the most similar executor due to auth support):
+  ```typescript
+  constructor(
+    private readonly spawn: SpawnFunction,
+    private readonly authConfig?: AgentConfig
+  )
+  ```
+
+  ### CLI Arguments Structure
+  For execute() and executeStream():
+  ```
+  codex exec - --json --sandbox danger-full-access --skip-git-repo-check --color never
+    [--model <model>] [--cd <path>] [--output-schema <path>]
+  ```
+
+  For session resume:
+  ```
+  codex exec resume <thread_id> --json --sandbox danger-full-access --skip-git-repo-check --color never
+    [--model <model>] [--cd <path>]
+    "follow-up prompt"
+  ```
+
+  Note: When resuming, the prompt is passed as a positional argument after the thread_id,
+  not via stdin. The `-` (stdin indicator) is used only for initial (non-resume) executions.
+
+  ### DI Registration Pattern
+  Add to container.ts following existing pattern:
+  ```typescript
+  container.register(`IAgentSessionRepository:${AgentType.CodexCli}`, {
+    useFactory: () => new StubSessionRepository(AgentType.CodexCli),
+  });
+  ```
+
+  ### Factory Integration Points
+  1. createExecutor() switch — add 'codex-cli' case creating CodexCliExecutorService
+  2. getSupportedAgents() — add 'codex-cli' to returned array
+  3. getCliInfo() — add { agentType: 'codex-cli', cmd: 'codex', versionArgs: ['--version'] }
+  4. getSupportedModels() — add 'codex-cli' case returning CODEX_CLI_MODELS array
+
+  ### UI Integration Points
+  1. TypeSpec: Add `CodexCli: "codex-cli"` to AgentType enum
+  2. agent-type-icons.tsx: Add 'codex-cli' to AgentTypeValue, icon map, and labels
+  3. agent-settings-section.tsx: Add to AGENT_TYPE_OPTIONS array
+  4. get-all-agent-models.ts: Add to AGENT_LABELS and AGENT_ORDER
+  5. agent-select.prompt.ts: Add Codex CLI choice (enabled, not "Coming Soon")
+  6. Storybook mocks: Add codex-cli models to mock data
+  7. All affected .stories.tsx files: Add codex-cli variants
+
+  ### Cross-Platform Considerations
+  - Windows: `windowsHide: true`, no `shell: true`, handle process termination via taskkill
+  - Stdin piping avoids ENAMETOOLONG on all platforms
+  - Use `process.platform === 'win32'` check (follow existing executor pattern)
+  - Codex CLI is a native Rust binary — no .cmd wrapper issues like Cursor
+
+  ### Error Handling Strategy
+  1. ENOENT: "Codex CLI (\"codex\") not found. Install: npm i -g @openai/codex"
+  2. Non-zero exit: Extract error from stderr, fall back to exit code message
+  3. Malformed JSON: Skip line gracefully (try/catch around JSON.parse)
+  4. Empty stdout: Return error with stderr content
+  5. Timeout: Kill process via proc.kill(), reject with timeout message
+  6. Fatal stderr patterns: API rate limits, auth failures (check even on exit 0)
+
+  ### Fatal Stderr Patterns (following GeminiCli pattern)
+  ```
+  /authentication.*failed/i
+  /rate.?limit/i
+  /quota.*exceeded/i
+  /invalid.*api.?key/i
+  /RESOURCE_EXHAUSTED/i
+  ```

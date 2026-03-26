@@ -3,6 +3,7 @@ $id: AgentType.yaml
 type: string
 enum:
   - claude-code
+  - codex-cli
   - gemini-cli
   - aider
   - continue

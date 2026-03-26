@@ -3,7 +3,14 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 /** Agent type values mirroring the TypeSpec AgentType enum. */
-export type AgentTypeValue = 'claude-code' | 'cursor' | 'gemini-cli' | 'aider' | 'continue' | 'dev';
+export type AgentTypeValue =
+  | 'claude-code'
+  | 'codex-cli'
+  | 'cursor'
+  | 'gemini-cli'
+  | 'aider'
+  | 'continue'
+  | 'dev';
 
 type IconProps = SVGProps<SVGSVGElement> & { className?: string };
 
@@ -84,6 +91,7 @@ DevAgentIcon.displayName = 'DevAgentIcon';
 
 const agentTypeIconMap: Record<AgentTypeValue, ComponentType<IconProps>> = {
   'claude-code': createBrandIcon('/icons/agents/claude-ai-icon.svg', 'Claude Code'),
+  'codex-cli': createBrandIcon('/icons/agents/openai.svg', 'Codex CLI'),
   cursor: createBrandIcon('/icons/agents/cursor.jpeg', 'Cursor'),
   'gemini-cli': createBrandIcon('/icons/agents/gemini-cli.jpeg', 'Gemini CLI'),
   aider: createBrandIcon('/icons/agents/aider.png', 'Aider'),
@@ -94,6 +102,7 @@ const agentTypeIconMap: Record<AgentTypeValue, ComponentType<IconProps>> = {
 /** Human-readable labels for agent types. */
 export const agentTypeLabels: Record<AgentTypeValue, string> = {
   'claude-code': 'Claude Code',
+  'codex-cli': 'Codex CLI',
   cursor: 'Cursor',
   'gemini-cli': 'Gemini CLI',
   aider: 'Aider',

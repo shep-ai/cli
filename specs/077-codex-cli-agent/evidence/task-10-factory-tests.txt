@@ -1,0 +1,31 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent[39m
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould create ClaudeCodeExecutor for claude-code type[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould create GeminiCliExecutor for gemini-cli type[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould cache gemini-cli executor instances[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould create DevAgentExecutorService for dev type[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould cache dev executor instances (singleton per type)[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould throw for aider agent type[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould create CursorExecutor for cursor type[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould create CodexCliExecutorService for codex-cli type[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould cache codex-cli executor instances[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould pass authConfig to CodexCliExecutorService[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould return executor with correct agentType[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mcreateExecutor[2m > [22mshould cache executor instances (singleton per type)[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetSupportedAgents[2m > [22mshould list supported agents[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetSupportedAgents[2m > [22mshould not include unsupported agents[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetCliInfo[2m > [22mshould include codex-cli entry with cmd codex[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetSupportedModels[2m > [22mshould return claude-code model list[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetSupportedModels[2m > [22mshould return gemini-cli model list[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetSupportedModels[2m > [22mshould return cursor model list[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetSupportedModels[2m > [22mshould return codex-cli model list with 12 models[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetSupportedModels[2m > [22mshould return empty array for dev agent[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetSupportedModels[2m > [22mshould return empty array for unknown agent type[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts[2m > [22mAgentExecutorFactory[2m > [22mgetSupportedModels[2m > [22mshould return synchronously (no promise)[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m22 passed[39m[22m[90m (22)[39m
+[2m   Start at [22m 00:43:26
+[2m   Duration [22m 148ms[2m (transform 69ms, setup 0ms, import 88ms, tests 5ms, environment 0ms)[22m
+

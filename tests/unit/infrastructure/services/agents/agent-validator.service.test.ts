@@ -138,6 +138,31 @@ describe('AgentValidatorService', () => {
     });
   });
 
+  describe('isAvailable - codex-cli', () => {
+    it('should return available with version when binary is found', async () => {
+      vi.mocked(mockExec).mockResolvedValue({
+        stdout: '0.1.0\n',
+        stderr: '',
+      });
+
+      const result = await service.isAvailable(AgentType.CodexCli);
+
+      expect(result.available).toBe(true);
+      expect(result.version).toBe('0.1.0');
+      expect(mockExec).toHaveBeenCalledWith('codex', ['--version']);
+    });
+
+    it('should return not available when binary is not found', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('spawn codex ENOENT'));
+
+      const result = await service.isAvailable(AgentType.CodexCli);
+
+      expect(result.available).toBe(false);
+      expect(result.error).toContain('codex');
+      expect(result.error).toContain('not found or not executable');
+    });
+  });
+
   describe('isAvailable - cursor', () => {
     it('should return available with version when binary is found', async () => {
       // Arrange

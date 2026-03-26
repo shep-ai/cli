@@ -1,0 +1,15 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-codex-cli-agent[39m
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/di/container-session-registrations.test.ts[2m > [22msession DI registrations[2m > [22mresolves ListAgentSessionsUseCase after initialization[33m 479[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/di/container-session-registrations.test.ts[2m > [22msession DI registrations[2m > [22mresolves GetAgentSessionUseCase after initialization[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/di/container-session-registrations.test.ts[2m > [22msession DI registrations[2m > [22mresolves IAgentSessionRepository:claude-code as ClaudeCodeSessionRepository[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/di/container-session-registrations.test.ts[2m > [22msession DI registrations[2m > [22mresolves IAgentSessionRepository:cursor as StubSessionRepository[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/di/container-session-registrations.test.ts[2m > [22msession DI registrations[2m > [22mresolves IAgentSessionRepository:gemini-cli as StubSessionRepository[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/di/container-session-registrations.test.ts[2m > [22msession DI registrations[2m > [22mresolves IAgentSessionRepository:codex-cli as StubSessionRepository[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+[2m   Start at [22m 00:43:27
+[2m   Duration [22m 584ms[2m (transform 255ms, setup 0ms, import 25ms, tests 506ms, environment 0ms)[22m
+

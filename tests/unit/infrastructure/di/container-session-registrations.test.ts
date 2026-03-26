@@ -117,4 +117,18 @@ describe('session DI registrations', () => {
     const repo = container.resolve(`IAgentSessionRepository:${AgentType.GeminiCli}`);
     expect(repo).toBeInstanceOf(StubSessionRepository);
   });
+
+  it('resolves IAgentSessionRepository:codex-cli as CodexCliSessionRepository', async () => {
+    const { initializeContainer } = await import(
+      '../../../../packages/core/src/infrastructure/di/container.js'
+    );
+    const { CodexCliSessionRepository } = await import(
+      '../../../../packages/core/src/infrastructure/services/agents/sessions/codex-cli-session.repository.js'
+    );
+    const { AgentType } = await import('../../../../packages/core/src/domain/generated/output.js');
+
+    const container = await initializeContainer();
+    const repo = container.resolve(`IAgentSessionRepository:${AgentType.CodexCli}`);
+    expect(repo).toBeInstanceOf(CodexCliSessionRepository);
+  });
 });

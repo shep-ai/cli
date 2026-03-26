@@ -33,6 +33,15 @@ export const TokenAuth: Story = {
   },
 };
 
+export const CodexCli: Story = {
+  args: {
+    agent: {
+      type: AgentType.CodexCli,
+      authMethod: AgentAuthMethod.Session,
+    },
+  },
+};
+
 export const AiderSession: Story = {
   args: {
     agent: {

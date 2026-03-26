@@ -9,6 +9,9 @@ import {
   Coins,
   Server,
   FileCode,
+  Play,
+  ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
 import {
   parseLogContent,
@@ -49,12 +52,25 @@ function LogLineRow({ line }: { line: ParsedLogLine }) {
   switch (line.tag) {
     case 'tool':
       return <ToolCallRow line={line} />;
+    case 'tool-result':
+      return <ToolResultRow line={line} />;
     case 'text':
+    case 'delta':
       return <TextRow line={line} />;
     case 'result':
       return <ResultRow line={line} />;
     case 'tokens':
+    case 'turn':
       return <TokensRow line={line} />;
+    case 'cmd':
+      return <CommandRow line={line} />;
+    case 'file':
+      return <FileChangeRow line={line} />;
+    case 'thread':
+    case 'event':
+      return <InfoRow line={line} />;
+    case 'error':
+      return <ErrorRow line={line} />;
     case 'worker':
       return <WorkerRow line={line} />;
     case 'info':
@@ -208,6 +224,66 @@ function WorkerRow({ line }: { line: ParsedLogLine }) {
       <div className="flex min-w-0 flex-1 items-start gap-1.5">
         <Server className="mt-0.5 h-3 w-3 shrink-0 text-zinc-500" />
         <span className="text-muted-foreground text-xs font-medium break-all">{line.message}</span>
+      </div>
+    </div>
+  );
+}
+
+function ToolResultRow({ line }: { line: ParsedLogLine }) {
+  return (
+    <div className="hover:bg-muted/50 flex items-start gap-2 px-3 py-1 transition-colors">
+      <Timestamp value={line.timestamp} />
+      <PhaseBadge phase={line.phase} />
+      <div className="flex min-w-0 flex-1 items-start gap-1.5">
+        <ArrowRight className="mt-0.5 h-3 w-3 shrink-0 text-violet-400" />
+        <span className="text-muted-foreground min-w-0 font-mono text-[11px] break-all">
+          {line.message}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CommandRow({ line }: { line: ParsedLogLine }) {
+  return (
+    <div className="hover:bg-muted/50 flex items-start gap-2 px-3 py-1.5 transition-colors">
+      <Timestamp value={line.timestamp} />
+      <PhaseBadge phase={line.phase} />
+      <div className="flex min-w-0 flex-1 items-start gap-1.5">
+        <Play className="mt-0.5 h-3 w-3 shrink-0 text-cyan-500" />
+        <span className="min-w-0 font-mono text-xs break-all text-cyan-700 dark:text-cyan-400">
+          {line.message}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function FileChangeRow({ line }: { line: ParsedLogLine }) {
+  return (
+    <div className="hover:bg-muted/50 flex items-start gap-2 px-3 py-1.5 transition-colors">
+      <Timestamp value={line.timestamp} />
+      <PhaseBadge phase={line.phase} />
+      <div className="flex min-w-0 flex-1 items-start gap-1.5">
+        <FileCode className="mt-0.5 h-3 w-3 shrink-0 text-orange-500" />
+        <span className="min-w-0 text-xs break-all text-orange-700 dark:text-orange-400">
+          {line.message}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ErrorRow({ line }: { line: ParsedLogLine }) {
+  return (
+    <div className="hover:bg-muted/50 flex items-start gap-2 bg-red-50 px-3 py-1.5 transition-colors dark:bg-red-950/30">
+      <Timestamp value={line.timestamp} />
+      <PhaseBadge phase={line.phase} />
+      <div className="flex min-w-0 flex-1 items-start gap-1.5">
+        <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
+        <span className="min-w-0 text-xs font-medium break-all text-red-700 dark:text-red-400">
+          {line.message}
+        </span>
       </div>
     </div>
   );

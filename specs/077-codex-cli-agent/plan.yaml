@@ -1,0 +1,181 @@
+name: "codex-cli-agent"
+summary: >
+  Integrate OpenAI Codex CLI as a new agent executor following the established subprocess-based
+  pattern (ClaudeCodeExecutorService, GeminiCliExecutorService). The implementation is purely
+  additive — extend TypeSpec AgentType enum, implement CodexCliExecutorService with JSONL
+  parsing and session resume, wire through factory/DI/presentation layers. Four phases:
+  domain foundation, executor core, factory+DI wiring, and presentation layer integration.
+
+relatedFeatures: []
+technologies:
+  - "TypeSpec (AgentType enum extension)"
+  - "TypeScript (executor service implementation)"
+  - "Node.js child_process (subprocess spawning via SpawnFunction)"
+  - "OpenAI Codex CLI (codex exec --json --sandbox danger-full-access)"
+  - "JSONL (newline-delimited JSON event stream parsing)"
+  - "Vitest (unit and integration testing)"
+  - "Next.js (web UI agent selection components)"
+  - "Storybook (UI component story variants)"
+  - "Inquirer.js (TUI agent selection prompt)"
+
+relatedLinks:
+  - title: "Codex CLI documentation"
+    url: "https://developers.openai.com/codex/cli"
+  - title: "Codex CLI non-interactive mode"
+    url: "https://developers.openai.com/codex/noninteractive"
+  - title: "Codex CLI command reference"
+    url: "https://developers.openai.com/codex/cli/reference"
+  - title: "Codex models"
+    url: "https://developers.openai.com/codex/models"
+  - title: "Codex CLI GitHub repository"
+    url: "https://github.com/openai/codex"
+
+phases:
+  - id: "phase-1"
+    name: "Domain Foundation"
+    description: |
+      Add CodexCli variant to the AgentType enum in TypeSpec and regenerate
+      domain output. This must come first because every downstream component
+      (executor, factory, DI, UI) depends on the AgentType enum having the
+      codex-cli value. Quick phase — single enum addition plus tsp compile.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Executor Service Core"
+    description: |
+      Implement CodexCliExecutorService — the main engineering effort. Includes
+      execute(), executeStream(), supportsFeature(), JSONL event parsing, session
+      resume, authentication injection, and error handling. TDD-driven with
+      comprehensive unit tests modeled on gemini-cli-executor.test.ts. This phase
+      depends on phase-1 for the AgentType enum value.
+    parallel: false
+
+  - id: "phase-3"
+    name: "Factory, DI, and Infrastructure Wiring"
+    description: |
+      Wire the executor into the system: add codex-cli case to AgentExecutorFactory
+      (createExecutor, getSupportedAgents, getCliInfo, getSupportedModels), register
+      StubSessionRepository in DI container. Update existing factory tests. This phase
+      depends on phase-2 for the executor class.
+    parallel: false
+
+  - id: "phase-4"
+    name: "Presentation Layer Integration"
+    description: |
+      Add Codex CLI to all user-facing surfaces: TUI agent select prompt, Web UI
+      agent settings section, agent type icons, agent model picker, and all
+      associated Storybook stories. Includes sourcing the OpenAI brand icon asset.
+      This phase depends on phase-3 for factory integration (model picker reads
+      from factory).
+    parallel: false
+
+filesToCreate:
+  - "packages/core/src/infrastructure/services/agents/common/executors/codex-cli-executor.service.ts"
+  - "tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts"
+  - "public/icons/agents/openai.svg"
+
+filesToModify:
+  - "tsp/common/enums/agent-config.tsp"
+  - "packages/core/src/domain/generated/output.ts"
+  - "packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts"
+  - "packages/core/src/infrastructure/di/container.ts"
+  - "tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts"
+  - "src/presentation/tui/prompts/agent-select.prompt.ts"
+  - "src/presentation/web/components/common/feature-node/agent-type-icons.tsx"
+  - "src/presentation/web/components/features/settings/agent-settings-section.tsx"
+  - "src/presentation/web/app/actions/get-all-agent-models.ts"
+  - "src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx"
+  - "src/presentation/web/components/features/settings/agent-settings-section.stories.tsx"
+  - "src/presentation/web/components/features/settings/AgentModelPicker/AgentModelPicker.stories.tsx"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The Codex CLI executor integrates into Shep's existing agent system as a fourth
+  subprocess-based executor alongside ClaudeCode, GeminiCli, and Cursor. The architecture
+  is purely additive — no existing interfaces, patterns, or abstractions change.
+
+  **Integration points follow Clean Architecture layers:**
+  - **Domain:** AgentType enum gains `CodexCli: "codex-cli"` variant (TypeSpec -> generated output)
+  - **Infrastructure:** New CodexCliExecutorService implements IAgentExecutor; factory creates it;
+    DI container registers a StubSessionRepository
+  - **Presentation:** TUI agent select prompt, Web UI settings/icons/model picker all gain
+    codex-cli entries
+
+  The executor spawns `codex exec -` with `--json --sandbox danger-full-access
+  --skip-git-repo-check --color never`, pipes the prompt via stdin, and parses JSONL events
+  from stdout. This mirrors the established pattern in ClaudeCodeExecutorService and
+  GeminiCliExecutorService.
+
+  ## Key Design Decisions
+
+  ### 1. Subprocess Executor (not SDK)
+  All existing executors use raw subprocess spawning via constructor-injected SpawnFunction.
+  This maintains consistency, testability (mock SpawnFunction), and zero npm dependencies.
+  The Codex TypeScript SDK (@openai/codex-sdk) was rejected to avoid introducing a different
+  integration pattern.
+
+  ### 2. Sandbox Mode: danger-full-access
+  Matches Claude Code's --dangerously-skip-permissions pattern. Shep's SDLC workflows are
+  autonomous — the agent must write files and run commands without interactive approval gates.
+  The --full-auto flag was considered but restricts writes to the workspace directory only,
+  which may break workflows needing paths outside the workspace.
+
+  ### 3. Stdin Prompt Delivery
+  Codex CLI supports stdin via `codex exec -`. This avoids Windows ENAMETOOLONG limits
+  (>32KB prompts), eliminates shell escaping, and follows the established pattern where
+  both ClaudeCode and GeminiCli executors use `proc.stdin.write(prompt); proc.stdin.end()`.
+
+  ### 4. Always --json for JSONL Event Stream
+  The --json flag provides thread_id (session resume), usage stats, and structured progress
+  events. Using it for both execute() and executeStream() means a single parsing codepath.
+  Plain text mode loses critical metadata.
+
+  ### 5. Session Resume via exec resume Subcommand
+  Codex CLI's `codex exec resume <thread_id>` maps to the existing
+  AgentExecutionOptions.resumeSession field. The thread_id comes from JSONL thread.started
+  events. When resuming, the prompt is passed as a positional argument (not stdin).
+
+  ### 6. CODEX_API_KEY for Token Auth
+  Follows the GeminiCliExecutorService pattern (GEMINI_API_KEY injection). The Codex-specific
+  env var avoids conflicts with OPENAI_API_KEY. Session auth falls back to saved credentials
+  from `codex login`.
+
+  ### 7. JSONL Event Mapping
+  Codex JSONL events (thread.started, item.started/updated/completed, turn.completed,
+  turn.failed) map to AgentExecutionStreamEvent types (progress, result, error). The
+  stateful line parser accumulates response text from agent_message items and extracts
+  usage from turn.completed events.
+
+  ### 8. Static Model List (12 models)
+  getSupportedModels() returns a static array — informational for the UI model picker.
+  The executor passes whatever model the user configures via --model. All documented
+  models included: gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, gpt-5.3-codex-spark,
+  gpt-5.2-codex, gpt-5.2, gpt-5.1-codex-max, gpt-5.1-codex, gpt-5.1, gpt-5-codex,
+  gpt-5-codex-mini, gpt-5.
+
+  ## Implementation Strategy
+
+  **Phase ordering rationale:** Each phase builds on the previous — domain types must exist
+  before the executor can reference them, the executor must exist before the factory can
+  instantiate it, and the factory must be wired before the UI can display models from it.
+
+  Phase 1 is intentionally small (single enum addition + tsp compile) to establish the
+  foundation quickly. Phase 2 is the bulk of the effort (~400-line executor + ~600-line
+  test file), following strict TDD with the gemini-cli-executor test pattern as a template.
+  Phase 3 is mechanical wiring with existing patterns to follow. Phase 4 is mostly
+  copy-paste from existing agent entries in each UI file.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Codex CLI JSONL format differs from documentation | Test with real codex exec output during integration; JSONL parser gracefully skips unknown event types |
+  | Session resume syntax changes between Codex CLI versions | Isolate resume logic to a single method; version-specific behavior can be gated on --version output |
+  | TypeSpec compilation breaks after enum addition | Run pnpm tsp:compile immediately after enum change; fix any downstream type errors before proceeding |
+  | OpenAI brand icon licensing | Use a simple, commonly-available OpenAI logomark SVG; verify license allows inclusion |
+  | Structured output requires temp file for --output-schema | Use os.tmpdir() with cleanup in finally block; test temp file lifecycle in unit tests |
+  | Windows process termination differs from Unix | Follow existing taskkill /F /T pattern from Cursor executor; test platform-specific kill path |
+  | Factory tests break when adding new agent type | Update factory test assertions to include codex-cli in getSupportedAgents array and model list |

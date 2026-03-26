@@ -104,6 +104,28 @@ export const MixedContent: Story = {
   args: { content: mixedContent },
 };
 
+/** CodexCliSession — Codex CLI agent log with all event types */
+export const CodexCliSession: Story = {
+  args: {
+    content: `[2026-03-26T10:00:01.000Z] [codex-cli|gpt-5.4] [WORKER] Starting worker — full command:
+[2026-03-26T10:00:01.010Z] [codex-cli|gpt-5.4] [WORKER] Initializing container...
+[2026-03-26T10:00:02.000Z] [implement] [codex-cli|gpt-5.4] [thread] started thread_id=019d2aff-a65f-7253
+[2026-03-26T10:00:03.000Z] [implement] [codex-cli|gpt-5.4] [text] I'll investigate the login page authentication bug. Let me check the auth module first.
+[2026-03-26T10:00:04.000Z] [implement] [codex-cli|gpt-5.4] [tool] exec_command {"cmd":"cat src/auth.ts"}
+[2026-03-26T10:00:05.000Z] [implement] [codex-cli|gpt-5.4] [tool-result] export function login(user: string, pass: string) { return validateToken(user, pass); }
+[2026-03-26T10:00:06.000Z] [implement] [codex-cli|gpt-5.4] [cmd] running: cat src/auth.ts
+[2026-03-26T10:00:07.000Z] [implement] [codex-cli|gpt-5.4] [cmd] exit=0 output: export function login...
+[2026-03-26T10:00:08.000Z] [implement] [codex-cli|gpt-5.4] [delta] Found the issue. The token validation
+[2026-03-26T10:00:09.000Z] [implement] [codex-cli|gpt-5.4] [text] Found the issue. The token validation was missing a null check. I've fixed it.
+[2026-03-26T10:00:10.000Z] [implement] [codex-cli|gpt-5.4] [file] modifying: src/auth.ts
+[2026-03-26T10:00:11.000Z] [implement] [codex-cli|gpt-5.4] [file] modified: src/auth.ts
+[2026-03-26T10:00:12.000Z] [implement] [codex-cli|gpt-5.4] [tokens] 2450 in / 4560 out
+[2026-03-26T10:00:13.000Z] [implement] [codex-cli|gpt-5.4] [turn] completed
+[2026-03-26T10:00:14.000Z] [implement] [codex-cli|gpt-5.4] [error] Rate limit exceeded — retrying in 5s
+[2026-03-26T10:00:20.000Z] [implement] [codex-cli|gpt-5.4] [result] 3200 chars, session=019d2aff-a65f-7253`,
+  },
+};
+
 /** EmptyContent — no content */
 export const EmptyContent: Story = {
   args: { content: '' },

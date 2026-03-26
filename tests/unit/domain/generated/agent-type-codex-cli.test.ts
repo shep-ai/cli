@@ -1,0 +1,24 @@
+/**
+ * AgentType.CodexCli Enum Validation Test
+ *
+ * Verifies the CodexCli variant exists in the AgentType enum
+ * with the correct string value after TypeSpec compilation.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { AgentType } from '@/domain/generated/output.js';
+
+describe('AgentType.CodexCli', () => {
+  it('should have CodexCli variant with value "codex-cli"', () => {
+    expect(AgentType.CodexCli).toBe('codex-cli');
+  });
+
+  it('should not break existing enum variants', () => {
+    expect(AgentType.ClaudeCode).toBe('claude-code');
+    expect(AgentType.GeminiCli).toBe('gemini-cli');
+    expect(AgentType.Cursor).toBe('cursor');
+    expect(AgentType.Dev).toBe('dev');
+    expect(AgentType.Aider).toBe('aider');
+    expect(AgentType.Continue).toBe('continue');
+  });
+});

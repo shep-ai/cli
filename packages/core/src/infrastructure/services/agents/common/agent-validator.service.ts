@@ -24,6 +24,7 @@ import type { ExecFunction } from './types.js';
  */
 const AGENT_BINARY_MAP: Partial<Record<AgentType, string>> = {
   'claude-code': 'claude',
+  'codex-cli': 'codex',
   cursor: 'cursor-agent',
   'gemini-cli': 'gemini',
 };

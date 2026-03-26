@@ -7,7 +7,7 @@
  *
  * ## Supported Agents
  *
- * Claude Code and Cursor are fully supported. Other agents
+ * Claude Code, Codex CLI, and Cursor are fully supported. Other agents
  * (Gemini CLI, Aider, Continue) are listed for future
  * extensibility and appear as "Coming Soon" in the TUI wizard.
  */
@@ -16,6 +16,7 @@
  *
  * ```
  * claude-code  ← Currently supported
+ * codex-cli    ← Currently supported
  * cursor       ← Currently supported
  * gemini-cli   ← Coming Soon
  * aider        ← Coming Soon
@@ -30,6 +31,13 @@ enum AgentType {
    */
   @doc("Claude Code CLI by Anthropic")
   ClaudeCode: "claude-code",
+
+  /**
+   * OpenAI's Codex CLI terminal agent.
+   * Supported — uses the `codex` binary for CLI execution with GPT models.
+   */
+  @doc("Codex CLI by OpenAI")
+  CodexCli: "codex-cli",
 
   /**
    * Google's Gemini CLI tool.

@@ -1,0 +1,467 @@
+name: "codex-cli-agent"
+summary: >
+  14 tasks across 4 phases implementing Codex CLI agent executor integration.
+  Phase 1 (domain) establishes the enum foundation. Phase 2 (executor) is the core
+  engineering work with TDD-driven JSONL parsing and session resume. Phase 3 (wiring)
+  connects executor to factory and DI. Phase 4 (presentation) adds Codex CLI to all
+  user-facing surfaces with Storybook stories.
+
+relatedFeatures: []
+technologies: []
+relatedLinks:
+  - title: "Codex CLI non-interactive mode"
+    url: "https://developers.openai.com/codex/noninteractive"
+  - title: "Codex CLI command reference"
+    url: "https://developers.openai.com/codex/cli/reference"
+
+tasks:
+  # ============================================================
+  # PHASE 1: Domain Foundation
+  # ============================================================
+
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Add CodexCli variant to AgentType enum in TypeSpec"
+    description: |
+      Add CodexCli: "codex-cli" to the AgentType enum in tsp/common/enums/agent-config.tsp,
+      run pnpm tsp:compile to regenerate domain output, and verify the new enum value
+      appears in packages/core/src/domain/generated/output.ts. This unblocks all
+      downstream tasks that reference AgentType.CodexCli.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "CodexCli variant exists in tsp/common/enums/agent-config.tsp with value codex-cli"
+      - "pnpm tsp:compile succeeds without errors"
+      - "AgentType.CodexCli is available in packages/core/src/domain/generated/output.ts"
+      - "Existing enum variants are unchanged"
+    tdd:
+      red:
+        - "Write a test that imports AgentType and asserts AgentType.CodexCli equals 'codex-cli'"
+      green:
+        - "Add CodexCli: \"codex-cli\" to AgentType enum in agent-config.tsp with @doc annotation"
+        - "Run pnpm tsp:compile to regenerate output.ts"
+      refactor:
+        - "Verify enum ordering is alphabetical or follows existing convention"
+    estimatedEffort: "20min"
+
+  # ============================================================
+  # PHASE 2: Executor Service Core
+  # ============================================================
+
+  - id: "task-2"
+    phaseId: "phase-2"
+    title: "Implement executor scaffold with agentType and supportsFeature"
+    description: |
+      Create CodexCliExecutorService class skeleton implementing IAgentExecutor.
+      Set agentType to CodexCli, implement supportsFeature() with session-resume,
+      streaming, and structured-output as supported features. Stub execute() and
+      executeStream() to throw not-implemented errors.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "Class implements IAgentExecutor interface"
+      - "agentType returns AgentType.CodexCli"
+      - "supportsFeature returns true for session-resume, streaming, structured-output"
+      - "supportsFeature returns false for system-prompt, tool-scoping, session-listing"
+      - "Constructor accepts SpawnFunction and optional AgentConfig"
+    tdd:
+      red:
+        - "Write test file with createMockChildProcess helper (following gemini-cli-executor.test.ts pattern)"
+        - "Test agentType equals AgentType.CodexCli"
+        - "Test supportsFeature for all 6 feature types (3 true, 3 false)"
+      green:
+        - "Create codex-cli-executor.service.ts with class skeleton"
+        - "Implement SUPPORTED_FEATURES Set with session-resume, streaming, structured-output"
+        - "Implement supportsFeature() checking the Set"
+      refactor:
+        - "Ensure import paths follow existing executor conventions"
+    estimatedEffort: "30min"
+
+  - id: "task-3"
+    phaseId: "phase-2"
+    title: "Implement execute() with basic prompt execution and JSONL parsing"
+    description: |
+      Implement execute() method that spawns codex exec with required flags
+      (--json, --sandbox danger-full-access, --skip-git-repo-check, --color never),
+      pipes prompt via stdin, collects JSONL stdout, parses thread_id from
+      thread.started events, accumulates response text from agent_message items,
+      and returns AgentExecutionResult.
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "Spawns codex exec - with --json --sandbox danger-full-access --skip-git-repo-check --color never"
+      - "Pipes prompt via stdin (not as CLI argument)"
+      - "Parses JSONL stdout to extract response text from agent_message events"
+      - "Extracts thread_id from thread.started event as sessionId"
+      - "Returns AgentExecutionResult with result, sessionId"
+      - "Handles empty stdout with error"
+    tdd:
+      red:
+        - "Test execute spawns codex with correct base args (--json, --sandbox, etc.)"
+        - "Test prompt is piped via stdin, not in CLI args"
+        - "Test JSONL parsing extracts response text from item.completed agent_message event"
+        - "Test thread_id from thread.started becomes sessionId"
+        - "Test returns undefined sessionId when thread.started is missing"
+      green:
+        - "Implement buildArgs() returning base flags array"
+        - "Implement buildSpawnOptions() with stdio pipe, env stripping, cwd"
+        - "Implement JSONL line parser that accumulates response from agent_message events"
+        - "Implement execute() orchestrating spawn, stdin write, stdout collection, parsing"
+      refactor:
+        - "Extract JSONL parsing into a private parseJsonlLine() method"
+        - "Extract constant arrays for base args"
+    estimatedEffort: "1h30min"
+
+  - id: "task-4"
+    phaseId: "phase-2"
+    title: "Add model, cwd, and usage extraction to execute()"
+    description: |
+      Extend execute() to support --model flag from options.model, --cd flag from
+      options.cwd, and extract usage (input/output tokens) from turn.completed
+      JSONL events. Add logging support with silent mode toggle.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "Passes --model <model> when options.model is provided"
+      - "Sets cwd in spawn options when options.cwd is provided"
+      - "Extracts usage from turn.completed event (inputTokens, outputTokens)"
+      - "Returns undefined usage when turn.completed has no usage data"
+      - "Respects silent flag to suppress logging"
+    tdd:
+      red:
+        - "Test --model flag appears in spawn args when model option provided"
+        - "Test cwd is passed to spawn options"
+        - "Test usage extraction from turn.completed JSONL event"
+        - "Test undefined usage when no turn.completed event"
+      green:
+        - "Add --model conditional to buildArgs()"
+        - "Add cwd to buildSpawnOptions()"
+        - "Parse turn.completed events to extract usage.input_tokens and usage.output_tokens"
+        - "Add logging with silent mode check"
+      refactor:
+        - "Ensure buildArgs and buildSpawnOptions are clean and well-organized"
+    estimatedEffort: "45min"
+
+  - id: "task-5"
+    phaseId: "phase-2"
+    title: "Add authentication injection to executor"
+    description: |
+      Implement CODEX_API_KEY environment variable injection when authConfig uses
+      token auth method. Strip CLAUDECODE env var from child process environment.
+      When authConfig uses session auth, no env var injection occurs.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "Sets CODEX_API_KEY in spawn env when authConfig.authMethod is token"
+      - "Does NOT set CODEX_API_KEY when authConfig.authMethod is session"
+      - "Strips CLAUDECODE from spawn environment"
+      - "API key is never logged or exposed in debug output"
+    tdd:
+      red:
+        - "Test CODEX_API_KEY set in spawn env when token auth configured"
+        - "Test CODEX_API_KEY absent from spawn env when session auth configured"
+        - "Test CLAUDECODE stripped from spawn environment"
+      green:
+        - "Add conditional env injection in buildSpawnOptions() following GeminiCli pattern"
+        - "Destructure CLAUDECODE out of process.env for clean env"
+      refactor:
+        - "Verify env handling matches GeminiCliExecutorService exactly"
+    estimatedEffort: "30min"
+
+  - id: "task-6"
+    phaseId: "phase-2"
+    title: "Add session resume support to executor"
+    description: |
+      Implement session resume using codex exec resume <thread_id> subcommand.
+      When options.resumeSession is provided, switch from stdin prompt delivery
+      to positional argument syntax. The follow-up prompt is passed as an
+      argument after the thread_id.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "Uses codex exec resume <sessionId> syntax when resumeSession is provided"
+      - "Passes follow-up prompt as positional argument (not stdin) for resume"
+      - "Still uses stdin for initial (non-resume) executions"
+      - "All base flags still included in resume mode"
+    tdd:
+      red:
+        - "Test resume args include 'resume' and the session ID"
+        - "Test resume passes prompt as positional argument"
+        - "Test non-resume still uses stdin pipe"
+      green:
+        - "Add resume detection to buildArgs() — change arg structure when resumeSession present"
+        - "Skip stdin write when resuming (prompt is in args)"
+      refactor:
+        - "Clean up buildArgs to clearly separate resume vs initial execution paths"
+    estimatedEffort: "30min"
+
+  - id: "task-7"
+    phaseId: "phase-2"
+    title: "Add error handling and timeout support"
+    description: |
+      Implement comprehensive error handling: ENOENT for missing codex binary
+      (with install instructions), non-zero exit codes with stderr extraction,
+      malformed JSON line skipping, empty stdout, timeout with process kill,
+      and fatal stderr pattern detection even on exit code 0.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "ENOENT error includes install instructions for codex CLI"
+      - "Non-zero exit code rejects with stderr content"
+      - "Malformed JSON lines are skipped gracefully"
+      - "Timeout kills process and rejects with timeout message"
+      - "Fatal stderr patterns detected on exit code 0 (auth failures, rate limits)"
+      - "Non-fatal stderr messages do not cause rejection"
+    tdd:
+      red:
+        - "Test ENOENT error message includes install instructions"
+        - "Test non-zero exit code rejection with stderr"
+        - "Test malformed JSON line is skipped without crashing"
+        - "Test timeout kills process and rejects"
+        - "Test fatal stderr patterns cause rejection on exit 0"
+        - "Test non-fatal stderr messages pass through"
+      green:
+        - "Add ENOENT handler in spawn error event listener"
+        - "Add exit code checking in close handler"
+        - "Add try/catch around JSON.parse in JSONL parser"
+        - "Add setTimeout-based timeout with proc.kill()"
+        - "Add fatal stderr pattern regex array and check"
+      refactor:
+        - "Extract fatal stderr patterns to a const array"
+        - "Ensure error messages are consistent with other executors"
+    estimatedEffort: "1h"
+
+  - id: "task-8"
+    phaseId: "phase-2"
+    title: "Implement executeStream() as async generator"
+    description: |
+      Implement executeStream() as an async generator that spawns codex exec --json,
+      reads stdout line-by-line, maps JSONL events to AgentExecutionStreamEvent types
+      (progress, result, error), handles partial JSON lines across chunk boundaries,
+      and yields events in real-time without buffering the entire response.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+      - "task-7"
+    acceptanceCriteria:
+      - "Yields progress events for agent_message item.started/updated events"
+      - "Yields progress events for command_execution and file_change events"
+      - "Yields result event with accumulated text on turn.completed"
+      - "Yields error event on turn.failed, error events, and non-zero exit"
+      - "Handles partial JSON lines across chunk boundaries"
+      - "Skips unknown event types gracefully"
+      - "Includes --resume and correct flags for streaming resume"
+      - "Sets CODEX_API_KEY in spawn env for token auth in streaming mode"
+    tdd:
+      red:
+        - "Test streaming agent_message events yield progress"
+        - "Test streaming command_execution events yield progress"
+        - "Test turn.completed yields result with accumulated text"
+        - "Test turn.failed yields error event"
+        - "Test unknown event types are skipped"
+        - "Test non-JSON lines yield raw progress"
+        - "Test non-zero exit yields error event"
+        - "Test spawn error yields error event"
+        - "Test fatal stderr patterns yield error on exit 0"
+        - "Test resume args in streaming mode"
+        - "Test token auth env in streaming mode"
+      green:
+        - "Implement async generator with queue-based event delivery"
+        - "Add line-buffered JSONL parser for streaming"
+        - "Map each Codex JSONL event type to AgentExecutionStreamEvent"
+        - "Handle chunk boundary partial lines"
+      refactor:
+        - "Extract shared JSONL parsing logic between execute() and executeStream()"
+        - "Ensure event mapping is consistent with the research event mapping table"
+    estimatedEffort: "1h30min"
+
+  - id: "task-9"
+    phaseId: "phase-2"
+    title: "Add structured output support via --output-schema"
+    description: |
+      When options.outputSchema is provided, write the JSON schema to a temp file
+      and pass the path via --output-schema flag. Clean up the temp file in a
+      finally block. This enables Codex CLI to validate its output against a schema.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "Writes outputSchema to temp file when provided"
+      - "Passes --output-schema <path> flag to codex exec"
+      - "Temp file is cleaned up in finally block (even on error)"
+      - "No --output-schema flag when outputSchema is not provided"
+    tdd:
+      red:
+        - "Test --output-schema flag appears when outputSchema option provided"
+        - "Test no --output-schema flag when option absent"
+        - "Test temp file cleanup occurs even on execution error"
+      green:
+        - "Write outputSchema to temp file using fs.writeFileSync in os.tmpdir()"
+        - "Add --output-schema <tempPath> to args conditionally"
+        - "Add finally block to clean up temp file"
+      refactor:
+        - "Extract temp file management to a helper if logic is complex"
+    estimatedEffort: "30min"
+
+  # ============================================================
+  # PHASE 3: Factory, DI, and Infrastructure Wiring
+  # ============================================================
+
+  - id: "task-10"
+    phaseId: "phase-3"
+    title: "Wire CodexCliExecutorService into AgentExecutorFactory"
+    description: |
+      Add codex-cli case to all factory methods: createExecutor() switch statement,
+      getSupportedAgents() return array, getCliInfo() with cmd 'codex' and
+      versionArgs ['--version'], and getSupportedModels() with all 12 documented
+      Codex models. Update existing factory tests.
+    state: "Todo"
+    dependencies:
+      - "task-8"
+    acceptanceCriteria:
+      - "createExecutor('codex-cli') returns CodexCliExecutorService instance"
+      - "getSupportedAgents() includes 'codex-cli'"
+      - "getCliInfo() includes { agentType: 'codex-cli', cmd: 'codex', versionArgs: ['--version'] }"
+      - "getSupportedModels('codex-cli') returns all 12 Codex models"
+      - "Executor instances are cached (same instance returned on second call)"
+      - "Existing factory tests still pass after adding codex-cli"
+    tdd:
+      red:
+        - "Test createExecutor returns CodexCliExecutorService for codex-cli"
+        - "Test getSupportedAgents includes codex-cli"
+        - "Test getCliInfo includes codex entry with cmd 'codex'"
+        - "Test getSupportedModels returns 12 models for codex-cli"
+        - "Test executor caching (second createExecutor returns same instance)"
+      green:
+        - "Add 'codex-cli' case to createExecutor switch"
+        - "Add 'codex-cli' to getSupportedAgents array"
+        - "Add codex CLI info entry to getCliInfo"
+        - "Add CODEX_CLI_MODELS constant and codex-cli case to getSupportedModels"
+      refactor:
+        - "Verify model list matches all 12 documented models"
+        - "Ensure import is clean and follows existing pattern"
+    estimatedEffort: "45min"
+
+  - id: "task-11"
+    phaseId: "phase-3"
+    title: "Register StubSessionRepository in DI container"
+    description: |
+      Register a StubSessionRepository for AgentType.CodexCli in the DI container,
+      following the exact pattern used for GeminiCli. This enables the session
+      repository resolution to work for codex-cli without implementing full
+      session listing.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "StubSessionRepository registered for AgentType.CodexCli in container"
+      - "Registration follows exact pattern of GeminiCli registration"
+      - "Container resolves IAgentSessionRepository:codex-cli without error"
+    tdd:
+      red:
+        - "Test container resolves IAgentSessionRepository for codex-cli agent type"
+      green:
+        - "Add container.register for IAgentSessionRepository:CodexCli using StubSessionRepository"
+      refactor:
+        - "Verify registration is placed adjacent to other agent session repositories"
+    estimatedEffort: "15min"
+
+  # ============================================================
+  # PHASE 4: Presentation Layer Integration
+  # ============================================================
+
+  - id: "task-12"
+    phaseId: "phase-4"
+    title: "Add Codex CLI to TUI agent selection prompt"
+    description: |
+      Add Codex CLI as an enabled choice in the TUI agent select prompt. Include
+      name, value (AgentType.CodexCli), and description. Place it after existing
+      enabled agents and before disabled coming-soon agents.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "Codex CLI appears in TUI agent select choices"
+      - "Choice is enabled (not disabled/coming-soon)"
+      - "Uses AgentType.CodexCli as value"
+      - "Description mentions OpenAI and GPT models"
+    tdd: null
+    estimatedEffort: "10min"
+
+  - id: "task-13"
+    phaseId: "phase-4"
+    title: "Add Codex CLI to Web UI agent settings, icons, and model picker"
+    description: |
+      Add codex-cli to all Web UI integration points: AgentTypeValue union type,
+      icon mapping with OpenAI brand SVG, agentTypeLabels, AGENT_TYPE_OPTIONS in
+      settings section, AGENT_LABELS and AGENT_ORDER in model picker. Source or
+      create an OpenAI brand icon SVG at public/icons/agents/openai.svg.
+    state: "Todo"
+    dependencies:
+      - "task-10"
+    acceptanceCriteria:
+      - "codex-cli added to AgentTypeValue union type"
+      - "OpenAI SVG icon placed at public/icons/agents/openai.svg"
+      - "Icon mapping uses createBrandIcon with openai.svg path"
+      - "agentTypeLabels includes 'codex-cli': 'Codex CLI'"
+      - "AGENT_TYPE_OPTIONS includes { value: AgentType.CodexCli, label: 'Codex CLI' }"
+      - "AGENT_LABELS includes 'codex-cli': 'Codex CLI'"
+      - "AGENT_ORDER includes 'codex-cli' with appropriate sort position"
+    tdd: null
+    estimatedEffort: "30min"
+
+  - id: "task-14"
+    phaseId: "phase-4"
+    title: "Add Codex CLI variants to all Storybook stories"
+    description: |
+      Add codex-cli story variants to agent-type-icons.stories.tsx (add to
+      allAgentTypes array), agent-settings-section.stories.tsx (add CodexCli
+      story variant), and AgentModelPicker.stories.tsx (add CodexCliSelected
+      story with a Codex model).
+    state: "Todo"
+    dependencies:
+      - "task-13"
+    acceptanceCriteria:
+      - "codex-cli appears in agent-type-icons allAgentTypes array"
+      - "CodexCli story variant exists in agent-settings-section.stories.tsx"
+      - "CodexCliSelected story exists in AgentModelPicker.stories.tsx with gpt-5.4 model"
+      - "All stories render without errors"
+    tdd: null
+    estimatedEffort: "20min"
+
+totalEstimate: "8h30min"
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is organized into 14 tasks across 4 sequential phases.
+
+  First, we establish the domain foundation by adding the CodexCli enum variant to TypeSpec
+  and regenerating the domain output (1 task, ~20min). This unblocks everything downstream.
+
+  Next, we build the executor service core through TDD — this is the bulk of the work
+  (8 tasks, ~6h15min). We start with the class scaffold and feature support declaration,
+  then implement execute() with JSONL parsing, add model/cwd/usage support, authentication
+  injection, session resume, error handling, and executeStream() as an async generator.
+  Structured output via --output-schema rounds out the executor. Each task follows the
+  gemini-cli-executor.test.ts pattern for test structure.
+
+  Third, we wire the executor into the factory and DI container (2 tasks, ~1h). The factory
+  gets a codex-cli case in all four methods (createExecutor, getSupportedAgents, getCliInfo,
+  getSupportedModels), and the DI container gets a StubSessionRepository registration.
+
+  Finally, we integrate across all presentation layers (3 tasks, ~1h). The TUI gets a new
+  agent choice, the Web UI gets icon/label/settings/model-picker entries, and all affected
+  Storybook stories get codex-cli variants. The OpenAI brand SVG icon is sourced and placed
+  at public/icons/agents/openai.svg.
+
+  Tasks within each phase can partially overlap where dependencies allow (e.g., tasks 5, 6,
+  and 9 all depend only on task 3, not on each other). The critical path runs through
+  task-1 -> task-2 -> task-3 -> task-8 -> task-10 -> task-13 -> task-14.
