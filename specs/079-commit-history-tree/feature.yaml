@@ -1,0 +1,36 @@
+feature:
+  id: '079-commit-history-tree'
+  name: 'commit-history-tree'
+  number: 79
+  branch: 'feat/079-commit-history-tree'
+  lifecycle: 'research'
+  createdAt: '2026-03-26T16:20:35Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-03-26T16:20:35Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-03-26T16:20:35Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
