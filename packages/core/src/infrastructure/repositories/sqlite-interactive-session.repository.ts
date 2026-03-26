@@ -102,4 +102,52 @@ export class SQLiteInteractiveSessionRepository implements IInteractiveSessionRe
       .get() as { count: number };
     return result.count;
   }
+
+  async updateAgentSessionId(id: string, agentSessionId: string): Promise<void> {
+    this.db
+      .prepare(
+        `UPDATE interactive_sessions SET agent_session_id = @agent_session_id, updated_at = @updated_at WHERE id = @id`
+      )
+      .run({ id, agent_session_id: agentSessionId, updated_at: Date.now() });
+  }
+
+  async getAgentSessionId(id: string): Promise<string | null> {
+    const row = this.db
+      .prepare('SELECT agent_session_id FROM interactive_sessions WHERE id = ?')
+      .get(id) as { agent_session_id: string | null } | undefined;
+    return row?.agent_session_id ?? null;
+  }
+
+  async updateTurnStatus(id: string, turnStatus: string): Promise<void> {
+    this.db
+      .prepare(
+        `UPDATE interactive_sessions SET turn_status = @turn_status, updated_at = @updated_at WHERE id = @id`
+      )
+      .run({ id, turn_status: turnStatus, updated_at: Date.now() });
+  }
+
+  async getTurnStatuses(featureIds: string[]): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    if (featureIds.length === 0) return result;
+
+    // Use a single query with placeholders for all feature IDs.
+    // For each feature, get the most recent session's turn_status.
+    const placeholders = featureIds.map(() => '?').join(',');
+    const rows = this.db
+      .prepare(
+        `SELECT feature_id, turn_status FROM interactive_sessions
+         WHERE feature_id IN (${placeholders})
+           AND status IN ('booting','ready')
+         ORDER BY created_at DESC`
+      )
+      .all(...featureIds) as { feature_id: string; turn_status: string }[];
+
+    // First row per feature wins (most recent due to ORDER BY)
+    for (const row of rows) {
+      if (!result.has(row.feature_id)) {
+        result.set(row.feature_id, row.turn_status);
+      }
+    }
+    return result;
+  }
 }

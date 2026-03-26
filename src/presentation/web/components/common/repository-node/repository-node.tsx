@@ -36,6 +36,8 @@ import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
+import { ChatDotIndicator } from '@/components/features/chat/ChatDotIndicator';
+import { useTurnStatuses, type TurnStatus } from '@/hooks/use-turn-statuses';
 import {
   FeatureSessionsDropdown,
   type SessionSummary,
@@ -52,6 +54,9 @@ export function RepositoryNode({
   const router = useRouter();
   const featureFlags = useFeatureFlags();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const repoScopeId = data.id ? `repo-${data.id}` : `repo-${data.name}`;
+  const turnStatuses = useTurnStatuses([repoScopeId]);
+  const chatTurnStatus: TurnStatus = (turnStatuses[repoScopeId] as TurnStatus) ?? 'idle';
   const actions = useRepositoryActions(
     data.repositoryPath ? { repositoryId: data.id, repositoryPath: data.repositoryPath } : null
   );
@@ -269,9 +274,10 @@ export function RepositoryNode({
                           e.stopPropagation();
                           if (data.id) router.push(`/repository/${data.id}/chat`);
                         }}
-                        className="nodrag cursor-pointer text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300"
+                        className="nodrag relative cursor-pointer text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300"
                       >
                         <MessageSquare className="h-3 w-3" />
+                        <ChatDotIndicator status={chatTurnStatus} />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Chat with agent</TooltipContent>

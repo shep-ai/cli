@@ -50,8 +50,8 @@ interface SessionState {
   worktreePath: string;
   /** Agent SDK session handle — null until session is created. */
   handle: InteractiveAgentSessionHandle | null;
-  /** Claude SDK session ID for resumption across service restarts. */
-  claudeSessionId?: string;
+  /** Agent SDK session ID for resumption across service restarts. */
+  agentSessionId?: string;
   timer: NodeJS.Timeout | null;
   /** Accumulates assistant text between user turns for persistence. */
   currentAssistantBuffer: string;
@@ -87,8 +87,8 @@ interface SessionState {
 export class InteractiveSessionService implements IInteractiveSessionService {
   /** Live sessions indexed by sessionId. */
   private sessions = new Map<string, SessionState>();
-  /** Cached claudeSessionIds from stopped sessions, keyed by featureId. */
-  private stoppedClaudeSessionIds = new Map<string, string>();
+  /** Cached agentSessionIds from stopped sessions, keyed by featureId. */
+  private stoppedAgentSessionIds = new Map<string, string>();
 
   constructor(
     private readonly sessionRepo: IInteractiveSessionRepository,
@@ -127,16 +127,24 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     };
     await this.sessionRepo.create(session);
 
-    // Carry over claudeSessionId from previous session so resumption works
-    let previousClaudeSessionId: string | undefined;
+    // Carry over agentSessionId from previous session so resumption works
+    let previousAgentSessionId: string | undefined;
     for (const [, s] of this.sessions) {
-      if (s.featureId === featureId && s.claudeSessionId) {
-        previousClaudeSessionId = s.claudeSessionId;
+      if (s.featureId === featureId && s.agentSessionId) {
+        previousAgentSessionId = s.agentSessionId;
         break;
       }
     }
     // Also check stoppedSessions cache (populated on stop)
-    previousClaudeSessionId ??= this.stoppedClaudeSessionIds.get(featureId);
+    previousAgentSessionId ??= this.stoppedAgentSessionIds.get(featureId);
+    // Fall back to DB — the in-memory cache may be empty after service restart
+    if (!previousAgentSessionId) {
+      const latestDbSession = await this.sessionRepo.findByFeatureId(featureId);
+      if (latestDbSession) {
+        previousAgentSessionId =
+          (await this.sessionRepo.getAgentSessionId(latestDbSession.id)) ?? undefined;
+      }
+    }
 
     // Set up in-memory state
     const state: SessionState = {
@@ -146,7 +154,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       model,
       agentType,
       handle: null,
-      claudeSessionId: previousClaudeSessionId,
+      agentSessionId: previousAgentSessionId,
       timer: null,
       currentAssistantBuffer: '',
       toolEventsLog: [],
@@ -254,9 +262,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       );
       let handle: InteractiveAgentSessionHandle;
 
-      if (state.claudeSessionId) {
+      if (state.agentSessionId) {
         // Resume existing SDK session
-        handle = await executor.resumeSession(state.claudeSessionId, {
+        handle = await executor.resumeSession(state.agentSessionId, {
           cwd: worktreePath,
           model: state.model,
           systemPrompt: context,
@@ -350,7 +358,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               // Capture the SDK session ID (available after first message exchange)
               const sdkSessionId = handle.sessionId;
               if (sdkSessionId) {
-                state.claudeSessionId = sdkSessionId;
+                state.agentSessionId = sdkSessionId;
+                // Persist to DB so it survives service restarts
+                void this.sessionRepo.updateAgentSessionId(state.sessionId, sdkSessionId);
               }
 
               // Persist greeting and mark session ready
@@ -365,6 +375,12 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               };
               await this.messageRepo.create(greetingMsg);
               await this.sessionRepo.updateStatus(state.sessionId, InteractiveSessionStatus.ready);
+
+              // If there's a pending user message, the next turn will set 'processing'.
+              // Otherwise boot greeting is expected — mark idle.
+              if (!state.pendingUserContent) {
+                void this.sessionRepo.updateTurnStatus(state.sessionId, 'idle');
+              }
 
               state.currentAssistantBuffer = '';
               state.toolEventsLog = [];
@@ -400,6 +416,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
         await this.messageRepo.create(greetingMsg);
       }
       await this.sessionRepo.updateStatus(state.sessionId, InteractiveSessionStatus.ready);
+      if (!state.pendingUserContent) {
+        void this.sessionRepo.updateTurnStatus(state.sessionId, 'idle');
+      }
       state.currentAssistantBuffer = '';
       state.toolEventsLog = [];
       this.resetTimer(state);
@@ -415,8 +434,8 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       } catch {
         // Best-effort DB update
       }
-      if (state.claudeSessionId) {
-        this.stoppedClaudeSessionIds.set(state.featureId, state.claudeSessionId);
+      if (state.agentSessionId) {
+        this.stoppedAgentSessionIds.set(state.featureId, state.agentSessionId);
       }
       this.sessions.delete(state.sessionId);
     }
@@ -442,9 +461,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     }
 
     this.clearTimer(state);
-    // Cache claudeSessionId so resumption works when session restarts
-    if (state.claudeSessionId) {
-      this.stoppedClaudeSessionIds.set(state.featureId, state.claudeSessionId);
+    // Cache agentSessionId so resumption works when session restarts
+    if (state.agentSessionId) {
+      this.stoppedAgentSessionIds.set(state.featureId, state.agentSessionId);
     }
     this.sessions.delete(sessionId);
 
@@ -459,6 +478,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     }
 
     await this.sessionRepo.updateStatus(sessionId, InteractiveSessionStatus.stopped, new Date());
+    void this.sessionRepo.updateTurnStatus(sessionId, 'idle');
   }
 
   async sendMessage(sessionId: string, content: string): Promise<InteractiveMessage> {
@@ -506,6 +526,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 
       state.currentAssistantBuffer = '';
       state.toolEventsLog = [];
+
+      // Mark turn as processing for dot indicator
+      void this.sessionRepo.updateTurnStatus(state.sessionId, 'processing');
 
       // Send the message to the SDK session
       await state.handle.send(prompt);
@@ -594,6 +617,10 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               state.currentAssistantBuffer = '';
               state.toolEventsLog = [];
 
+              // Mark as unread — if user has the chat open, the frontend
+              // will immediately call markRead to clear it
+              void this.sessionRepo.updateTurnStatus(state.sessionId, 'unread');
+
               // Notify subscribers of end-of-turn
               state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
               return; // Turn complete
@@ -611,19 +638,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               break;
 
             case 'init':
-              if (event.label) {
-                const initDetail = [event.label, event.detail, event.content]
-                  .filter(Boolean)
-                  .join(' · ');
-                void this.persistToolEvent(state, 'Session started', initDetail);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    activity: { kind: 'system', label: 'Session started', detail: initDetail },
-                  })
-                );
-              }
+              // The SDK emits init on every turn, but we only show "Session started"
+              // during boot (handled in completeBootAsync). Ignore it here to avoid
+              // spamming the chat with repeated session-started messages.
               break;
 
             case 'api_retry':
@@ -721,8 +738,8 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     if (state) {
       await this.stopSession(state.sessionId);
     }
-    // Also clear the cached claudeSessionId so next session starts fresh
-    this.stoppedClaudeSessionIds.delete(featureId);
+    // Also clear the cached agentSessionId so next session starts fresh
+    this.stoppedAgentSessionIds.delete(featureId);
     return this.messageRepo.deleteByFeatureId(featureId);
   }
 
@@ -776,7 +793,24 @@ export class InteractiveSessionService implements IInteractiveSessionService {
         state.pendingUserContent = content;
       }
     } else {
-      // No active session — boot one and queue the message
+      // No in-memory session — check DB for an orphaned active session (e.g. after
+      // service restart / hot-reload) and mark it stopped before booting a new one.
+      // The agentSessionId is persisted in DB so startSession will pick it up for
+      // SDK session resumption.
+      const dbSession = await this.sessionRepo.findByFeatureId(featureId);
+      if (
+        dbSession &&
+        (dbSession.status === InteractiveSessionStatus.ready ||
+          dbSession.status === InteractiveSessionStatus.booting)
+      ) {
+        await this.sessionRepo.updateStatus(
+          dbSession.id,
+          InteractiveSessionStatus.stopped,
+          new Date()
+        );
+      }
+
+      // Boot a new session — startSession will find the agentSessionId from DB
       const session = await this.startSession(featureId, worktreePath);
       const newState = this.sessions.get(session.id);
       if (newState) {
@@ -808,7 +842,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 
       sessionInfo = {
         pid: null, // SDK manages process internally
-        sessionId: state.claudeSessionId ?? state.sessionId,
+        sessionId: state.agentSessionId ?? state.sessionId,
         model: displayModel,
         startedAt: dbSession?.startedAt
           ? new Date(dbSession.startedAt as unknown as string).toISOString()
@@ -844,7 +878,22 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       }
     }
 
-    return { messages, sessionStatus, streamingText, sessionInfo };
+    // Resolve turn status from DB
+    let turnStatus = 'idle';
+    const activeState = state;
+    if (activeState) {
+      const statuses = await this.sessionRepo.getTurnStatuses([featureId]);
+      turnStatus = statuses.get(featureId) ?? 'idle';
+    } else {
+      // Check DB for the latest session's turn status
+      const latest = await this.sessionRepo.findByFeatureId(featureId);
+      if (latest) {
+        const statuses = await this.sessionRepo.getTurnStatuses([featureId]);
+        turnStatus = statuses.get(featureId) ?? 'idle';
+      }
+    }
+
+    return { messages, sessionStatus, streamingText, sessionInfo, turnStatus };
   }
 
   subscribeByFeature(featureId: string, onChunk: (chunk: StreamChunk) => void): UnsubscribeFn {
@@ -872,6 +921,24 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     };
     await this.messageRepo.create(msg);
     await this.stopSession(state.sessionId);
+  }
+
+  async markRead(featureId: string): Promise<void> {
+    // Find the active session for this feature and clear unread status
+    const state = this.findActiveStateForFeature(featureId);
+    if (state) {
+      void this.sessionRepo.updateTurnStatus(state.sessionId, 'idle');
+      return;
+    }
+    // Fallback: check DB for the latest active session
+    const latest = await this.sessionRepo.findByFeatureId(featureId);
+    if (latest) {
+      void this.sessionRepo.updateTurnStatus(latest.id, 'idle');
+    }
+  }
+
+  async getTurnStatuses(featureIds: string[]): Promise<Map<string, string>> {
+    return this.sessionRepo.getTurnStatuses(featureIds);
   }
 
   /** Find the in-memory state for an active session for a feature. */

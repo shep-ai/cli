@@ -5,6 +5,8 @@ import { MessageSquare, X, Bot, GripVertical, Maximize2, Minimize2 } from 'lucid
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ChatTab } from './ChatTab';
+import { ChatDotIndicator } from './ChatDotIndicator';
+import { useTurnStatus } from '@/hooks/turn-statuses-provider';
 
 // ── Persistent global chat popup (draggable + resizable) ──────────────────
 
@@ -51,6 +53,7 @@ export function GlobalChatPopup() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const globalChatTurnStatus = useTurnStatus('global');
 
   // Position/size — initialized from localStorage
   // eslint-disable-next-line react/hook-use-state -- wrapped setters below
@@ -407,6 +410,7 @@ export function GlobalChatPopup() {
               isOpen ? 'scale-100 rotate-0 opacity-100' : 'scale-0 -rotate-90 opacity-0'
             )}
           />
+          {!isOpen && <ChatDotIndicator status={globalChatTurnStatus} className="top-0 right-0" />}
         </Button>
         {/* Tooltip — slides in from left on hover */}
         <div className="pointer-events-none ml-3 flex translate-x-[-4px] items-center gap-2 opacity-0 transition-all duration-200 group-hover/fab:translate-x-0 group-hover/fab:opacity-100">

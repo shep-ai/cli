@@ -30,6 +30,8 @@ function createTestRow(overrides: Partial<InteractiveSessionRow> = {}): Interact
     status: 'ready',
     started_at: NOW.getTime(),
     stopped_at: null,
+    agent_session_id: null,
+    turn_status: 'idle',
     last_activity_at: LATER.getTime(),
     created_at: NOW.getTime(),
     updated_at: LATER.getTime(),
@@ -45,6 +47,7 @@ describe('InteractiveSession Mapper — toDatabase()', () => {
     expect(row.feature_id).toBe('feature-abc');
     expect(row.status).toBe('ready');
     expect(row.started_at).toBe(NOW.getTime());
+    expect(row.agent_session_id).toBeNull();
     expect(row.last_activity_at).toBe(LATER.getTime());
     expect(row.created_at).toBe(NOW.getTime());
     expect(row.updated_at).toBe(LATER.getTime());

@@ -10,6 +10,10 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/',
 }));
 
+vi.mock('@/hooks/use-turn-statuses', () => ({
+  useTurnStatuses: () => ({}),
+}));
+
 const mockOnAction = vi.fn();
 const mockOnSettings = vi.fn();
 const mockOnDelete = vi.fn();

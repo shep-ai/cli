@@ -58,6 +58,8 @@ export interface ChatState {
   streamingText: string | null;
   /** Session info for the toolbar (null if no active session) */
   sessionInfo: SessionInfo | null;
+  /** Turn activity status: 'idle' | 'processing' | 'unread' (for dot indicators) */
+  turnStatus: string;
 }
 
 /** Live session metadata for the frontend toolbar. */
@@ -196,4 +198,17 @@ export interface IInteractiveSessionService {
    * Idempotent — no-op if no active session exists.
    */
   stopByFeature(featureId: string): Promise<void>;
+
+  /**
+   * Mark a feature's chat as read — clears the 'unread' turn status to 'idle'.
+   * Called when the user opens/views the chat tab.
+   */
+  markRead(featureId: string): Promise<void>;
+
+  /**
+   * Get turn statuses for multiple features in a single call.
+   * Returns a map of featureId → 'idle' | 'processing' | 'unread'.
+   * Used by UI to show dot indicators on all chat buttons.
+   */
+  getTurnStatuses(featureIds: string[]): Promise<Map<string, string>>;
 }

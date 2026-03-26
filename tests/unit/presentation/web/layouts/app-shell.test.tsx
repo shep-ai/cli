@@ -10,6 +10,10 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
 }));
 
+vi.mock('@/hooks/use-turn-statuses', () => ({
+  useTurnStatuses: () => ({}),
+}));
+
 import { AppShell } from '@/components/layouts/app-shell';
 import { FeatureFlagsProvider } from '@/hooks/feature-flags-context';
 import { useSidebarFeaturesContext } from '@/hooks/sidebar-features-context';

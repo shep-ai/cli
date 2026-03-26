@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button/action-button';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ChatDotIndicator } from '@/components/features/chat/ChatDotIndicator';
+import { useTurnStatus } from '@/hooks/turn-statuses-provider';
 import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import {
@@ -100,6 +102,8 @@ export function FeatureNode({
   const [idCopied, setIdCopied] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const featureFlags = useFeatureFlags();
+
+  const chatTurnStatus = useTurnStatus(data.featureId);
 
   const deployTarget =
     featureFlags.envDeploy && data.repositoryPath && data.branch
@@ -438,6 +442,7 @@ export function FeatureNode({
                         className="nodrag relative cursor-pointer text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300"
                       >
                         <MessageSquare className="h-3 w-3" />
+                        <ChatDotIndicator status={chatTurnStatus} />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top">

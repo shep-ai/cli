@@ -21,6 +21,8 @@ export interface InteractiveSessionRow {
   id: string;
   feature_id: string;
   status: string;
+  agent_session_id: string | null;
+  turn_status: string;
   started_at: number;
   stopped_at: number | null;
   last_activity_at: number;
@@ -37,6 +39,8 @@ export function toDatabase(session: InteractiveSession): InteractiveSessionRow {
     id: session.id,
     feature_id: session.featureId,
     status: session.status,
+    agent_session_id: null,
+    turn_status: 'idle',
     started_at: session.startedAt instanceof Date ? session.startedAt.getTime() : session.startedAt,
     stopped_at:
       session.stoppedAt instanceof Date ? session.stoppedAt.getTime() : (session.stoppedAt ?? null),

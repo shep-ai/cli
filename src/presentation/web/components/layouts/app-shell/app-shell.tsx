@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
@@ -14,6 +14,7 @@ import {
   SidebarFeaturesProvider,
   useSidebarFeaturesContext,
 } from '@/hooks/sidebar-features-context';
+import { TurnStatusesProvider } from '@/hooks/turn-statuses-provider';
 
 import { useNotifications } from '@/hooks/use-notifications';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
@@ -123,12 +124,24 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
   );
 }
 
+/** Wraps children with TurnStatusesProvider, collecting scope IDs from sidebar features. */
+function TurnStatusesBridge({ children }: { children: ReactNode }) {
+  const { features } = useSidebarFeaturesContext();
+  const scopeIds = useMemo(
+    () => ['global', ...features.map((f) => f.featureId)],
+    [features]
+  );
+  return <TurnStatusesProvider scopeIds={scopeIds}>{children}</TurnStatusesProvider>;
+}
+
 export function AppShell({ children, sidebarOpen }: AppShellProps) {
   return (
     <AgentEventsProvider>
       <DrawerCloseGuardProvider>
         <SidebarFeaturesProvider>
-          <AppShellInner sidebarOpen={sidebarOpen}>{children}</AppShellInner>
+          <TurnStatusesBridge>
+            <AppShellInner sidebarOpen={sidebarOpen}>{children}</AppShellInner>
+          </TurnStatusesBridge>
         </SidebarFeaturesProvider>
       </DrawerCloseGuardProvider>
     </AgentEventsProvider>

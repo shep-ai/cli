@@ -64,6 +64,10 @@ vi.mock('next/image', () => ({
   },
 }));
 
+vi.mock('@/hooks/use-turn-statuses', () => ({
+  useTurnStatuses: () => ({}),
+}));
+
 import { ControlCenter } from '@/components/features/control-center';
 import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
 

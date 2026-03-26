@@ -13,6 +13,7 @@ interface ChatState {
   sessionStatus: string | null;
   streamingText: string | null;
   sessionInfo: SessionInfo | null;
+  turnStatus?: string;
 }
 
 interface SessionInfo {
@@ -103,6 +104,13 @@ export function useChatRuntime(
     queryFn: () => fetchChatState(featureId),
     refetchInterval: 3000, // Fallback polling every 3s
   });
+
+  // Auto-mark as read when chat tab is open and turn status is 'unread'
+  useEffect(() => {
+    if (chatState?.turnStatus === 'unread') {
+      void fetch(`/api/interactive/chat/${featureId}/mark-read`, { method: 'POST' });
+    }
+  }, [chatState?.turnStatus, featureId]);
 
   const messages = useMemo(() => chatState?.messages ?? [], [chatState?.messages]);
   const sessionStatus = chatState?.sessionStatus ?? null;

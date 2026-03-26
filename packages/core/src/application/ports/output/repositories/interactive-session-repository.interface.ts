@@ -62,4 +62,27 @@ export interface IInteractiveSessionRepository {
    * Used to enforce the concurrent session cap.
    */
   countActiveSessions(): Promise<number>;
+
+  /**
+   * Persist the agent SDK session ID for resumption across service restarts.
+   * Agent-agnostic: works with Claude, Cursor, Codex, or any future agent.
+   */
+  updateAgentSessionId(id: string, agentSessionId: string): Promise<void>;
+
+  /**
+   * Retrieve the agent SDK session ID for a given session.
+   */
+  getAgentSessionId(id: string): Promise<string | null>;
+
+  /**
+   * Update the turn status for a session.
+   * Values: 'idle' | 'processing' | 'unread'
+   */
+  updateTurnStatus(id: string, turnStatus: string): Promise<void>;
+
+  /**
+   * Get turn statuses for multiple feature IDs in a single query.
+   * Returns a map of featureId → turnStatus for features that have an active session.
+   */
+  getTurnStatuses(featureIds: string[]): Promise<Map<string, string>>;
 }
