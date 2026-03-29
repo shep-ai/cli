@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/shep-ai/cli/discussions
+    about: Ask questions, share ideas, or discuss Shep with the community
+  - name: 📖 Documentation
+    url: https://github.com/shep-ai/cli#documentation
+    about: Read guides, tutorials, and reference documentation
+  - name: 🚀 Quick Start
+    url: https://github.com/shep-ai/cli#quick-start
+    about: Get started with Shep in under 5 minutes
