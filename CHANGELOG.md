@@ -1,3 +1,15 @@
+# [1.155.0](https://github.com/shep-ai/cli/compare/v1.154.0...v1.155.0) (2026-03-29)
+
+
+### Bug Fixes
+
+* **web:** scan subdirectories for dev script when root has no package.json ([#479](https://github.com/shep-ai/cli/issues/479)) ([8766477](https://github.com/shep-ai/cli/commit/8766477dbfe1891664a3f0897191325f43516723))
+
+
+### Features
+
+* **agents:** add shep branding to pull request bodies ([#480](https://github.com/shep-ai/cli/issues/480)) ([1b04c52](https://github.com/shep-ai/cli/commit/1b04c52070d902d78bfc6404253db4192d04a0ce))
+
 # [1.154.0](https://github.com/shep-ai/cli/compare/v1.153.0...v1.154.0) (2026-03-26)
 
 
