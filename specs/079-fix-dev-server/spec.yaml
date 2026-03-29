@@ -4,14 +4,13 @@
 name: fix-dev-server
 number: 079
 branch: feat/079-fix-dev-server
-oneLiner: The start server for
-/Users/arielshadkhan/.shep/repos/7a33bff19b76d0fb/wt/feat-shep-promo-site-cd0991 doesnt work, make it work.
+oneLiner: >
+  The start server for a worktree project doesnt work, make it work.
 userQuery: >
-  The start server for
-/Users/arielshadkhan/.shep/repos/7a33bff19b76d0fb/wt/feat-shep-promo-site-cd0991 doesnt work, make it work.
+  The start server for a worktree project doesnt work, make it work.
 summary: >
-  The start server for
-/Users/arielshadkhan/.shep/repos/7a33bff19b76d0fb/wt/feat-shep-promo-site-cd0991 doesnt work, make it work.
+  Fix dev server startup when the root directory has no package.json by
+  scanning subdirectories for a dev script.
 phase: Analysis
 sizeEstimate: M
 
@@ -33,8 +32,8 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  The start server for
-/Users/arielshadkhan/.shep/repos/7a33bff19b76d0fb/wt/feat-shep-promo-site-cd0991 doesnt work, make it work.
+  Fix dev server startup when the root directory has no package.json by
+  scanning subdirectories for a dev script.
 
   ## Success Criteria
 
