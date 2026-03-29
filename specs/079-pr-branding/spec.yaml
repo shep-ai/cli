@@ -4,26 +4,19 @@
 name: pr-branding
 number: 079
 branch: feat/079-pr-branding
-oneLiner: When shep creates Pull request, the pull request should be signed with
-
-`Built with Shep 🐑 [Shep Bot](https://github.com/shep-ai/cli)`
-
-and never with:
-`🤖 Generated with [Claude Code](https://claude.com/claude-code)`
+oneLiner: >
+  When shep creates a pull request, it should be signed with shep branding
+  instead of the default claude code branding
 userQuery: >
   When shep creates Pull request, the pull request should be signed with
-
-`Built with Shep 🐑 [Shep Bot](https://github.com/shep-ai/cli)`
-
-and never with:
-`🤖 Generated with [Claude Code](https://claude.com/claude-code)`
+  `Built with Shep [Shep Bot](https://github.com/shep-ai/cli)`
+  and never with:
+  `Generated with [Claude Code](https://claude.com/claude-code)`
 summary: >
   When shep creates Pull request, the pull request should be signed with
-
-`Built with Shep 🐑 [Shep Bot](https://github.com/shep-ai/cli)`
-
-and never with:
-`🤖 Generated with [Claude Code](https://claude.com/claude-code)`
+  `Built with Shep [Shep Bot](https://github.com/shep-ai/cli)`
+  and never with:
+  `Generated with [Claude Code](https://claude.com/claude-code)`
 phase: Analysis
 sizeEstimate: M
 
@@ -45,12 +38,10 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  When shep creates Pull request, the pull request should be signed with
-
-`Built with Shep 🐑 [Shep Bot](https://github.com/shep-ai/cli)`
-
-and never with:
-`🤖 Generated with [Claude Code](https://claude.com/claude-code)`
+  When shep creates a Pull Request, it should be signed with
+  `Built with Shep [Shep Bot](https://github.com/shep-ai/cli)`
+  and never with:
+  `Generated with [Claude Code](https://claude.com/claude-code)`
 
   ## Success Criteria
 
