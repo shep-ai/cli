@@ -18,20 +18,22 @@ import { container } from '@/infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import { messages } from '../../ui/index.js';
 import { viewLog } from '../log-viewer.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createLogsCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('logs')
-    .description('View feature agent logs')
-    .argument('<id>', 'Feature ID (or prefix)')
-    .option('-f, --follow', 'Follow log output (like tail -f)')
-    .option('-n, --lines <count>', 'Number of lines to show from the end', '0')
+    .description(t('cli:commands.feat.logs.description'))
+    .argument('<id>', t('cli:commands.feat.logs.idArgument'))
+    .option('-f, --follow', t('cli:commands.feat.logs.followOption'))
+    .option('-n, --lines <count>', t('cli:commands.feat.logs.linesOption'), '0')
     .action(async (id: string, opts: { follow?: boolean; lines: string }) => {
       try {
         const useCase = container.resolve(ShowFeatureUseCase);
         const feature = await useCase.execute(id);
 
         if (!feature.agentRunId) {
-          messages.error(`Feature "${feature.name}" has no agent run`);
+          messages.error(t('cli:commands.feat.logs.noAgentRun', { name: feature.name }));
           process.exitCode = 1;
           return;
         }
@@ -49,7 +51,7 @@ export function createLogsCommand(): Command {
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to read feature logs', err);
+        messages.error(t('cli:commands.feat.logs.failedToRead'), err);
         process.exitCode = 1;
       }
     });

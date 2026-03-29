@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Sidebar,
   SidebarHeader,
@@ -55,6 +56,7 @@ export function AppSidebar({
 
   onFeatureClick,
 }: AppSidebarProps) {
+  const { t } = useTranslation('web');
   const pathname = usePathname();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -108,24 +110,29 @@ export function AppSidebar({
             </div>
           </SidebarMenuItem>
 
-          <SidebarNavItem icon={Home} label="Control Center" href="/" active={pathname === '/'} />
+          <SidebarNavItem
+            icon={Home}
+            label={t('navigation.controlCenter')}
+            href="/"
+            active={pathname === '/'}
+          />
           <SidebarNavItem
             icon={Wrench}
-            label="Tools"
+            label={t('navigation.tools')}
             href="/tools"
             active={pathname === '/tools'}
           />
           {featureFlags.skills ? (
             <SidebarNavItem
               icon={Puzzle}
-              label="Skills"
+              label={t('navigation.skills')}
               href="/skills"
               active={pathname === '/skills'}
             />
           ) : null}
           <SidebarNavItem
             icon={Settings}
-            label="Settings"
+            label={t('navigation.settings')}
             href="/settings"
             active={pathname === '/settings'}
           />
@@ -141,7 +148,7 @@ export function AppSidebar({
               expandedVisible ? 'opacity-100' : 'opacity-0',
             ].join(' ')}
           >
-            <SidebarSectionHeader label="Features" />
+            <SidebarSectionHeader label={t('sidebar.features')} />
             <ScrollArea className="min-h-0 flex-1">
               {grouped.map(({ key, label, items }) =>
                 items.length > 0 ? (
@@ -208,14 +215,20 @@ export function AppSidebar({
                           setTheme(newTheme);
                         });
                       }}
-                      aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+                      aria-label={
+                        resolvedTheme === 'dark'
+                          ? t('sidebar.switchToLight')
+                          : t('sidebar.switchToDark')
+                      }
                     >
                       <Sun className="h-4 w-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
                       <Moon className="absolute h-4 w-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
                     </SidebarMenuButton>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
+                    {resolvedTheme === 'dark'
+                      ? t('sidebar.switchToLight')
+                      : t('sidebar.switchToDark')}
                   </TooltipContent>
                 </Tooltip>
                 {!collapsed && (
@@ -227,7 +240,9 @@ export function AppSidebar({
                           clickSound.play();
                           toggleSound();
                         }}
-                        aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+                        aria-label={
+                          soundEnabled ? t('sidebar.muteSounds') : t('sidebar.unmuteSounds')
+                        }
                       >
                         {soundEnabled ? (
                           <Volume2 className="h-4 w-4" />
@@ -237,7 +252,7 @@ export function AppSidebar({
                       </SidebarMenuButton>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      {soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+                      {soundEnabled ? t('sidebar.muteSounds') : t('sidebar.unmuteSounds')}
                     </TooltipContent>
                   </Tooltip>
                 )}

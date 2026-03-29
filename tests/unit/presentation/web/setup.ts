@@ -2,6 +2,9 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
+// Initialize web i18n so useTranslation('web') returns real English strings in tests
+import '@/lib/i18n';
+
 // Clean up after each test to prevent multiple elements from accumulating
 afterEach(() => {
   cleanup();

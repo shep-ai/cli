@@ -13,11 +13,12 @@ import type { IDaemonService } from '@/application/ports/output/services/daemon-
 import { messages } from '../ui/index.js';
 import { stopDaemon } from './daemon/stop-daemon.js';
 import { startDaemon } from './daemon/start-daemon.js';
+import { getCliI18n } from '../i18n.js';
 
 function parsePort(value: string): number {
   const port = parseInt(value, 10);
   if (isNaN(port) || port < 1024 || port > 65535) {
-    throw new InvalidArgumentError('Port must be an integer between 1024 and 65535');
+    throw new InvalidArgumentError(getCliI18n().t('cli:commands.restart.portValidation'));
   }
   return port;
 }
@@ -26,9 +27,10 @@ function parsePort(value: string): number {
  * Create the restart command.
  */
 export function createRestartCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('restart')
-    .description('Gracefully restart the Shep web UI daemon (starts it if not running)')
-    .option('-p, --port <number>', 'Port number (1024-65535)', parsePort)
+    .description(t('cli:commands.restart.description'))
+    .option('-p, --port <number>', t('cli:commands.restart.portOption'), parsePort)
     .addHelpText(
       'after',
       `
@@ -48,7 +50,7 @@ Examples:
         await startDaemon({ port: options.port ?? state!.port });
       } else {
         // Daemon is not running — start it directly
-        messages.info('Daemon was not running — starting...');
+        messages.info(t('cli:commands.restart.daemonNotRunning'));
         await startDaemon({ port: options.port });
       }
     });

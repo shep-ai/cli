@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,7 @@ export function DeleteFeatureDialog({
   hasChildren,
   hasOpenPr,
 }: DeleteFeatureDialogProps) {
+  const { t } = useTranslation('web');
   const [cleanup, setCleanup] = useState(true);
   const [cascadeDelete, setCascadeDelete] = useState(false);
   const [closePr, setClosePr] = useState(true);
@@ -50,10 +52,13 @@ export function DeleteFeatureDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+          <AlertDialogTitle>{t('deleteFeature.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete <strong>{featureName}</strong> ({featureId}). This action
-            cannot be undone.
+            <span
+              dangerouslySetInnerHTML={{
+                __html: t('deleteFeature.description', { featureName, featureId }),
+              }}
+            />
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex flex-col gap-2">
@@ -63,10 +68,10 @@ export function DeleteFeatureDialog({
               checked={cleanup}
               onCheckedChange={(checked) => setCleanup(checked === true)}
               disabled={isDeleting}
-              aria-label="Clean up worktree and branches"
+              aria-label={t('deleteFeature.cleanupLabel')}
             />
             <Label htmlFor="cleanup-checkbox" className="cursor-pointer text-sm">
-              Clean up worktree and branches
+              {t('deleteFeature.cleanupLabel')}
             </Label>
           </div>
           {hasChildren ? (
@@ -76,10 +81,10 @@ export function DeleteFeatureDialog({
                 checked={cascadeDelete}
                 onCheckedChange={(checked) => setCascadeDelete(checked === true)}
                 disabled={isDeleting}
-                aria-label="Delete sub-features"
+                aria-label={t('deleteFeature.deleteSubFeatures')}
               />
               <Label htmlFor="cascade-delete-checkbox" className="cursor-pointer text-sm">
-                Delete sub-features
+                {t('deleteFeature.deleteSubFeatures')}
               </Label>
             </div>
           ) : null}
@@ -90,17 +95,17 @@ export function DeleteFeatureDialog({
                 checked={closePr}
                 onCheckedChange={(checked) => setClosePr(checked === true)}
                 disabled={isDeleting || !cleanup}
-                aria-label="Close pull request"
+                aria-label={t('deleteFeature.closePullRequest')}
               />
               <Label htmlFor="close-pr-checkbox" className="cursor-pointer text-sm">
-                Close pull request
+                {t('deleteFeature.closePullRequest')}
               </Label>
             </div>
           ) : null}
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isDeleting} onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('deleteFeature.cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
@@ -110,10 +115,10 @@ export function DeleteFeatureDialog({
             {isDeleting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Deleting…
+                {t('deleteFeature.deleting')}
               </>
             ) : (
-              'Delete'
+              t('deleteFeature.delete')
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

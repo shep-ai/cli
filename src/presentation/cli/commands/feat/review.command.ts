@@ -21,6 +21,7 @@ import { prdReviewWizard } from '../../../tui/wizards/prd-review.wizard.js';
 import { planReviewWizard } from '../../../tui/wizards/plan-review.wizard.js';
 import { mergeReviewWizard } from '../../../tui/wizards/merge-review.wizard.js';
 import { colors, messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 type ReviewAction = 'approve' | 'reject';
 
@@ -75,9 +76,10 @@ function phaseNextStep(phase: string): string {
 }
 
 export function createReviewCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('review')
-    .description('Interactive review of a feature waiting for approval')
-    .argument('[id]', 'Feature ID (auto-resolves if omitted)')
+    .description(t('cli:commands.feat.review.description'))
+    .argument('[id]', t('cli:commands.feat.review.idArgument'))
     .action(async (featureId?: string) => {
       try {
         const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
@@ -94,9 +96,15 @@ export function createReviewCommand(): Command {
         const phase = parsePhase(run.result);
 
         messages.newline();
-        messages.info(`Reviewing: ${colors.accent(feature.name)}`);
-        console.log(`  ${colors.muted('Phase:')}  ${colors.warning(phase)}`);
-        console.log(`  ${colors.muted('Branch:')} ${colors.accent(feature.branch)}`);
+        messages.info(
+          t('cli:commands.feat.review.reviewing', { name: colors.accent(feature.name) })
+        );
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.review.phaseLabel'))}  ${colors.warning(phase)}`
+        );
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.review.branchLabel'))} ${colors.accent(feature.branch)}`
+        );
         messages.newline();
 
         const wizardResult = await runPhaseWizard(phase, feature.id, repoPath);
@@ -111,16 +119,20 @@ export function createReviewCommand(): Command {
 
           if (approveResult.approved) {
             messages.newline();
-            messages.success(`Approved: ${feature.name}`);
+            messages.success(t('cli:commands.feat.review.approvedSuccess', { name: feature.name }));
             if (wizardResult.changedSelections && wizardResult.changedSelections.length > 0) {
               console.log(
-                `  ${colors.muted('Changes:')} ${wizardResult.changedSelections.length} selection(s) updated`
+                `  ${colors.muted(t('cli:commands.feat.review.changesLabel'))} ${t('cli:commands.feat.review.changesUpdated', { count: wizardResult.changedSelections.length })}`
               );
             }
             if (wizardResult.feedback) {
-              console.log(`  ${colors.muted('Comment:')} ${wizardResult.feedback}`);
+              console.log(
+                `  ${colors.muted(t('cli:commands.feat.review.commentLabel'))} ${wizardResult.feedback}`
+              );
             }
-            console.log(`  ${colors.muted('Agent:')}   proceeding to ${phaseNextStep(phase)}`);
+            console.log(
+              `  ${colors.muted(t('cli:commands.feat.review.agentLabel'))}   ${t('cli:commands.feat.review.proceedingTo', { phase: phaseNextStep(phase) })}`
+            );
             messages.newline();
           } else {
             throw new Error(approveResult.reason);
@@ -131,13 +143,19 @@ export function createReviewCommand(): Command {
 
           if (rejectResult.rejected) {
             messages.newline();
-            messages.warning(`Rejected: ${feature.name}`);
-            console.log(`  ${colors.muted('Feedback:')} ${wizardResult.feedback}`);
-            console.log(`  ${colors.muted('Iteration:')} ${rejectResult.iteration}`);
+            messages.warning(t('cli:commands.feat.review.rejectedWarning', { name: feature.name }));
+            console.log(
+              `  ${colors.muted(t('cli:commands.feat.review.feedbackLabel'))} ${wizardResult.feedback}`
+            );
+            console.log(
+              `  ${colors.muted(t('cli:commands.feat.review.iterationLabel'))} ${rejectResult.iteration}`
+            );
             if (rejectResult.iterationWarning) {
-              messages.warning('Warning: 5+ iterations. Consider refining the prompt instead.');
+              messages.warning(t('cli:commands.feat.review.iterationWarning'));
             }
-            console.log(`  ${colors.muted('Agent:')}    re-running ${phase}`);
+            console.log(
+              `  ${colors.muted(t('cli:commands.feat.review.agentLabel'))}    ${t('cli:commands.feat.review.agentRerunning', { phase })}`
+            );
             messages.newline();
           } else {
             throw new Error(rejectResult.reason);
@@ -145,7 +163,7 @@ export function createReviewCommand(): Command {
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to review feature', err);
+        messages.error(t('cli:commands.feat.review.failedToReview'), err);
         process.exitCode = 1;
       }
     });

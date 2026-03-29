@@ -35,6 +35,7 @@ import {
   getDaemonLogPath,
 } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 import { renderDetailView, messages, colors } from '../ui/index.js';
+import { getCliI18n } from '../i18n.js';
 
 const PS_TIMEOUT_MS = 2000;
 const DEFAULT_LOG_LINES = 50;
@@ -186,10 +187,11 @@ function followFile(filePath: string): void {
  * Create the status command.
  */
 export function createStatusCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('status')
-    .description('Show the status of the Shep web UI daemon')
-    .option('--logs [lines]', 'Show last N lines of daemon log (default 50)')
-    .option('-f, --follow', 'Follow daemon log output in real-time')
+    .description(t('cli:commands.status.description'))
+    .option('--logs [lines]', t('cli:commands.status.logsOption'))
+    .option('-f, --follow', t('cli:commands.status.followOption'))
     .action(async (options: { logs?: string | true; follow?: boolean }) => {
       const logPath = getDaemonLogPath();
 
@@ -197,8 +199,8 @@ export function createStatusCommand(): Command {
       if (options.logs !== undefined || options.follow) {
         if (!existsSync(logPath)) {
           messages.newline();
-          messages.info('No daemon log file found.');
-          messages.info(`Expected at: ${logPath}`);
+          messages.info(t('cli:commands.status.noLogFile'));
+          messages.info(t('cli:commands.status.expectedAt', { path: logPath }));
           messages.newline();
           return;
         }
@@ -213,12 +215,12 @@ export function createStatusCommand(): Command {
         if (lines.length > 0) {
           console.log(lines.join('\n'));
         } else {
-          messages.info('Log file is empty.');
+          messages.info(t('cli:commands.status.logEmpty'));
         }
 
         // Follow mode
         if (options.follow) {
-          console.log(colors.muted('--- following daemon.log (Ctrl+C to stop) ---'));
+          console.log(colors.muted(t('cli:commands.status.followHint')));
           followFile(logPath);
           return; // Block forever (followFile handles SIGINT)
         }
@@ -232,8 +234,8 @@ export function createStatusCommand(): Command {
 
       if (!state || !daemonService.isAlive(state.pid)) {
         messages.newline();
-        messages.info('Shep daemon is not running.');
-        messages.info('Run `shep start` to launch it.');
+        messages.info(t('cli:commands.status.notRunning'));
+        messages.info(t('cli:commands.status.startHint'));
         messages.newline();
         return;
       }
@@ -255,31 +257,37 @@ export function createStatusCommand(): Command {
       }
 
       renderDetailView({
-        title: 'Shep Daemon Status',
+        title: t('cli:commands.status.title'),
         sections: [
           {
             fields: [
-              { label: 'PID', value: String(pid) },
-              { label: 'Port', value: String(port) },
-              { label: 'URL', value: url },
-              { label: 'Started', value: new Date(startedAt).toLocaleString() },
-              { label: 'Uptime', value: uptime },
-              { label: 'CPU %', value: cpu === 'unavailable' ? 'unavailable' : `${cpu}%` },
+              { label: t('cli:commands.status.pidLabel'), value: String(pid) },
+              { label: t('cli:commands.status.portLabel'), value: String(port) },
+              { label: t('cli:commands.status.urlLabel'), value: url },
               {
-                label: 'Memory (RSS)',
+                label: t('cli:commands.status.startedLabel'),
+                value: new Date(startedAt).toLocaleString(),
+              },
+              { label: t('cli:commands.status.uptimeLabel'), value: uptime },
+              {
+                label: t('cli:commands.status.cpuLabel'),
+                value: cpu === 'unavailable' ? 'unavailable' : `${cpu}%`,
+              },
+              {
+                label: t('cli:commands.status.memoryLabel'),
                 value: rssMb === 'unavailable' ? 'unavailable' : `${rssMb} MB`,
               },
             ],
           },
           {
-            title: 'Environment',
+            title: t('cli:commands.status.envTitle'),
             fields: [
-              { label: 'Shep Home', value: getShepHomeDir() },
-              { label: 'CLI Version', value: cliVersion },
-              { label: 'Node Version', value: process.version },
-              { label: 'DB Path', value: getShepDbPath() },
-              { label: 'Log File', value: logPath },
-              { label: 'Daemon Config', value: getDaemonStatePath() },
+              { label: t('cli:commands.status.shepHomeLabel'), value: getShepHomeDir() },
+              { label: t('cli:commands.status.cliVersionLabel'), value: cliVersion },
+              { label: t('cli:commands.status.nodeVersionLabel'), value: process.version },
+              { label: t('cli:commands.status.dbPathLabel'), value: getShepDbPath() },
+              { label: t('cli:commands.status.logFileLabel'), value: logPath },
+              { label: t('cli:commands.status.daemonConfigLabel'), value: getDaemonStatePath() },
             ],
           },
         ],

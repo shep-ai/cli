@@ -20,6 +20,7 @@ import type { ApprovalGates } from '@/domain/generated/output.js';
 import { SdlcLifecycle } from '@/domain/generated/output.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { colors, messages, spinner } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 import { getShepHomeDir } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 import { getSettings, hasSettings } from '@/infrastructure/services/settings.service.js';
 import { CheckOnboardingStatusUseCase } from '@/application/use-cases/settings/check-onboarding-status.use-case.js';
@@ -75,22 +76,23 @@ function getWorkflowDefaults(): WorkflowDefaults {
  * Create the feat new command
  */
 export function createNewCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('new')
-    .description('Create a new feature')
-    .argument('<description>', 'Feature description')
-    .option('-r, --repo <path>', 'Repository path (defaults to current directory)')
-    .option('--push', 'Push branch to remote after implementation')
-    .option('--pr', 'Open PR on implementation complete (implies --push)')
-    .option('--no-pr', 'Do not open PR on implementation complete')
-    .option('--allow-prd', 'Auto-approve through requirements, pause after')
-    .option('--allow-plan', 'Auto-approve through planning, pause at implementation')
-    .option('--allow-merge', 'Auto-approve merge phase')
-    .option('--allow-all', 'Run fully autonomous (no approval pauses)')
-    .option('--parent <fid>', 'Parent feature ID (full or partial prefix)')
-    .option('--pending', 'Create feature without starting the agent')
-    .option('--fast', 'Skip SDLC phases and implement directly from your prompt')
-    .option('--model <model>', 'LLM model identifier for this run (e.g. claude-opus-4-6)')
-    .option('--attach <path>', 'Attach a file (repeatable)', collect, [])
+    .description(t('cli:commands.feat.new.description'))
+    .argument('<description>', t('cli:commands.feat.new.descriptionArgument'))
+    .option('-r, --repo <path>', t('cli:commands.feat.new.repoOption'))
+    .option('--push', t('cli:commands.feat.new.pushOption'))
+    .option('--pr', t('cli:commands.feat.new.prOption'))
+    .option('--no-pr', t('cli:commands.feat.new.noPrOption'))
+    .option('--allow-prd', t('cli:commands.feat.new.allowPrdOption'))
+    .option('--allow-plan', t('cli:commands.feat.new.allowPlanOption'))
+    .option('--allow-merge', t('cli:commands.feat.new.allowMergeOption'))
+    .option('--allow-all', t('cli:commands.feat.new.allowAllOption'))
+    .option('--parent <fid>', t('cli:commands.feat.new.parentOption'))
+    .option('--pending', t('cli:commands.feat.new.pendingOption'))
+    .option('--fast', t('cli:commands.feat.new.fastOption'))
+    .option('--model <model>', t('cli:commands.feat.new.modelOption'))
+    .option('--attach <path>', t('cli:commands.feat.new.attachOption'), collect, [])
     .action(async (description: string, options: NewOptions) => {
       try {
         // First-run onboarding gate — only for interactive terminals
@@ -125,7 +127,7 @@ export function createNewCommand(): Command {
           const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
           const parentFeature = await featureRepo.findByIdPrefix(options.parent);
           if (!parentFeature) {
-            messages.error(`Parent feature not found: ${options.parent}`);
+            messages.error(t('cli:commands.feat.new.parentNotFound', { id: options.parent }));
             process.exitCode = 1;
             return;
           }
@@ -138,7 +140,7 @@ export function createNewCommand(): Command {
           for (const raw of options.attach) {
             const resolved = resolve(raw);
             if (!existsSync(resolved)) {
-              messages.error(`Attachment not found: ${resolved}`);
+              messages.error(t('cli:commands.feat.new.attachmentNotFound', { path: resolved }));
               process.exitCode = 1;
               return;
             }
@@ -146,7 +148,7 @@ export function createNewCommand(): Command {
           }
         }
 
-        const result = await spinner('Thinking', () =>
+        const result = await spinner(t('cli:commands.feat.new.spinnerText'), () =>
           useCase.execute({
             userInput: description,
             repositoryPath: repoPath,
@@ -170,37 +172,47 @@ export function createNewCommand(): Command {
         if (warning) {
           messages.warning(warning);
         }
-        messages.success('Feature created');
+        messages.success(t('cli:commands.feat.new.featureCreated'));
         if (feature.lifecycle === SdlcLifecycle.Blocked) {
-          messages.info(
-            `Feature created in Blocked state — waiting for parent to reach Implementation`
-          );
+          messages.info(t('cli:commands.feat.new.blockedInfo'));
         }
         if (feature.lifecycle === SdlcLifecycle.Pending) {
           messages.info(
-            `Feature created in Pending state — run ${colors.accent(`shep feat start ${feature.id.slice(0, 8)}`)} to begin`
+            t('cli:commands.feat.new.pendingInfo', {
+              command: colors.accent(`shep feat start ${feature.id.slice(0, 8)}`),
+            })
           );
         }
-        console.log(`  ${colors.muted('ID:')}       ${colors.accent(feature.id)}`);
-        console.log(`  ${colors.muted('Name:')}     ${feature.name}`);
-        console.log(`  ${colors.muted('Branch:')}   ${colors.accent(feature.branch)}`);
-        console.log(`  ${colors.muted('Status:')}   ${feature.lifecycle}`);
-        console.log(`  ${colors.muted('Worktree:')} ${worktreePath}`);
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.new.idLabel'))}       ${colors.accent(feature.id)}`
+        );
+        console.log(`  ${colors.muted(t('cli:commands.feat.new.nameLabel'))}     ${feature.name}`);
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.new.branchLabel'))}   ${colors.accent(feature.branch)}`
+        );
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.new.statusLabel'))}   ${feature.lifecycle}`
+        );
+        console.log(`  ${colors.muted(t('cli:commands.feat.new.worktreeLabel'))} ${worktreePath}`);
         if (feature.specPath) {
-          console.log(`  ${colors.muted('Spec:')}     ${feature.specPath}`);
+          console.log(
+            `  ${colors.muted(t('cli:commands.feat.new.specLabel'))}     ${feature.specPath}`
+          );
         }
         if (feature.agentRunId) {
           const agentStatus =
             feature.lifecycle === SdlcLifecycle.Pending
-              ? colors.muted('pending')
-              : colors.success('spawned');
+              ? colors.muted(t('cli:commands.feat.new.pendingStatus'))
+              : colors.success(t('cli:commands.feat.new.spawnedStatus'));
           console.log(
-            `  ${colors.muted('Agent:')}    ${agentStatus} (run ${feature.agentRunId.slice(0, 8)})`
+            `  ${colors.muted(t('cli:commands.feat.new.agentLabel'))}    ${agentStatus} (run ${feature.agentRunId.slice(0, 8)})`
           );
         }
         if (push || openPr) {
-          const pushHint = openPr ? 'push + PR' : 'push only';
-          console.log(`  ${colors.muted('Push:')}     ${pushHint}`);
+          const pushHint = openPr
+            ? t('cli:commands.feat.new.pushPr')
+            : t('cli:commands.feat.new.pushOnly');
+          console.log(`  ${colors.muted(t('cli:commands.feat.new.pushLabel'))}     ${pushHint}`);
         }
         const approved = [
           approvalGates.allowPrd && 'PRD',
@@ -209,15 +221,15 @@ export function createNewCommand(): Command {
         ].filter(Boolean);
         const hint =
           approved.length === 3
-            ? 'fully autonomous'
+            ? t('cli:commands.feat.new.fullyAutonomous')
             : approved.length === 0
-              ? 'pause after every phase'
-              : `auto-approve: ${approved.join(', ')}`;
-        console.log(`  ${colors.muted('Review:')}   ${hint}`);
+              ? t('cli:commands.feat.new.pauseAfterEvery')
+              : t('cli:commands.feat.new.autoApprove', { approved: approved.join(', ') });
+        console.log(`  ${colors.muted(t('cli:commands.feat.new.reviewLabel'))}   ${hint}`);
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to create feature', err);
+        messages.error(t('cli:commands.feat.new.failedToCreate'), err);
         process.exitCode = 1;
       }
     });

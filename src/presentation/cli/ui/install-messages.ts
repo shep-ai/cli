@@ -7,40 +7,53 @@
  */
 
 import { colors, fmt, messages } from './index.js';
+import { getCliI18n } from '../i18n.js';
 
 /** Messages for the install command */
 export const installMessages = {
   /** Display tool already available message */
   alreadyInstalled(toolName: string): void {
-    messages.success(`${toolName} is already installed`);
+    const t = getCliI18n().t;
+    messages.success(t('cli:ui.installMessages.alreadyInstalled', { tool: toolName }));
   },
 
   /** Display installation success */
   installSuccess(toolName: string): void {
-    messages.success(`${toolName} installed successfully`);
+    const t = getCliI18n().t;
+    messages.success(t('cli:ui.installMessages.installSuccess', { tool: toolName }));
   },
 
   /** Display installation failure */
   installFailed(toolName: string, errorMessage: string): void {
-    messages.error(`Failed to install ${toolName}: ${errorMessage}`, new Error(errorMessage));
+    const t = getCliI18n().t;
+    messages.error(
+      t('cli:ui.installMessages.installFailed', { tool: toolName, error: errorMessage }),
+      new Error(errorMessage)
+    );
   },
 
   /** Display unknown tool error */
   unknownTool(toolName: string, availableTools: string[]): void {
+    const t = getCliI18n().t;
     messages.error(
-      `Unknown tool: "${toolName}". Available: ${availableTools.join(', ')}`,
+      t('cli:ui.installMessages.unknownTool', {
+        tool: toolName,
+        available: availableTools.join(', '),
+      }),
       new Error(`Unknown tool: ${toolName}`)
     );
   },
 
   /** Display checking availability message */
   checkingAvailability(toolName: string): void {
-    console.log(colors.muted(`Checking if ${toolName} is available...`));
+    const t = getCliI18n().t;
+    console.log(colors.muted(t('cli:ui.installMessages.checkingAvailability', { tool: toolName })));
   },
 
   /** Display starting installation message */
   startingInstall(toolName: string): void {
-    console.log(fmt.heading(`Installing ${toolName}`));
+    const t = getCliI18n().t;
+    console.log(fmt.heading(t('cli:ui.installMessages.installingHeading', { tool: toolName })));
     console.log();
   },
 };

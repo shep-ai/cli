@@ -15,13 +15,15 @@ import { homedir } from 'node:os';
 import { messages } from '../../ui/index.js';
 import { resolveAgentRun } from './resolve-run.js';
 import { viewLog } from '../log-viewer.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createLogsCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('logs')
-    .description('View agent run logs')
-    .argument('<id>', 'Agent run ID (or prefix)')
-    .option('-f, --follow', 'Follow log output (like tail -f)')
-    .option('-n, --lines <count>', 'Number of lines to show from the end', '0')
+    .description(t('cli:commands.agent.logs.description'))
+    .argument('<id>', t('cli:commands.agent.logs.idArgument'))
+    .option('-f, --follow', t('cli:commands.agent.logs.followOption'))
+    .option('-n, --lines <count>', t('cli:commands.agent.logs.linesOption'), '0')
     .action(async (id: string, opts: { follow?: boolean; lines: string }) => {
       try {
         const resolved = await resolveAgentRun(id);
@@ -44,7 +46,7 @@ export function createLogsCommand(): Command {
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to read agent logs', err);
+        messages.error(t('cli:commands.agent.logs.failedToRead'), err);
         process.exitCode = 1;
       }
     });

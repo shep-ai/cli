@@ -22,13 +22,15 @@ import { createLogsCommand } from './logs.command.js';
 import { createDeleteCommand } from './delete.command.js';
 import { createApproveCommand } from './approve.command.js';
 import { createRejectCommand } from './reject.command.js';
+import { getCliI18n } from '../../i18n.js';
 
 /**
  * Create the agent command with all subcommands
  */
 export function createAgentCommand(): Command {
+  const t = getCliI18n().t;
   const agent = new Command('agent')
-    .description('Manage and view agent runs')
+    .description(t('cli:commands.agent.description'))
     .addCommand(createShowCommand())
     .addCommand(createLsCommand())
     .addCommand(createStopCommand())

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlow, Background, BackgroundVariant, Panel } from '@xyflow/react';
 import type { Connection, Edge, NodeChange, OnMoveEnd, Viewport } from '@xyflow/react';
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
@@ -50,6 +51,7 @@ export function FeaturesCanvas({
   toolbar,
   emptyState,
 }: FeaturesCanvasProps) {
+  const { t } = useTranslation('web');
   const nodeTypes = useMemo(
     () => ({
       featureNode: FeatureNode,
@@ -124,12 +126,12 @@ export function FeaturesCanvas({
   const fallbackEmptyState =
     isEmpty && !emptyState ? (
       <EmptyState
-        title="No features yet"
-        description="Get started by creating your first feature."
+        title={t('canvas.noFeatures')}
+        description={t('canvas.noFeaturesDescription')}
         action={
           <Button onClick={onAddFeature}>
             <Plus className="mr-2 h-4 w-4" />
-            New Feature
+            {t('canvas.newFeature')}
           </Button>
         }
       />

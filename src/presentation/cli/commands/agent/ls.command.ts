@@ -13,6 +13,7 @@ import { container } from '@/infrastructure/di/container.js';
 import { ListAgentRunsUseCase } from '@/application/use-cases/agents/list-agent-runs.use-case.js';
 import { colors, symbols, messages, renderListView } from '../../ui/index.js';
 import type { AgentRun } from '@/domain/generated/output.js';
+import { getCliI18n } from '../../i18n.js';
 
 function isProcessAlive(pid: number): boolean {
   try {
@@ -24,7 +25,8 @@ function isProcessAlive(pid: number): boolean {
 }
 
 export function createLsCommand(): Command {
-  return new Command('ls').description('List all agent runs').action(async () => {
+  const t = getCliI18n().t;
+  return new Command('ls').description(t('cli:commands.agent.ls.description')).action(async () => {
     try {
       const useCase = container.resolve(ListAgentRunsUseCase);
       const agentRuns = await useCase.execute();
@@ -42,21 +44,21 @@ export function createLsCommand(): Command {
       });
 
       renderListView({
-        title: 'Agent Runs',
+        title: t('cli:commands.agent.ls.title'),
         columns: [
-          { label: 'ID', width: 10 },
-          { label: 'Agent', width: 18 },
-          { label: 'Status', width: 16 },
-          { label: 'Duration', width: 10 },
-          { label: 'PID', width: 8 },
-          { label: 'Warning', width: 20 },
+          { label: t('cli:commands.agent.ls.idColumn'), width: 10 },
+          { label: t('cli:commands.agent.ls.agentColumn'), width: 18 },
+          { label: t('cli:commands.agent.ls.statusColumn'), width: 16 },
+          { label: t('cli:commands.agent.ls.durationColumn'), width: 10 },
+          { label: t('cli:commands.agent.ls.pidColumn'), width: 8 },
+          { label: t('cli:commands.agent.ls.warningColumn'), width: 20 },
         ],
         rows,
-        emptyMessage: 'No agent runs found',
+        emptyMessage: t('cli:commands.agent.ls.noRuns'),
       });
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      messages.error('Failed to list agent runs', err);
+      messages.error(t('cli:commands.agent.ls.failedToList'), err);
       process.exitCode = 1;
     }
   });

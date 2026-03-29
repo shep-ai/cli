@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft, Loader2, AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { getAllAgentModels } from '@/app/actions/get-all-agent-models';
 import type { AgentModelGroup } from '@/app/actions/get-all-agent-models';
 import { updateAgentAndModel } from '@/app/actions/update-agent-and-model';
@@ -19,6 +20,7 @@ type SetupStep = 'select-agent' | 'select-model';
 const STEPS: SetupStep[] = ['select-agent', 'select-model'];
 
 export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupProps) {
+  const { t } = useTranslation('web');
   const [groups, setGroups] = useState<AgentModelGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<SetupStep>('select-agent');
@@ -111,7 +113,7 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
         className={cn('flex flex-col items-center justify-center gap-4', className)}
       >
         <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
-        <p className="text-muted-foreground text-sm">Loading agents…</p>
+        <p className="text-muted-foreground text-sm">{t('welcome.loadingAgents')}</p>
       </div>
     );
   }
@@ -119,14 +121,13 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
   const stepIndex = STEPS.indexOf(step);
 
   // Dynamic hero text per step
-  const heroTitle =
-    step === 'select-agent' ? 'Choose your agent' : activeGroup ? `Pick a model` : 'Pick a model';
+  const heroTitle = step === 'select-agent' ? t('welcome.chooseAgent') : t('welcome.pickModel');
 
   const heroSubtitle =
     step === 'select-agent'
-      ? 'Select the AI coding agent you want Shep to use.'
+      ? t('welcome.selectAgentSubtitle')
       : activeGroup
-        ? `Choose which ${activeGroup.label} model to run.`
+        ? t('welcome.chooseModelSubtitle', { label: activeGroup.label })
         : '';
 
   return (
@@ -168,15 +169,15 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
             <p className="text-sm leading-relaxed text-amber-800 dark:text-amber-300">
-              <span className="font-medium">GitHub CLI (gh)</span> is required for full CI/CD
-              self-healing capabilities.{' '}
+              <span className="font-medium">{t('welcome.ghCliRequired')}</span>{' '}
+              {t('welcome.ghCliRequiredText')}{' '}
               <a
                 href="https://cli.github.com/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200"
               >
-                Install it here
+                {t('welcome.installHere')}
               </a>
               .
             </p>
@@ -225,7 +226,7 @@ export function WelcomeAgentSetup({ onComplete, className }: WelcomeAgentSetupPr
                 onClick={handleBack}
               >
                 <ChevronLeft className="h-4 w-4" />
-                Back
+                {t('welcome.back')}
               </button>
               <div
                 className="grid w-full gap-3"
