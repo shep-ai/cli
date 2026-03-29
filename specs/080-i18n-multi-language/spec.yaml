@@ -1,0 +1,189 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "i18n-multi-language"
+number: 80
+branch: "feat/080-i18n-multi-language"
+oneLiner: "Add multi-language i18n support with RTL for Arabic and Hebrew across CLI, TUI, and Web UI"
+summary: >
+  Introduce a full internationalization (i18n) system across all three presentation layers
+  (CLI, TUI, Web UI) supporting 8 languages: English, Russian, Portuguese, Spanish, Arabic,
+  Hebrew, French, and German. Arabic and Hebrew require right-to-left (RTL) layout support
+  in the Web UI. Includes a new Language enum in TypeSpec, a language preference in Settings,
+  translation file infrastructure, and a language selector in the Web UI settings page.
+phase: "Analysis"
+sizeEstimate: "L"
+
+relatedFeatures: []
+
+technologies:
+  - "TypeSpec (domain model for Language enum and Settings.language field)"
+  - "i18next (universal i18n framework for CLI, TUI, and Web)"
+  - "next-intl or react-i18next (React/Next.js integration for Web UI)"
+  - "Tailwind CSS v4 (RTL utilities via logical properties)"
+  - "Radix UI v1.4.3 (built-in RTL support via dir attribute)"
+  - "Next.js 16 App Router (root layout lang/dir attributes)"
+  - "SQLite / better-sqlite3 (persist language preference)"
+  - "Umzug v3 (database migration for new column)"
+
+relatedLinks:
+  - title: "i18next documentation"
+    url: "https://www.i18next.com/"
+  - title: "next-intl documentation"
+    url: "https://next-intl.dev/"
+  - title: "Tailwind CSS RTL support"
+    url: "https://tailwindcss.com/docs/hover-focus-and-other-states#rtl-support"
+  - title: "MDN Writing Modes and RTL"
+    url: "https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_writing_modes"
+
+openQuestions:
+  - "Should the CLI auto-detect the system locale on first run, or default to English?"
+  - "Should translations be loaded lazily (per-language bundles) or bundled statically?"
+  - "Do agent-generated outputs (AI responses, PR descriptions) need translation, or only UI chrome?"
+  - "Should the language setting be per-installation (Settings singleton) or per-repository?"
+
+content: |
+  ## Problem Statement
+
+  Shep currently has all user-facing strings hardcoded in English across its three presentation
+  layers (CLI, TUI, Web UI). There is no mechanism to display the interface in other languages,
+  and the Web UI has no support for right-to-left (RTL) text direction. This limits Shep's
+  accessibility for non-English-speaking developers worldwide.
+
+  The goal is to add multi-language support starting with 8 languages: English (en), Russian (ru),
+  Portuguese (pt), Spanish (es), Arabic (ar), Hebrew (he), French (fr), and German (de). Arabic
+  and Hebrew require RTL layout support in the Web UI.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository is a pnpm monorepo with Clean Architecture:
+
+  ```
+  packages/core/src/
+  ├── domain/           # Core business logic, TypeSpec-generated types
+  │   └── generated/    # output.ts from TypeSpec compilation
+  ├── application/      # Use cases, port interfaces
+  │   ├── use-cases/    # Settings, agents, features
+  │   └── ports/        # ISettingsRepository, etc.
+  └── infrastructure/   # DB, services, persistence
+      ├── repositories/ # SQLiteSettingsRepository
+      ├── services/     # Settings singleton service
+      └── persistence/  # Migrations, mappers
+          └── sqlite/
+              ├── migrations/      # Individual migration files (V36+)
+              └── mappers/         # settings.mapper.ts (toDatabase/fromDatabase)
+
+  src/presentation/
+  ├── cli/              # Commander.js CLI (51 files with user-facing strings)
+  │   ├── commands/     # Command handlers with .description() help text
+  │   └── ui/           # messages.ts, colors.ts, symbols.ts, formatters
+  ├── tui/              # Inquirer.js TUI (11 files with user-facing strings)
+  │   └── prompts/      # Agent select, IDE select, auth method prompts
+  └── web/              # Next.js 16 App Router (45+ files with user-facing strings)
+      ├── app/          # Routes, layout.tsx, globals.css, server actions
+      └── components/   # Radix-based UI components, settings sections
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Domain → Application → Infrastructure → Presentation (deps point inward)
+  - **TypeSpec-first**: All domain models defined in `tsp/`, compiled to `output.ts`
+  - **Singleton Settings**: One Settings record in SQLite, accessed via `getSettings()` service
+  - **Repository pattern**: `ISettingsRepository` with SQLite implementation
+  - **Database migrations**: Umzug v3 with idempotent `up()`/`down()` functions
+  - **Settings mapper**: Bidirectional `toDatabase()`/`fromDatabase()` flattening nested objects to snake_case columns
+  - **Presentation-agnostic core**: Use cases return data; presentation layers format it
+  - **i18n belongs in presentation layer**: Translation is a UI concern, not domain logic
+
+  ### Relevant Technologies
+
+  - **CLI**: Commander.js for routing, `messages` module for output, `@inquirer/prompts` for interactive input
+  - **TUI**: `@inquirer/prompts` with structured choice objects (message, name, description)
+  - **Web**: Next.js 16 + React 19 + Tailwind CSS v4 + Radix UI v1.4.3 + Sonner toasts
+  - **Root layout**: `<html lang=\"en\">` hardcoded, no `dir` attribute
+  - **Fonts**: System font stack only (no custom web fonts loaded)
+  - **Settings persistence**: SQLite via better-sqlite3 with prepared statements
+  - **State management**: React useState + useTransition for settings, React Query for data fetching
+
+  ### Current String Distribution
+
+  | Layer | Files with Strings | Estimated Unique Strings | Key Patterns |
+  | ----- | ------------------ | ------------------------ | ------------ |
+  | CLI   | 51 of 66           | ~250                     | .description(), messages.success/error/info(), console.log() |
+  | TUI   | 11 of 17           | ~40                      | message:, choices[].name, choices[].description |
+  | Web   | 45+ of 267         | ~300                     | JSX text, labels, placeholders, aria-labels, toast messages |
+  | Total | 107+               | ~600                     | All hardcoded in English |
+
+  ## Success Criteria
+
+  - [ ] Language enum defined in TypeSpec with 8 supported languages
+  - [ ] Settings model includes a language preference field (default: English)
+  - [ ] Database migration adds language column to settings table
+  - [ ] Translation files exist for all 8 languages (en, ru, pt, es, ar, he, fr, de)
+  - [ ] CLI commands display translated strings based on settings language
+  - [ ] TUI prompts display translated strings based on settings language
+  - [ ] Web UI displays translated strings based on settings language
+  - [ ] Web UI renders correctly in RTL mode for Arabic and Hebrew
+  - [ ] HTML lang and dir attributes are set dynamically based on language
+  - [ ] Language selector exists in Web UI settings page
+  - [ ] CLI command exists to change language (e.g., shep settings language)
+  - [ ] Appropriate multilingual fonts load for Arabic and Hebrew scripts
+  - [ ] All existing tests continue to pass
+  - [ ] New tests cover language switching and RTL rendering
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | tsp/common/enums/ | High | New Language enum definition |
+  | tsp/domain/entities/settings.tsp | High | Add language field to Settings or UserProfile model |
+  | packages/core/src/domain/generated/output.ts | High | Regenerated with new Language type and Settings.language field |
+  | packages/core/src/infrastructure/persistence/sqlite/migrations/ | High | New migration adding language column to settings table |
+  | packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts | High | Map language field between domain object and database row |
+  | packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts | High | Update INSERT/UPDATE SQL to include language column |
+  | src/presentation/cli/commands/ | High | All 51 command files need string extraction to translation keys |
+  | src/presentation/cli/ui/messages.ts | High | Message functions need to resolve translated strings |
+  | src/presentation/tui/prompts/ | Medium | All 5 prompt files need string extraction |
+  | src/presentation/web/app/layout.tsx | High | Dynamic lang and dir attributes on html element |
+  | src/presentation/web/app/globals.css | Medium | RTL utilities, logical properties, direction-aware spacing |
+  | src/presentation/web/components/features/settings/ | High | New language settings section + all existing sections need i18n |
+  | src/presentation/web/components/ui/ | Medium | 51 UI components may need logical CSS properties for RTL |
+  | src/presentation/web/components/ | High | 45+ component files with hardcoded strings need translation keys |
+  | New: translation files directory | High | New directory with JSON/TS translation files per language |
+  | New: i18n infrastructure service | High | Translation loading, locale resolution, formatting utilities |
+
+  ## Dependencies
+
+  ### Existing Code Dependencies
+  - TypeSpec compiler and `tsp/` domain model definitions
+  - Settings singleton service and SQLite persistence layer
+  - Umzug migration system for schema changes
+  - Settings mapper (toDatabase/fromDatabase) for field serialization
+  - Root layout.tsx for HTML lang/dir attributes
+  - All presentation layer files with user-facing strings
+
+  ### New Library Dependencies
+  - **i18next**: Core i18n framework (universal — works in Node.js CLI and browser)
+  - **react-i18next** or **next-intl**: React/Next.js bindings for Web UI
+  - **Noto Sans Arabic / Noto Sans Hebrew**: Multilingual fonts via next/font/google
+  - Possibly **tailwindcss-rtl** or equivalent Tailwind v4 RTL plugin
+
+  ### Infrastructure Dependencies
+  - Database migration to add language column
+  - TypeSpec compilation to regenerate domain types
+  - Translation file authoring for 7 non-English languages (~600 strings each)
+
+  ## Size Estimate
+
+  **L (week+)** — This is a large feature touching 100+ files across all three presentation
+  layers. The core infrastructure (TypeSpec, migration, i18n service, translation files) is
+  moderate, but extracting ~600 hardcoded strings from 107+ files into translation keys is
+  the bulk of the work. RTL support adds CSS complexity for the Web UI. Translation authoring
+  for 7 languages multiplies the content effort. A phased approach (infrastructure first,
+  then layer-by-layer string extraction) is strongly recommended.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
