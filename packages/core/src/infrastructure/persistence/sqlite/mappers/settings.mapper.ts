@@ -118,6 +118,22 @@ export interface SettingsRow {
   interactive_agent_enabled: number;
   interactive_agent_auto_timeout_minutes: number;
   interactive_agent_max_concurrent_sessions: number;
+
+  // Telegram remote control config (added in migration 049)
+  telegram_enabled: number;
+  telegram_bot_token: string | null;
+  telegram_chat_id: string | null;
+  telegram_notify_agent_started: number;
+  telegram_notify_phase_completed: number;
+  telegram_notify_waiting_approval: number;
+  telegram_notify_agent_completed: number;
+  telegram_notify_agent_failed: number;
+  telegram_notify_pr_merged: number;
+  telegram_notify_pr_closed: number;
+  telegram_notify_pr_checks_passed: number;
+  telegram_notify_pr_checks_failed: number;
+  telegram_notify_pr_blocked: number;
+  telegram_notify_merge_review_ready: number;
 }
 
 /**
@@ -229,6 +245,28 @@ export function toDatabase(settings: Settings): SettingsRow {
     interactive_agent_auto_timeout_minutes: settings.interactiveAgent?.autoTimeoutMinutes ?? 15,
     interactive_agent_max_concurrent_sessions:
       settings.interactiveAgent?.maxConcurrentSessions ?? 3,
+
+    // TelegramConfig (boolean → 0/1, optional strings → null; defaults applied here)
+    telegram_enabled: (settings.telegram?.enabled ?? false) ? 1 : 0,
+    telegram_bot_token: settings.telegram?.botToken ?? null,
+    telegram_chat_id: settings.telegram?.chatId ?? null,
+    telegram_notify_agent_started: (settings.telegram?.notifyEvents?.agentStarted ?? false) ? 1 : 0,
+    telegram_notify_phase_completed:
+      (settings.telegram?.notifyEvents?.phaseCompleted ?? false) ? 1 : 0,
+    telegram_notify_waiting_approval:
+      (settings.telegram?.notifyEvents?.waitingApproval ?? true) ? 1 : 0,
+    telegram_notify_agent_completed:
+      (settings.telegram?.notifyEvents?.agentCompleted ?? true) ? 1 : 0,
+    telegram_notify_agent_failed: (settings.telegram?.notifyEvents?.agentFailed ?? true) ? 1 : 0,
+    telegram_notify_pr_merged: (settings.telegram?.notifyEvents?.prMerged ?? true) ? 1 : 0,
+    telegram_notify_pr_closed: (settings.telegram?.notifyEvents?.prClosed ?? false) ? 1 : 0,
+    telegram_notify_pr_checks_passed:
+      (settings.telegram?.notifyEvents?.prChecksPassed ?? false) ? 1 : 0,
+    telegram_notify_pr_checks_failed:
+      (settings.telegram?.notifyEvents?.prChecksFailed ?? true) ? 1 : 0,
+    telegram_notify_pr_blocked: (settings.telegram?.notifyEvents?.prBlocked ?? true) ? 1 : 0,
+    telegram_notify_merge_review_ready:
+      (settings.telegram?.notifyEvents?.mergeReviewReady ?? true) ? 1 : 0,
   };
 }
 
@@ -370,6 +408,26 @@ export function fromDatabase(row: SettingsRow): Settings {
       enabled: (row.interactive_agent_enabled ?? 1) !== 0,
       autoTimeoutMinutes: row.interactive_agent_auto_timeout_minutes ?? 15,
       maxConcurrentSessions: row.interactive_agent_max_concurrent_sessions ?? 3,
+    },
+
+    // TelegramConfig (INTEGER 0/1 → boolean, TEXT → string | undefined)
+    telegram: {
+      enabled: (row.telegram_enabled ?? 0) !== 0,
+      ...(row.telegram_bot_token !== null && { botToken: row.telegram_bot_token }),
+      ...(row.telegram_chat_id !== null && { chatId: row.telegram_chat_id }),
+      notifyEvents: {
+        agentStarted: (row.telegram_notify_agent_started ?? 0) === 1,
+        phaseCompleted: (row.telegram_notify_phase_completed ?? 0) === 1,
+        waitingApproval: (row.telegram_notify_waiting_approval ?? 1) === 1,
+        agentCompleted: (row.telegram_notify_agent_completed ?? 1) === 1,
+        agentFailed: (row.telegram_notify_agent_failed ?? 1) === 1,
+        prMerged: (row.telegram_notify_pr_merged ?? 1) === 1,
+        prClosed: (row.telegram_notify_pr_closed ?? 0) === 1,
+        prChecksPassed: (row.telegram_notify_pr_checks_passed ?? 0) === 1,
+        prChecksFailed: (row.telegram_notify_pr_checks_failed ?? 1) === 1,
+        prBlocked: (row.telegram_notify_pr_blocked ?? 1) === 1,
+        mergeReviewReady: (row.telegram_notify_merge_review_ready ?? 1) === 1,
+      },
     },
 
     // Onboarding (INTEGER → boolean)

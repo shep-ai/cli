@@ -63,6 +63,8 @@ import type { IPhaseTimingRepository } from '../../application/ports/output/agen
 import type { IFeatureAgentProcessService } from '../../application/ports/output/agents/feature-agent-process.interface.js';
 import type { ISpecInitializerService } from '../../application/ports/output/services/spec-initializer.interface.js';
 import type { INotificationService } from '../../application/ports/output/services/notification-service.interface.js';
+import type { ITelegramService } from '../../application/ports/output/services/telegram-service.interface.js';
+import { TelegramService } from '../services/telegram/telegram.service.js';
 import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
 import { AgentExecutorProvider } from '../services/agents/common/agent-executor-provider.service.js';
 import { StructuredAgentCallerService } from '../services/agents/common/structured-agent-caller.service.js';
@@ -77,6 +79,9 @@ import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
 import { NotificationService } from '../services/notifications/notification.service.js';
 import { getNotificationBus } from '../services/notifications/notification-bus.js';
 import { spawn } from 'node:child_process';
+
+// Telegram use cases
+import { ConfigureTelegramUseCase } from '../../application/use-cases/telegram/configure-telegram.use-case.js';
 
 // Use cases
 import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
@@ -347,11 +352,16 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: () => new DesktopNotifier(),
   });
 
+  container.register<ITelegramService>('ITelegramService', {
+    useFactory: () => new TelegramService(),
+  });
+
   container.register<INotificationService>('INotificationService', {
     useFactory: (c) => {
       const bus = c.resolve('NotificationEventBus') as ReturnType<typeof getNotificationBus>;
       const desktopNotif = c.resolve('DesktopNotifier') as DesktopNotifier;
-      return new NotificationService(bus, desktopNotif);
+      const telegramSvc = c.resolve<ITelegramService>('ITelegramService');
+      return new NotificationService(bus, desktopNotif, telegramSvc);
     },
   });
 
@@ -401,6 +411,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ArchiveFeatureUseCase);
   container.registerSingleton(UnarchiveFeatureUseCase);
   container.registerSingleton(UpgradeCliUseCase);
+  container.registerSingleton(ConfigureTelegramUseCase);
   container.registerSingleton(ConflictResolutionService);
   container.register('ConflictResolutionService', {
     useFactory: (c) => c.resolve(ConflictResolutionService),
@@ -527,6 +538,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('GetBranchSyncStatusUseCase', {
     useFactory: (c) => c.resolve(GetBranchSyncStatusUseCase),
+  });
+  container.register('ConfigureTelegramUseCase', {
+    useFactory: (c) => c.resolve(ConfigureTelegramUseCase),
   });
 
   // Register interactive session infrastructure
