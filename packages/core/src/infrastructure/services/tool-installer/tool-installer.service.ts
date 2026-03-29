@@ -136,7 +136,7 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
 
       const child = spawn(installCommand.command, [], {
         shell: true,
-        stdio: ['pipe', 'pipe', 'pipe'],
+        stdio: ['inherit', 'pipe', 'pipe'],
         env: {
           ...process.env,
           DEBIAN_FRONTEND: 'noninteractive',
@@ -144,9 +144,6 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
           GPG_TTY: '',
         },
       });
-
-      // Close stdin immediately to prevent interactive prompts
-      child.stdin?.end();
 
       // Stream output from stdout and stderr
       const pipeOutput = (stream: NodeJS.ReadableStream | null) => {
