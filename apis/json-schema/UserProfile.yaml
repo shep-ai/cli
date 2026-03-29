@@ -11,4 +11,7 @@ properties:
   githubUsername:
     type: string
     description: GitHub username (optional, for PR attribution)
+  preferredLanguage:
+    $ref: Language.yaml
+    description: "Preferred UI language (default: English)"
 description: User profile information
