@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,10 +54,11 @@ export function DeleteFeatureDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{t('deleteFeature.title')}</AlertDialogTitle>
           <AlertDialogDescription>
-            <span
-              dangerouslySetInnerHTML={{
-                __html: t('deleteFeature.description', { featureName, featureId }),
-              }}
+            <Trans
+              t={t}
+              i18nKey="deleteFeature.description"
+              values={{ featureName, featureId }}
+              components={{ strong: <strong /> }}
             />
           </AlertDialogDescription>
         </AlertDialogHeader>
