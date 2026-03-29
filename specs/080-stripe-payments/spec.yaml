@@ -11,7 +11,7 @@ summary: >
   Add Stripe-based subscription billing to the Shep CLI platform, enabling paid tiers
   (free, pro, enterprise) with recurring payments, customer management, webhook handling,
   and billing UI across CLI and web presentation layers following Clean Architecture.
-phase: Analysis
+phase: Requirements
 sizeEstimate: L
 
 # Relationships
@@ -30,6 +30,8 @@ technologies:
   - "Playwright (E2E tests)"
   - "Storybook (component documentation)"
   - "zod (webhook payload validation)"
+  - "Stripe Checkout (hosted payment page)"
+  - "Stripe Customer Portal (self-service subscription management)"
 
 relatedLinks:
   - title: "Stripe Node.js SDK"
@@ -45,117 +47,261 @@ relatedLinks:
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - question: "What subscription tiers and pricing should be supported (free, pro, enterprise)?"
-    status: "open"
-  - question: "Should Stripe Checkout (hosted) or embedded payment forms be used for initial setup?"
-    status: "open"
-  - question: "Should billing state be stored locally only or synced with a remote backend?"
-    status: "open"
-  - question: "How should the free tier work - is it the default with no Stripe interaction, or does it still require a Stripe customer?"
-    status: "open"
-  - question: "Should the Stripe Customer Portal be used for self-service billing management?"
-    status: "open"
-  - question: "What features should be gated behind paid tiers?"
-    status: "open"
+  - question: "How should the checkout flow work for a CLI-first tool?"
+    resolved: true
+    options:
+      - option: "Stripe Checkout (hosted)"
+        description: "Redirect user to Stripe's hosted checkout page via browser. Stripe handles PCI compliance, payment form, 3D Secure, and localization. Minimal frontend code required. CLI opens browser URL, web UI redirects. Most secure and fastest to implement."
+        selected: true
+      - option: "Embedded Stripe Elements"
+        description: "Embed Stripe payment form directly in the web UI using Stripe.js and Elements. More control over UX but requires PCI-compliant frontend handling, more code, and does not help the CLI flow at all."
+        selected: false
+      - option: "Stripe Payment Links"
+        description: "Use pre-generated Stripe Payment Links. Simplest approach but least flexible — no dynamic pricing, no prefilled customer data, limited customization."
+        selected: false
+    selectionRationale: "Stripe Checkout is the clear winner for a CLI-first tool. It eliminates PCI scope from our codebase, works identically for both CLI (open browser) and web (redirect) flows, handles all payment complexity (3D Secure, localization, tax), and is Stripe's recommended approach for subscription billing. The CLI simply opens a Checkout URL in the user's browser."
+    answer: "Stripe Checkout (hosted)"
+
+  - question: "What subscription tiers should be offered at launch?"
+    resolved: true
+    options:
+      - option: "Two tiers (Free + Pro)"
+        description: "Simpler pricing model. Free tier for basic usage, Pro tier for power users. Easier to implement and communicate. Enterprise can be added later as a sales-led motion. Reduces initial complexity."
+        selected: true
+      - option: "Three tiers (Free + Pro + Enterprise)"
+        description: "Full pricing ladder from day one. Enterprise tier enables team features and premium support. More complex to implement — need to define enterprise-specific features, potentially custom pricing, and sales workflows."
+        selected: false
+      - option: "Usage-based only"
+        description: "Charge per AI agent invocation or per feature created. Most granular but hardest to predict costs, complex metering infrastructure, poor user experience for a developer tool."
+        selected: false
+    selectionRationale: "Two tiers (Free + Pro) is the right starting point. It keeps the pricing page simple, reduces implementation scope, and follows the common developer tool pattern (generous free tier + paid upgrade). Enterprise can be added as a third tier later once there's market signal for team/org features. The domain model should still support an enterprise tier enum value so the upgrade path is clean."
+    answer: "Two tiers (Free + Pro)"
+
+  - question: "How should billing state be synchronized between local SQLite and Stripe?"
+    resolved: true
+    options:
+      - option: "Webhooks as primary sync + on-demand verification"
+        description: "Stripe webhooks push state changes to the web server, which updates local SQLite. CLI commands also do an on-demand Stripe API check when the web server is not running or for critical operations (e.g., checking tier before gating a feature). This is a hybrid approach: webhooks for real-time sync when the server is up, direct API calls as fallback."
+        selected: true
+      - option: "Webhooks only"
+        description: "Rely entirely on webhooks for state sync. Simpler code but breaks when the web server is not running — the CLI would have stale local state with no way to refresh it."
+        selected: false
+      - option: "Polling from CLI"
+        description: "CLI periodically polls Stripe API to sync state. No webhook dependency but wastes API calls, adds latency, and still needs the Stripe secret key available locally."
+        selected: false
+    selectionRationale: "The hybrid approach (webhooks + on-demand verification) is necessary because Shep is a CLI-first tool where the web server may not always be running. Webhooks handle the happy path when the server is up. For CLI-only usage, critical operations (like tier-gated feature access) should verify subscription status directly via the Stripe API. This ensures billing state is never critically stale."
+    answer: "Webhooks as primary sync + on-demand verification"
+
+  - question: "Where should the Stripe API secret key be stored?"
+    resolved: true
+    options:
+      - option: "Environment variable (STRIPE_SECRET_KEY)"
+        description: "Standard approach — read from process.env at runtime. Works with .env files locally, environment variables in CI/deployment. Never stored in SQLite or settings. Follows Stripe's own recommendations and 12-factor app principles."
+        selected: true
+      - option: "Encrypted in SQLite settings"
+        description: "Store encrypted in the local database alongside other settings. More convenient (persists across sessions) but increases attack surface — if the SQLite file is compromised, the key could be extracted. Requires implementing encryption infrastructure."
+        selected: false
+      - option: "System keychain"
+        description: "Store in OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). Most secure but adds OS-specific complexity, may require additional dependencies, and is harder to manage in CI/deployment."
+        selected: false
+    selectionRationale: "Environment variables are the industry standard for API keys and Stripe's own recommendation. They keep secrets out of the database and version control, work seamlessly across local development (.env), CI, and production deployment. The Settings model should NOT store the Stripe key — it should be resolved from the environment at service initialization time."
+    answer: "Environment variable (STRIPE_SECRET_KEY)"
+
+  - question: "How should free-tier feature gating work?"
+    resolved: true
+    options:
+      - option: "Soft gating with upgrade prompts"
+        description: "Free-tier users can access all features but see usage limits (e.g., N features per month, N agent runs). When limits are hit, the system prompts to upgrade rather than hard-blocking. Allows users to experience the full product before paying."
+        selected: true
+      - option: "Hard gating with feature locks"
+        description: "Certain features are completely unavailable on the free tier. Simpler to implement (check tier, allow or deny) but limits product discovery and creates a worse first-run experience."
+        selected: false
+      - option: "No gating initially"
+        description: "Launch billing infrastructure without any feature restrictions. Users can subscribe but there is no enforced difference between tiers. Simplest approach but provides no incentive to upgrade."
+        selected: false
+    selectionRationale: "Soft gating with upgrade prompts is the best approach for a developer tool. It lets free users experience the full product (building trust and habit), then nudges them to upgrade when they hit usage limits. This maximizes conversion because users already know the value. The gating infrastructure should be a CheckTierUseCase that returns the current tier and remaining quotas, which presentation layers use to decide whether to show upgrade prompts."
+    answer: "Soft gating with upgrade prompts"
+
+  - question: "Should billing commands be a top-level CLI group or nested under settings?"
+    resolved: true
+    options:
+      - option: "Top-level 'billing' command group"
+        description: "shep billing setup, shep billing status, shep billing upgrade, etc. Dedicated namespace makes billing a first-class citizen. Discoverable via shep --help. Follows the pattern of other top-level groups (feat, repo, agent)."
+        selected: true
+      - option: "Nested under 'settings' group"
+        description: "shep settings billing, shep settings billing status, etc. Keeps billing as a sub-concern of settings. Less discoverable but reduces top-level command clutter."
+        selected: false
+    selectionRationale: "Billing deserves its own top-level command group because it represents a distinct user workflow (managing payments) separate from configuration (settings). Users think 'I want to manage my subscription' not 'I want to change a setting'. The existing top-level groups (feat, repo, agent, settings) each represent a distinct domain — billing fits this pattern."
+    answer: "Top-level 'billing' command group"
+
+  - question: "What billing interval should be offered?"
+    resolved: true
+    options:
+      - option: "Monthly only at launch"
+        description: "Single billing interval simplifies implementation (one price ID per tier), pricing page, and subscription management. Annual billing can be added later as a separate price on the same product."
+        selected: true
+      - option: "Monthly and annual from day one"
+        description: "Offer both intervals immediately. Annual billing with a discount is a common SaaS pattern that improves revenue predictability. But doubles the number of Stripe price objects and complicates the checkout and upgrade flows."
+        selected: false
+    selectionRationale: "Monthly-only at launch keeps the implementation simple — one Stripe Price per tier, straightforward checkout flow, no interval-switching logic. Annual billing is a pricing optimization that can be added later as a new Price on the same Stripe Product without changing the domain model (the SubscriptionInterval enum should still include 'annual' as a future value)."
+    answer: "Monthly only at launch"
+
+  - question: "How should webhook signature verification work in local development?"
+    resolved: true
+    options:
+      - option: "Stripe CLI for local webhook forwarding"
+        description: "Use 'stripe listen --forward-to localhost:PORT/api/webhooks/stripe' during development. Stripe CLI handles signature generation with a local webhook secret. Well-documented by Stripe and integrates with their testing tools."
+        selected: true
+      - option: "Skip verification in development"
+        description: "Disable signature verification when NODE_ENV=development. Faster to set up but creates a security gap in dev and means the verification code path is not tested locally."
+        selected: false
+      - option: "Ngrok/Cloudflare tunnel"
+        description: "Expose local server publicly via tunnel. Uses real Stripe webhook signatures but requires tunnel setup, may have latency, and exposes local server to the internet."
+        selected: false
+    selectionRationale: "Stripe CLI is Stripe's own recommended tool for local webhook development. It provides a local webhook secret, forwards real-time events, and allows triggering test events (stripe trigger checkout.session.completed). This means the full signature verification code path is exercised locally without exposing the dev server to the internet."
+    answer: "Stripe CLI for local webhook forwarding"
 
 # Markdown content (the actual spec)
 content: |
   ## Problem Statement
 
   The Shep CLI platform currently has no monetization or billing infrastructure. To sustain
-  the project and offer tiered functionality (free, pro, enterprise), the platform needs
-  Stripe payment integration for subscription billing. This requires new domain models,
-  application use cases, infrastructure services, database tables, CLI commands, and web UI
-  components — all following the existing Clean Architecture patterns.
+  the project and offer tiered functionality (free, pro), the platform needs Stripe payment
+  integration for subscription billing. This requires new domain models, application use cases,
+  infrastructure services, database tables, CLI commands, and web UI components — all following
+  the existing Clean Architecture patterns.
 
   The key challenge is that Shep is a CLI-first tool with a local SQLite database. Stripe
   integration requires webhook handling (typically server-side), customer management, and
   subscription lifecycle tracking. The architecture must account for the hybrid local/remote
-  nature of this feature.
+  nature of this feature: webhooks sync state when the web server is running, and direct
+  Stripe API verification provides a fallback for CLI-only usage.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] Users can run `shep billing setup` to create a Stripe customer and link it to their local account
+  - [ ] Users can run `shep billing upgrade` to open a Stripe Checkout page in their browser and subscribe to Pro
+  - [ ] Users can run `shep billing status` to see their current tier, subscription status, and renewal date
+  - [ ] Users can run `shep billing portal` to open the Stripe Customer Portal for self-service management
+  - [ ] Users can run `shep billing cancel` to cancel their subscription (with confirmation prompt)
+  - [ ] The web UI displays current subscription status and provides upgrade/manage buttons on a billing page
+  - [ ] Stripe webhooks update local billing state when subscription events occur (created, updated, canceled, payment failed)
+  - [ ] The system correctly identifies the user's tier (free or pro) and exposes it via CheckTierUseCase
+  - [ ] Free-tier users see upgrade prompts when hitting usage limits (soft gating)
+  - [ ] All billing domain models are defined in TypeSpec and compiled to generated TypeScript
+  - [ ] IBillingService port interface abstracts all Stripe-specific logic (provider-agnostic)
+  - [ ] Stripe API key is read from STRIPE_SECRET_KEY environment variable, never stored in SQLite
+  - [ ] Webhook endpoint verifies Stripe signatures before processing any event
+  - [ ] All billing use cases have unit tests with mocked Stripe interactions
+  - [ ] Billing repository has integration tests with in-memory SQLite
+  - [ ] All web billing components have colocated Storybook stories
+  - [ ] pnpm build, pnpm test, and pnpm validate pass with zero failures
 
-  The codebase follows strict Clean Architecture with four layers:
+  ## Functional Requirements
 
-  - **Domain** (`packages/core/src/domain/`): TypeSpec-generated types in `domain/generated/output.ts`. All domain models defined in `tsp/domain/entities/`. New billing entities will be added here.
-  - **Application** (`packages/core/src/application/`): Use cases in `use-cases/` (8 groups: agents, features, ide, interactive, repositories, settings, tools, upgrade). Port interfaces in `ports/output/` for repositories (6 interfaces) and services (15 interfaces). Billing use cases and ports will be added here.
-  - **Infrastructure** (`packages/core/src/infrastructure/`): DI container in `di/container.ts`. Repositories in `repositories/`. Services in `services/` (~20 service implementations). SQLite persistence with 48 migrations. Stripe service implementation and billing repository will be added here.
-  - **Presentation** (`src/presentation/`): CLI (Commander.js commands in `cli/commands/`), TUI (inquirer prompts), Web (Next.js 16 App Router with shadcn/ui). Billing commands and UI components will be added here.
+  - **FR-1**: The system shall provide a `shep billing setup` command that creates a Stripe customer using the user's email from Settings, stores the Stripe customer ID locally, and confirms the account link.
+  - **FR-2**: The system shall provide a `shep billing upgrade` command that creates a Stripe Checkout Session for the Pro tier and opens the checkout URL in the user's default browser.
+  - **FR-3**: The system shall provide a `shep billing status` command that displays the current subscription tier (free/pro), subscription status (active/canceled/past_due/trialing), current period end date, and Stripe customer ID.
+  - **FR-4**: The system shall provide a `shep billing portal` command that creates a Stripe Customer Portal session and opens it in the user's default browser for self-service subscription management (update payment method, view invoices, cancel).
+  - **FR-5**: The system shall provide a `shep billing cancel` command that prompts for confirmation, then cancels the subscription at period end via the Stripe API, updating local state accordingly.
+  - **FR-6**: The system shall expose a POST `/api/webhooks/stripe` endpoint that receives Stripe webhook events, verifies the signature using the webhook secret, and processes subscription lifecycle events (checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed).
+  - **FR-7**: The system shall persist billing state in a local SQLite `billing_accounts` table with fields for Stripe customer ID, subscription ID, subscription status, current tier, current period start/end, and cancellation metadata.
+  - **FR-8**: The system shall provide a `CheckTierUseCase` that returns the user's current tier and usage quotas, performing an on-demand Stripe API verification if the local state is older than a configurable staleness threshold (default: 1 hour).
+  - **FR-9**: The system shall display the current subscription status on a billing page in the web UI, including tier badge, subscription status, renewal date, and action buttons (upgrade, manage via portal, cancel).
+  - **FR-10**: The system shall provide web UI components for the billing page: SubscriptionCard (current plan details), TierSelector (compare tiers and choose), and BillingStatusBadge (inline tier indicator), each with Storybook stories.
+  - **FR-11**: The system shall define all billing domain models in TypeSpec: BillingAccount entity, SubscriptionStatus enum (active, canceled, past_due, trialing, incomplete, unpaid), SubscriptionTier enum (free, pro, enterprise), and BillingEvent value object.
+  - **FR-12**: The system shall register all billing infrastructure (StripeBillingService, SQLiteBillingRepository, billing use cases) in the DI container following existing factory and singleton patterns.
+  - **FR-13**: The system shall implement an `IBillingService` port interface that abstracts payment provider operations: createCustomer, createCheckoutSession, createPortalSession, cancelSubscription, getSubscription, and verifyWebhookSignature.
+  - **FR-14**: The system shall implement an `IBillingRepository` port interface for local billing state persistence: save, findByStripeCustomerId, findByUserId, update, and getActiveBillingAccount.
+  - **FR-15**: The system shall provide a `HandleWebhookUseCase` that validates incoming webhook payloads using zod schemas, delegates to the billing service for signature verification, and updates local state via the billing repository.
+  - **FR-16**: The system shall gracefully handle the case where no Stripe API key is configured — billing commands should display a clear message explaining how to set STRIPE_SECRET_KEY, and non-billing functionality must remain fully operational.
 
-  ### Architecture Patterns
+  ## Non-Functional Requirements
 
-  1. **Dependency Injection (tsyringe)**: All services registered in `infrastructure/di/container.ts` with factory patterns for repositories and singletons for services/use cases. Web access via `resolve()` from `@/lib/server-container`.
-  2. **Repository Pattern**: Port interfaces in `application/ports/output/repositories/`, SQLite implementations in `infrastructure/repositories/`, with dedicated mapper files for domain-to-database conversion.
-  3. **Use Case Pattern**: Single-responsibility use cases as the only entry point from presentation to core. Each use case receives dependencies via constructor injection.
-  4. **TypeSpec-First Modeling**: Domain types defined in `.tsp` files, compiled to TypeScript via `pnpm tsp:compile`. Generated output is never edited directly.
-  5. **Migration-Based Schema**: Umzug manages SQLite migrations. Latest migration is `048-add-turn-status.ts`. New billing tables will follow as `049+`.
-  6. **Settings Singleton**: Global settings loaded at bootstrap, accessible via `getSettings()`. Billing config would extend the Settings model.
-  7. **SSE for Real-Time Updates**: Web UI uses Server-Sent Events via `/api/agent-events` for live updates. Billing status changes could leverage the same pattern.
+  - **NFR-1 (Security)**: Stripe secret keys shall never be stored in SQLite, settings, logs, or error messages. They shall only be read from environment variables at service initialization.
+  - **NFR-2 (Security)**: All webhook requests shall be verified using Stripe signature verification before any event processing. Requests with invalid or missing signatures shall be rejected with HTTP 400.
+  - **NFR-3 (Security)**: The webhook endpoint shall be idempotent — processing the same event ID multiple times shall not create duplicate state changes. Event IDs shall be tracked to prevent replay.
+  - **NFR-4 (Performance)**: Tier checks via `CheckTierUseCase` shall return within 100ms when using cached local state (no network call). On-demand Stripe API verification shall timeout after 5 seconds with a fallback to cached state.
+  - **NFR-5 (Performance)**: The billing page in the web UI shall load within 500ms, reading subscription state from the local SQLite database (no blocking Stripe API calls on page load).
+  - **NFR-6 (Reliability)**: If the Stripe API is unreachable, all non-billing functionality shall continue to work normally. Billing operations shall fail gracefully with clear error messages rather than crashing the application.
+  - **NFR-7 (Maintainability)**: The `IBillingService` interface shall contain zero Stripe-specific types or concepts. All Stripe SDK types shall be confined to the `StripeBillingService` infrastructure implementation. This enables swapping payment providers without changing application or domain layers.
+  - **NFR-8 (Testability)**: All billing use cases shall be testable with mocked IBillingService and IBillingRepository — no real Stripe API calls in unit tests. Integration tests shall use in-memory SQLite for repository testing.
+  - **NFR-9 (UX - CLI)**: All billing CLI commands shall provide clear, human-readable output with colored status indicators. Browser-opening commands (upgrade, portal) shall display the URL as a fallback if the browser fails to open.
+  - **NFR-10 (UX - Web)**: Billing UI components shall follow existing shadcn/ui patterns and be fully accessible (keyboard navigation, screen reader labels, ARIA attributes).
+  - **NFR-11 (Data Integrity)**: Billing state in local SQLite shall include a `last_synced_at` timestamp. The system shall warn users when local state is stale (older than staleness threshold) and offer to refresh.
+  - **NFR-12 (Observability)**: Webhook processing shall log event type, event ID, and processing result (success/failure/skipped) at info level. Failed webhook processing shall log full error details at error level.
 
-  ### Relevant Technologies
+  ## Product Questions & AI Recommendations
 
-  - **TypeSpec** for domain model definitions (billing entities, subscription status enums)
-  - **better-sqlite3** for local persistence of billing state
-  - **tsyringe** for DI registration of billing services and repositories
-  - **Next.js App Router** for webhook API routes and billing UI pages
-  - **shadcn/ui** for billing management components (subscription cards, payment forms)
-  - **Commander.js** for CLI billing commands (setup, status, upgrade, cancel)
-  - **zod** for webhook payload validation (already a dependency)
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should the checkout flow work for a CLI-first tool? | Stripe Checkout (hosted) | Eliminates PCI scope, works for both CLI (open browser) and web (redirect), handles 3D Secure/localization/tax, and is Stripe's recommended approach |
+  | 2 | What subscription tiers should be offered at launch? | Two tiers (Free + Pro) | Simpler pricing, reduced scope. Enterprise enum value included in domain model for future expansion |
+  | 3 | How should billing state be synchronized between local SQLite and Stripe? | Webhooks + on-demand verification | Webhooks for real-time sync when server is up; direct API verification as fallback for CLI-only usage |
+  | 4 | Where should the Stripe API secret key be stored? | Environment variable (STRIPE_SECRET_KEY) | Industry standard, Stripe's recommendation, keeps secrets out of database and VCS |
+  | 5 | How should free-tier feature gating work? | Soft gating with upgrade prompts | Lets users experience full product, nudges upgrade at usage limits, maximizes conversion |
+  | 6 | Should billing commands be top-level or nested under settings? | Top-level 'billing' command group | Billing is a distinct user workflow, not a configuration concern. Matches existing top-level group pattern |
+  | 7 | What billing interval should be offered? | Monthly only at launch | Simplifies implementation (one Price per tier). Annual billing added later as optimization |
+  | 8 | How should webhook signature verification work in local development? | Stripe CLI for local webhook forwarding | Stripe's recommended tool, exercises full verification code path, no public exposure |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `tsp/domain/entities/` | High | New TypeSpec models for billing account, subscription, payment method, and billing-related enums |
-  | `tsp/domain/entities/settings.tsp` | Medium | Extend Settings model with billing configuration (tier, account ID, enabled flag) |
+  | `tsp/domain/entities/` | High | New TypeSpec models for BillingAccount entity, SubscriptionStatus/SubscriptionTier/SubscriptionInterval enums, and BillingEvent value object |
+  | `tsp/domain/entities/settings.tsp` | Low | Minimal change — add optional billingAccountId reference. Stripe key stays in env vars, not settings |
   | `packages/core/src/domain/generated/output.ts` | High | Auto-regenerated after TypeSpec compilation with new billing types |
-  | `packages/core/src/application/use-cases/` | High | New billing use case directory with create-billing-account, manage-subscription, check-tier, handle-webhook use cases |
-  | `packages/core/src/application/ports/output/repositories/` | High | New IBillingRepository interface for billing account persistence |
-  | `packages/core/src/application/ports/output/services/` | High | New IBillingService interface abstracting Stripe API interactions |
+  | `packages/core/src/application/use-cases/` | High | New billing use case directory with CreateBillingAccount, CreateCheckoutSession, CheckTier, HandleWebhook, CancelSubscription, GetBillingStatus use cases |
+  | `packages/core/src/application/ports/output/repositories/` | High | New IBillingRepository interface |
+  | `packages/core/src/application/ports/output/services/` | High | New IBillingService interface abstracting payment provider operations |
   | `packages/core/src/infrastructure/di/container.ts` | Medium | Register billing repository, service, and use cases in DI container |
   | `packages/core/src/infrastructure/repositories/` | High | New SQLiteBillingRepository implementation with mapper |
-  | `packages/core/src/infrastructure/services/` | High | New Stripe billing service implementation (customer management, subscriptions, webhooks) |
-  | `packages/core/src/infrastructure/persistence/sqlite/migrations/` | Medium | New migration(s) for billing_accounts table and settings columns (049+) |
-  | `packages/core/src/infrastructure/persistence/sqlite/mappers/` | Medium | New billing mapper for domain-to-database conversion; update settings mapper |
-  | `src/presentation/cli/commands/` | Medium | New billing command group (setup, status, upgrade, cancel, portal) |
-  | `src/presentation/web/app/api/` | High | New webhook endpoint for Stripe event handling; billing API routes |
-  | `src/presentation/web/app/` | Medium | New billing/settings page or section for subscription management |
-  | `src/presentation/web/components/features/` | Medium | New billing UI components (subscription card, tier selector, payment status) with Storybook stories |
-  | `tests/unit/` | High | Unit tests for all billing use cases, mappers, and domain logic |
+  | `packages/core/src/infrastructure/services/` | High | New StripeBillingService implementation wrapping Stripe SDK |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations/` | Medium | New migration(s) for billing_accounts table (049+) |
+  | `packages/core/src/infrastructure/persistence/sqlite/mappers/` | Medium | New billing mapper for domain-to-database conversion |
+  | `src/presentation/cli/commands/` | Medium | New billing command group with setup, status, upgrade, portal, cancel subcommands |
+  | `src/presentation/web/app/api/` | High | New POST /api/webhooks/stripe endpoint; billing API routes for status/checkout/portal |
+  | `src/presentation/web/app/` | Medium | New billing page or settings section for subscription management |
+  | `src/presentation/web/components/features/` | Medium | New billing UI components (SubscriptionCard, TierSelector, BillingStatusBadge) with Storybook stories |
+  | `tests/unit/` | High | Unit tests for all billing use cases, mappers, and webhook handler |
   | `tests/integration/` | Medium | Integration tests for billing repository with in-memory SQLite |
-  | `tests/e2e/` | Low | E2E tests for CLI billing commands and web billing UI |
+  | `tests/e2e/` | Low | E2E tests for CLI billing commands and web billing page |
 
   ## Dependencies
 
   ### Existing Infrastructure
   - **SQLite persistence layer** (better-sqlite3, umzug migrations)
   - **DI container** (tsyringe, `infrastructure/di/container.ts`)
-  - **Settings service** (extends with billing config)
-  - **Web server** (Next.js for webhook routes)
+  - **Settings service** (minimal extension — add optional billingAccountId)
+  - **Web server** (Next.js for webhook routes and billing API)
   - **TypeSpec pipeline** (tsp compile for domain types)
+  - **zod** (webhook payload validation)
 
   ### New External Dependencies
   - **stripe** npm package (Stripe Node.js SDK for API interaction)
 
+  ### Development Dependencies
+  - **Stripe CLI** (local webhook forwarding during development — not an npm dependency)
+  - **Stripe test mode** (test API keys and test card numbers for E2E tests)
+
   ### Architecture Considerations
-  - Webhook handling requires a publicly accessible endpoint — the web server must be running to receive Stripe events. This may require a tunnel (ngrok/cloudflare) for local development.
-  - Billing state must be consistent between local SQLite and Stripe's remote state. The webhook handler is the primary mechanism for syncing Stripe state changes back to local storage.
-  - The `IBillingService` port interface must abstract all Stripe-specific logic so the application layer remains provider-agnostic (could swap to another payment provider).
+  - Webhook handling requires the Next.js web server to be running. The CLI flow uses on-demand Stripe API verification as a fallback when webhooks are unavailable.
+  - Billing state consistency: local SQLite is the read cache, Stripe is the source of truth. Staleness is tracked via last_synced_at timestamp.
+  - The `IBillingService` port interface must contain zero Stripe-specific types — all Stripe SDK types are confined to the infrastructure layer.
+  - The `stripe` npm package is only imported in `infrastructure/services/StripeBillingService` — no other layer touches it.
 
   ## Size Estimate
 
   **L** — This is a large feature requiring changes across all four architecture layers:
 
-  - **Domain**: 3-5 new TypeSpec entity/enum files + Settings extension
-  - **Application**: 5-8 new use cases + 2 new port interfaces
-  - **Infrastructure**: Stripe service implementation, SQLite repository + mapper, 2-3 migrations, DI registration
-  - **Presentation (CLI)**: New billing command group with 4-5 subcommands
-  - **Presentation (Web)**: Webhook API route, billing page/section, 3-5 new components with Storybook stories
+  - **Domain**: 2-3 new TypeSpec entity/enum files + minimal Settings extension
+  - **Application**: 6 new use cases + 2 new port interfaces
+  - **Infrastructure**: Stripe service implementation, SQLite repository + mapper, 1-2 migrations, DI registration
+  - **Presentation (CLI)**: New billing command group with 5 subcommands
+  - **Presentation (Web)**: Webhook API route, billing page, 3 new components with Storybook stories
   - **Testing**: Unit tests for all use cases, integration tests for repository, E2E for CLI and web
   - **Total estimated files**: 30-45 new/modified files across 5-8 implementation phases
 
   ---
 
-  _Generated by feature agent — proceed with research_
+  _Requirements defined — proceed with research_
