@@ -6,6 +6,7 @@
  */
 
 import { checkbox } from '@inquirer/prompts';
+import { getTuiI18n } from '../../../i18n.js';
 import { shepTheme } from '../../../themes/shep.theme.js';
 import type { WorkflowDefaultsResult } from '../types.js';
 
@@ -22,47 +23,45 @@ export type WorkflowDefaultKey =
  * Accepts optional initial values to pre-check choices (for reconfiguration).
  */
 export function buildWorkflowDefaultsConfig(initial?: Partial<WorkflowDefaultsResult>) {
+  const t = getTuiI18n().t;
   return {
-    message: 'Select workflow defaults for new features',
-    instructions: '(Space to toggle, Enter to confirm)',
+    message: t('tui:wizards.workflowDefaults.message'),
+    instructions: t('tui:wizards.workflowDefaults.instructions'),
     theme: shepTheme,
     choices: [
       {
-        name: 'Allow PRD',
+        name: t('tui:wizards.workflowDefaults.allowPrd'),
         value: 'allowPrd' as const,
-        description: 'Auto-approve requirements phase',
+        description: t('tui:wizards.workflowDefaults.allowPrdDescription'),
         checked: initial?.allowPrd ?? false,
       },
       {
-        name: 'Allow Plan',
+        name: t('tui:wizards.workflowDefaults.allowPlan'),
         value: 'allowPlan' as const,
-        description: 'Auto-approve planning phase',
+        description: t('tui:wizards.workflowDefaults.allowPlanDescription'),
         checked: initial?.allowPlan ?? false,
       },
       {
-        name: 'Allow Merge',
+        name: t('tui:wizards.workflowDefaults.allowMerge'),
         value: 'allowMerge' as const,
-        description: 'Auto-approve and auto-merge after implementation',
+        description: t('tui:wizards.workflowDefaults.allowMergeDescription'),
         checked: initial?.allowMerge ?? false,
       },
       {
-        name: 'Push on finish',
+        name: t('tui:wizards.workflowDefaults.pushOnFinish'),
         value: 'pushOnImplementationComplete' as const,
-        description: 'Push branch to remote when implementation completes',
+        description: t('tui:wizards.workflowDefaults.pushOnFinishDescription'),
         checked: initial?.pushOnImplementationComplete ?? false,
       },
       {
-        name: 'Create PR',
+        name: t('tui:wizards.workflowDefaults.createPr'),
         value: 'openPrOnImplementationComplete' as const,
-        description: 'Open pull request when implementation completes',
+        description: t('tui:wizards.workflowDefaults.createPrDescription'),
         checked: initial?.openPrOnImplementationComplete ?? false,
       },
     ],
   };
 }
-
-/** Static config with all defaults unchecked (used by onboarding). */
-export const workflowDefaultsConfig = buildWorkflowDefaultsConfig();
 
 /**
  * Runs the workflow defaults step.
@@ -72,7 +71,7 @@ export const workflowDefaultsConfig = buildWorkflowDefaultsConfig();
 export async function runWorkflowDefaultsStep(
   initial?: Partial<WorkflowDefaultsResult>
 ): Promise<WorkflowDefaultsResult> {
-  const config = initial ? buildWorkflowDefaultsConfig(initial) : workflowDefaultsConfig;
+  const config = buildWorkflowDefaultsConfig(initial);
   const selected = await checkbox(config);
   const selectedSet = new Set(selected as WorkflowDefaultKey[]);
 

@@ -15,6 +15,7 @@ import { resetSettings, initializeSettings } from '@/infrastructure/services/set
 import { container } from '@/infrastructure/di/container.js';
 import type { ISettingsRepository } from '@/application/ports/output/repositories/settings.repository.interface.js';
 import { messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 /**
  * Prompt user for yes/no confirmation.
@@ -48,8 +49,8 @@ function confirm(message: string): Promise<boolean> {
  */
 export function createInitCommand(): Command {
   return new Command('init')
-    .description('Initialize settings to defaults')
-    .option('-f, --force', 'Skip confirmation prompt')
+    .description(getCliI18n().t('cli:commands.settings.init.description'))
+    .option('-f, --force', getCliI18n().t('cli:commands.settings.init.forceOption'))
     .addHelpText(
       'after',
       `
@@ -61,12 +62,12 @@ Examples:
     .action(async (options: { force?: boolean }) => {
       try {
         if (!options.force) {
-          messages.warning(
-            'This will reset all settings to defaults. Consider backing up ~/.shep/data first.'
+          messages.warning(getCliI18n().t('cli:commands.settings.init.resetWarning'));
+          const confirmed = await confirm(
+            getCliI18n().t('cli:commands.settings.init.confirmPrompt')
           );
-          const confirmed = await confirm('Are you sure? (y/N): ');
           if (!confirmed) {
-            messages.info('Operation cancelled.');
+            messages.info(getCliI18n().t('cli:commands.settings.init.cancelled'));
             return;
           }
         }
@@ -89,10 +90,10 @@ Examples:
         resetSettings();
         initializeSettings(newSettings);
 
-        messages.success('Settings initialized to defaults.');
+        messages.success(getCliI18n().t('cli:commands.settings.init.success'));
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to initialize settings', err);
+        messages.error(getCliI18n().t('cli:commands.settings.init.failed'), err);
         process.exitCode = 1;
       }
     });

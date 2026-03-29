@@ -5,7 +5,8 @@
       "title": "Language",
       "description": "Choose your preferred display language",
       "label": "Display Language",
-      "placeholder": "Select a language"
+      "placeholder": "Select a language",
+      "failedToSave": "Failed to save language settings"
     },
     "agent": {
       "title": "Preferred Agent",

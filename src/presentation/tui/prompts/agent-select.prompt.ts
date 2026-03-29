@@ -6,6 +6,7 @@
  */
 
 import { AgentType } from '@/domain/generated/output.js';
+import { getTuiI18n } from '../i18n.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
 /**
@@ -15,45 +16,46 @@ import { shepTheme } from '../themes/shep.theme.js';
  * as disabled with a "Coming Soon" badge.
  */
 export function createAgentSelectConfig() {
+  const t = getTuiI18n().t;
   return {
-    message: 'Select your AI coding agent',
+    message: t('tui:prompts.selectAgent.message'),
     choices: [
       {
-        name: 'Claude Code',
+        name: t('tui:prompts.selectAgent.choices.claudeCode.name'),
         value: AgentType.ClaudeCode,
-        description: 'Anthropic Claude Code CLI',
+        description: t('tui:prompts.selectAgent.choices.claudeCode.description'),
       },
       {
-        name: 'Gemini CLI',
+        name: t('tui:prompts.selectAgent.choices.geminiCli.name'),
         value: AgentType.GeminiCli,
-        description: 'Google Gemini CLI',
+        description: t('tui:prompts.selectAgent.choices.geminiCli.description'),
       },
       {
-        name: 'Codex CLI',
+        name: t('tui:prompts.selectAgent.choices.codexCli.name'),
         value: AgentType.CodexCli,
-        description: "OpenAI's Codex CLI terminal agent (GPT models)",
+        description: t('tui:prompts.selectAgent.choices.codexCli.description'),
       },
       {
-        name: 'Cursor',
+        name: t('tui:prompts.selectAgent.choices.cursor.name'),
         value: AgentType.Cursor,
-        description: 'Cursor AI coding agent',
+        description: t('tui:prompts.selectAgent.choices.cursor.description'),
       },
       {
-        name: 'Dev (Mock)',
+        name: t('tui:prompts.selectAgent.choices.devMock.name'),
         value: AgentType.Dev,
-        description: 'Local development mock — no agent binary required',
+        description: t('tui:prompts.selectAgent.choices.devMock.description'),
       },
       {
-        name: 'Aider',
+        name: t('tui:prompts.selectAgent.choices.aider.name'),
         value: AgentType.Aider,
-        disabled: '(Coming Soon)',
+        disabled: t('tui:prompts.selectAgent.choices.aider.disabled'),
       },
       {
-        name: 'Continue',
+        name: t('tui:prompts.selectAgent.choices.continue.name'),
         value: AgentType.Continue,
-        disabled: '(Coming Soon)',
+        disabled: t('tui:prompts.selectAgent.choices.continue.disabled'),
       },
     ],
     theme: shepTheme,
-  } as const;
+  };
 }

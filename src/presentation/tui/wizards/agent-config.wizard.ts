@@ -10,6 +10,7 @@ import { select, password } from '@inquirer/prompts';
 import { AgentAuthMethod, type AgentType } from '@/domain/generated/output.js';
 import { createAgentSelectConfig } from '../prompts/agent-select.prompt.js';
 import { createAuthMethodConfig } from '../prompts/auth-method.prompt.js';
+import { getTuiI18n } from '../i18n.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
 /**
@@ -43,7 +44,7 @@ export async function agentConfigWizard(): Promise<AgentConfigResult> {
 
   if (authMethod === AgentAuthMethod.Token) {
     const token = await password({
-      message: 'Enter your Anthropic API key',
+      message: getTuiI18n().t('tui:wizards.agentConfig.enterApiKey'),
       mask: '*',
       theme: shepTheme,
     });

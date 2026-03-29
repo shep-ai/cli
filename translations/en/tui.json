@@ -13,15 +13,15 @@
         },
         "codexCli": {
           "name": "Codex CLI",
-          "description": "OpenAI Codex CLI"
+          "description": "OpenAI's Codex CLI terminal agent (GPT models)"
         },
         "cursor": {
           "name": "Cursor",
-          "description": "Cursor AI Editor"
+          "description": "Cursor AI coding agent"
         },
         "devMock": {
           "name": "Dev (Mock)",
-          "description": "Mock agent for development"
+          "description": "Local development mock — no agent binary required"
         },
         "aider": {
           "name": "Aider",
@@ -37,13 +37,94 @@
       "message": "Select your preferred IDE"
     },
     "selectAuthMethod": {
-      "message": "Select authentication method"
+      "message": "Select authentication method",
+      "choices": {
+        "session": {
+          "name": "Use existing session",
+          "description": "Use Claude Code built-in authentication"
+        },
+        "token": {
+          "name": "Use API token",
+          "description": "Provide an Anthropic API key"
+        }
+      }
+    },
+    "enterApiKey": "Enter your Anthropic API key",
+    "prdReview": {
+      "reviewComplete": "Review complete{{changeLabel}}. What would you like to do?",
+      "changeLabel_one": " ({{count}} change)",
+      "changeLabel_other": " ({{count}} changes)",
+      "approveAndContinue": "Approve and continue",
+      "approveDescription": "Accept the requirements and proceed to research",
+      "rejectAndIterate": "Reject and iterate",
+      "rejectDescription": "Provide feedback and re-run requirements",
+      "feedbackPrompt": "What needs to change? (feedback for re-iteration)",
+      "feedbackRequired": "Feedback is required for rejection"
+    },
+    "selectLanguage": {
+      "message": "Select display language"
     }
   },
   "wizards": {
     "onboarding": {
-      "welcome": "Welcome to Shep AI!",
-      "setupComplete": "Setup complete!"
+      "welcomeTitle": "Welcome to Shep AI CLI",
+      "welcomeSubtitle": "Let's set up your environment in 3 quick steps.",
+      "prerequisiteWarning": "Prerequisite: ",
+      "prerequisiteLabel": "GitHub CLI (gh)",
+      "prerequisiteDescription": "is required for full CI/CD self-healing capabilities.",
+      "installFrom": "Install it from: ",
+      "installUrl": "https://cli.github.com/",
+      "setupComplete": "Setup complete! You're ready to use Shep."
+    },
+    "agentConfig": {
+      "enterApiKey": "Enter your Anthropic API key"
+    },
+    "githubImport": {
+      "methodMessage": "How would you like to add a GitHub repository?",
+      "pasteUrl": "Paste a GitHub URL",
+      "pasteUrlDescription": "Enter a GitHub repository URL or owner/repo shorthand",
+      "browseRepos": "Browse my repositories",
+      "browseReposDescription": "Search and select from your GitHub repositories",
+      "enterUrl": "Enter a GitHub repository URL or owner/repo",
+      "urlRequired": "URL is required",
+      "invalidUrlFormat": "Invalid GitHub URL format. Use https://github.com/owner/repo or owner/repo",
+      "selectRepo": "Select a repository to import",
+      "noRepos": "No repositories found. Make sure you have repositories on GitHub.",
+      "cloneDestination": "Clone destination (leave empty for default)"
+    },
+    "mergeReview": {
+      "message": "Review the merge. What would you like to do?",
+      "approveAndMerge": "Approve and merge",
+      "approveDescription": "Accept the changes and merge the branch",
+      "reject": "Reject",
+      "rejectDescription": "Provide feedback — implementation will iterate",
+      "rejectFeedback": "What needs to change before merging?",
+      "approveComment": "Any comments? (optional, press Enter to skip)",
+      "feedbackRequired": "Feedback is required for rejection"
+    },
+    "planReview": {
+      "message": "Review the implementation plan. What would you like to do?",
+      "approveAndContinue": "Approve and continue",
+      "approveDescription": "Accept the plan and proceed to implementation",
+      "rejectAndIterate": "Reject and iterate",
+      "rejectDescription": "Provide feedback and re-run planning",
+      "rejectFeedback": "What needs to change in the plan?",
+      "approveComment": "Any comments? (optional, press Enter to skip)",
+      "feedbackRequired": "Feedback is required for rejection"
+    },
+    "workflowDefaults": {
+      "message": "Select workflow defaults for new features",
+      "instructions": "(Space to toggle, Enter to confirm)",
+      "allowPrd": "Allow PRD",
+      "allowPrdDescription": "Auto-approve requirements phase",
+      "allowPlan": "Allow Plan",
+      "allowPlanDescription": "Auto-approve planning phase",
+      "allowMerge": "Allow Merge",
+      "allowMergeDescription": "Auto-approve and auto-merge after implementation",
+      "pushOnFinish": "Push on finish",
+      "pushOnFinishDescription": "Push branch to remote when implementation completes",
+      "createPr": "Create PR",
+      "createPrDescription": "Open pull request when implementation completes"
     }
   }
 }

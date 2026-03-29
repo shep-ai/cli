@@ -10,6 +10,7 @@ import {
   Bell,
   Flag,
   Database,
+  Globe,
   Minus,
   Plus,
   ExternalLink,
@@ -29,9 +30,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { updateSettingsAction } from '@/app/actions/update-settings';
-import { type AgentType, EditorType, TerminalType } from '@shepai/core/domain/generated/output';
+import {
+  type AgentType,
+  EditorType,
+  Language,
+  TerminalType,
+} from '@shepai/core/domain/generated/output';
 import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
+import { LanguageSettingsSection } from '@/components/features/settings/language-settings-section';
 import { TimeoutSlider } from '@/components/features/settings/timeout-slider';
 import type {
   Settings,
@@ -56,6 +63,7 @@ const SHELL_OPTIONS = [
 ];
 
 const SECTIONS = [
+  { id: 'language', label: 'Language', icon: Globe },
   { id: 'agent', label: 'Agent', icon: Bot },
   { id: 'environment', label: 'Environment', icon: Terminal },
   { id: 'workflow', label: 'Workflow', icon: GitBranch },
@@ -663,6 +671,16 @@ export function SettingsPageClient({
       </div>
 
       <div className="flex flex-col gap-3">
+        {/* ── Language ── */}
+        <div
+          id="section-language"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+        >
+          <LanguageSettingsSection
+            language={settings.user?.preferredLanguage ?? Language.English}
+          />
+        </div>
+
         {/* ── Agent ── */}
         <div
           id="section-agent"

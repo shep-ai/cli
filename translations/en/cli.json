@@ -1,29 +1,75 @@
 {
   "commands": {
     "settings": {
-      "description": "Configure Shep settings",
+      "description": "Manage Shep global settings",
+      "wizardFailed": "Settings wizard failed",
       "show": {
         "description": "Display current settings",
         "formatOption": "Output format: table|json|yaml",
-        "formatTable": "Display settings as table",
-        "formatJson": "Display settings as JSON",
-        "formatYaml": "Display settings as YAML",
         "failedToLoad": "Failed to load settings"
       },
       "init": {
-        "description": "Initialize settings interactively"
+        "description": "Initialize settings to defaults",
+        "forceOption": "Skip confirmation prompt",
+        "resetWarning": "This will reset all settings to defaults. Consider backing up ~/.shep/data first.",
+        "confirmPrompt": "Are you sure? (y/N): ",
+        "cancelled": "Operation cancelled.",
+        "success": "Settings initialized to defaults.",
+        "failed": "Failed to initialize settings"
       },
       "agent": {
-        "description": "Configure AI agent settings"
+        "description": "Configure AI coding agent",
+        "agentOption": "Agent type (e.g., claude-code)",
+        "authOption": "Auth method (session or token)",
+        "tokenOption": "API token for token-based auth",
+        "authRequired": "--auth is required when using --agent flag",
+        "success": "Agent configured: {{type}} ({{authMethod}})",
+        "cancelled": "Configuration cancelled.",
+        "failed": "Failed to configure agent"
       },
       "ide": {
-        "description": "Configure IDE settings"
+        "description": "Configure preferred IDE/editor",
+        "editorOption": "IDE/editor name ({{editors}})",
+        "unknownEditor": "Unknown editor \"{{editor}}\". Valid: {{validEditors}}",
+        "notInPath": "Editor '{{editor}}' not found in PATH. The editor will still be saved.",
+        "success": "Default editor set to: {{editor}}",
+        "cancelled": "Configuration cancelled.",
+        "failed": "Failed to configure IDE"
       },
       "model": {
-        "description": "Configure AI model settings"
+        "description": "Configure the default LLM model for agent runs",
+        "selectPrompt": "Select default LLM model",
+        "noModels": "No models available for agent \"{{agentType}}\". Configure a different agent with: shep settings agent",
+        "success": "Model configured: {{model}}",
+        "cancelled": "Configuration cancelled.",
+        "failed": "Failed to configure model"
       },
       "workflow": {
-        "description": "Configure workflow settings"
+        "description": "Configure default workflow behavior for new features",
+        "allowPrdOption": "Auto-approve requirements phase",
+        "allowPlanOption": "Auto-approve planning phase",
+        "allowMergeOption": "Auto-approve and auto-merge after implementation",
+        "allowAllOption": "Enable all approval gates",
+        "pushOption": "Push branch to remote on completion",
+        "noPushOption": "Do not push branch on completion",
+        "prOption": "Open PR on completion",
+        "noPrOption": "Do not open PR on completion",
+        "success": "Workflow defaults updated: {{summary}}",
+        "summaryNone": "none",
+        "allowPrd": "Allow PRD",
+        "allowPlan": "Allow Plan",
+        "allowMerge": "Allow Merge",
+        "push": "Push",
+        "pr": "PR",
+        "cancelled": "Configuration cancelled.",
+        "failed": "Failed to configure workflow defaults"
+      },
+      "language": {
+        "description": "Configure display language",
+        "selectPrompt": "Select display language",
+        "success": "Language set to: {{language}}",
+        "cancelled": "Configuration cancelled.",
+        "failed": "Failed to configure language"
       }
     },
     "version": {
@@ -57,10 +103,10 @@
       "description": "Upgrade Shep CLI to the latest version"
     }
   },
-  "messages": {
-    "success": "{{message}}",
-    "error": "{{message}}",
-    "warning": "{{message}}",
-    "info": "{{message}}"
+  "bootstrap": {
+    "failedDatabase": "Failed to initialize database",
+    "failedSettings": "Failed to initialize settings",
+    "unexpectedError": "An unexpected error occurred",
+    "unhandledRejection": "Unhandled promise rejection"
   }
 }

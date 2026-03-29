@@ -12,6 +12,7 @@
  *   shep settings ide       # Configure preferred IDE
  *   shep settings workflow  # Configure workflow defaults
  *   shep settings model     # Configure default LLM model
+ *   shep settings language  # Configure display language
  */
 
 import { Command } from 'commander';
@@ -21,21 +22,24 @@ import { createAgentCommand } from './agent.command.js';
 import { createIdeCommand } from './ide.command.js';
 import { createWorkflowCommand } from './workflow.command.js';
 import { createModelCommand } from './model.command.js';
+import { createLanguageCommand } from './language.command.js';
 import { onboardingWizard } from '../../../tui/wizards/onboarding/onboarding.wizard.js';
 import { messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 /**
  * Create the settings command group
  */
 export function createSettingsCommand(): Command {
   const cmd = new Command('settings')
-    .description('Manage Shep global settings')
+    .description(getCliI18n().t('cli:commands.settings.description'))
     .addCommand(createShowCommand())
     .addCommand(createInitCommand())
     .addCommand(createAgentCommand())
     .addCommand(createIdeCommand())
     .addCommand(createWorkflowCommand())
-    .addCommand(createModelCommand());
+    .addCommand(createModelCommand())
+    .addCommand(createLanguageCommand());
 
   // Default action: launch the full setup wizard when no subcommand is given
   cmd.action(async () => {
@@ -43,7 +47,7 @@ export function createSettingsCommand(): Command {
       await onboardingWizard();
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      messages.error('Settings wizard failed', err);
+      messages.error(getCliI18n().t('cli:commands.settings.wizardFailed'), err);
       process.exitCode = 1;
     }
   });
