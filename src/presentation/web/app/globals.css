@@ -436,6 +436,13 @@
   }
 }
 
+/* ── RTL font overrides — applied dynamically when language is Arabic or Hebrew ── */
+.font-rtl-arabic,
+.font-rtl-hebrew {
+  --font-sans: var(--font-rtl), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
