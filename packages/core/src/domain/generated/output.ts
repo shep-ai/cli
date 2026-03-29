@@ -470,6 +470,78 @@ export type AgentConfig = {
 };
 
 /**
+ * Telegram notification event type filters
+ */
+export type TelegramNotifyEvents = {
+  /**
+   * Notify when agent starts running
+   */
+  agentStarted: boolean;
+  /**
+   * Notify when agent completes a workflow phase
+   */
+  phaseCompleted: boolean;
+  /**
+   * Notify when agent is waiting for human approval
+   */
+  waitingApproval: boolean;
+  /**
+   * Notify when agent completes successfully
+   */
+  agentCompleted: boolean;
+  /**
+   * Notify when agent execution fails
+   */
+  agentFailed: boolean;
+  /**
+   * Notify when a pull request is merged on GitHub
+   */
+  prMerged: boolean;
+  /**
+   * Notify when a pull request is closed without merging on GitHub
+   */
+  prClosed: boolean;
+  /**
+   * Notify when pull request CI checks pass
+   */
+  prChecksPassed: boolean;
+  /**
+   * Notify when pull request CI checks fail
+   */
+  prChecksFailed: boolean;
+  /**
+   * Notify when pull request has merge conflicts
+   */
+  prBlocked: boolean;
+  /**
+   * Notify when feature is ready for merge review
+   */
+  mergeReviewReady: boolean;
+};
+
+/**
+ * Telegram Bot remote control configuration
+ */
+export type TelegramConfig = {
+  /**
+   * Whether Telegram remote control is enabled
+   */
+  enabled: boolean;
+  /**
+   * Bot API token from @BotFather
+   */
+  botToken?: string;
+  /**
+   * Paired Telegram chat ID
+   */
+  chatId?: string;
+  /**
+   * Notification event types forwarded to Telegram
+   */
+  notifyEvents: TelegramNotifyEvents;
+};
+
+/**
  * Notification channel enable/disable configuration
  */
 export type NotificationChannelConfig = {
@@ -647,6 +719,10 @@ export type Settings = BaseEntity & {
    * Interactive agent chat configuration (optional, defaults applied at runtime)
    */
   interactiveAgent?: InteractiveAgentConfig;
+  /**
+   * Telegram remote control configuration (optional, defaults applied at runtime)
+   */
+  telegram?: TelegramConfig;
 };
 export enum TaskState {
   Todo = 'Todo',
@@ -2437,6 +2513,14 @@ export type PrdQuestionnaireData = {
    */
   finalAction: PrdFinalAction;
 };
+export enum TelegramCommandType {
+  Start = 'start',
+  Status = 'status',
+  Approve = 'approve',
+  Reject = 'reject',
+  ListFeatures = 'list_features',
+  Help = 'help',
+}
 export enum AgentFeature {
   sessionResume = 'session-resume',
   streaming = 'streaming',

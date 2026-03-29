@@ -37,6 +37,7 @@ import "../../common/enums/agent-config.tsp";
 import "../../common/enums/editor.tsp";
 import "../../common/enums/notification.tsp";
 import "../../common/enums/terminal.tsp";
+import "../../common/enums/telegram.tsp";
 
 /**
  * Model Configuration
@@ -366,6 +367,101 @@ model AgentConfig {
 }
 
 /**
+ * Telegram Remote Control Configuration
+ *
+ * Configures the Telegram Bot integration that allows users to receive
+ * agent lifecycle notifications and send commands to Shep remotely via
+ * a personal Telegram bot.
+ *
+ * ## Setup Flow
+ *
+ * 1. User creates a bot via @BotFather on Telegram (gets bot token)
+ * 2. User starts a chat with the bot and sends /start
+ * 3. User runs `shep settings telegram --bot-token <token>` to pair
+ * 4. Shep resolves the chat ID automatically via getUpdates
+ * 5. Notifications flow to Telegram; commands flow back to Shep
+ *
+ * ## Security
+ *
+ * - Bot token stored locally in the Shep settings database
+ * - Chat ID validated against the first /start message sender
+ * - Only the paired chat receives notifications and can issue commands
+ */
+@doc("Telegram Bot remote control configuration")
+model TelegramConfig {
+  /**
+   * Whether the Telegram integration is active.
+   * When false, no messages are sent to Telegram and incoming
+   * commands are ignored.
+   */
+  @doc("Whether Telegram remote control is enabled")
+  enabled: boolean = false;
+
+  /**
+   * Telegram Bot API token obtained from @BotFather.
+   * Format: `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`
+   */
+  @doc("Bot API token from @BotFather")
+  botToken?: string;
+
+  /**
+   * Telegram chat ID to send notifications to and receive commands from.
+   * Resolved automatically on first /start, or set manually.
+   */
+  @doc("Paired Telegram chat ID")
+  chatId?: string;
+
+  /**
+   * Which notification event types to forward to Telegram.
+   * Uses the same NotificationEventType values as the notification
+   * preferences. Defaults to all enabled.
+   */
+  @doc("Notification event types forwarded to Telegram")
+  notifyEvents: TelegramNotifyEvents;
+}
+
+/**
+ * Controls which notification event types are forwarded to Telegram.
+ * Mirrors the structure of NotificationEventConfig but allows users
+ * to fine-tune which events are worth a Telegram message.
+ */
+@doc("Telegram notification event type filters")
+model TelegramNotifyEvents {
+  @doc("Notify when agent starts running")
+  agentStarted: boolean = false;
+
+  @doc("Notify when agent completes a workflow phase")
+  phaseCompleted: boolean = false;
+
+  @doc("Notify when agent is waiting for human approval")
+  waitingApproval: boolean = true;
+
+  @doc("Notify when agent completes successfully")
+  agentCompleted: boolean = true;
+
+  @doc("Notify when agent execution fails")
+  agentFailed: boolean = true;
+
+  @doc("Notify when a pull request is merged on GitHub")
+  prMerged: boolean = true;
+
+  @doc("Notify when a pull request is closed without merging on GitHub")
+  prClosed: boolean = false;
+
+  @doc("Notify when pull request CI checks pass")
+  prChecksPassed: boolean = false;
+
+  @doc("Notify when pull request CI checks fail")
+  prChecksFailed: boolean = true;
+
+  @doc("Notify when pull request has merge conflicts")
+  prBlocked: boolean = true;
+
+  @doc("Notify when feature is ready for merge review")
+  mergeReviewReady: boolean = true;
+}
+
+/**
  * Notification Channel Configuration
  *
  * Controls whether a specific notification channel is enabled.
@@ -683,4 +779,12 @@ model Settings extends BaseEntity {
    */
   @doc("Interactive agent chat configuration (optional, defaults applied at runtime)")
   interactiveAgent?: InteractiveAgentConfig;
+
+  /**
+   * Telegram Bot remote control configuration.
+   * Allows receiving agent notifications and sending commands via Telegram.
+   * Optional for backward compatibility — defaults applied at runtime.
+   */
+  @doc("Telegram remote control configuration (optional, defaults applied at runtime)")
+  telegram?: TelegramConfig;
 }

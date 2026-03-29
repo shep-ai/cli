@@ -1,0 +1,21 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: TelegramConfig.yaml
+type: object
+properties:
+  enabled:
+    type: boolean
+    default: false
+    description: Whether Telegram remote control is enabled
+  botToken:
+    type: string
+    description: Bot API token from @BotFather
+  chatId:
+    type: string
+    description: Paired Telegram chat ID
+  notifyEvents:
+    $ref: TelegramNotifyEvents.yaml
+    description: Notification event types forwarded to Telegram
+required:
+  - enabled
+  - notifyEvents
+description: Telegram Bot remote control configuration

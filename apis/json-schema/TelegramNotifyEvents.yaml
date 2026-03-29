@@ -1,0 +1,61 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: TelegramNotifyEvents.yaml
+type: object
+properties:
+  agentStarted:
+    type: boolean
+    default: false
+    description: Notify when agent starts running
+  phaseCompleted:
+    type: boolean
+    default: false
+    description: Notify when agent completes a workflow phase
+  waitingApproval:
+    type: boolean
+    default: true
+    description: Notify when agent is waiting for human approval
+  agentCompleted:
+    type: boolean
+    default: true
+    description: Notify when agent completes successfully
+  agentFailed:
+    type: boolean
+    default: true
+    description: Notify when agent execution fails
+  prMerged:
+    type: boolean
+    default: true
+    description: Notify when a pull request is merged on GitHub
+  prClosed:
+    type: boolean
+    default: false
+    description: Notify when a pull request is closed without merging on GitHub
+  prChecksPassed:
+    type: boolean
+    default: false
+    description: Notify when pull request CI checks pass
+  prChecksFailed:
+    type: boolean
+    default: true
+    description: Notify when pull request CI checks fail
+  prBlocked:
+    type: boolean
+    default: true
+    description: Notify when pull request has merge conflicts
+  mergeReviewReady:
+    type: boolean
+    default: true
+    description: Notify when feature is ready for merge review
+required:
+  - agentStarted
+  - phaseCompleted
+  - waitingApproval
+  - agentCompleted
+  - agentFailed
+  - prMerged
+  - prClosed
+  - prChecksPassed
+  - prChecksFailed
+  - prBlocked
+  - mergeReviewReady
+description: Telegram notification event type filters
