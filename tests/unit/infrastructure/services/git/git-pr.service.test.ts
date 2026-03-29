@@ -12,6 +12,7 @@ import {
   GitPrErrorCode,
 } from '@/application/ports/output/services/git-pr-service.interface';
 import { PrStatus } from '@/domain/generated/output';
+import { PR_BRANDING } from '@/infrastructure/services/git/pr-branding';
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service';
 
 vi.mock('node:fs', async () => {
@@ -269,6 +270,43 @@ describe('GitPrService', () => {
       );
       expect(result.url).toBe('https://github.com/org/repo/pull/42');
       expect(result.number).toBe(42);
+    });
+
+    it('should apply Shep branding to the PR body', async () => {
+      vi.mocked(readFileSync).mockReturnValue(prYaml);
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'https://github.com/org/repo/pull/42\n',
+        stderr: '',
+      });
+
+      await service.createPr('/repo', '/repo/specs/pr.yaml');
+
+      const callArgs = vi.mocked(mockExec).mock.calls[0];
+      const ghArgs = callArgs[1] as string[];
+      const bodyIndex = ghArgs.indexOf('--body');
+      const body = ghArgs[bodyIndex + 1];
+      expect(body).toContain(PR_BRANDING);
+    });
+
+    it('should strip Claude Code branding from PR body', async () => {
+      const prYamlWithClaude = [
+        'title: "feat: awesome feature"',
+        'body: "## Summary\\n\\nDoes awesome things\\n\\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"',
+      ].join('\n');
+      vi.mocked(readFileSync).mockReturnValue(prYamlWithClaude);
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'https://github.com/org/repo/pull/42\n',
+        stderr: '',
+      });
+
+      await service.createPr('/repo', '/repo/specs/pr.yaml');
+
+      const callArgs = vi.mocked(mockExec).mock.calls[0];
+      const ghArgs = callArgs[1] as string[];
+      const bodyIndex = ghArgs.indexOf('--body');
+      const body = ghArgs[bodyIndex + 1];
+      expect(body).not.toContain('Claude Code');
+      expect(body).toContain(PR_BRANDING);
     });
 
     it('should throw GitPrError with GH_NOT_FOUND when gh is not found', async () => {

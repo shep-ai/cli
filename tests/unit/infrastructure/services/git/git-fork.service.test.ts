@@ -12,6 +12,7 @@ import {
   GitForkErrorCode,
 } from '@/application/ports/output/services/git-fork-service.interface';
 import { PrStatus } from '@/domain/generated/output';
+import { PR_BRANDING } from '@/infrastructure/services/git/pr-branding';
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service';
 
 describe('GitForkService', () => {
@@ -177,7 +178,7 @@ describe('GitForkService', () => {
           '--title',
           'feat: add feature',
           '--body',
-          'PR body',
+          expect.stringContaining(PR_BRANDING),
           '--head',
           'fork-owner:feat/my-branch',
           '--base',
@@ -214,7 +215,12 @@ describe('GitForkService', () => {
       expect(result.number).toBe(1);
       expect(mockExec).toHaveBeenCalledWith(
         'gh',
-        expect.arrayContaining(['--repo', 'upstream-owner/upstream-repo']),
+        expect.arrayContaining([
+          '--repo',
+          'upstream-owner/upstream-repo',
+          '--body',
+          expect.stringContaining(PR_BRANDING),
+        ]),
         { cwd: '/repo' }
       );
     });

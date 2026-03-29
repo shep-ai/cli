@@ -15,6 +15,7 @@ import {
 } from '../../../application/ports/output/services/git-fork-service.interface.js';
 import { PrStatus } from '../../../domain/generated/output.js';
 import type { ExecFunction } from './worktree.service.js';
+import { applyPrBranding } from './pr-branding.js';
 
 @injectable()
 export class GitForkService implements IGitForkService {
@@ -98,6 +99,7 @@ export class GitForkService implements IGitForkService {
       const forkRepo = this.extractRepoFromUrl(forkUrl.trim());
       const forkOwner = forkRepo.split('/')[0];
 
+      const brandedBody = applyPrBranding(body);
       const { stdout } = await this.execFile(
         'gh',
         [
@@ -108,7 +110,7 @@ export class GitForkService implements IGitForkService {
           '--title',
           title,
           '--body',
-          body,
+          brandedBody,
           '--head',
           `${forkOwner}:${head}`,
           '--base',
