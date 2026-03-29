@@ -1,7 +1,7 @@
 name: 📚 Documentation Improvement
 description: Suggest improvements to documentation, guides, or examples
-title: "[Docs]: "
-labels: ["documentation", "triage"]
+title: '[Docs]: '
+labels: ['documentation', 'triage']
 body:
   - type: markdown
     attributes:
@@ -31,7 +31,7 @@ body:
     attributes:
       label: Document Location
       description: Link or file path to the documentation that needs improvement
-      placeholder: "e.g., README.md, docs/guides/getting-started.md, or https://..."
+      placeholder: 'e.g., README.md, docs/guides/getting-started.md, or https://...'
     validations:
       required: true
 
@@ -86,7 +86,7 @@ body:
         - What you were trying to accomplish
         - Where else you looked for this info
         - Examples from other projects' docs
-      placeholder: "I was trying to set up Shep for the first time and got stuck at..."
+      placeholder: 'I was trying to set up Shep for the first time and got stuck at...'
     validations:
       required: false
 
