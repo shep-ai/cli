@@ -1,0 +1,49 @@
+{
+  "prompts": {
+    "selectAgent": {
+      "message": "Select your AI coding agent",
+      "choices": {
+        "claudeCode": {
+          "name": "Claude Code",
+          "description": "Anthropic Claude Code CLI"
+        },
+        "geminiCli": {
+          "name": "Gemini CLI",
+          "description": "Google Gemini CLI"
+        },
+        "codexCli": {
+          "name": "Codex CLI",
+          "description": "OpenAI Codex CLI"
+        },
+        "cursor": {
+          "name": "Cursor",
+          "description": "Cursor AI Editor"
+        },
+        "devMock": {
+          "name": "Dev (Mock)",
+          "description": "Mock agent for development"
+        },
+        "aider": {
+          "name": "Aider",
+          "disabled": "(Coming Soon)"
+        },
+        "continue": {
+          "name": "Continue",
+          "disabled": "(Coming Soon)"
+        }
+      }
+    },
+    "selectIde": {
+      "message": "Select your preferred IDE"
+    },
+    "selectAuthMethod": {
+      "message": "Select authentication method"
+    }
+  },
+  "wizards": {
+    "onboarding": {
+      "welcome": "Welcome to Shep AI!",
+      "setupComplete": "Setup complete!"
+    }
+  }
+}

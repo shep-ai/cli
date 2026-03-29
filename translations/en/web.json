@@ -1,0 +1,87 @@
+{
+  "settings": {
+    "title": "Settings",
+    "language": {
+      "title": "Language",
+      "description": "Choose your preferred display language",
+      "label": "Display Language",
+      "placeholder": "Select a language"
+    },
+    "agent": {
+      "title": "Preferred Agent",
+      "description": "Choose your AI coding agent and authentication method",
+      "agentType": "Agent Type",
+      "authMethod": "Authentication Method",
+      "apiToken": "API Token",
+      "apiTokenPlaceholder": "Enter your API token",
+      "apiTokenHelper": "Saves automatically when you leave the field",
+      "failedToSave": "Failed to save agent settings"
+    },
+    "environment": {
+      "title": "IDE & Terminal",
+      "description": "Configure your default editor, shell, and terminal preferences",
+      "defaultEditor": "Default Editor",
+      "shellPreference": "Shell Preference",
+      "terminalEmulator": "Terminal Emulator",
+      "failedToSave": "Failed to save IDE & Terminal settings"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Configure notification channels and event preferences",
+      "channels": "Channels",
+      "inApp": "In-App",
+      "events": {
+        "agentStarted": "Agent Started",
+        "phaseCompleted": "Phase Completed",
+        "waitingApproval": "Waiting Approval",
+        "agentCompleted": "Agent Completed",
+        "agentFailed": "Agent Failed",
+        "mergeReviewReady": "Merge Review Ready",
+        "prMerged": "PR Merged",
+        "prClosed": "PR Closed",
+        "prChecksPassed": "PR Checks Passed",
+        "prChecksFailed": "PR Checks Failed",
+        "prBlocked": "PR Blocked"
+      },
+      "failedToSave": "Failed to save notification settings"
+    },
+    "workflow": {
+      "title": "Workflow",
+      "description": "Configure PR behavior, approval gates, and CI settings",
+      "openPrOnComplete": "Open PR on implementation complete",
+      "pushOnComplete": "Push on implementation complete",
+      "approvalGates": "Approval Gates",
+      "prdAutoApproval": "PRD auto-approval",
+      "planAutoApproval": "Plan auto-approval",
+      "mergeAutoApproval": "Merge auto-approval",
+      "ciSettings": "CI Settings",
+      "ciWatchFixLoop": "CI watch/fix loop",
+      "maxFixAttempts": "Max fix attempts",
+      "watchTimeout": "Watch timeout (seconds)",
+      "maxLogCharacters": "Max log characters",
+      "pollInterval": "Poll interval (seconds)",
+      "hideCiStatus": "Hide CI Status",
+      "stageTimeouts": "Stage Timeouts",
+      "failedToSave": "Failed to save workflow settings"
+    },
+    "database": {
+      "title": "Database",
+      "description": "Database path and management"
+    },
+    "featureFlags": {
+      "title": "Feature Flags",
+      "description": "Toggle experimental and beta features"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "features": "Features",
+    "repositories": "Repositories",
+    "settings": "Settings",
+    "sessions": "Sessions"
+  },
+  "common": {
+    "noData": "No data available",
+    "retry": "Retry"
+  }
+}

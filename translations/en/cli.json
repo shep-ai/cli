@@ -1,0 +1,66 @@
+{
+  "commands": {
+    "settings": {
+      "description": "Configure Shep settings",
+      "show": {
+        "description": "Display current settings",
+        "formatOption": "Output format: table|json|yaml",
+        "formatTable": "Display settings as table",
+        "formatJson": "Display settings as JSON",
+        "formatYaml": "Display settings as YAML",
+        "failedToLoad": "Failed to load settings"
+      },
+      "init": {
+        "description": "Initialize settings interactively"
+      },
+      "agent": {
+        "description": "Configure AI agent settings"
+      },
+      "ide": {
+        "description": "Configure IDE settings"
+      },
+      "model": {
+        "description": "Configure AI model settings"
+      },
+      "workflow": {
+        "description": "Configure workflow settings"
+      }
+    },
+    "version": {
+      "description": "Display version information"
+    },
+    "start": {
+      "description": "Start the web UI daemon"
+    },
+    "stop": {
+      "description": "Stop the running web UI daemon"
+    },
+    "restart": {
+      "description": "Restart the web UI daemon"
+    },
+    "status": {
+      "description": "Show status and metrics of the running daemon"
+    },
+    "ui": {
+      "description": "Start the web UI (foreground, interactive)"
+    },
+    "run": {
+      "description": "Run an AI agent workflow"
+    },
+    "feat": {
+      "description": "Manage features through the SDLC lifecycle"
+    },
+    "repo": {
+      "description": "Manage tracked repositories"
+    },
+    "upgrade": {
+      "description": "Upgrade Shep CLI to the latest version"
+    }
+  },
+  "messages": {
+    "success": "{{message}}",
+    "error": "{{message}}",
+    "warning": "{{message}}",
+    "info": "{{message}}"
+  }
+}
