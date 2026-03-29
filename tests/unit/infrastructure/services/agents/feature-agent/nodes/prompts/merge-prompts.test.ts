@@ -13,6 +13,7 @@ vi.mock(
 );
 
 import { buildCommitPushPrPrompt } from '@/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.js';
+import { PR_BRANDING } from '@/infrastructure/services/git/pr-branding.js';
 import { readSpecFile } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 
@@ -165,6 +166,21 @@ describe('buildCommitPushPrPrompt', () => {
     const prompt = buildCommitPushPrPrompt(baseState(), 'feat/test', 'main');
     expect(prompt).toContain('Do NOT modify any source code files');
     expect(prompt).not.toContain('MUST modify source code');
+  });
+
+  it('should include Shep branding instruction when openPr=true', () => {
+    const prompt = buildCommitPushPrPrompt(baseState({ openPr: true }), 'feat/test', 'main');
+    expect(prompt).toContain(PR_BRANDING);
+    expect(prompt).toContain('Do NOT include any other attribution footer');
+  });
+
+  it('should NOT include branding instruction when openPr=false', () => {
+    const prompt = buildCommitPushPrPrompt(
+      baseState({ push: true, openPr: false }),
+      'feat/test',
+      'main'
+    );
+    expect(prompt).not.toContain(PR_BRANDING);
   });
 
   it('should instruct agent to modify source code when rejection feedback exists', () => {

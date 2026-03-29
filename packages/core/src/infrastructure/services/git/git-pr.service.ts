@@ -27,6 +27,7 @@ import { join } from 'node:path';
 import yaml from 'js-yaml';
 import { PrStatus } from '../../../domain/generated/output.js';
 import type { ExecFunction } from './worktree.service.js';
+import { applyPrBranding } from './pr-branding.js';
 
 @injectable()
 export class GitPrService implements IGitPrService {
@@ -180,7 +181,7 @@ export class GitPrService implements IGitPrService {
       };
 
       const title = prData.title ?? 'Untitled PR';
-      const body = prData.body ?? '';
+      const body = applyPrBranding(prData.body ?? '');
       const args = ['pr', 'create', '--title', title, '--body', body];
 
       if (prData.baseBranch) {

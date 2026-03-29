@@ -13,6 +13,7 @@ import yaml from 'js-yaml';
 import { EvidenceType, type Evidence } from '@/domain/generated/output.js';
 import { readSpecFile, buildResumeContext } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
+import { PR_BRANDING } from './pr-branding.js';
 
 /**
  * Extract merge-phase rejection feedback from spec.yaml.
@@ -177,7 +178,9 @@ export function buildCommitPushPrPrompt(
     steps.push(`${shouldPush ? '6' : '4'}. Create a pull request:
    - Run \`gh pr create --base ${baseBranch} --head ${branch} --title "<title>" --body "<body>"\`
    - Write a descriptive PR title using conventional commit format
-   - Write a rich PR body that summarizes the changes using the spec context below`);
+   - Write a rich PR body that summarizes the changes using the spec context below
+   - The PR body MUST end with this exact branding line (on its own line): \`${PR_BRANDING}\`
+   - Do NOT include any other attribution footer (e.g. "Generated with Claude Code" or similar) — only the Shep branding line above`);
   }
 
   const resumeContext = buildResumeContext(state.resumeReason);
