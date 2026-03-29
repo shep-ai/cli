@@ -1,0 +1,320 @@
+{
+  "settings": {
+    "title": "Paramètres",
+    "saving": "Enregistrement...",
+    "saved": "Enregistré",
+    "failedToSave": "Échec de l'enregistrement des paramètres",
+    "sections": {
+      "language": "Langue",
+      "agent": "Agent",
+      "environment": "Environnement",
+      "workflow": "Workflow",
+      "ci": "CI",
+      "timeouts": "Délais d'attente",
+      "notifications": "Notifications",
+      "flags": "Drapeaux",
+      "chat": "Chat",
+      "database": "Base de données"
+    },
+    "language": {
+      "title": "Langue",
+      "description": "Choisissez votre langue d'affichage préférée",
+      "label": "Langue d'affichage",
+      "placeholder": "Sélectionnez une langue",
+      "failedToSave": "Échec de l'enregistrement des paramètres de langue"
+    },
+    "agent": {
+      "title": "Agent préféré",
+      "sectionTitle": "Agent",
+      "description": "Choisissez votre agent de codage IA et votre méthode d'authentification",
+      "sectionDescription": "Agent de codage IA et authentification",
+      "agentType": "Type d'agent",
+      "agentAndModel": "Agent et modèle",
+      "agentAndModelDescription": "Fournisseur et modèle pour toutes les opérations",
+      "authMethod": "Méthode d'authentification",
+      "apiToken": "Jeton API",
+      "apiTokenPlaceholder": "Entrez votre jeton API",
+      "apiTokenHelper": "Enregistré automatiquement lorsque vous quittez le champ",
+      "failedToSave": "Échec de l'enregistrement des paramètres de l'agent",
+      "hint": "Choisissez quel agent de codage IA alimente vos fonctionnalités. Chaque agent prend en charge différents modèles et capacités. L'authentification est résolue automatiquement via votre session active.",
+      "links": {
+        "agentSystem": "Système d'agent",
+        "addingAgents": "Ajout d'agents",
+        "configurationGuide": "Guide de configuration"
+      }
+    },
+    "environment": {
+      "title": "IDE et terminal",
+      "sectionTitle": "Environnement",
+      "description": "Configurez votre éditeur, shell et préférences de terminal par défaut",
+      "sectionDescription": "Éditeur, shell et préférences de terminal",
+      "defaultEditor": "Éditeur par défaut",
+      "defaultEditorDescription": "Éditeur lancé pour les opérations sur les fichiers",
+      "shellPreference": "Préférence de shell",
+      "shell": "Shell",
+      "shellDescription": "Shell par défaut pour les scripts générés",
+      "terminalEmulator": "Émulateur de terminal",
+      "terminal": "Terminal",
+      "terminalDescription": "Émulateur de terminal pour les sessions shell",
+      "systemTerminal": "Terminal système",
+      "failedToSave": "Échec de l'enregistrement des paramètres IDE et terminal",
+      "hint": "Votre éditeur préféré ouvre les fichiers pour examen. Le paramètre shell contrôle les scripts générés. L'émulateur de terminal est lancé lors de l'ouverture de sessions shell depuis l'interface web.",
+      "links": {
+        "configurationGuide": "Guide de configuration"
+      }
+    },
+    "workflow": {
+      "title": "Workflow",
+      "description": "Configurez le comportement des PR, les portes d'approbation et les paramètres CI",
+      "sectionDescription": "Comportement d'automatisation après l'implémentation",
+      "subsections": {
+        "approve": "Approuver",
+        "evidence": "Preuves",
+        "git": "Git"
+      },
+      "autoApprovePrd": "Approbation auto du PRD",
+      "autoApprovePrdDescription": "Ignorer la revue manuelle des exigences",
+      "autoApprovePlan": "Approbation auto du plan",
+      "autoApprovePlanDescription": "Ignorer la revue manuelle du plan d'implémentation",
+      "autoApproveMerge": "Approbation auto de la fusion",
+      "autoApproveMergeDescription": "Fusionner sans revue manuelle",
+      "collectEvidence": "Collecter les preuves",
+      "collectEvidenceDescription": "Capturer des captures d'écran et des artefacts après l'implémentation",
+      "addEvidenceToPr": "Ajouter les preuves à la PR",
+      "addEvidenceToPrDescription": "Inclure les preuves dans le corps de la pull request",
+      "pushOnComplete": "Pousser à la fin",
+      "pushOnCompleteDescription": "Pousser vers le distant lorsque l'implémentation est terminée",
+      "openPrOnComplete": "Ouvrir une PR à la fin",
+      "openPrOnCompleteDescription": "Créer une pull request une fois terminé",
+      "watchCiAfterPush": "Surveiller la CI après le push",
+      "watchCiAfterPushDescription": "Surveiller la CI et corriger automatiquement les échecs. Désactivez pour éviter les limites de débit.",
+      "approvalGates": "Portes d'approbation",
+      "prdAutoApproval": "Approbation auto du PRD",
+      "planAutoApproval": "Approbation auto du plan",
+      "mergeAutoApproval": "Approbation auto de la fusion",
+      "ciSettings": "Paramètres CI",
+      "ciWatchFixLoop": "Boucle surveillance/correction CI",
+      "maxFixAttempts": "Tentatives de correction max",
+      "watchTimeout": "Délai de surveillance (secondes)",
+      "maxLogCharacters": "Caractères de journal max",
+      "pollInterval": "Intervalle de sondage (secondes)",
+      "hideCiStatus": "Masquer le statut CI",
+      "stageTimeouts": "Délais par étape",
+      "failedToSave": "Échec de l'enregistrement des paramètres de workflow",
+      "hint": "Contrôlez le niveau d'autonomie de chaque exécution de fonctionnalité. L'approbation automatique ignore la pause de revue humaine à chaque phase. Les options push et PR contrôlent ce qui se passe après une implémentation réussie.",
+      "links": {
+        "approvalGates": "Portes d'approbation",
+        "pushAndPrFlags": "Drapeaux push et PR"
+      }
+    },
+    "ci": {
+      "title": "Intégration continue",
+      "description": "Limites et délais pour la surveillance CI",
+      "maxFixAttempts": "Tentatives de correction max",
+      "maxFixAttemptsDescription": "Tentatives de l'agent sur un échec CI",
+      "watchTimeout": "Délai de surveillance",
+      "watchTimeoutDescription": "Attente maximale pour la fin de la CI",
+      "maxLogSize": "Taille max des journaux",
+      "maxLogSizeDescription": "Tronquer les journaux CI au-delà de cette limite",
+      "pollInterval": "Intervalle de sondage",
+      "pollIntervalDescription": "Fréquence de vérification du statut CI sur GitHub",
+      "hideCiStatus": "Masquer le statut CI",
+      "hideCiStatusDescription": "Masquer les badges de statut CI dans le tiroir de fonctionnalité et la revue de fusion",
+      "hint": "Lorsqu'une fonctionnalité est terminée, l'agent peut surveiller la CI et corriger automatiquement les échecs. Ces limites empêchent les tentatives incontrôlées et contrôlent la quantité de sortie de journal envoyée à l'agent pour analyse.",
+      "links": {
+        "cicdPipeline": "Pipeline CI/CD",
+        "ciSecurityGates": "Portes de sécurité CI"
+      }
+    },
+    "stageTimeouts": {
+      "title": "Délais par étape",
+      "description": "Temps d'exécution maximum par étape d'agent",
+      "subsections": {
+        "featureAgent": "Agent de fonctionnalité",
+        "analyzeRepoAgent": "Agent d'analyse de dépôt"
+      },
+      "analyze": "Analyser",
+      "analyzeDescription": "Délai d'analyse du dépôt",
+      "requirements": "Exigences",
+      "requirementsDescription": "Délai de collecte des exigences",
+      "research": "Recherche",
+      "researchDescription": "Délai de recherche technique",
+      "plan": "Plan",
+      "planDescription": "Délai de planification de l'implémentation",
+      "implement": "Implémenter",
+      "implementDescription": "Délai d'implémentation du code",
+      "merge": "Fusion",
+      "mergeDescription": "Délai de création et fusion de PR",
+      "hint": "Chaque agent a des délais par étape configurables indépendamment. Lorsqu'une étape dépasse son délai, l'agent est terminé. Des délais plus longs sont utiles pour les implémentations complexes. L'agent de fonctionnalité a un délai par défaut de 30 minutes par étape. L'agent d'analyse de dépôt a un délai par défaut de 10 minutes."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Configurez les canaux de notification et les préférences d'événements",
+      "sectionDescription": "Comment et quand vous êtes notifié",
+      "channels": "Canaux",
+      "inApp": "Dans l'application",
+      "inAppLabel": "Dans l'application",
+      "inAppDescription": "Notifications dans l'interface Shep",
+      "subsections": {
+        "agentEvents": "Événements d'agent",
+        "pullRequestEvents": "Événements de pull request"
+      },
+      "events": {
+        "agentStarted": "Agent démarré",
+        "phaseCompleted": "Phase terminée",
+        "waitingApproval": "En attente d'approbation",
+        "agentCompleted": "Agent terminé",
+        "agentFailed": "Agent en échec",
+        "mergeReviewReady": "Revue de fusion prête",
+        "prMerged": "PR fusionnée",
+        "prClosed": "PR fermée",
+        "prChecksPassed": "Vérifications PR réussies",
+        "prChecksFailed": "Vérifications PR échouées",
+        "prBlocked": "PR bloquée"
+      },
+      "failedToSave": "Échec de l'enregistrement des paramètres de notification",
+      "hint": "Les notifications toast dans l'application vous tiennent informé. Ajustez finement quels événements du cycle de vie de l'agent déclenchent une notification.",
+      "links": {
+        "notificationSystem": "Système de notification"
+      }
+    },
+    "featureFlags": {
+      "title": "Drapeaux de fonctionnalité",
+      "description": "Activer ou désactiver les fonctionnalités expérimentales et bêta",
+      "sectionDescription": "Activer ou désactiver les fonctionnalités expérimentales",
+      "badge": "Expérimental",
+      "skills": "Compétences",
+      "skillsDescription": "Activer le système de compétences pour les capacités de l'agent",
+      "deployments": "Déploiements",
+      "deploymentsDescription": "Activer les workflows de déploiement d'environnement",
+      "debug": "Débogage",
+      "debugDescription": "Afficher les panneaux de débogage et la journalisation détaillée",
+      "githubImport": "Import GitHub",
+      "githubImportDescription": "Activer l'import de dépôts GitHub dans l'interface web",
+      "adoptBranch": "Adopter une branche",
+      "adoptBranchDescription": "Importer des branches existantes comme fonctionnalités suivies",
+      "gitRebaseSync": "Git Rebase et synchronisation",
+      "gitRebaseSyncDescription": "Activer les opérations de rebase-on-main et sync-main de git",
+      "reactFileManager": "Gestionnaire de fichiers React",
+      "reactFileManagerDescription": "Utiliser le gestionnaire de fichiers React intégré au lieu du sélecteur de dossier natif du système",
+      "hint": "Fonctionnalités expérimentales encore en cours de développement. Activez à vos risques et périls — elles peuvent changer ou être supprimées dans les versions futures. Le mode débogage ajoute une journalisation détaillée utile pour le dépannage."
+    },
+    "interactiveAgent": {
+      "title": "Agent interactif",
+      "description": "Paramètres de l'onglet Chat pour les sessions d'agent interactif par fonctionnalité",
+      "enableChatTab": "Activer l'onglet Chat",
+      "enableChatTabDescription": "Afficher l'onglet Chat sur toutes les pages de détail de fonctionnalité",
+      "autoTimeout": "Délai d'inactivité automatique",
+      "autoTimeoutDescription": "Minutes d'inactivité avant l'arrêt automatique de l'agent (1-120)",
+      "maxConcurrentSessions": "Sessions simultanées max",
+      "maxConcurrentSessionsDescription": "Nombre maximum de sessions d'agent interactif actives simultanément (1-10)",
+      "hint": "L'onglet Chat lance un processus d'agent persistant par fonctionnalité. Le délai d'inactivité automatique arrête les sessions inactives pour économiser les ressources. Le plafond de sessions simultanées empêche l'utilisation incontrôlée des ressources sur les machines de développement."
+    },
+    "database": {
+      "title": "Base de données",
+      "description": "Chemin et gestion de la base de données",
+      "sectionDescription": "Informations de stockage local",
+      "location": "Emplacement",
+      "locationDescription": "Chemin vers la base de données SQLite locale",
+      "size": "Taille",
+      "hint": "Tous les paramètres sont stockés dans une base de données SQLite locale dans ~/.shep/data. La base de données utilise un modèle d'enregistrement singleton avec des migrations automatiques au démarrage.",
+      "links": {
+        "settingsService": "Service de paramètres",
+        "settingsSpec": "Spécification des paramètres"
+      }
+    }
+  },
+  "navigation": {
+    "controlCenter": "Centre de contrôle",
+    "dashboard": "Tableau de bord",
+    "features": "Fonctionnalités",
+    "repositories": "Dépôts",
+    "settings": "Paramètres",
+    "sessions": "Sessions",
+    "tools": "Outils",
+    "skills": "Compétences"
+  },
+  "sidebar": {
+    "features": "Fonctionnalités",
+    "switchToLight": "Mode clair",
+    "switchToDark": "Mode sombre",
+    "muteSounds": "Couper les sons",
+    "unmuteSounds": "Activer les sons"
+  },
+  "deleteFeature": {
+    "title": "Supprimer la fonctionnalité ?",
+    "description": "Cela supprimera définitivement <strong>{{featureName}}</strong> ({{featureId}}). Cette action est irréversible.",
+    "cleanupLabel": "Nettoyer le worktree et les branches",
+    "deleteSubFeatures": "Supprimer les sous-fonctionnalités",
+    "closePullRequest": "Fermer la pull request",
+    "cancel": "Annuler",
+    "deleting": "Suppression\u2026",
+    "delete": "Supprimer"
+  },
+  "rejectFeedback": {
+    "defaultTitle": "Rejeter les exigences",
+    "defaultDescription": "Fournissez un retour pour que l'agent puisse y répondre lors de la prochaine itération. Le retour est obligatoire.",
+    "ariaLabel": "Retour de rejet",
+    "placeholder": "Décrivez ce qui doit changer...",
+    "cancel": "Annuler",
+    "rejecting": "Rejet en cours\u2026",
+    "confirmReject": "Confirmer le rejet"
+  },
+  "emptyState": {
+    "addProject": "Ajouter un projet",
+    "addProjectDescription": "Ajoutez votre dossier de projet pour débloquer la création de fonctionnalités.",
+    "addProjectDescriptionLine2": "Décrivez ce dont vous avez besoin \u2014 Shep s'occupe du reste.",
+    "checkingSetup": "Vérification de la configuration\u2026",
+    "ready": "{{label}} prêt",
+    "notInstalled": "{{label}} non installé",
+    "reCheck": "Revérifier",
+    "needsAuth": "{{label}} nécessite une authentification",
+    "open": "Ouvrir {{label}}",
+    "checking": "Vérification de {{label}}\u2026",
+    "notFound": "{{label}} introuvable",
+    "docs": "Documentation",
+    "opening": "Ouverture\u2026",
+    "chooseFolder": "Choisir un dossier",
+    "folderHint": "N'importe quel dossier fonctionne \u2014 git sera initialisé automatiquement si nécessaire.",
+    "orUseCli": "ou utilisez le CLI",
+    "copyCommands": "Copier les commandes",
+    "git": "Git",
+    "gitRequired": "Requis pour toutes les phases",
+    "githubCli": "GitHub CLI",
+    "githubCliRequired": "Requis pour les pull requests"
+  },
+  "welcome": {
+    "loadingAgents": "Chargement des agents\u2026",
+    "chooseAgent": "Choisissez votre agent",
+    "pickModel": "Choisissez un modèle",
+    "selectAgentSubtitle": "Sélectionnez l'agent de codage IA que vous souhaitez que Shep utilise.",
+    "chooseModelSubtitle": "Choisissez quel modèle {{label}} exécuter.",
+    "ghCliNotice": "<0>GitHub CLI (gh)</0> est requis pour les capacités complètes d'auto-réparation CI/CD. <1>Installez-le ici</1>.",
+    "ghCliRequired": "GitHub CLI (gh)",
+    "ghCliRequiredText": "est requis pour les capacités complètes d'auto-réparation CI/CD.",
+    "installHere": "Installez-le ici",
+    "back": "Retour"
+  },
+  "canvas": {
+    "noFeatures": "Aucune fonctionnalité pour l'instant",
+    "noFeaturesDescription": "Commencez par créer votre première fonctionnalité.",
+    "newFeature": "Nouvelle fonctionnalité",
+    "hideArchived": "Masquer les archivées",
+    "showArchived": "Afficher les archivées",
+    "hideArchivedLabel": "Masquer les archivées",
+    "showArchivedLabel": "Afficher les archivées",
+    "zoomOut": "Dézoomer",
+    "zoomIn": "Zoomer",
+    "fitView": "Ajuster la vue",
+    "resetView": "Réinitialiser la vue"
+  },
+  "common": {
+    "noData": "Aucune donnée disponible",
+    "retry": "Réessayer",
+    "saving": "Enregistrement...",
+    "saved": "Enregistré",
+    "decrease": "Diminuer",
+    "increase": "Augmenter",
+    "cancel": "Annuler"
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "prompts": {
+    "selectAgent": {
+      "message": "Выберите вашего AI-агента для кодирования",
+      "choices": {
+        "claudeCode": {
+          "name": "Claude Code",
+          "description": "Anthropic Claude Code CLI"
+        },
+        "geminiCli": {
+          "name": "Gemini CLI",
+          "description": "Google Gemini CLI"
+        },
+        "codexCli": {
+          "name": "Codex CLI",
+          "description": "Терминальный агент OpenAI Codex CLI (модели GPT)"
+        },
+        "cursor": {
+          "name": "Cursor",
+          "description": "AI-агент для кодирования Cursor"
+        },
+        "devMock": {
+          "name": "Dev (Mock)",
+          "description": "Локальная заглушка для разработки — бинарный файл агента не требуется"
+        },
+        "aider": {
+          "name": "Aider",
+          "disabled": "(Скоро)"
+        },
+        "continue": {
+          "name": "Continue",
+          "disabled": "(Скоро)"
+        }
+      }
+    },
+    "selectIde": {
+      "message": "Выберите предпочитаемую IDE"
+    },
+    "selectAuthMethod": {
+      "message": "Выберите метод аутентификации",
+      "choices": {
+        "session": {
+          "name": "Использовать существующую сессию",
+          "description": "Использовать встроенную аутентификацию Claude Code"
+        },
+        "token": {
+          "name": "Использовать API-токен",
+          "description": "Указать API-ключ Anthropic"
+        }
+      }
+    },
+    "enterApiKey": "Введите ваш API-ключ Anthropic",
+    "prdReview": {
+      "reviewComplete": "Проверка завершена{{changeLabel}}. Что вы хотите сделать?",
+      "changeLabel_one": " ({{count}} изменение)",
+      "changeLabel_other": " ({{count}} изменений)",
+      "approveAndContinue": "Одобрить и продолжить",
+      "approveDescription": "Принять требования и перейти к исследованию",
+      "rejectAndIterate": "Отклонить и доработать",
+      "rejectDescription": "Дать обратную связь и повторно запустить сбор требований",
+      "feedbackPrompt": "Что нужно изменить? (обратная связь для доработки)",
+      "feedbackRequired": "Обратная связь обязательна при отклонении"
+    },
+    "selectLanguage": {
+      "message": "Выберите язык интерфейса"
+    }
+  },
+  "wizards": {
+    "onboarding": {
+      "welcomeTitle": "Добро пожаловать в Shep AI CLI",
+      "welcomeSubtitle": "Давайте настроим вашу среду за 3 быстрых шага.",
+      "prerequisiteWarning": "Необходимое условие: ",
+      "prerequisiteLabel": "GitHub CLI (gh)",
+      "prerequisiteDescription": "необходим для полноценных возможностей CI/CD самовосстановления.",
+      "installFrom": "Установите отсюда: ",
+      "installUrl": "https://cli.github.com/",
+      "setupComplete": "Настройка завершена! Вы готовы использовать Shep."
+    },
+    "agentConfig": {
+      "enterApiKey": "Введите ваш API-ключ Anthropic"
+    },
+    "githubImport": {
+      "methodMessage": "Как вы хотите добавить репозиторий GitHub?",
+      "pasteUrl": "Вставить URL GitHub",
+      "pasteUrlDescription": "Введите URL репозитория GitHub или сокращение owner/repo",
+      "browseRepos": "Просмотреть мои репозитории",
+      "browseReposDescription": "Найти и выбрать из ваших репозиториев GitHub",
+      "enterUrl": "Введите URL репозитория GitHub или owner/repo",
+      "urlRequired": "URL обязателен",
+      "invalidUrlFormat": "Неверный формат URL GitHub. Используйте https://github.com/owner/repo или owner/repo",
+      "selectRepo": "Выберите репозиторий для импорта",
+      "noRepos": "Репозитории не найдены. Убедитесь, что у вас есть репозитории на GitHub.",
+      "cloneDestination": "Каталог для клонирования (оставьте пустым для значения по умолчанию)"
+    },
+    "mergeReview": {
+      "message": "Просмотрите слияние. Что вы хотите сделать?",
+      "approveAndMerge": "Одобрить и слить",
+      "approveDescription": "Принять изменения и слить ветку",
+      "reject": "Отклонить",
+      "rejectDescription": "Дать обратную связь — реализация будет доработана",
+      "rejectFeedback": "Что нужно изменить перед слиянием?",
+      "approveComment": "Комментарии? (необязательно, нажмите Enter для пропуска)",
+      "feedbackRequired": "Обратная связь обязательна при отклонении"
+    },
+    "planReview": {
+      "message": "Просмотрите план реализации. Что вы хотите сделать?",
+      "approveAndContinue": "Одобрить и продолжить",
+      "approveDescription": "Принять план и перейти к реализации",
+      "rejectAndIterate": "Отклонить и доработать",
+      "rejectDescription": "Дать обратную связь и повторно запустить планирование",
+      "rejectFeedback": "Что нужно изменить в плане?",
+      "approveComment": "Комментарии? (необязательно, нажмите Enter для пропуска)",
+      "feedbackRequired": "Обратная связь обязательна при отклонении"
+    },
+    "workflowDefaults": {
+      "message": "Выберите настройки рабочего процесса по умолчанию для новых функций",
+      "instructions": "(Пробел для переключения, Enter для подтверждения)",
+      "allowPrd": "Разрешить PRD",
+      "allowPrdDescription": "Автоматически одобрять этап требований",
+      "allowPlan": "Разрешить план",
+      "allowPlanDescription": "Автоматически одобрять этап планирования",
+      "allowMerge": "Разрешить слияние",
+      "allowMergeDescription": "Автоматически одобрять и сливать после реализации",
+      "pushOnFinish": "Отправить по завершении",
+      "pushOnFinishDescription": "Отправить ветку на удалённый сервер после завершения реализации",
+      "createPr": "Создать PR",
+      "createPrDescription": "Открыть запрос на слияние после завершения реализации"
+    }
+  }
+}

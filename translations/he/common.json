@@ -1,0 +1,55 @@
+{
+  "errors": {
+    "notFound": "לא נמצא",
+    "unauthorized": "לא מורשה",
+    "forbidden": "אסור",
+    "internal": "שגיאה פנימית",
+    "unknown": "אירעה שגיאה לא ידועה",
+    "failedToLoad": "טעינת {{resource}} נכשלה",
+    "failedToSave": "שמירת {{resource}} נכשלה"
+  },
+  "labels": {
+    "save": "שמור",
+    "cancel": "ביטול",
+    "confirm": "אישור",
+    "delete": "מחק",
+    "edit": "ערוך",
+    "close": "סגור",
+    "back": "חזרה",
+    "next": "הבא",
+    "yes": "כן",
+    "no": "לא",
+    "enabled": "מופעל",
+    "disabled": "מושבת",
+    "loading": "טוען...",
+    "saving": "שומר...",
+    "saved": "נשמר",
+    "none": "ללא",
+    "default": "ברירת מחדל",
+    "custom": "מותאם אישית"
+  },
+  "status": {
+    "success": "הצלחה",
+    "error": "שגיאה",
+    "warning": "אזהרה",
+    "info": "מידע",
+    "pending": "ממתין",
+    "inProgress": "בתהליך",
+    "completed": "הושלם",
+    "failed": "נכשל"
+  },
+  "confirmation": {
+    "areYouSure": "האם אתה בטוח?",
+    "cannotBeUndone": "לא ניתן לבטל פעולה זו."
+  },
+  "language": {
+    "en": "אנגלית",
+    "ru": "רוסית",
+    "pt": "פורטוגזית",
+    "es": "ספרדית",
+    "ar": "ערבית",
+    "he": "עברית",
+    "fr": "צרפתית",
+    "de": "גרמנית"
+  }
+}

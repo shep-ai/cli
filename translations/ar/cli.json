@@ -1,0 +1,613 @@
+{
+  "commands": {
+    "settings": {
+      "description": "إدارة إعدادات Shep العامة",
+      "wizardFailed": "فشل معالج الإعدادات",
+      "show": {
+        "description": "عرض الإعدادات الحالية",
+        "formatOption": "تنسيق الإخراج: table|json|yaml",
+        "failedToLoad": "فشل تحميل الإعدادات"
+      },
+      "init": {
+        "description": "تهيئة الإعدادات إلى القيم الافتراضية",
+        "forceOption": "تخطي مطالبة التأكيد",
+        "resetWarning": "سيؤدي هذا إلى إعادة تعيين جميع الإعدادات إلى القيم الافتراضية. يُنصح بعمل نسخة احتياطية من ~/.shep/data أولاً.",
+        "confirmPrompt": "هل أنت متأكد؟ (y/N): ",
+        "cancelled": "تم إلغاء العملية.",
+        "success": "تمت تهيئة الإعدادات إلى القيم الافتراضية.",
+        "failed": "فشلت تهيئة الإعدادات"
+      },
+      "agent": {
+        "description": "تكوين وكيل البرمجة بالذكاء الاصطناعي",
+        "agentOption": "نوع الوكيل (مثال: claude-code)",
+        "authOption": "طريقة المصادقة (session أو token)",
+        "tokenOption": "رمز API للمصادقة القائمة على الرمز",
+        "authRequired": "--auth مطلوب عند استخدام علامة --agent",
+        "success": "تم تكوين الوكيل: {{type}} ({{authMethod}})",
+        "cancelled": "تم إلغاء التكوين.",
+        "failed": "فشل تكوين الوكيل"
+      },
+      "ide": {
+        "description": "تكوين بيئة التطوير/المحرر المفضل",
+        "editorOption": "اسم بيئة التطوير/المحرر ({{editors}})",
+        "unknownEditor": "محرر غير معروف \"{{editor}}\". الخيارات الصالحة: {{validEditors}}",
+        "notInPath": "المحرر '{{editor}}' غير موجود في PATH. سيتم حفظ المحرر على أي حال.",
+        "success": "تم تعيين المحرر الافتراضي إلى: {{editor}}",
+        "cancelled": "تم إلغاء التكوين.",
+        "failed": "فشل تكوين بيئة التطوير"
+      },
+      "model": {
+        "description": "تكوين نموذج LLM الافتراضي لتشغيل الوكيل",
+        "selectPrompt": "اختر نموذج LLM الافتراضي",
+        "noModels": "لا توجد نماذج متاحة للوكيل \"{{agentType}}\". قم بتكوين وكيل مختلف باستخدام: shep settings agent",
+        "success": "تم تكوين النموذج: {{model}}",
+        "cancelled": "تم إلغاء التكوين.",
+        "failed": "فشل تكوين النموذج"
+      },
+      "workflow": {
+        "description": "تكوين سلوك سير العمل الافتراضي للميزات الجديدة",
+        "allowPrdOption": "الموافقة التلقائية على مرحلة المتطلبات",
+        "allowPlanOption": "الموافقة التلقائية على مرحلة التخطيط",
+        "allowMergeOption": "الموافقة التلقائية والدمج التلقائي بعد التنفيذ",
+        "allowAllOption": "تمكين جميع بوابات الموافقة",
+        "pushOption": "دفع الفرع إلى الخادم البعيد عند الاكتمال",
+        "noPushOption": "عدم دفع الفرع عند الاكتمال",
+        "prOption": "فتح PR عند الاكتمال",
+        "noPrOption": "عدم فتح PR عند الاكتمال",
+        "success": "تم تحديث إعدادات سير العمل الافتراضية: {{summary}}",
+        "summaryNone": "لا شيء",
+        "allowPrd": "السماح بـ PRD",
+        "allowPlan": "السماح بالخطة",
+        "allowMerge": "السماح بالدمج",
+        "push": "دفع",
+        "pr": "PR",
+        "cancelled": "تم إلغاء التكوين.",
+        "failed": "فشل تكوين إعدادات سير العمل الافتراضية"
+      },
+      "language": {
+        "description": "تكوين لغة العرض",
+        "selectPrompt": "اختر لغة العرض",
+        "success": "تم تعيين اللغة إلى: {{language}}",
+        "cancelled": "تم إلغاء التكوين.",
+        "failed": "فشل تكوين اللغة"
+      }
+    },
+    "version": {
+      "description": "عرض معلومات الإصدار",
+      "nodeLabel": "Node:",
+      "platformLabel": "المنصة:"
+    },
+    "start": {
+      "description": "بدء واجهة Shep الويب كخدمة خلفية",
+      "portOption": "رقم المنفذ (1024-65535)",
+      "portValidation": "يجب أن يكون المنفذ عددًا صحيحًا بين 1024 و 65535"
+    },
+    "stop": {
+      "description": "إيقاف خدمة Shep الويب الخلفية العاملة",
+      "noDaemonRunning": "لا توجد خدمة Shep خلفية قيد التشغيل."
+    },
+    "restart": {
+      "description": "إعادة تشغيل خدمة Shep الويب الخلفية بسلاسة (تبدأها إذا لم تكن قيد التشغيل)",
+      "portOption": "رقم المنفذ (1024-65535)",
+      "portValidation": "يجب أن يكون المنفذ عددًا صحيحًا بين 1024 و 65535",
+      "daemonNotRunning": "الخدمة الخلفية لم تكن قيد التشغيل — جارٍ البدء..."
+    },
+    "status": {
+      "description": "عرض حالة خدمة Shep الويب الخلفية",
+      "logsOption": "عرض آخر N سطر من سجل الخدمة الخلفية (الافتراضي 50)",
+      "followOption": "متابعة مخرجات سجل الخدمة الخلفية في الوقت الفعلي",
+      "noLogFile": "لم يتم العثور على ملف سجل الخدمة الخلفية.",
+      "expectedAt": "المتوقع في: {{path}}",
+      "logEmpty": "ملف السجل فارغ.",
+      "followHint": "--- متابعة daemon.log (Ctrl+C للإيقاف) ---",
+      "notRunning": "خدمة Shep الخلفية ليست قيد التشغيل.",
+      "startHint": "شغّل `shep start` لتشغيلها.",
+      "title": "حالة خدمة Shep الخلفية",
+      "pidLabel": "PID",
+      "portLabel": "المنفذ",
+      "urlLabel": "URL",
+      "startedLabel": "بدأت في",
+      "uptimeLabel": "وقت التشغيل",
+      "cpuLabel": "المعالج %",
+      "memoryLabel": "الذاكرة (RSS)",
+      "envTitle": "البيئة",
+      "shepHomeLabel": "مجلد Shep الرئيسي",
+      "cliVersionLabel": "إصدار CLI",
+      "nodeVersionLabel": "إصدار Node",
+      "dbPathLabel": "مسار قاعدة البيانات",
+      "logFileLabel": "ملف السجل",
+      "daemonConfigLabel": "تكوين الخدمة الخلفية"
+    },
+    "ui": {
+      "description": "بدء واجهة Shep الويب",
+      "portOption": "رقم المنفذ (1024-65535)",
+      "noOpenOption": "عدم فتح المتصفح تلقائيًا",
+      "portValidation": "يجب أن يكون المنفذ عددًا صحيحًا بين 1024 و 65535",
+      "heading": "واجهة Shep الويب",
+      "startingDev": "جارٍ بدء خادم الويب (وضع التطوير)...",
+      "starting": "جارٍ بدء خادم الويب...",
+      "serverReady": "الخادم جاهز على {{url}}",
+      "pressCtrlC": "اضغط Ctrl+C للإيقاف",
+      "shuttingDown": "جارٍ الإيقاف...",
+      "failedToStart": "فشل بدء واجهة الويب"
+    },
+    "run": {
+      "description": "تشغيل سير عمل وكيل الذكاء الاصطناعي",
+      "agentArgument": "اسم الوكيل المراد تشغيله (مثال: analyze-repository)",
+      "promptOption": "الأمر المرسل للوكيل",
+      "promptDefault": "تحليل هذا المستودع",
+      "repoOption": "مسار المستودع (الافتراضي: المجلد الحالي)",
+      "streamOption": "بث المخرجات في الوقت الفعلي",
+      "runningAgent": "تشغيل الوكيل:",
+      "repositoryLabel": "المستودع: {{path}}",
+      "promptLabel": "الأمر: {{prompt}}",
+      "agentCompleted": "اكتمل الوكيل {{name}}",
+      "resultHeading": "النتيجة:",
+      "noOutput": "لا توجد مخرجات",
+      "agentWorking": "الوكيل {{name}} يعمل...",
+      "agentFailed": "فشل تنفيذ الوكيل",
+      "failedToRun": "فشل تشغيل الوكيل"
+    },
+    "install": {
+      "description": "تثبيت أداة تطوير",
+      "toolArgument": "الأداة المراد تثبيتها ({{tools}})",
+      "howOption": "عرض تعليمات التثبيت دون التنفيذ",
+      "runWithTool": "شغّل {{command}} مع أحد هذه الخيارات:",
+      "unrecognizedTool": "لا أتعرف على '{{tool}}'. هل تقصد واحدة من هذه؟",
+      "alreadyInstalled": "{{tool}} مثبت بالفعل",
+      "noAutoInstall": "{{tool}} لا يدعم التثبيت التلقائي",
+      "installSuccess": "تم تثبيت {{tool}} بنجاح",
+      "installFailed": "فشل تثبيت {{tool}}: {{error}}",
+      "failedToInstall": "فشل تثبيت {{tool}}",
+      "instructionsHeading": "تعليمات التثبيت لـ {{name}}",
+      "nameLabel": "الاسم:",
+      "summaryLabel": "الملخص:",
+      "descriptionLabel": "الوصف:",
+      "tagsLabel": "الوسوم:",
+      "binaryLabel": "الملف الثنائي:",
+      "packageManagerLabel": "مدير الحزم:",
+      "installCommandsHeading": "أوامر التثبيت",
+      "verifyHeading": "التحقق من التثبيت",
+      "openDirHeading": "فتح المجلد",
+      "docsHeading": "التوثيق"
+    },
+    "ide": {
+      "description": "فتح شجرة عمل ميزة في بيئة التطوير",
+      "featArgument": "معرّف الميزة أو بادئته",
+      "openInOption": "فتح في {{name}}",
+      "openedSuccess": "تم فتح {{editor}} في {{path}}",
+      "failedToOpen": "فشل فتح بيئة التطوير"
+    },
+    "tools": {
+      "description": "إدارة أدوات التطوير",
+      "list": {
+        "description": "عرض جميع الأدوات المتاحة مع حالة التثبيت",
+        "installed": "مثبت",
+        "missing": "مفقود",
+        "failedToList": "خطأ في عرض الأدوات: {{error}}"
+      }
+    },
+    "feat": {
+      "description": "إدارة الميزات عبر دورة حياة تطوير البرمجيات",
+      "new": {
+        "description": "إنشاء ميزة جديدة",
+        "descriptionArgument": "وصف الميزة",
+        "repoOption": "مسار المستودع (الافتراضي: المجلد الحالي)",
+        "pushOption": "دفع الفرع إلى الخادم البعيد بعد التنفيذ",
+        "prOption": "فتح PR عند اكتمال التنفيذ (يتضمن --push)",
+        "noPrOption": "عدم فتح PR عند اكتمال التنفيذ",
+        "allowPrdOption": "الموافقة التلقائية حتى المتطلبات، التوقف بعدها",
+        "allowPlanOption": "الموافقة التلقائية حتى التخطيط، التوقف عند التنفيذ",
+        "allowMergeOption": "الموافقة التلقائية على مرحلة الدمج",
+        "allowAllOption": "التشغيل بشكل مستقل بالكامل (بدون توقف للموافقة)",
+        "parentOption": "معرّف الميزة الأصلية (كامل أو بادئة جزئية)",
+        "pendingOption": "إنشاء الميزة بدون بدء الوكيل",
+        "fastOption": "تخطي مراحل SDLC والتنفيذ مباشرة من الأمر",
+        "modelOption": "معرّف نموذج LLM لهذا التشغيل (مثال: claude-opus-4-6)",
+        "attachOption": "إرفاق ملف (قابل للتكرار)",
+        "parentNotFound": "الميزة الأصلية غير موجودة: {{id}}",
+        "attachmentNotFound": "المرفق غير موجود: {{path}}",
+        "spinnerText": "جارٍ التفكير",
+        "featureCreated": "تم إنشاء الميزة",
+        "blockedInfo": "تم إنشاء الميزة في حالة محظورة — في انتظار وصول الميزة الأصلية إلى مرحلة التنفيذ",
+        "pendingInfo": "تم إنشاء الميزة في حالة انتظار — شغّل {{command}} للبدء",
+        "idLabel": "المعرّف:",
+        "nameLabel": "الاسم:",
+        "branchLabel": "الفرع:",
+        "statusLabel": "الحالة:",
+        "worktreeLabel": "شجرة العمل:",
+        "specLabel": "المواصفات:",
+        "agentLabel": "الوكيل:",
+        "pendingStatus": "قيد الانتظار",
+        "spawnedStatus": "تم التشغيل",
+        "pushPr": "دفع + PR",
+        "pushOnly": "دفع فقط",
+        "pushLabel": "الدفع:",
+        "reviewLabel": "المراجعة:",
+        "fullyAutonomous": "مستقل بالكامل",
+        "pauseAfterEvery": "توقف بعد كل مرحلة",
+        "autoApprove": "موافقة تلقائية: {{approved}}",
+        "failedToCreate": "فشل إنشاء الميزة"
+      },
+      "ls": {
+        "description": "عرض الميزات",
+        "repoOption": "تصفية حسب مسار المستودع",
+        "includeDeletedOption": "تضمين الميزات المحذوفة",
+        "showArchivedOption": "تضمين الميزات المؤرشفة",
+        "noFeatures": "لم يتم العثور على ميزات",
+        "featuresHeading": "الميزات ({{count}})",
+        "nameHeader": "الاسم",
+        "statusHeader": "الحالة",
+        "gatesHeader": "R P M ↑",
+        "elapsedHeader": "الوقت المنقضي",
+        "doneHeader": "مكتمل",
+        "failedToList": "فشل عرض الميزات"
+      },
+      "show": {
+        "description": "عرض تفاصيل الميزة",
+        "idArgument": "معرّف الميزة",
+        "title": "الميزة: {{name}}",
+        "idLabel": "المعرّف",
+        "slugLabel": "الاسم المختصر",
+        "descriptionLabel": "الوصف",
+        "userQueryLabel": "استعلام المستخدم",
+        "repositoryLabel": "المستودع",
+        "branchLabel": "الفرع",
+        "statusLabel": "الحالة",
+        "lifecycleLabel": "دورة الحياة",
+        "agentLabel": "الوكيل",
+        "modelLabel": "النموذج",
+        "worktreeLabel": "شجرة العمل",
+        "specDirLabel": "مجلد المواصفات",
+        "agentRunLabel": "تشغيل الوكيل",
+        "timestampsTitle": "الطوابع الزمنية",
+        "createdLabel": "تاريخ الإنشاء",
+        "updatedLabel": "تاريخ التحديث",
+        "workflowTitle": "سير العمل",
+        "pushLabel": "الدفع",
+        "openPrLabel": "فتح PR",
+        "gatesLabel": "البوابات",
+        "gatesNotSet": "غير محدد",
+        "pullRequestTitle": "طلب السحب",
+        "urlLabel": "URL",
+        "numberLabel": "الرقم",
+        "prStatusLabel": "الحالة",
+        "commitLabel": "الإيداع",
+        "ciLabel": "CI",
+        "ciFixesLabel": "إصلاحات CI",
+        "ciFixAttempts": "{{count}} محاولة(محاولات)",
+        "yesValue": "نعم",
+        "noValue": "لا",
+        "planTitle": "الخطة",
+        "planState": "الحالة   {{state}}",
+        "planTasks": "المهام   {{count}}",
+        "messagesTitle": "الرسائل ({{count}})",
+        "phaseTimingTitle": "توقيت المراحل",
+        "ciFixHistoryTitle": "سجل إصلاحات CI",
+        "awaitingApprovalTitle": "في انتظار الموافقة",
+        "awaitingApprovalMessage": "{{phase}} في انتظار مراجعتك.",
+        "awaitingApprovalApprove": "استئناف الوكيل",
+        "awaitingApprovalReject": "إلغاء مع ملاحظات",
+        "currentPhase": "المرحلة الحالية",
+        "failedToShow": "فشل عرض الميزة"
+      },
+      "start": {
+        "description": "بدء ميزة قيد الانتظار (تشغيل الوكيل)",
+        "idArgument": "معرّف الميزة (أو بادئته)",
+        "spinnerText": "جارٍ بدء الميزة",
+        "blockedWarning": "انتقلت الميزة إلى حالة محظورة — الميزة الأصلية لم تصل إلى مرحلة التنفيذ",
+        "featureStarted": "تم بدء الميزة",
+        "featureLabel": "الميزة:",
+        "branchLabel": "الفرع:",
+        "statusLabel": "الحالة:",
+        "agentLabel": "الوكيل:",
+        "spawnedStatus": "تم التشغيل",
+        "failedToStart": "فشل بدء الميزة"
+      },
+      "approve": {
+        "description": "الموافقة على ميزة في انتظار المراجعة",
+        "idArgument": "معرّف الميزة (يتم الحل تلقائيًا إذا لم يُحدد)",
+        "approvedSuccess": "تمت الموافقة: {{name}}",
+        "phaseLabel": "المرحلة:",
+        "approved": "تمت الموافقة",
+        "agentLabel": "الوكيل:",
+        "agentResumed": "تم الاستئناف",
+        "failedToApprove": "فشلت الموافقة على الميزة"
+      },
+      "reject": {
+        "description": "رفض ميزة في انتظار المراجعة",
+        "idArgument": "معرّف الميزة (يتم الحل تلقائيًا إذا لم يُحدد)",
+        "reasonOption": "ملاحظات الرفض (مطلوبة)",
+        "rejectedWarning": "تم الرفض: {{name}}",
+        "reasonLabel": "السبب:",
+        "iterationLabel": "التكرار:",
+        "iterationWarning": "تحذير: أكثر من 5 تكرارات. فكر في تحسين الأمر بدلاً من ذلك.",
+        "agentLabel": "الوكيل:",
+        "agentRerunning": "إعادة تشغيل المتطلبات",
+        "failedToReject": "فشل رفض الميزة"
+      },
+      "del": {
+        "description": "حذف ميزة",
+        "idArgument": "معرّف الميزة أو بادئته",
+        "forceOption": "تخطي مطالبة التأكيد",
+        "noCleanupOption": "تخطي تنظيف شجرة العمل والفروع",
+        "noClosePrOption": "إبقاء طلب السحب مفتوحًا",
+        "confirmDelete": "حذف الميزة \"{{name}}\"؟",
+        "cancelled": "تم الإلغاء",
+        "confirmCleanup": "هل تريد أيضًا تنظيف شجرة العمل والفروع؟",
+        "confirmClosePr": "هل تريد أيضًا إغلاق طلب السحب؟ (PR #{{number}})",
+        "featureDeleted": "تم حذف الميزة",
+        "nameLabel": "الاسم:",
+        "branchLabel": "الفرع:",
+        "cleanupLabel": "التنظيف:",
+        "cleanupDetail": "شجرة العمل، الفرع المحلي، الفرع البعيد",
+        "prLabel": "PR:",
+        "prClosed": "#{{number}} تم الإغلاق",
+        "failedToDelete": "فشل حذف الميزة"
+      },
+      "resume": {
+        "description": "استئناف وكيل ميزة متوقف أو فاشل",
+        "idArgument": "معرّف الميزة (أو بادئته)",
+        "agentResumed": "تم استئناف وكيل الميزة",
+        "featureLabel": "الميزة:",
+        "runIdLabel": "معرّف التشغيل:",
+        "failedToResume": "فشل استئناف الميزة"
+      },
+      "review": {
+        "description": "مراجعة تفاعلية لميزة في انتظار الموافقة",
+        "idArgument": "معرّف الميزة (يتم الحل تلقائيًا إذا لم يُحدد)",
+        "reviewing": "مراجعة: {{name}}",
+        "phaseLabel": "المرحلة:",
+        "branchLabel": "الفرع:",
+        "approvedSuccess": "تمت الموافقة: {{name}}",
+        "changesLabel": "التغييرات:",
+        "changesUpdated": "تم تحديث {{count}} تحديد(تحديدات)",
+        "commentLabel": "التعليق:",
+        "agentLabel": "الوكيل:",
+        "proceedingTo": "الانتقال إلى {{phase}}",
+        "rejectedWarning": "تم الرفض: {{name}}",
+        "feedbackLabel": "الملاحظات:",
+        "iterationLabel": "التكرار:",
+        "iterationWarning": "تحذير: أكثر من 5 تكرارات. فكر في تحسين الأمر بدلاً من ذلك.",
+        "agentRerunning": "إعادة تشغيل {{phase}}",
+        "failedToReview": "فشلت مراجعة الميزة"
+      },
+      "logs": {
+        "description": "عرض سجلات وكيل الميزة",
+        "idArgument": "معرّف الميزة (أو بادئته)",
+        "followOption": "متابعة مخرجات السجل (مثل tail -f)",
+        "linesOption": "عدد الأسطر المعروضة من النهاية",
+        "noAgentRun": "الميزة \"{{name}}\" ليس لديها تشغيل وكيل",
+        "failedToRead": "فشل قراءة سجلات الميزة"
+      },
+      "adopt": {
+        "description": "تبني فرع موجود كميزة متتبعة",
+        "branchArgument": "اسم الفرع المراد تبنيه",
+        "repoOption": "مسار المستودع (الافتراضي: المجلد الحالي)",
+        "spinnerText": "جارٍ تبني الفرع",
+        "branchAdopted": "تم تبني الفرع",
+        "idLabel": "المعرّف:",
+        "nameLabel": "الاسم:",
+        "branchLabel": "الفرع:",
+        "statusLabel": "الحالة:",
+        "prLabel": "PR:",
+        "worktreeLabel": "شجرة العمل:",
+        "failedToAdopt": "فشل تبني الفرع"
+      },
+      "archive": {
+        "description": "أرشفة ميزة لإخفائها من اللوحة",
+        "idArgument": "معرّف الميزة أو بادئته",
+        "forceOption": "تخطي مطالبة التأكيد",
+        "confirmArchive": "أرشفة الميزة \"{{name}}\"؟",
+        "cancelled": "تم الإلغاء",
+        "featureArchived": "تمت أرشفة الميزة",
+        "nameLabel": "الاسم:",
+        "failedToArchive": "فشلت أرشفة الميزة"
+      },
+      "unarchive": {
+        "description": "استعادة ميزة مؤرشفة إلى حالتها السابقة",
+        "idArgument": "معرّف الميزة أو بادئته",
+        "featureUnarchived": "تم إلغاء أرشفة الميزة",
+        "nameLabel": "الاسم:",
+        "restoredLabel": "تمت الاستعادة:",
+        "failedToUnarchive": "فشل إلغاء أرشفة الميزة"
+      },
+      "resolveWaiting": {
+        "featureNotFound": "الميزة غير موجودة: \"{{id}}\"",
+        "noAgentRun": "الميزة \"{{name}}\" ليس لديها تشغيل وكيل",
+        "notWaitingForApproval": "الميزة \"{{name}}\" ليست في انتظار الموافقة (الحالة: {{status}})",
+        "noFeaturesWaiting": "لا توجد ميزات في انتظار الموافقة في هذا المستودع",
+        "multipleFeaturesWaiting": "ميزات متعددة في انتظار الموافقة. حدد واحدة:"
+      }
+    },
+    "repo": {
+      "description": "إدارة المستودعات المتتبعة",
+      "add": {
+        "description": "استيراد مستودع GitHub (استنساخ وتسجيل)",
+        "urlOption": "رابط مستودع GitHub أو الاختصار owner/repo",
+        "destOption": "تجاوز مجلد وجهة الاستنساخ",
+        "importSuccess": "تم استيراد المستودع: {{name}}",
+        "pathInfo": "المسار: {{path}}",
+        "authError": "GitHub CLI غير مصادق. شغّل `gh auth login` لتسجيل الدخول.",
+        "invalidUrl": "رابط GitHub غير صالح: {{error}}",
+        "supportedFormats": "التنسيقات المدعومة: https://github.com/owner/repo أو git@github.com:owner/repo.git أو owner/repo",
+        "cloneFailed": "فشل الاستنساخ: {{error}}",
+        "failedToImport": "فشل استيراد المستودع"
+      },
+      "ls": {
+        "description": "عرض المستودعات المتتبعة",
+        "title": "المستودعات",
+        "idColumn": "المعرّف",
+        "nameColumn": "الاسم",
+        "featuresColumn": "الميزات",
+        "pathColumn": "المسار",
+        "createdColumn": "تاريخ الإنشاء",
+        "noRepos": "لم يتم العثور على مستودعات",
+        "failedToList": "فشل عرض المستودعات"
+      },
+      "show": {
+        "description": "عرض تفاصيل مستودع متتبع",
+        "idArgument": "معرّف المستودع (أو بادئته)",
+        "title": "المستودع",
+        "timestampsTitle": "الطوابع الزمنية",
+        "createdLabel": "تاريخ الإنشاء",
+        "updatedLabel": "تاريخ التحديث",
+        "deletedLabel": "تاريخ الحذف",
+        "featuresTitle": "الميزات ({{count}})",
+        "noFeatures": "لم يتم العثور على ميزات",
+        "failedToShow": "فشل عرض المستودع"
+      },
+      "resolve": {
+        "multipleMatch": "عدة مستودعات تطابق البادئة \"{{id}}\": {{matches}}",
+        "notFound": "المستودع غير موجود: {{id}}"
+      }
+    },
+    "agent": {
+      "description": "إدارة وعرض تشغيلات الوكيل",
+      "show": {
+        "description": "عرض تفاصيل تشغيل وكيل",
+        "idArgument": "معرّف تشغيل الوكيل (أو بادئته)",
+        "title": "تشغيل الوكيل",
+        "pathsTitle": "المسارات",
+        "timingTitle": "التوقيت",
+        "failedToShow": "فشل عرض تشغيل الوكيل"
+      },
+      "ls": {
+        "description": "عرض جميع تشغيلات الوكيل",
+        "title": "تشغيلات الوكيل",
+        "idColumn": "المعرّف",
+        "agentColumn": "الوكيل",
+        "statusColumn": "الحالة",
+        "durationColumn": "المدة",
+        "pidColumn": "PID",
+        "warningColumn": "تحذير",
+        "noRuns": "لم يتم العثور على تشغيلات وكيل",
+        "failedToList": "فشل عرض تشغيلات الوكيل"
+      },
+      "stop": {
+        "description": "إيقاف وكيل قيد التشغيل",
+        "idArgument": "معرّف تشغيل الوكيل (أو بادئته)",
+        "stoppedSuccess": "تم إيقاف {{id}}: {{reason}}",
+        "failedToStop": "فشل إيقاف تشغيل الوكيل"
+      },
+      "logs": {
+        "description": "عرض سجلات تشغيل الوكيل",
+        "idArgument": "معرّف تشغيل الوكيل (أو بادئته)",
+        "followOption": "متابعة مخرجات السجل (مثل tail -f)",
+        "linesOption": "عدد الأسطر المعروضة من النهاية",
+        "failedToRead": "فشل قراءة سجلات الوكيل"
+      },
+      "delete": {
+        "description": "حذف سجل تشغيل وكيل",
+        "idArgument": "معرّف تشغيل الوكيل (أو بادئته)",
+        "forceOption": "فرض الحذف حتى لو كان قيد التشغيل",
+        "deletedSuccess": "تم حذف {{id}}",
+        "failedToDelete": "فشل حذف تشغيل الوكيل"
+      },
+      "approve": {
+        "description": "الموافقة على تشغيل وكيل متوقف واستئناف التنفيذ",
+        "idArgument": "معرّف تشغيل الوكيل (أو بادئته)",
+        "approvedSuccess": "تمت الموافقة على {{id}}: {{reason}}",
+        "failedToApprove": "فشلت الموافقة على تشغيل الوكيل"
+      },
+      "reject": {
+        "description": "رفض تشغيل وكيل متوقف وإلغاؤه",
+        "idArgument": "معرّف تشغيل الوكيل (أو بادئته)",
+        "reasonOption": "سبب الرفض",
+        "rejectedSuccess": "تم رفض {{id}}: {{reason}}",
+        "failedToReject": "فشل رفض تشغيل الوكيل"
+      },
+      "resolve": {
+        "multipleMatch": "عدة تشغيلات تطابق البادئة \"{{id}}\": {{matches}}",
+        "notFound": "تشغيل الوكيل غير موجود: {{id}}"
+      }
+    },
+    "session": {
+      "description": "إدارة وعرض جلسات مزود الوكيل CLI",
+      "ls": {
+        "description": "عرض جلسات مزود الوكيل CLI",
+        "claudeCodeOption": "عرض جلسات Claude Code",
+        "cursorCliOption": "عرض جلسات Cursor CLI",
+        "geminiCliOption": "عرض جلسات Gemini CLI",
+        "limitOption": "الحد الأقصى لعدد الجلسات المعروضة (0 = الكل)",
+        "flatOption": "عرض قائمة مسطحة بدون تجميع",
+        "oneProviderOnly": "يمكن تحديد علامة مزود واحد فقط في كل مرة",
+        "noSessions": "لم يتم العثور على جلسات",
+        "failedToList": "فشل عرض الجلسات"
+      },
+      "show": {
+        "description": "عرض تفاصيل جلسة مزود الوكيل",
+        "idArgument": "معرّف الجلسة",
+        "claudeCodeOption": "الاستعلام عن جلسات Claude Code",
+        "cursorCliOption": "الاستعلام عن جلسات Cursor CLI",
+        "geminiCliOption": "الاستعلام عن جلسات Gemini CLI",
+        "messagesOption": "عدد الرسائل المعروضة (0 = الكل)",
+        "oneProviderOnly": "يمكن تحديد علامة مزود واحد فقط في كل مرة",
+        "sessionNotFound": "الجلسة غير موجودة: {{error}}",
+        "failedToShow": "فشل عرض الجلسة",
+        "title": "الجلسة",
+        "noMessages": "لا توجد رسائل في هذه الجلسة",
+        "noDisplayableMessages": "لا توجد رسائل قابلة للعرض في هذه الجلسة",
+        "messageCount": "{{count}} رسائل",
+        "showingMessages": "عرض أول {{first}} وآخر {{last}} من {{total}} رسالة",
+        "messagesSkipped": "··· تم تخطي {{count}} رسائل ···",
+        "userLabel": "أنت",
+        "assistantLabel": "المساعد",
+        "toolUsage": "استخدام الأدوات"
+      }
+    },
+    "upgrade": {
+      "description": "ترقية Shep CLI إلى أحدث إصدار",
+      "versionCheckTimeout": "تعذر إكمال فحص الإصدار (انتهت المهلة)",
+      "versionCheckFailed": "تعذر إكمال فحص الإصدار",
+      "alreadyUpToDate": "محدّث بالفعل (v{{version}})",
+      "upgradingFromTo": "الترقية من v{{current}} إلى v{{latest}}",
+      "upgradingToLatest": "الترقية من v{{current}} إلى الأحدث",
+      "stoppingDaemon": "جارٍ إيقاف الخدمة الخلفية قبل الترقية...",
+      "restartingDaemon": "جارٍ إعادة تشغيل الخدمة الخلفية...",
+      "daemonRestarted": "تمت إعادة تشغيل الخدمة الخلفية بنجاح.",
+      "upgradeSuccess": "تمت ترقية Shep CLI بنجاح",
+      "upgradeFailed": "فشلت الترقية",
+      "upgradeFailedDaemonRestored": "فشلت الترقية — تمت استعادة الخدمة الخلفية على الإصدار السابق."
+    },
+    "_serve": {
+      "description": "بدء خادم الويب كخدمة خلفية (للاستخدام الداخلي فقط)",
+      "portOption": "المنفذ للاستماع عليه",
+      "portValidation": "يجب أن يكون المنفذ عددًا صحيحًا بين 1024 و 65535"
+    }
+  },
+  "ui": {
+    "installMessages": {
+      "alreadyInstalled": "{{tool}} مثبت بالفعل",
+      "installSuccess": "تم تثبيت {{tool}} بنجاح",
+      "installFailed": "فشل تثبيت {{tool}}: {{error}}",
+      "unknownTool": "أداة غير معروفة: \"{{tool}}\". المتاح: {{available}}",
+      "checkingAvailability": "جارٍ التحقق من توفر {{tool}}...",
+      "installingHeading": "جارٍ تثبيت {{tool}}"
+    },
+    "daemon": {
+      "alreadyRunning": "Shep يعمل بالفعل على {{url}}",
+      "heading": "واجهة Shep الويب",
+      "startingServer": "جارٍ بدء الخادم",
+      "daemonSpawned": "تم تشغيل الخدمة الخلفية على {{url}}",
+      "serverReady": "الخادم جاهز على {{url}}",
+      "serverMayBeStarting": "قد يكون الخادم لا يزال في مرحلة البدء على {{url}}",
+      "daemonFailed": "فشلت الخدمة الخلفية في البدء (رمز الخروج {{code}}).",
+      "checkLogs": "تحقق من السجلات: {{path}}",
+      "stoppingDaemon": "جارٍ إيقاف خدمة Shep الخلفية (PID {{pid}})...",
+      "sigkillFallback": "لم تتوقف الخدمة الخلفية بسلاسة، جارٍ إرسال SIGKILL...",
+      "daemonStopped": "تم إيقاف خدمة Shep الخلفية."
+    },
+    "logViewer": {
+      "noLogFile": "لم يتم العثور على ملف سجل لـ {{label}}",
+      "expectedAt": "المتوقع: {{path}}",
+      "logEmpty": "ملف السجل فارغ لـ {{label}}"
+    }
+  },
+  "bootstrap": {
+    "failedDatabase": "فشلت تهيئة قاعدة البيانات",
+    "failedSettings": "فشلت تهيئة الإعدادات",
+    "unexpectedError": "حدث خطأ غير متوقع",
+    "unhandledRejection": "رفض وعد غير معالج"
+  }
+}

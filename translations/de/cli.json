@@ -1,0 +1,613 @@
+{
+  "commands": {
+    "settings": {
+      "description": "Shep-Globaleinstellungen verwalten",
+      "wizardFailed": "Einstellungsassistent fehlgeschlagen",
+      "show": {
+        "description": "Aktuelle Einstellungen anzeigen",
+        "formatOption": "Ausgabeformat: table|json|yaml",
+        "failedToLoad": "Einstellungen konnten nicht geladen werden"
+      },
+      "init": {
+        "description": "Einstellungen auf Standardwerte zurücksetzen",
+        "forceOption": "Bestätigungsaufforderung überspringen",
+        "resetWarning": "Dies setzt alle Einstellungen auf Standardwerte zurück. Erwägen Sie vorher eine Sicherung von ~/.shep/data.",
+        "confirmPrompt": "Sind Sie sicher? (y/N): ",
+        "cancelled": "Vorgang abgebrochen.",
+        "success": "Einstellungen auf Standardwerte zurückgesetzt.",
+        "failed": "Einstellungen konnten nicht initialisiert werden"
+      },
+      "agent": {
+        "description": "KI-Coding-Agenten konfigurieren",
+        "agentOption": "Agententyp (z.B. claude-code)",
+        "authOption": "Authentifizierungsmethode (session oder token)",
+        "tokenOption": "API-Token für tokenbasierte Authentifizierung",
+        "authRequired": "--auth ist erforderlich bei Verwendung des --agent-Flags",
+        "success": "Agent konfiguriert: {{type}} ({{authMethod}})",
+        "cancelled": "Konfiguration abgebrochen.",
+        "failed": "Agent konnte nicht konfiguriert werden"
+      },
+      "ide": {
+        "description": "Bevorzugte IDE/Editor konfigurieren",
+        "editorOption": "IDE-/Editor-Name ({{editors}})",
+        "unknownEditor": "Unbekannter Editor \"{{editor}}\". Gültig: {{validEditors}}",
+        "notInPath": "Editor '{{editor}}' nicht in PATH gefunden. Der Editor wird trotzdem gespeichert.",
+        "success": "Standard-Editor gesetzt auf: {{editor}}",
+        "cancelled": "Konfiguration abgebrochen.",
+        "failed": "IDE konnte nicht konfiguriert werden"
+      },
+      "model": {
+        "description": "Standard-LLM-Modell für Agentläufe konfigurieren",
+        "selectPrompt": "Standard-LLM-Modell auswählen",
+        "noModels": "Keine Modelle verfügbar für Agent \"{{agentType}}\". Konfigurieren Sie einen anderen Agenten mit: shep settings agent",
+        "success": "Modell konfiguriert: {{model}}",
+        "cancelled": "Konfiguration abgebrochen.",
+        "failed": "Modell konnte nicht konfiguriert werden"
+      },
+      "workflow": {
+        "description": "Standard-Workflow-Verhalten für neue Features konfigurieren",
+        "allowPrdOption": "Anforderungsphase automatisch genehmigen",
+        "allowPlanOption": "Planungsphase automatisch genehmigen",
+        "allowMergeOption": "Nach Implementierung automatisch genehmigen und mergen",
+        "allowAllOption": "Alle Genehmigungsstufen aktivieren",
+        "pushOption": "Branch nach Abschluss zum Remote pushen",
+        "noPushOption": "Branch nach Abschluss nicht pushen",
+        "prOption": "PR nach Abschluss öffnen",
+        "noPrOption": "PR nach Abschluss nicht öffnen",
+        "success": "Workflow-Standardeinstellungen aktualisiert: {{summary}}",
+        "summaryNone": "keine",
+        "allowPrd": "PRD erlauben",
+        "allowPlan": "Plan erlauben",
+        "allowMerge": "Merge erlauben",
+        "push": "Push",
+        "pr": "PR",
+        "cancelled": "Konfiguration abgebrochen.",
+        "failed": "Workflow-Standardeinstellungen konnten nicht konfiguriert werden"
+      },
+      "language": {
+        "description": "Anzeigesprache konfigurieren",
+        "selectPrompt": "Anzeigesprache auswählen",
+        "success": "Sprache gesetzt auf: {{language}}",
+        "cancelled": "Konfiguration abgebrochen.",
+        "failed": "Sprache konnte nicht konfiguriert werden"
+      }
+    },
+    "version": {
+      "description": "Versionsinformationen anzeigen",
+      "nodeLabel": "Node:",
+      "platformLabel": "Plattform:"
+    },
+    "start": {
+      "description": "Shep-Web-UI als Hintergrunddienst starten",
+      "portOption": "Portnummer (1024-65535)",
+      "portValidation": "Port muss eine Ganzzahl zwischen 1024 und 65535 sein"
+    },
+    "stop": {
+      "description": "Laufenden Shep-Hintergrunddienst stoppen",
+      "noDaemonRunning": "Kein Shep-Dienst läuft."
+    },
+    "restart": {
+      "description": "Shep-Web-UI-Dienst ordnungsgemäß neu starten (startet ihn, wenn er nicht läuft)",
+      "portOption": "Portnummer (1024-65535)",
+      "portValidation": "Port muss eine Ganzzahl zwischen 1024 und 65535 sein",
+      "daemonNotRunning": "Dienst lief nicht — wird gestartet..."
+    },
+    "status": {
+      "description": "Status des Shep-Web-UI-Dienstes anzeigen",
+      "logsOption": "Letzte N Zeilen des Dienst-Logs anzeigen (Standard 50)",
+      "followOption": "Dienst-Log-Ausgabe in Echtzeit verfolgen",
+      "noLogFile": "Keine Dienst-Log-Datei gefunden.",
+      "expectedAt": "Erwartet unter: {{path}}",
+      "logEmpty": "Log-Datei ist leer.",
+      "followHint": "--- Dienst-Log wird verfolgt (Strg+C zum Stoppen) ---",
+      "notRunning": "Shep-Dienst läuft nicht.",
+      "startHint": "Führen Sie `shep start` aus, um ihn zu starten.",
+      "title": "Shep-Dienststatus",
+      "pidLabel": "PID",
+      "portLabel": "Port",
+      "urlLabel": "URL",
+      "startedLabel": "Gestartet",
+      "uptimeLabel": "Laufzeit",
+      "cpuLabel": "CPU %",
+      "memoryLabel": "Speicher (RSS)",
+      "envTitle": "Umgebung",
+      "shepHomeLabel": "Shep-Verzeichnis",
+      "cliVersionLabel": "CLI-Version",
+      "nodeVersionLabel": "Node-Version",
+      "dbPathLabel": "DB-Pfad",
+      "logFileLabel": "Log-Datei",
+      "daemonConfigLabel": "Dienstkonfiguration"
+    },
+    "ui": {
+      "description": "Shep-Web-UI starten",
+      "portOption": "Portnummer (1024-65535)",
+      "noOpenOption": "Browser nicht automatisch öffnen",
+      "portValidation": "Port muss eine Ganzzahl zwischen 1024 und 65535 sein",
+      "heading": "Shep Web UI",
+      "startingDev": "Webserver wird gestartet (Entwicklungsmodus)...",
+      "starting": "Webserver wird gestartet...",
+      "serverReady": "Server bereit unter {{url}}",
+      "pressCtrlC": "Strg+C zum Stoppen",
+      "shuttingDown": "Wird heruntergefahren...",
+      "failedToStart": "Web-UI konnte nicht gestartet werden"
+    },
+    "run": {
+      "description": "Einen KI-Agenten-Workflow ausführen",
+      "agentArgument": "Name des auszuführenden Agenten (z.B. analyze-repository)",
+      "promptOption": "Prompt, der an den Agenten gesendet wird",
+      "promptDefault": "Dieses Repository analysieren",
+      "repoOption": "Repository-Pfad (Standard: aktuelles Verzeichnis)",
+      "streamOption": "Ausgabe in Echtzeit streamen",
+      "runningAgent": "Agent wird ausgeführt:",
+      "repositoryLabel": "Repository: {{path}}",
+      "promptLabel": "Prompt: {{prompt}}",
+      "agentCompleted": "Agent {{name}} abgeschlossen",
+      "resultHeading": "Ergebnis:",
+      "noOutput": "Keine Ausgabe",
+      "agentWorking": "Agent {{name}} arbeitet...",
+      "agentFailed": "Agentausführung fehlgeschlagen",
+      "failedToRun": "Agent konnte nicht ausgeführt werden"
+    },
+    "install": {
+      "description": "Ein Entwicklungstool installieren",
+      "toolArgument": "Zu installierendes Tool ({{tools}})",
+      "howOption": "Installationsanweisungen anzeigen, ohne auszuführen",
+      "runWithTool": "Führen Sie {{command}} mit einer dieser Optionen aus:",
+      "unrecognizedTool": "Hmm, ich erkenne '{{tool}}' nicht. Meinten Sie eines davon?",
+      "alreadyInstalled": "{{tool}} ist bereits installiert",
+      "noAutoInstall": "{{tool}} unterstützt keine automatische Installation",
+      "installSuccess": "{{tool}} erfolgreich installiert",
+      "installFailed": "Installation von {{tool}} fehlgeschlagen: {{error}}",
+      "failedToInstall": "{{tool}} konnte nicht installiert werden",
+      "instructionsHeading": "Installationsanweisungen für {{name}}",
+      "nameLabel": "Name:",
+      "summaryLabel": "Zusammenfassung:",
+      "descriptionLabel": "Beschreibung:",
+      "tagsLabel": "Tags:",
+      "binaryLabel": "Binary:",
+      "packageManagerLabel": "Paketmanager:",
+      "installCommandsHeading": "Installationsbefehle",
+      "verifyHeading": "Installation überprüfen",
+      "openDirHeading": "Verzeichnis öffnen",
+      "docsHeading": "Dokumentation"
+    },
+    "ide": {
+      "description": "Feature-Worktree in Ihrer IDE öffnen",
+      "featArgument": "Feature-ID oder Präfix",
+      "openInOption": "Öffnen in {{name}}",
+      "openedSuccess": "{{editor}} geöffnet unter {{path}}",
+      "failedToOpen": "IDE konnte nicht geöffnet werden"
+    },
+    "tools": {
+      "description": "Entwicklungstools verwalten",
+      "list": {
+        "description": "Alle verfügbaren Tools mit Installationsstatus auflisten",
+        "installed": "installiert",
+        "missing": "fehlt",
+        "failedToList": "Fehler beim Auflisten der Tools: {{error}}"
+      }
+    },
+    "feat": {
+      "description": "Features durch den SDLC-Lebenszyklus verwalten",
+      "new": {
+        "description": "Ein neues Feature erstellen",
+        "descriptionArgument": "Feature-Beschreibung",
+        "repoOption": "Repository-Pfad (Standard: aktuelles Verzeichnis)",
+        "pushOption": "Branch nach Implementierung zum Remote pushen",
+        "prOption": "PR nach Implementierung öffnen (impliziert --push)",
+        "noPrOption": "PR nach Implementierung nicht öffnen",
+        "allowPrdOption": "Bis zu den Anforderungen automatisch genehmigen, danach pausieren",
+        "allowPlanOption": "Bis zur Planung automatisch genehmigen, bei Implementierung pausieren",
+        "allowMergeOption": "Merge-Phase automatisch genehmigen",
+        "allowAllOption": "Vollständig autonom ausführen (keine Genehmigungspausen)",
+        "parentOption": "Übergeordnete Feature-ID (vollständig oder Teilpräfix)",
+        "pendingOption": "Feature erstellen, ohne den Agenten zu starten",
+        "fastOption": "SDLC-Phasen überspringen und direkt nach Ihrem Prompt implementieren",
+        "modelOption": "LLM-Modellbezeichnung für diesen Lauf (z.B. claude-opus-4-6)",
+        "attachOption": "Eine Datei anhängen (wiederholbar)",
+        "parentNotFound": "Übergeordnetes Feature nicht gefunden: {{id}}",
+        "attachmentNotFound": "Anhang nicht gefunden: {{path}}",
+        "spinnerText": "Denke nach",
+        "featureCreated": "Feature erstellt",
+        "blockedInfo": "Feature im blockierten Zustand erstellt — wartet darauf, dass das übergeordnete Feature die Implementierung erreicht",
+        "pendingInfo": "Feature im ausstehenden Zustand erstellt — führen Sie {{command}} aus, um zu beginnen",
+        "idLabel": "ID:",
+        "nameLabel": "Name:",
+        "branchLabel": "Branch:",
+        "statusLabel": "Status:",
+        "worktreeLabel": "Worktree:",
+        "specLabel": "Spezifikation:",
+        "agentLabel": "Agent:",
+        "pendingStatus": "ausstehend",
+        "spawnedStatus": "gestartet",
+        "pushPr": "Push + PR",
+        "pushOnly": "nur Push",
+        "pushLabel": "Push:",
+        "reviewLabel": "Überprüfung:",
+        "fullyAutonomous": "vollständig autonom",
+        "pauseAfterEvery": "nach jeder Phase pausieren",
+        "autoApprove": "automatisch genehmigen: {{approved}}",
+        "failedToCreate": "Feature konnte nicht erstellt werden"
+      },
+      "ls": {
+        "description": "Features auflisten",
+        "repoOption": "Nach Repository-Pfad filtern",
+        "includeDeletedOption": "Gelöschte Features einschließen",
+        "showArchivedOption": "Archivierte Features einschließen",
+        "noFeatures": "Keine Features gefunden",
+        "featuresHeading": "Features ({{count}})",
+        "nameHeader": "NAME",
+        "statusHeader": "STATUS",
+        "gatesHeader": "A P M ↑",
+        "elapsedHeader": "DAUER",
+        "doneHeader": "FERTIG",
+        "failedToList": "Features konnten nicht aufgelistet werden"
+      },
+      "show": {
+        "description": "Feature-Details anzeigen",
+        "idArgument": "Feature-ID",
+        "title": "Feature: {{name}}",
+        "idLabel": "ID",
+        "slugLabel": "Slug",
+        "descriptionLabel": "Beschreibung",
+        "userQueryLabel": "Benutzeranfrage",
+        "repositoryLabel": "Repository",
+        "branchLabel": "Branch",
+        "statusLabel": "Status",
+        "lifecycleLabel": "Lebenszyklus",
+        "agentLabel": "Agent",
+        "modelLabel": "Modell",
+        "worktreeLabel": "Worktree",
+        "specDirLabel": "Spezifikationsverzeichnis",
+        "agentRunLabel": "Agentlauf",
+        "timestampsTitle": "Zeitstempel",
+        "createdLabel": "Erstellt",
+        "updatedLabel": "Aktualisiert",
+        "workflowTitle": "Workflow",
+        "pushLabel": "Push",
+        "openPrLabel": "PR öffnen",
+        "gatesLabel": "Genehmigungsstufen",
+        "gatesNotSet": "nicht gesetzt",
+        "pullRequestTitle": "Pull Request",
+        "urlLabel": "URL",
+        "numberLabel": "Nummer",
+        "prStatusLabel": "Status",
+        "commitLabel": "Commit",
+        "ciLabel": "CI",
+        "ciFixesLabel": "CI-Korrekturen",
+        "ciFixAttempts": "{{count}} Versuch(e)",
+        "yesValue": "Ja",
+        "noValue": "Nein",
+        "planTitle": "Plan",
+        "planState": "Zustand   {{state}}",
+        "planTasks": "Aufgaben   {{count}}",
+        "messagesTitle": "Nachrichten ({{count}})",
+        "phaseTimingTitle": "Phasenzeiten",
+        "ciFixHistoryTitle": "CI-Korrekturverlauf",
+        "awaitingApprovalTitle": "Wartet auf Genehmigung",
+        "awaitingApprovalMessage": "{{phase}} wartet auf Ihre Überprüfung.",
+        "awaitingApprovalApprove": "Agenten fortsetzen",
+        "awaitingApprovalReject": "Mit Feedback abbrechen",
+        "currentPhase": "aktuelle Phase",
+        "failedToShow": "Feature konnte nicht angezeigt werden"
+      },
+      "start": {
+        "description": "Ein ausstehendes Feature starten (Agenten starten)",
+        "idArgument": "Feature-ID (oder Präfix)",
+        "spinnerText": "Feature wird gestartet",
+        "blockedWarning": "Feature in blockierten Zustand gewechselt — übergeordnetes Feature hat die Implementierung nicht erreicht",
+        "featureStarted": "Feature gestartet",
+        "featureLabel": "Feature:",
+        "branchLabel": "Branch:",
+        "statusLabel": "Status:",
+        "agentLabel": "Agent:",
+        "spawnedStatus": "gestartet",
+        "failedToStart": "Feature konnte nicht gestartet werden"
+      },
+      "approve": {
+        "description": "Ein auf Überprüfung wartendes Feature genehmigen",
+        "idArgument": "Feature-ID (wird automatisch aufgelöst, wenn weggelassen)",
+        "approvedSuccess": "Genehmigt: {{name}}",
+        "phaseLabel": "Phase:",
+        "approved": "genehmigt",
+        "agentLabel": "Agent:",
+        "agentResumed": "fortgesetzt",
+        "failedToApprove": "Feature konnte nicht genehmigt werden"
+      },
+      "reject": {
+        "description": "Ein auf Überprüfung wartendes Feature ablehnen",
+        "idArgument": "Feature-ID (wird automatisch aufgelöst, wenn weggelassen)",
+        "reasonOption": "Ablehnungsfeedback (erforderlich)",
+        "rejectedWarning": "Abgelehnt: {{name}}",
+        "reasonLabel": "Grund:",
+        "iterationLabel": "Iteration:",
+        "iterationWarning": "Warnung: 5+ Iterationen. Erwägen Sie, den Prompt stattdessen zu verfeinern.",
+        "agentLabel": "Agent:",
+        "agentRerunning": "Anforderungen werden erneut ausgeführt",
+        "failedToReject": "Feature konnte nicht abgelehnt werden"
+      },
+      "del": {
+        "description": "Ein Feature löschen",
+        "idArgument": "Feature-ID oder Präfix",
+        "forceOption": "Bestätigungsaufforderung überspringen",
+        "noCleanupOption": "Worktree- und Branch-Bereinigung überspringen",
+        "noClosePrOption": "Pull Request offen lassen",
+        "confirmDelete": "Feature \"{{name}}\" löschen?",
+        "cancelled": "Abgebrochen",
+        "confirmCleanup": "Auch Worktree und Branches bereinigen?",
+        "confirmClosePr": "Auch den Pull Request schließen? (PR #{{number}})",
+        "featureDeleted": "Feature gelöscht",
+        "nameLabel": "Name:",
+        "branchLabel": "Branch:",
+        "cleanupLabel": "Bereinigung:",
+        "cleanupDetail": "Worktree, lokaler Branch, Remote-Branch",
+        "prLabel": "PR:",
+        "prClosed": "#{{number}} geschlossen",
+        "failedToDelete": "Feature konnte nicht gelöscht werden"
+      },
+      "resume": {
+        "description": "Einen gestoppten oder fehlgeschlagenen Feature-Agenten fortsetzen",
+        "idArgument": "Feature-ID (oder Präfix)",
+        "agentResumed": "Feature-Agent fortgesetzt",
+        "featureLabel": "Feature:",
+        "runIdLabel": "Lauf-ID:",
+        "failedToResume": "Feature konnte nicht fortgesetzt werden"
+      },
+      "review": {
+        "description": "Interaktive Überprüfung eines auf Genehmigung wartenden Features",
+        "idArgument": "Feature-ID (wird automatisch aufgelöst, wenn weggelassen)",
+        "reviewing": "Überprüfung: {{name}}",
+        "phaseLabel": "Phase:",
+        "branchLabel": "Branch:",
+        "approvedSuccess": "Genehmigt: {{name}}",
+        "changesLabel": "Änderungen:",
+        "changesUpdated": "{{count}} Auswahl(en) aktualisiert",
+        "commentLabel": "Kommentar:",
+        "agentLabel": "Agent:",
+        "proceedingTo": "fahre fort mit {{phase}}",
+        "rejectedWarning": "Abgelehnt: {{name}}",
+        "feedbackLabel": "Feedback:",
+        "iterationLabel": "Iteration:",
+        "iterationWarning": "Warnung: 5+ Iterationen. Erwägen Sie, den Prompt stattdessen zu verfeinern.",
+        "agentRerunning": "{{phase}} wird erneut ausgeführt",
+        "failedToReview": "Feature konnte nicht überprüft werden"
+      },
+      "logs": {
+        "description": "Feature-Agent-Logs anzeigen",
+        "idArgument": "Feature-ID (oder Präfix)",
+        "followOption": "Log-Ausgabe verfolgen (wie tail -f)",
+        "linesOption": "Anzahl der Zeilen vom Ende anzeigen",
+        "noAgentRun": "Feature \"{{name}}\" hat keinen Agentlauf",
+        "failedToRead": "Feature-Logs konnten nicht gelesen werden"
+      },
+      "adopt": {
+        "description": "Einen bestehenden Branch als verfolgtes Feature übernehmen",
+        "branchArgument": "Branch-Name zum Übernehmen",
+        "repoOption": "Repository-Pfad (Standard: aktuelles Verzeichnis)",
+        "spinnerText": "Branch wird übernommen",
+        "branchAdopted": "Branch übernommen",
+        "idLabel": "ID:",
+        "nameLabel": "Name:",
+        "branchLabel": "Branch:",
+        "statusLabel": "Status:",
+        "prLabel": "PR:",
+        "worktreeLabel": "Worktree:",
+        "failedToAdopt": "Branch konnte nicht übernommen werden"
+      },
+      "archive": {
+        "description": "Ein Feature archivieren, um es auf der Übersicht auszublenden",
+        "idArgument": "Feature-ID oder Präfix",
+        "forceOption": "Bestätigungsaufforderung überspringen",
+        "confirmArchive": "Feature \"{{name}}\" archivieren?",
+        "cancelled": "Abgebrochen",
+        "featureArchived": "Feature archiviert",
+        "nameLabel": "Name:",
+        "failedToArchive": "Feature konnte nicht archiviert werden"
+      },
+      "unarchive": {
+        "description": "Ein archiviertes Feature in seinen vorherigen Zustand wiederherstellen",
+        "idArgument": "Feature-ID oder Präfix",
+        "featureUnarchived": "Feature wiederhergestellt",
+        "nameLabel": "Name:",
+        "restoredLabel": "Wiederhergestellt:",
+        "failedToUnarchive": "Feature konnte nicht wiederhergestellt werden"
+      },
+      "resolveWaiting": {
+        "featureNotFound": "Feature nicht gefunden: \"{{id}}\"",
+        "noAgentRun": "Feature \"{{name}}\" hat keinen Agentlauf",
+        "notWaitingForApproval": "Feature \"{{name}}\" wartet nicht auf Genehmigung (Status: {{status}})",
+        "noFeaturesWaiting": "Keine Features warten auf Genehmigung in diesem Repository",
+        "multipleFeaturesWaiting": "Mehrere Features warten auf Genehmigung. Bitte eines angeben:"
+      }
+    },
+    "repo": {
+      "description": "Verfolgte Repositories verwalten",
+      "add": {
+        "description": "Ein GitHub-Repository importieren (klonen und registrieren)",
+        "urlOption": "GitHub-Repository-URL oder owner/repo-Kurzform",
+        "destOption": "Zielverzeichnis für Klon überschreiben",
+        "importSuccess": "Repository importiert: {{name}}",
+        "pathInfo": "Pfad: {{path}}",
+        "authError": "GitHub CLI ist nicht authentifiziert. Führen Sie `gh auth login` aus, um sich anzumelden.",
+        "invalidUrl": "Ungültige GitHub-URL: {{error}}",
+        "supportedFormats": "Unterstützte Formate: https://github.com/owner/repo, git@github.com:owner/repo.git oder owner/repo",
+        "cloneFailed": "Klonen fehlgeschlagen: {{error}}",
+        "failedToImport": "Repository konnte nicht importiert werden"
+      },
+      "ls": {
+        "description": "Verfolgte Repositories auflisten",
+        "title": "Repositories",
+        "idColumn": "ID",
+        "nameColumn": "Name",
+        "featuresColumn": "Features",
+        "pathColumn": "Pfad",
+        "createdColumn": "Erstellt",
+        "noRepos": "Keine Repositories gefunden",
+        "failedToList": "Repositories konnten nicht aufgelistet werden"
+      },
+      "show": {
+        "description": "Details eines verfolgten Repositorys anzeigen",
+        "idArgument": "Repository-ID (oder Präfix)",
+        "title": "Repository",
+        "timestampsTitle": "Zeitstempel",
+        "createdLabel": "Erstellt",
+        "updatedLabel": "Aktualisiert",
+        "deletedLabel": "Gelöscht",
+        "featuresTitle": "Features ({{count}})",
+        "noFeatures": "Keine Features gefunden",
+        "failedToShow": "Repository konnte nicht angezeigt werden"
+      },
+      "resolve": {
+        "multipleMatch": "Mehrere Repositories stimmen mit Präfix \"{{id}}\" überein: {{matches}}",
+        "notFound": "Repository nicht gefunden: {{id}}"
+      }
+    },
+    "agent": {
+      "description": "Agentläufe verwalten und anzeigen",
+      "show": {
+        "description": "Details eines Agentlaufs anzeigen",
+        "idArgument": "Agentlauf-ID (oder Präfix)",
+        "title": "Agentlauf",
+        "pathsTitle": "Pfade",
+        "timingTitle": "Zeitverlauf",
+        "failedToShow": "Agentlauf konnte nicht angezeigt werden"
+      },
+      "ls": {
+        "description": "Alle Agentläufe auflisten",
+        "title": "Agentläufe",
+        "idColumn": "ID",
+        "agentColumn": "Agent",
+        "statusColumn": "Status",
+        "durationColumn": "Dauer",
+        "pidColumn": "PID",
+        "warningColumn": "Warnung",
+        "noRuns": "Keine Agentläufe gefunden",
+        "failedToList": "Agentläufe konnten nicht aufgelistet werden"
+      },
+      "stop": {
+        "description": "Einen laufenden Agenten stoppen",
+        "idArgument": "Agentlauf-ID (oder Präfix)",
+        "stoppedSuccess": "Gestoppt {{id}}: {{reason}}",
+        "failedToStop": "Agentlauf konnte nicht gestoppt werden"
+      },
+      "logs": {
+        "description": "Agentlauf-Logs anzeigen",
+        "idArgument": "Agentlauf-ID (oder Präfix)",
+        "followOption": "Log-Ausgabe verfolgen (wie tail -f)",
+        "linesOption": "Anzahl der Zeilen vom Ende anzeigen",
+        "failedToRead": "Agent-Logs konnten nicht gelesen werden"
+      },
+      "delete": {
+        "description": "Einen Agentlauf-Datensatz löschen",
+        "idArgument": "Agentlauf-ID (oder Präfix)",
+        "forceOption": "Löschen erzwingen, auch wenn er läuft",
+        "deletedSuccess": "Gelöscht {{id}}",
+        "failedToDelete": "Agentlauf konnte nicht gelöscht werden"
+      },
+      "approve": {
+        "description": "Einen pausierten Agentlauf genehmigen und fortsetzen",
+        "idArgument": "Agentlauf-ID (oder Präfix)",
+        "approvedSuccess": "Genehmigt {{id}}: {{reason}}",
+        "failedToApprove": "Agentlauf konnte nicht genehmigt werden"
+      },
+      "reject": {
+        "description": "Einen pausierten Agentlauf ablehnen und abbrechen",
+        "idArgument": "Agentlauf-ID (oder Präfix)",
+        "reasonOption": "Grund für die Ablehnung",
+        "rejectedSuccess": "Abgelehnt {{id}}: {{reason}}",
+        "failedToReject": "Agentlauf konnte nicht abgelehnt werden"
+      },
+      "resolve": {
+        "multipleMatch": "Mehrere Läufe stimmen mit Präfix \"{{id}}\" überein: {{matches}}",
+        "notFound": "Agentlauf nicht gefunden: {{id}}"
+      }
+    },
+    "session": {
+      "description": "Agenten-Provider-CLI-Sitzungen verwalten und anzeigen",
+      "ls": {
+        "description": "Agenten-Provider-CLI-Sitzungen auflisten",
+        "claudeCodeOption": "Sitzungen für Claude Code auflisten",
+        "cursorCliOption": "Sitzungen für Cursor CLI auflisten",
+        "geminiCliOption": "Sitzungen für Gemini CLI auflisten",
+        "limitOption": "Maximale Anzahl anzuzeigender Sitzungen (0 = alle)",
+        "flatOption": "Flache Liste ohne Gruppierung anzeigen",
+        "oneProviderOnly": "Es darf nur ein Provider-Flag gleichzeitig angegeben werden",
+        "noSessions": "Keine Sitzungen gefunden",
+        "failedToList": "Sitzungen konnten nicht aufgelistet werden"
+      },
+      "show": {
+        "description": "Details einer Agenten-Provider-Sitzung anzeigen",
+        "idArgument": "Sitzungs-ID",
+        "claudeCodeOption": "Claude Code-Sitzungen abfragen",
+        "cursorCliOption": "Cursor CLI-Sitzungen abfragen",
+        "geminiCliOption": "Gemini CLI-Sitzungen abfragen",
+        "messagesOption": "Anzahl der anzuzeigenden Nachrichten (0 = alle)",
+        "oneProviderOnly": "Es darf nur ein Provider-Flag gleichzeitig angegeben werden",
+        "sessionNotFound": "Sitzung nicht gefunden: {{error}}",
+        "failedToShow": "Sitzung konnte nicht angezeigt werden",
+        "title": "Sitzung",
+        "noMessages": "Keine Nachrichten in dieser Sitzung",
+        "noDisplayableMessages": "Keine anzeigbaren Nachrichten in dieser Sitzung",
+        "messageCount": "{{count}} Nachrichten",
+        "showingMessages": "Zeige erste {{first}} und letzte {{last}} von {{total}} Nachrichten",
+        "messagesSkipped": "··· {{count}} Nachrichten übersprungen ···",
+        "userLabel": "Sie",
+        "assistantLabel": "Assistent",
+        "toolUsage": "Toolnutzung"
+      }
+    },
+    "upgrade": {
+      "description": "Shep CLI auf die neueste Version aktualisieren",
+      "versionCheckTimeout": "Versionsprüfung konnte nicht abgeschlossen werden (Zeitüberschreitung)",
+      "versionCheckFailed": "Versionsprüfung konnte nicht abgeschlossen werden",
+      "alreadyUpToDate": "Bereits aktuell (v{{version}})",
+      "upgradingFromTo": "Aktualisierung von v{{current}} auf v{{latest}}",
+      "upgradingToLatest": "Aktualisierung von v{{current}} auf die neueste Version",
+      "stoppingDaemon": "Dienst wird vor Aktualisierung gestoppt...",
+      "restartingDaemon": "Dienst wird neu gestartet...",
+      "daemonRestarted": "Dienst erfolgreich neu gestartet.",
+      "upgradeSuccess": "Shep CLI erfolgreich aktualisiert",
+      "upgradeFailed": "Aktualisierung fehlgeschlagen",
+      "upgradeFailedDaemonRestored": "Aktualisierung fehlgeschlagen — Dienst mit vorheriger Version wiederhergestellt."
+    },
+    "_serve": {
+      "description": "Web-Server-Dienst starten (nur für internen Gebrauch)",
+      "portOption": "Port zum Lauschen",
+      "portValidation": "Port muss eine Ganzzahl zwischen 1024 und 65535 sein"
+    }
+  },
+  "ui": {
+    "installMessages": {
+      "alreadyInstalled": "{{tool}} ist bereits installiert",
+      "installSuccess": "{{tool}} erfolgreich installiert",
+      "installFailed": "Installation von {{tool}} fehlgeschlagen: {{error}}",
+      "unknownTool": "Unbekanntes Tool: \"{{tool}}\". Verfügbar: {{available}}",
+      "checkingAvailability": "Prüfe, ob {{tool}} verfügbar ist...",
+      "installingHeading": "{{tool}} wird installiert"
+    },
+    "daemon": {
+      "alreadyRunning": "Shep läuft bereits unter {{url}}",
+      "heading": "Shep Web UI",
+      "startingServer": "Server wird gestartet",
+      "daemonSpawned": "Dienst gestartet unter {{url}}",
+      "serverReady": "Server bereit unter {{url}}",
+      "serverMayBeStarting": "Server startet möglicherweise noch unter {{url}}",
+      "daemonFailed": "Dienst konnte nicht gestartet werden (Exit-Code {{code}}).",
+      "checkLogs": "Logs prüfen: {{path}}",
+      "stoppingDaemon": "Shep-Dienst wird gestoppt (PID {{pid}})...",
+      "sigkillFallback": "Dienst wurde nicht ordnungsgemäß gestoppt, SIGKILL wird gesendet...",
+      "daemonStopped": "Shep-Dienst gestoppt."
+    },
+    "logViewer": {
+      "noLogFile": "Keine Log-Datei gefunden für {{label}}",
+      "expectedAt": "Erwartet: {{path}}",
+      "logEmpty": "Log-Datei ist leer für {{label}}"
+    }
+  },
+  "bootstrap": {
+    "failedDatabase": "Datenbank konnte nicht initialisiert werden",
+    "failedSettings": "Einstellungen konnten nicht initialisiert werden",
+    "unexpectedError": "Ein unerwarteter Fehler ist aufgetreten",
+    "unhandledRejection": "Nicht behandelte Promise-Ablehnung"
+  }
+}
