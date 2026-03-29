@@ -152,6 +152,20 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     interactive_agent_enabled: 1,
     interactive_agent_auto_timeout_minutes: 15,
     interactive_agent_max_concurrent_sessions: 3,
+    telegram_enabled: 0,
+    telegram_bot_token: null,
+    telegram_chat_id: null,
+    telegram_notify_agent_started: 0,
+    telegram_notify_phase_completed: 0,
+    telegram_notify_waiting_approval: 1,
+    telegram_notify_agent_completed: 1,
+    telegram_notify_agent_failed: 1,
+    telegram_notify_pr_merged: 1,
+    telegram_notify_pr_closed: 0,
+    telegram_notify_pr_checks_passed: 0,
+    telegram_notify_pr_checks_failed: 1,
+    telegram_notify_pr_blocked: 1,
+    telegram_notify_merge_review_ready: 1,
     ...overrides,
   };
 }
@@ -746,6 +760,111 @@ describe('Settings Mapper', () => {
       const row = toDatabase(original);
       const restored = fromDatabase(row);
       expect(restored.workflow.hideCiStatus).toBe(true);
+    });
+  });
+
+  describe('toDatabase() - telegram config', () => {
+    it('should map telegram.enabled=true to telegram_enabled=1', () => {
+      const settings = createTestSettings({
+        telegram: {
+          enabled: true,
+          botToken: '123456:ABC-DEF',
+          chatId: '987654',
+          notifyEvents: {
+            agentStarted: true,
+            phaseCompleted: false,
+            waitingApproval: true,
+            agentCompleted: true,
+            agentFailed: true,
+            prMerged: true,
+            prClosed: false,
+            prChecksPassed: false,
+            prChecksFailed: true,
+            prBlocked: true,
+            mergeReviewReady: true,
+          },
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.telegram_enabled).toBe(1);
+      expect(row.telegram_bot_token).toBe('123456:ABC-DEF');
+      expect(row.telegram_chat_id).toBe('987654');
+      expect(row.telegram_notify_agent_started).toBe(1);
+      expect(row.telegram_notify_phase_completed).toBe(0);
+      expect(row.telegram_notify_waiting_approval).toBe(1);
+    });
+
+    it('should map undefined telegram to defaults (disabled)', () => {
+      const settings = createTestSettings();
+      const row = toDatabase(settings);
+      expect(row.telegram_enabled).toBe(0);
+      expect(row.telegram_bot_token).toBeNull();
+      expect(row.telegram_chat_id).toBeNull();
+    });
+  });
+
+  describe('fromDatabase() - telegram config', () => {
+    it('should reconstruct enabled telegram config from columns', () => {
+      const row = createTestRow({
+        telegram_enabled: 1,
+        telegram_bot_token: '123456:ABC-DEF',
+        telegram_chat_id: '987654',
+        telegram_notify_agent_started: 1,
+        telegram_notify_phase_completed: 0,
+      });
+      const settings = fromDatabase(row);
+      expect(settings.telegram?.enabled).toBe(true);
+      expect(settings.telegram?.botToken).toBe('123456:ABC-DEF');
+      expect(settings.telegram?.chatId).toBe('987654');
+      expect(settings.telegram?.notifyEvents.agentStarted).toBe(true);
+      expect(settings.telegram?.notifyEvents.phaseCompleted).toBe(false);
+    });
+
+    it('should reconstruct disabled telegram config from defaults', () => {
+      const row = createTestRow();
+      const settings = fromDatabase(row);
+      expect(settings.telegram?.enabled).toBe(false);
+      expect(settings.telegram?.botToken).toBeUndefined();
+      expect(settings.telegram?.chatId).toBeUndefined();
+    });
+  });
+
+  describe('round-trip - telegram config', () => {
+    it('should preserve enabled telegram config through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        telegram: {
+          enabled: true,
+          botToken: '123456:ABC-DEF',
+          chatId: '987654',
+          notifyEvents: {
+            agentStarted: false,
+            phaseCompleted: true,
+            waitingApproval: true,
+            agentCompleted: false,
+            agentFailed: true,
+            prMerged: false,
+            prClosed: true,
+            prChecksPassed: true,
+            prChecksFailed: false,
+            prBlocked: true,
+            mergeReviewReady: false,
+          },
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+
+      expect(restored.telegram?.enabled).toBe(true);
+      expect(restored.telegram?.botToken).toBe('123456:ABC-DEF');
+      expect(restored.telegram?.chatId).toBe('987654');
+      expect(restored.telegram?.notifyEvents).toEqual(original.telegram?.notifyEvents);
+    });
+
+    it('should preserve disabled telegram config through round-trip', () => {
+      const original = createTestSettings();
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.telegram?.enabled).toBe(false);
     });
   });
 });

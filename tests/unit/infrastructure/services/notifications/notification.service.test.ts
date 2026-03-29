@@ -19,6 +19,7 @@ import { initializeSettings, resetSettings } from '@/infrastructure/services/set
 import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 import { NotificationService } from '@/infrastructure/services/notifications/notification.service.js';
 import type { DesktopNotifier } from '@/infrastructure/services/notifications/desktop-notifier.js';
+import type { ITelegramService } from '@/application/ports/output/services/telegram-service.interface.js';
 
 function createTestEvent(overrides?: Partial<NotificationEvent>): NotificationEvent {
   return {
@@ -39,6 +40,15 @@ function createMockDesktopNotifier(): DesktopNotifier {
   } as unknown as DesktopNotifier;
 }
 
+function createMockTelegramService(): ITelegramService {
+  return {
+    validateBotToken: vi.fn().mockResolvedValue(undefined),
+    resolveChatId: vi.fn().mockResolvedValue(undefined),
+    sendMessage: vi.fn().mockResolvedValue(undefined),
+    sendNotification: vi.fn().mockResolvedValue(undefined),
+  } as unknown as ITelegramService;
+}
+
 function initSettingsWithNotifications(overrides: Partial<NotificationPreferences> = {}): void {
   const settings = createDefaultSettings();
   settings.notifications = {
@@ -50,6 +60,7 @@ function initSettingsWithNotifications(overrides: Partial<NotificationPreference
 
 describe('NotificationService', () => {
   let desktopNotifier: DesktopNotifier;
+  let telegramService: ITelegramService;
   let service: NotificationService;
   let busEvents: NotificationEvent[];
 
@@ -62,12 +73,13 @@ describe('NotificationService', () => {
     bus.on('notification', (event) => busEvents.push(event));
 
     desktopNotifier = createMockDesktopNotifier();
+    telegramService = createMockTelegramService();
   });
 
   describe('notify', () => {
     it('should emit to bus when inApp channel is enabled', () => {
       initSettingsWithNotifications({ inApp: { enabled: true } });
-      service = new NotificationService(getNotificationBus(), desktopNotifier);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
 
       const event = createTestEvent();
       service.notify(event);
@@ -78,7 +90,7 @@ describe('NotificationService', () => {
 
     it('should emit to bus when browser channel is enabled', () => {
       initSettingsWithNotifications({ browser: { enabled: true } });
-      service = new NotificationService(getNotificationBus(), desktopNotifier);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
 
       const event = createTestEvent();
       service.notify(event);
@@ -89,7 +101,7 @@ describe('NotificationService', () => {
 
     it('should never call DesktopNotifier.send() (desktop notifications removed)', () => {
       initSettingsWithNotifications({ desktop: { enabled: true } });
-      service = new NotificationService(getNotificationBus(), desktopNotifier);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
 
       service.notify(createTestEvent());
 
@@ -101,7 +113,7 @@ describe('NotificationService', () => {
         inApp: { enabled: false },
         browser: { enabled: false },
       });
-      service = new NotificationService(getNotificationBus(), desktopNotifier);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
 
       service.notify(createTestEvent());
 
@@ -126,7 +138,7 @@ describe('NotificationService', () => {
           mergeReviewReady: true,
         },
       });
-      service = new NotificationService(getNotificationBus(), desktopNotifier);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
 
       service.notify(createTestEvent({ eventType: NotificationEventType.AgentCompleted }));
 
@@ -152,7 +164,7 @@ describe('NotificationService', () => {
           mergeReviewReady: true,
         },
       });
-      service = new NotificationService(getNotificationBus(), desktopNotifier);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
 
       service.notify(
         createTestEvent({
@@ -171,13 +183,105 @@ describe('NotificationService', () => {
         browser: { enabled: true },
         desktop: { enabled: true },
       });
-      service = new NotificationService(getNotificationBus(), desktopNotifier);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
 
       const event = createTestEvent();
       service.notify(event);
 
       expect(busEvents).toHaveLength(1);
       expect(desktopNotifier.send).not.toHaveBeenCalled();
+    });
+
+    it('should send to Telegram when telegram is enabled and event type allowed', () => {
+      const settings = createDefaultSettings();
+      settings.notifications.inApp = { enabled: true };
+      settings.telegram = {
+        enabled: true,
+        botToken: '123:ABC',
+        chatId: '456',
+        notifyEvents: {
+          agentStarted: false,
+          phaseCompleted: false,
+          waitingApproval: true,
+          agentCompleted: true,
+          agentFailed: true,
+          prMerged: true,
+          prClosed: false,
+          prChecksPassed: false,
+          prChecksFailed: true,
+          prBlocked: true,
+          mergeReviewReady: true,
+        },
+      };
+      resetSettings();
+      initializeSettings(settings);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
+
+      service.notify(createTestEvent({ eventType: NotificationEventType.AgentCompleted }));
+
+      expect(telegramService.sendNotification).toHaveBeenCalledWith(
+        '123:ABC',
+        '456',
+        expect.objectContaining({ eventType: NotificationEventType.AgentCompleted })
+      );
+    });
+
+    it('should not send to Telegram when event type is not allowed', () => {
+      const settings = createDefaultSettings();
+      settings.telegram = {
+        enabled: true,
+        botToken: '123:ABC',
+        chatId: '456',
+        notifyEvents: {
+          agentStarted: false,
+          phaseCompleted: false,
+          waitingApproval: true,
+          agentCompleted: false, // disabled
+          agentFailed: true,
+          prMerged: true,
+          prClosed: false,
+          prChecksPassed: false,
+          prChecksFailed: true,
+          prBlocked: true,
+          mergeReviewReady: true,
+        },
+      };
+      resetSettings();
+      initializeSettings(settings);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
+
+      service.notify(createTestEvent({ eventType: NotificationEventType.AgentCompleted }));
+
+      expect(telegramService.sendNotification).not.toHaveBeenCalled();
+    });
+
+    it('should not send to Telegram when telegram is disabled', () => {
+      const settings = createDefaultSettings();
+      settings.telegram = {
+        enabled: false,
+        botToken: '123:ABC',
+        chatId: '456',
+        notifyEvents: {
+          agentStarted: false,
+          phaseCompleted: false,
+          waitingApproval: true,
+          agentCompleted: true,
+          agentFailed: true,
+          prMerged: true,
+          prClosed: false,
+          prChecksPassed: false,
+          prChecksFailed: true,
+          prBlocked: true,
+          mergeReviewReady: true,
+        },
+      };
+      resetSettings();
+      initializeSettings(settings);
+      service = new NotificationService(getNotificationBus(), desktopNotifier, telegramService);
+
+      service.notify(createTestEvent({ eventType: NotificationEventType.AgentCompleted }));
+
+      expect(telegramService.sendNotification).not.toHaveBeenCalled();
     });
   });
 });
