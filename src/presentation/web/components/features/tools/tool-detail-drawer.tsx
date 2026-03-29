@@ -132,7 +132,7 @@ export function ToolDetailDrawer({
   }, [status, onRefresh]);
 
   const header = (
-    <div className="flex flex-col gap-1.5 pr-6">
+    <div className="flex flex-col gap-1.5 pe-6">
       <div className="flex items-center gap-2">
         {tool.iconUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -210,7 +210,7 @@ export function ToolDetailDrawer({
               Install command
             </span>
             <div className="relative rounded-md bg-zinc-900 text-zinc-100">
-              <pre className="overflow-x-auto px-3 py-2.5 pr-16 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
+              <pre className="overflow-x-auto px-3 py-2.5 pe-16 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
                 <code>{tool.installCommand}</code>
               </pre>
               <Button
@@ -225,7 +225,7 @@ export function ToolDetailDrawer({
                 ) : (
                   <Copy className="h-3.5 w-3.5" />
                 )}
-                <span className="ml-1 text-[10px]">{copied ? 'Copied!' : 'Copy'}</span>
+                <span className="ms-1 text-[10px]">{copied ? 'Copied!' : 'Copy'}</span>
               </Button>
             </div>
           </div>
@@ -242,9 +242,9 @@ export function ToolDetailDrawer({
               className="cursor-pointer"
             >
               {status === 'streaming' ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Download className="mr-1.5 h-3.5 w-3.5" />
+                <Download className="me-1.5 h-3.5 w-3.5" />
               )}
               {status === 'streaming' ? 'Installing...' : 'Install'}
             </Button>
@@ -259,9 +259,9 @@ export function ToolDetailDrawer({
               className="cursor-pointer"
             >
               {isLaunching ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Rocket className="mr-1.5 h-3.5 w-3.5" />
+                <Rocket className="me-1.5 h-3.5 w-3.5" />
               )}
               Launch
             </Button>
@@ -270,7 +270,7 @@ export function ToolDetailDrawer({
             <Button variant="outline" size="sm" className="cursor-pointer" asChild>
               <a href={tool.documentationUrl} target="_blank" rel="noopener noreferrer">
                 Docs
-                <ExternalLink className="ml-1 h-3 w-3" />
+                <ExternalLink className="ms-1 h-3 w-3" />
               </a>
             </Button>
           ) : null}

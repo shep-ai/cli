@@ -15,15 +15,16 @@ import { getShepDbPath } from '@/infrastructure/services/filesystem/shep-directo
 import { getSettings } from '@/infrastructure/services/settings.service.js';
 import { statSync } from 'node:fs';
 import { messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 /**
  * Create the show settings command
  */
 export function createShowCommand(): Command {
   return new Command('show')
-    .description('Display current settings')
+    .description(getCliI18n().t('cli:commands.settings.show.description'))
     .addOption(
-      new Option('-o, --output <format>', 'Output format: table|json|yaml')
+      new Option('-o, --output <format>', getCliI18n().t('cli:commands.settings.show.formatOption'))
         .choices(['table', 'json', 'yaml'])
         .default('table')
     )
@@ -46,7 +47,7 @@ Examples:
         console.log(output);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to load settings', err);
+        messages.error(getCliI18n().t('cli:commands.settings.show.failedToLoad'), err);
         process.exitCode = 1;
       }
     });

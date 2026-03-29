@@ -68,7 +68,7 @@ export function FeatureListItem({
                   {agentTypeLabels[agentType as AgentTypeValue] ?? agentType}
                 </span>
                 {modelId ? (
-                  <span className="ml-1 opacity-70">
+                  <span className="ms-1 opacity-70">
                     · {getModelMeta(modelId).displayName || modelId}
                   </span>
                 ) : null}

@@ -401,7 +401,7 @@ export function DrawerActionBar({
                           disabled={disabled}
                           data-testid="drawer-action-submit"
                           className={cn(
-                            'relative flex h-9 min-w-[12rem] cursor-pointer items-center overflow-hidden rounded-md border pr-10 pl-4 text-sm font-medium whitespace-nowrap transition-colors',
+                            'relative flex h-9 min-w-[12rem] cursor-pointer items-center overflow-hidden rounded-md border ps-4 pe-10 text-sm font-medium whitespace-nowrap transition-colors',
                             'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
                             approveExpanded
                               ? `${accentBorder} text-white`
@@ -423,7 +423,7 @@ export function DrawerActionBar({
                           {/* Reject content */}
                           <span
                             className={cn(
-                              'absolute inset-0 z-10 flex items-center justify-center gap-2 pr-8 transition-opacity duration-300',
+                              'absolute inset-0 z-10 flex items-center justify-center gap-2 pe-8 transition-opacity duration-300',
                               approveExpanded ? 'opacity-0' : 'opacity-100'
                             )}
                           >
@@ -443,7 +443,7 @@ export function DrawerActionBar({
                           {/* Arrow indicator — hover trigger to toggle between modes */}
                           <span
                             className={cn(
-                              `border-input/60 absolute inset-y-0 right-0 z-20 flex w-8 cursor-pointer items-center justify-center rounded-r-[5px] border-l ${accentBg} transition-opacity duration-300`,
+                              `border-input/60 absolute inset-y-0 right-0 z-20 flex w-8 cursor-pointer items-center justify-center rounded-e-[5px] border-s ${accentBg} transition-opacity duration-300`,
                               !hasText && !hoverExpanded && 'pointer-events-none opacity-0'
                             )}
                             onMouseEnter={() => setHoverExpanded(true)}

@@ -15,12 +15,14 @@ import type { IAgentRunRepository } from '@/application/ports/output/agents/agen
 import { RejectAgentRunUseCase } from '@/application/use-cases/agents/reject-agent-run.use-case.js';
 import { resolveWaitingFeature } from './resolve-waiting-feature.js';
 import { colors, messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createRejectCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('reject')
-    .description('Reject a feature waiting for review')
-    .argument('[id]', 'Feature ID (auto-resolves if omitted)')
-    .requiredOption('--reason <text>', 'Rejection feedback (required)')
+    .description(t('cli:commands.feat.reject.description'))
+    .argument('[id]', t('cli:commands.feat.reject.idArgument'))
+    .requiredOption('--reason <text>', t('cli:commands.feat.reject.reasonOption'))
     .action(async (featureId: string | undefined, options: { reason: string }) => {
       try {
         const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
@@ -42,17 +44,23 @@ export function createRejectCommand(): Command {
         }
 
         messages.newline();
-        messages.warning(`Rejected: ${feature.name}`);
-        console.log(`  ${colors.muted('Reason:')}    ${options.reason}`);
-        console.log(`  ${colors.muted('Iteration:')} ${result.iteration}`);
+        messages.warning(t('cli:commands.feat.reject.rejectedWarning', { name: feature.name }));
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.reject.reasonLabel'))}    ${options.reason}`
+        );
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.reject.iterationLabel'))} ${result.iteration}`
+        );
         if (result.iterationWarning) {
-          messages.warning('Warning: 5+ iterations. Consider refining the prompt instead.');
+          messages.warning(t('cli:commands.feat.reject.iterationWarning'));
         }
-        console.log(`  ${colors.muted('Agent:')}     re-running requirements`);
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.reject.agentLabel'))}     ${t('cli:commands.feat.reject.agentRerunning')}`
+        );
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to reject feature', err);
+        messages.error(t('cli:commands.feat.reject.failedToReject'), err);
         process.exitCode = 1;
       }
     });

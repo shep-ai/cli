@@ -580,7 +580,7 @@ function NodeTimingRow({
 
   return (
     <div
-      className={`group/phase relative flex flex-col gap-0.5 px-3 py-1.5 ${isSubPhase ? 'ml-4' : ''}`}
+      className={`group/phase relative flex flex-col gap-0.5 px-3 py-1.5 ${isSubPhase ? 'ms-4' : ''}`}
     >
       <div data-testid={`timing-bar-${timing.phase}`} className="flex items-center gap-2">
         {/* Timeline dot */}
@@ -610,7 +610,7 @@ function NodeTimingRow({
           <button
             type="button"
             onClick={handleCopyPrompt}
-            className="text-muted-foreground/50 hover:text-foreground/70 -ml-1 shrink-0 opacity-0 transition-opacity group-hover/phase:opacity-100"
+            className="text-muted-foreground/50 hover:text-foreground/70 -ms-1 shrink-0 opacity-0 transition-opacity group-hover/phase:opacity-100"
             title="Copy prompt to clipboard"
           >
             {copied ? (
@@ -644,7 +644,7 @@ function NodeTimingRow({
         </div>
 
         {/* Duration */}
-        <span className="text-muted-foreground w-14 shrink-0 text-right text-sm font-medium tabular-nums">
+        <span className="text-muted-foreground w-14 shrink-0 text-end text-sm font-medium tabular-nums">
           {formatDuration(durationMs)}
         </span>
       </div>
@@ -701,7 +701,7 @@ function ApprovalWaitRow({
           style={{ width: `${Math.min(barPercent, 100)}%` }}
         />
       </div>
-      <span className="text-muted-foreground w-14 shrink-0 text-right text-xs tabular-nums">
+      <span className="text-muted-foreground w-14 shrink-0 text-end text-xs tabular-nums">
         {formatDuration(waitMs)}
       </span>
     </div>

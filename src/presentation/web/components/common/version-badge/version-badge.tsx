@@ -52,7 +52,7 @@ export function VersionBadge({
             ) : null}
           </span>
         </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-[280px] space-y-1 p-3 text-left">
+        <TooltipContent side="right" className="max-w-[280px] space-y-1 p-3 text-start">
           <div className="mb-1.5 text-xs font-semibold">{packageName}</div>
           {description ? (
             <div className="text-[10px] leading-snug opacity-70">{description}</div>

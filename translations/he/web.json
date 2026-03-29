@@ -1,0 +1,320 @@
+{
+  "settings": {
+    "title": "הגדרות",
+    "saving": "שומר...",
+    "saved": "נשמר",
+    "failedToSave": "שמירת ההגדרות נכשלה",
+    "sections": {
+      "language": "שפה",
+      "agent": "סוכן",
+      "environment": "סביבה",
+      "workflow": "תהליך עבודה",
+      "ci": "CI",
+      "timeouts": "תפוגות זמן",
+      "notifications": "התראות",
+      "flags": "דגלים",
+      "chat": "צ'אט",
+      "database": "מסד נתונים"
+    },
+    "language": {
+      "title": "שפה",
+      "description": "בחר את שפת התצוגה המועדפת שלך",
+      "label": "שפת תצוגה",
+      "placeholder": "בחר שפה",
+      "failedToSave": "שמירת הגדרות השפה נכשלה"
+    },
+    "agent": {
+      "title": "סוכן מועדף",
+      "sectionTitle": "סוכן",
+      "description": "בחר את סוכן הקידוד ושיטת האימות",
+      "sectionDescription": "סוכן קידוד AI ואימות",
+      "agentType": "סוג סוכן",
+      "agentAndModel": "סוכן ומודל",
+      "agentAndModelDescription": "ספק ומודל לכל הפעולות",
+      "authMethod": "שיטת אימות",
+      "apiToken": "אסימון API",
+      "apiTokenPlaceholder": "הזן את אסימון ה-API שלך",
+      "apiTokenHelper": "נשמר אוטומטית כאשר אתה עוזב את השדה",
+      "failedToSave": "שמירת הגדרות הסוכן נכשלה",
+      "hint": "בחר איזה סוכן קידוד AI מפעיל את הפיצ'רים שלך. כל סוכן תומך במודלים ויכולות שונים. האימות נפתר אוטומטית דרך הסשן הפעיל שלך.",
+      "links": {
+        "agentSystem": "מערכת סוכנים",
+        "addingAgents": "הוספת סוכנים",
+        "configurationGuide": "מדריך הגדרה"
+      }
+    },
+    "environment": {
+      "title": "IDE וטרמינל",
+      "sectionTitle": "סביבה",
+      "description": "הגדר את העורך, ה-Shell והעדפות הטרמינל שלך",
+      "sectionDescription": "עורך, Shell והעדפות טרמינל",
+      "defaultEditor": "עורך ברירת מחדל",
+      "defaultEditorDescription": "עורך שנפתח לפעולות קבצים",
+      "shellPreference": "העדפת Shell",
+      "shell": "Shell",
+      "shellDescription": "Shell ברירת מחדל לסקריפטים שנוצרו",
+      "terminalEmulator": "אמולטור טרמינל",
+      "terminal": "טרמינל",
+      "terminalDescription": "אמולטור טרמינל לסשנים",
+      "systemTerminal": "טרמינל מערכת",
+      "failedToSave": "שמירת הגדרות IDE וטרמינל נכשלה",
+      "hint": "העורך המועדף שלך פותח קבצים לסקירה. הגדרת ה-Shell שולטת בסקריפטים שנוצרו. אמולטור הטרמינל מופעל בעת פתיחת סשנים מממשק ה-Web.",
+      "links": {
+        "configurationGuide": "מדריך הגדרה"
+      }
+    },
+    "workflow": {
+      "title": "תהליך עבודה",
+      "description": "הגדר התנהגות PR, שערי אישור והגדרות CI",
+      "sectionDescription": "התנהגות אוטומציה לאחר מימוש",
+      "subsections": {
+        "approve": "אישור",
+        "evidence": "ראיות",
+        "git": "Git"
+      },
+      "autoApprovePrd": "אישור אוטומטי של PRD",
+      "autoApprovePrdDescription": "דלג על סקירה ידנית של דרישות",
+      "autoApprovePlan": "אישור אוטומטי של תוכנית",
+      "autoApprovePlanDescription": "דלג על סקירה ידנית של תוכנית מימוש",
+      "autoApproveMerge": "אישור אוטומטי של מיזוג",
+      "autoApproveMergeDescription": "מזג ללא סקירה ידנית",
+      "collectEvidence": "אסוף ראיות",
+      "collectEvidenceDescription": "צלם מסכים ואסוף ממצאים לאחר מימוש",
+      "addEvidenceToPr": "הוסף ראיות ל-PR",
+      "addEvidenceToPrDescription": "כלול ראיות בגוף בקשת המשיכה",
+      "pushOnComplete": "דחוף בסיום",
+      "pushOnCompleteDescription": "דחוף לשרת כאשר המימוש מסתיים",
+      "openPrOnComplete": "פתח PR בסיום",
+      "openPrOnCompleteDescription": "צור בקשת משיכה בסיום",
+      "watchCiAfterPush": "עקוב אחר CI לאחר דחיפה",
+      "watchCiAfterPushDescription": "עקוב אחר CI ותקן כשלונות אוטומטית. השבת כדי למנוע חריגה ממגבלות קצב.",
+      "approvalGates": "שערי אישור",
+      "prdAutoApproval": "אישור אוטומטי של PRD",
+      "planAutoApproval": "אישור אוטומטי של תוכנית",
+      "mergeAutoApproval": "אישור אוטומטי של מיזוג",
+      "ciSettings": "הגדרות CI",
+      "ciWatchFixLoop": "לולאת מעקב/תיקון CI",
+      "maxFixAttempts": "מספר מרבי של ניסיונות תיקון",
+      "watchTimeout": "תפוגת זמן מעקב (שניות)",
+      "maxLogCharacters": "מספר מרבי של תווים ביומן",
+      "pollInterval": "מרווח בדיקה (שניות)",
+      "hideCiStatus": "הסתר סטטוס CI",
+      "stageTimeouts": "תפוגות זמן שלבים",
+      "failedToSave": "שמירת הגדרות תהליך העבודה נכשלה",
+      "hint": "קבע עד כמה כל הרצת פיצ'ר אוטונומית. אישור אוטומטי מדלג על עצירת הסקירה האנושית בכל שלב. אפשרויות דחיפה ו-PR שולטות במה שקורה לאחר מימוש מוצלח.",
+      "links": {
+        "approvalGates": "שערי אישור",
+        "pushAndPrFlags": "דגלי דחיפה ו-PR"
+      }
+    },
+    "ci": {
+      "title": "אינטגרציה רציפה",
+      "description": "מגבלות ותפוגות זמן למעקב CI",
+      "maxFixAttempts": "מספר מרבי של ניסיונות תיקון",
+      "maxFixAttemptsDescription": "ניסיונות חוזרים של הסוכן על CI כושל",
+      "watchTimeout": "תפוגת זמן מעקב",
+      "watchTimeoutDescription": "המתנה מרבית להשלמת CI",
+      "maxLogSize": "גודל מרבי ליומן",
+      "maxLogSizeDescription": "קטע יומני CI מעבר למגבלה זו",
+      "pollInterval": "מרווח בדיקה",
+      "pollIntervalDescription": "תדירות בדיקת עדכוני סטטוס CI ב-GitHub",
+      "hideCiStatus": "הסתר סטטוס CI",
+      "hideCiStatusDescription": "הסתר תגי סטטוס CI ממגירת הפיצ'ר וסקירת המיזוג",
+      "hint": "כאשר פיצ'ר מסתיים, הסוכן יכול לעקוב אחר CI ולתקן כשלונות אוטומטית. מגבלות אלה מונעות ניסיונות חוזרים בלתי מבוקרים ושולטות בכמות פלט היומן שנשלח לסוכן לניתוח.",
+      "links": {
+        "cicdPipeline": "צינור CI/CD",
+        "ciSecurityGates": "שערי אבטחת CI"
+      }
+    },
+    "stageTimeouts": {
+      "title": "תפוגות זמן שלבים",
+      "description": "זמן ביצוע מרבי לכל שלב סוכן",
+      "subsections": {
+        "featureAgent": "סוכן פיצ'ר",
+        "analyzeRepoAgent": "סוכן ניתוח מאגר"
+      },
+      "analyze": "ניתוח",
+      "analyzeDescription": "תפוגת זמן ניתוח מאגר",
+      "requirements": "דרישות",
+      "requirementsDescription": "תפוגת זמן איסוף דרישות",
+      "research": "מחקר",
+      "researchDescription": "תפוגת זמן מחקר טכני",
+      "plan": "תוכנית",
+      "planDescription": "תפוגת זמן תכנון מימוש",
+      "implement": "מימוש",
+      "implementDescription": "תפוגת זמן מימוש קוד",
+      "merge": "מיזוג",
+      "mergeDescription": "תפוגת זמן יצירת PR ומיזוג",
+      "hint": "לכל סוכן תפוגות זמן שלבים מוגדרות באופן עצמאי. כאשר שלב חורג מתפוגת הזמן שלו, הסוכן מופסק. תפוגות זמן ארוכות יותר שימושיות למימושים מורכבים. ברירת המחדל של סוכן פיצ'ר היא 30 דקות לשלב. ברירת המחדל של סוכן ניתוח מאגר היא 10 דקות."
+    },
+    "notifications": {
+      "title": "התראות",
+      "description": "הגדר ערוצי התראה והעדפות אירועים",
+      "sectionDescription": "איך ומתי תקבל התראות",
+      "channels": "ערוצים",
+      "inApp": "באפליקציה",
+      "inAppLabel": "באפליקציה",
+      "inAppDescription": "התראות בתוך ממשק Shep",
+      "subsections": {
+        "agentEvents": "אירועי סוכן",
+        "pullRequestEvents": "אירועי בקשות משיכה"
+      },
+      "events": {
+        "agentStarted": "סוכן הופעל",
+        "phaseCompleted": "שלב הושלם",
+        "waitingApproval": "ממתין לאישור",
+        "agentCompleted": "סוכן סיים",
+        "agentFailed": "סוכן נכשל",
+        "mergeReviewReady": "סקירת מיזוג מוכנה",
+        "prMerged": "PR מוזג",
+        "prClosed": "PR נסגר",
+        "prChecksPassed": "בדיקות PR עברו",
+        "prChecksFailed": "בדיקות PR נכשלו",
+        "prBlocked": "PR חסום"
+      },
+      "failedToSave": "שמירת הגדרות ההתראות נכשלה",
+      "hint": "התראות טוסט באפליקציה מעדכנות אותך. כוונן אילו אירועי מחזור חיים של סוכן מפעילים התראה.",
+      "links": {
+        "notificationSystem": "מערכת התראות"
+      }
+    },
+    "featureFlags": {
+      "title": "דגלי פיצ'ר",
+      "description": "הפעל או השבת תכונות ניסיוניות ובטא",
+      "sectionDescription": "הפעל או השבת תכונות ניסיוניות",
+      "badge": "ניסיוני",
+      "skills": "כישורים",
+      "skillsDescription": "הפעל את מערכת הכישורים עבור יכולות הסוכן",
+      "deployments": "פריסות",
+      "deploymentsDescription": "הפעל תהליכי פריסה לסביבות",
+      "debug": "ניפוי שגיאות",
+      "debugDescription": "הצג לוחות ניפוי שגיאות ורישום מפורט",
+      "githubImport": "ייבוא GitHub",
+      "githubImportDescription": "הפעל ייבוא מאגרי GitHub בממשק ה-Web",
+      "adoptBranch": "אימוץ ענף",
+      "adoptBranchDescription": "ייבא ענפים קיימים כפיצ'רים מנוטרים",
+      "gitRebaseSync": "Git Rebase וסנכרון",
+      "gitRebaseSyncDescription": "הפעל פעולות rebase-on-main וסנכרון main ב-Git",
+      "reactFileManager": "מנהל קבצים React",
+      "reactFileManagerDescription": "השתמש במנהל הקבצים המובנה של React במקום בוחר התיקיות של מערכת ההפעלה",
+      "hint": "תכונות ניסיוניות שעדיין בפיתוח. הפעל על אחריותך — הן עשויות להשתנות או להיות מוסרות בגרסאות עתידיות. מצב ניפוי שגיאות מוסיף רישום מפורט שימושי לפתרון בעיות."
+    },
+    "interactiveAgent": {
+      "title": "סוכן אינטראקטיבי",
+      "description": "הגדרות לשונית צ'אט עבור סשנים אינטראקטיביים של סוכן לכל פיצ'ר",
+      "enableChatTab": "הפעל לשונית צ'אט",
+      "enableChatTabDescription": "הצג את לשונית הצ'אט בכל עמודי פרטי הפיצ'ר",
+      "autoTimeout": "תפוגת זמן אוטומטית",
+      "autoTimeoutDescription": "דקות חוסר פעילות לפני עצירת הסוכן אוטומטית (1-120)",
+      "maxConcurrentSessions": "מספר מרבי של סשנים מקבילים",
+      "maxConcurrentSessionsDescription": "מספר מרבי של סשנים אינטראקטיביים פעילים בו-זמנית (1-10)",
+      "hint": "לשונית הצ'אט מפעילה תהליך סוכן מתמשך לכל פיצ'ר. תפוגת זמן אוטומטית עוצרת סשנים לא פעילים כדי לחסוך במשאבים. מגבלת הסשנים המקבילים מונעת שימוש מופרז במשאבים על מכונות מפתחים."
+    },
+    "database": {
+      "title": "מסד נתונים",
+      "description": "נתיב מסד הנתונים וניהול",
+      "sectionDescription": "מידע אחסון מקומי",
+      "location": "מיקום",
+      "locationDescription": "נתיב למסד הנתונים המקומי SQLite",
+      "size": "גודל",
+      "hint": "כל ההגדרות מאוחסנות במסד נתונים מקומי SQLite ב-~/.shep/data. מסד הנתונים משתמש בדפוס רשומה יחידה עם מיגרציות אוטומטיות בהפעלה.",
+      "links": {
+        "settingsService": "שירות הגדרות",
+        "settingsSpec": "מפרט הגדרות"
+      }
+    }
+  },
+  "navigation": {
+    "controlCenter": "מרכז בקרה",
+    "dashboard": "לוח בקרה",
+    "features": "פיצ'רים",
+    "repositories": "מאגרים",
+    "settings": "הגדרות",
+    "sessions": "סשנים",
+    "tools": "כלים",
+    "skills": "כישורים"
+  },
+  "sidebar": {
+    "features": "פיצ'רים",
+    "switchToLight": "מצב בהיר",
+    "switchToDark": "מצב כהה",
+    "muteSounds": "השתק צלילים",
+    "unmuteSounds": "בטל השתקת צלילים"
+  },
+  "deleteFeature": {
+    "title": "למחוק פיצ'ר?",
+    "description": "פעולה זו תמחק לצמיתות את <strong>{{featureName}}</strong> ({{featureId}}). לא ניתן לבטל פעולה זו.",
+    "cleanupLabel": "נקה עץ עבודה וענפים",
+    "deleteSubFeatures": "מחק תת-פיצ'רים",
+    "closePullRequest": "סגור בקשת משיכה",
+    "cancel": "ביטול",
+    "deleting": "מוחק\u2026",
+    "delete": "מחק"
+  },
+  "rejectFeedback": {
+    "defaultTitle": "דחה דרישות",
+    "defaultDescription": "ספק משוב לסוכן לטיפול בחזרה הבאה. נדרש משוב.",
+    "ariaLabel": "משוב דחייה",
+    "placeholder": "תאר מה צריך לשנות...",
+    "cancel": "ביטול",
+    "rejecting": "דוחה\u2026",
+    "confirmReject": "אשר דחייה"
+  },
+  "emptyState": {
+    "addProject": "הוסף פרויקט",
+    "addProjectDescription": "הוסף את תיקיית הפרויקט שלך כדי לאפשר יצירת פיצ'רים.",
+    "addProjectDescriptionLine2": "תאר מה אתה צריך \u2014 Shep מטפל בשאר.",
+    "checkingSetup": "בודק הגדרה\u2026",
+    "ready": "{{label}} מוכן",
+    "notInstalled": "{{label}} לא מותקן",
+    "reCheck": "בדוק שוב",
+    "needsAuth": "{{label}} דורש אימות",
+    "open": "פתח {{label}}",
+    "checking": "בודק {{label}}\u2026",
+    "notFound": "{{label}} לא נמצא",
+    "docs": "תיעוד",
+    "opening": "פותח\u2026",
+    "chooseFolder": "בחר תיקייה",
+    "folderHint": "כל תיקייה מתאימה \u2014 Git יאותחל אוטומטית אם צריך.",
+    "orUseCli": "או השתמש ב-CLI",
+    "copyCommands": "העתק פקודות",
+    "git": "Git",
+    "gitRequired": "נדרש לכל השלבים",
+    "githubCli": "GitHub CLI",
+    "githubCliRequired": "נדרש לבקשות משיכה"
+  },
+  "welcome": {
+    "loadingAgents": "טוען סוכנים\u2026",
+    "chooseAgent": "בחר את הסוכן שלך",
+    "pickModel": "בחר מודל",
+    "selectAgentSubtitle": "בחר את סוכן הקידוד AI שתרצה ש-Shep ישתמש בו.",
+    "chooseModelSubtitle": "בחר איזה מודל {{label}} להריץ.",
+    "ghCliNotice": "<0>GitHub CLI (gh)</0> נדרש ליכולות ריפוי עצמי מלאות של CI/CD. <1>התקן אותו כאן</1>.",
+    "ghCliRequired": "GitHub CLI (gh)",
+    "ghCliRequiredText": "נדרש ליכולות ריפוי עצמי מלאות של CI/CD.",
+    "installHere": "התקן אותו כאן",
+    "back": "חזרה"
+  },
+  "canvas": {
+    "noFeatures": "אין פיצ'רים עדיין",
+    "noFeaturesDescription": "התחל ביצירת הפיצ'ר הראשון שלך.",
+    "newFeature": "פיצ'ר חדש",
+    "hideArchived": "הסתר מאורכבים",
+    "showArchived": "הצג מאורכבים",
+    "hideArchivedLabel": "הסתר מאורכבים",
+    "showArchivedLabel": "הצג מאורכבים",
+    "zoomOut": "הקטן",
+    "zoomIn": "הגדל",
+    "fitView": "התאם לתצוגה",
+    "resetView": "אפס תצוגה"
+  },
+  "common": {
+    "noData": "אין נתונים זמינים",
+    "retry": "נסה שוב",
+    "saving": "שומר...",
+    "saved": "נשמר",
+    "decrease": "הקטן",
+    "increase": "הגדל",
+    "cancel": "ביטול"
+  }
+}

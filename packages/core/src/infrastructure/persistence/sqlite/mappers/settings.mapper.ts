@@ -16,6 +16,7 @@ import {
   type AgentType,
   type AgentAuthMethod,
   type EditorType,
+  type Language,
   type TerminalType,
 } from '../../../../domain/generated/output.js';
 
@@ -37,10 +38,11 @@ export interface SettingsRow {
   model_implement: string;
   model_default: string;
 
-  // UserProfile (user.*) - all nullable
+  // UserProfile (user.*) - all nullable except language
   user_name: string | null;
   user_email: string | null;
   user_github_username: string | null;
+  user_preferred_language: string;
 
   // EnvironmentConfig (environment.*)
   env_default_editor: string;
@@ -143,10 +145,11 @@ export function toDatabase(settings: Settings): SettingsRow {
     model_implement: settings.models.default,
     model_default: settings.models.default,
 
-    // UserProfile (optional fields → NULL)
+    // UserProfile (optional fields → NULL, language defaults to 'en')
     user_name: settings.user.name ?? null,
     user_email: settings.user.email ?? null,
     user_github_username: settings.user.githubUsername ?? null,
+    user_preferred_language: settings.user.preferredLanguage ?? 'en',
 
     // EnvironmentConfig
     env_default_editor: settings.environment.defaultEditor,
@@ -287,11 +290,12 @@ export function fromDatabase(row: SettingsRow): Settings {
       default: row.model_default,
     },
 
-    // UserProfile (NULL → undefined, exclude from object)
+    // UserProfile (NULL → undefined, exclude from object; language defaults to 'en')
     user: {
       ...(row.user_name !== null && { name: row.user_name }),
       ...(row.user_email !== null && { email: row.user_email }),
       ...(row.user_github_username !== null && { githubUsername: row.user_github_username }),
+      preferredLanguage: (row.user_preferred_language ?? 'en') as Language,
     },
 
     // EnvironmentConfig

@@ -1,0 +1,13 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Language.yaml
+type: string
+enum:
+  - en
+  - ru
+  - pt
+  - es
+  - ar
+  - he
+  - fr
+  - de
+description: Supported UI language for i18n

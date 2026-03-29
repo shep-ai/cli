@@ -14,6 +14,7 @@ import type {
 } from '@/application/ports/output/services/github-repository-service.interface.js';
 import { GitHubUrlParseError } from '@/application/ports/output/services/github-repository-service.interface.js';
 import type { ListGitHubRepositoriesUseCase } from '@/application/use-cases/repositories/list-github-repositories.use-case.js';
+import { getTuiI18n } from '../i18n.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
 /**
@@ -62,18 +63,19 @@ export async function githubImportWizard(
   listUseCase: ListGitHubRepositoriesUseCase
 ): Promise<GitHubImportWizardResult> {
   // Step 1: Choose import method
+  const t = getTuiI18n().t;
   const method = await select<ImportMethod>({
-    message: 'How would you like to add a GitHub repository?',
+    message: t('tui:wizards.githubImport.methodMessage'),
     choices: [
       {
-        name: 'Paste a GitHub URL',
+        name: t('tui:wizards.githubImport.pasteUrl'),
         value: 'url' as const,
-        description: 'Enter a GitHub repository URL or owner/repo shorthand',
+        description: t('tui:wizards.githubImport.pasteUrlDescription'),
       },
       {
-        name: 'Browse my repositories',
+        name: t('tui:wizards.githubImport.browseRepos'),
         value: 'browse' as const,
-        description: 'Search and select from your GitHub repositories',
+        description: t('tui:wizards.githubImport.browseReposDescription'),
       },
     ],
     theme: shepTheme,
@@ -103,11 +105,12 @@ export async function githubImportWizard(
  * Re-prompts on invalid input until a valid URL is provided.
  */
 async function promptForUrl(gitHubService: IGitHubRepositoryService): Promise<string> {
+  const t = getTuiI18n().t;
   const url = await input({
-    message: 'Enter a GitHub repository URL or owner/repo',
+    message: t('tui:wizards.githubImport.enterUrl'),
     validate: (value: string) => {
       if (!value.trim()) {
-        return 'URL is required';
+        return t('tui:wizards.githubImport.urlRequired');
       }
       try {
         gitHubService.parseGitHubUrl(value.trim());
@@ -116,7 +119,7 @@ async function promptForUrl(gitHubService: IGitHubRepositoryService): Promise<st
         if (error instanceof GitHubUrlParseError) {
           return error.message;
         }
-        return 'Invalid GitHub URL format. Use https://github.com/owner/repo or owner/repo';
+        return t('tui:wizards.githubImport.invalidUrlFormat');
       }
     },
     theme: shepTheme,
@@ -132,14 +135,15 @@ async function promptForUrl(gitHubService: IGitHubRepositoryService): Promise<st
 async function promptForBrowse(listUseCase: ListGitHubRepositoriesUseCase): Promise<string> {
   const repos = await listUseCase.execute({ limit: 30 });
 
+  const t = getTuiI18n().t;
   if (repos.length === 0) {
-    throw new Error('No repositories found. Make sure you have repositories on GitHub.');
+    throw new Error(t('tui:wizards.githubImport.noRepos'));
   }
 
   const choices = repos.map(formatRepoChoice);
 
   const selected = await select<string>({
-    message: 'Select a repository to import',
+    message: t('tui:wizards.githubImport.selectRepo'),
     choices,
     theme: shepTheme,
   });
@@ -152,7 +156,7 @@ async function promptForBrowse(listUseCase: ListGitHubRepositoriesUseCase): Prom
  */
 async function promptForDestination(): Promise<string | undefined> {
   const dest = await input({
-    message: 'Clone destination (leave empty for default)',
+    message: getTuiI18n().t('tui:wizards.githubImport.cloneDestination'),
     theme: shepTheme,
   });
 

@@ -71,7 +71,7 @@ export function BranchSyncStatus({
                     {baseBranch}
                   </code>
                   {syncStatus.ahead > 0 ? (
-                    <span className="text-muted-foreground ml-1">· {syncStatus.ahead} ahead</span>
+                    <span className="text-muted-foreground ms-1">· {syncStatus.ahead} ahead</span>
                   ) : null}
                 </span>
               </>
@@ -84,7 +84,7 @@ export function BranchSyncStatus({
                     {baseBranch}
                   </code>
                   {syncStatus.ahead > 0 ? (
-                    <span className="text-muted-foreground ml-1">· {syncStatus.ahead} ahead</span>
+                    <span className="text-muted-foreground ms-1">· {syncStatus.ahead} ahead</span>
                   ) : null}
                 </span>
               </>

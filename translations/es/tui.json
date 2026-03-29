@@ -1,0 +1,130 @@
+{
+  "prompts": {
+    "selectAgent": {
+      "message": "Selecciona tu agente de codificación AI",
+      "choices": {
+        "claudeCode": {
+          "name": "Claude Code",
+          "description": "CLI de Anthropic Claude Code"
+        },
+        "geminiCli": {
+          "name": "Gemini CLI",
+          "description": "CLI de Google Gemini"
+        },
+        "codexCli": {
+          "name": "Codex CLI",
+          "description": "Agente de terminal Codex CLI de OpenAI (modelos GPT)"
+        },
+        "cursor": {
+          "name": "Cursor",
+          "description": "Agente de codificación AI Cursor"
+        },
+        "devMock": {
+          "name": "Dev (Mock)",
+          "description": "Mock de desarrollo local — no requiere binario de agente"
+        },
+        "aider": {
+          "name": "Aider",
+          "disabled": "(Próximamente)"
+        },
+        "continue": {
+          "name": "Continue",
+          "disabled": "(Próximamente)"
+        }
+      }
+    },
+    "selectIde": {
+      "message": "Selecciona tu IDE preferido"
+    },
+    "selectAuthMethod": {
+      "message": "Selecciona el método de autenticación",
+      "choices": {
+        "session": {
+          "name": "Usar sesión existente",
+          "description": "Usar la autenticación integrada de Claude Code"
+        },
+        "token": {
+          "name": "Usar token de API",
+          "description": "Proporcionar una clave de API de Anthropic"
+        }
+      }
+    },
+    "enterApiKey": "Ingresa tu clave de API de Anthropic",
+    "prdReview": {
+      "reviewComplete": "Revisión completa{{changeLabel}}. ¿Qué te gustaría hacer?",
+      "changeLabel_one": " ({{count}} cambio)",
+      "changeLabel_other": " ({{count}} cambios)",
+      "approveAndContinue": "Aprobar y continuar",
+      "approveDescription": "Aceptar los requisitos y proceder a la investigación",
+      "rejectAndIterate": "Rechazar e iterar",
+      "rejectDescription": "Proporcionar comentarios y volver a ejecutar los requisitos",
+      "feedbackPrompt": "¿Qué necesita cambiar? (comentarios para re-iteración)",
+      "feedbackRequired": "Los comentarios son obligatorios para el rechazo"
+    },
+    "selectLanguage": {
+      "message": "Selecciona el idioma de visualización"
+    }
+  },
+  "wizards": {
+    "onboarding": {
+      "welcomeTitle": "Bienvenido a Shep AI CLI",
+      "welcomeSubtitle": "Configuremos tu entorno en 3 pasos rápidos.",
+      "prerequisiteWarning": "Prerrequisito: ",
+      "prerequisiteLabel": "GitHub CLI (gh)",
+      "prerequisiteDescription": "es necesario para las capacidades completas de auto-reparación de CI/CD.",
+      "installFrom": "Instálalo desde: ",
+      "installUrl": "https://cli.github.com/",
+      "setupComplete": "¡Configuración completa! Estás listo para usar Shep."
+    },
+    "agentConfig": {
+      "enterApiKey": "Ingresa tu clave de API de Anthropic"
+    },
+    "githubImport": {
+      "methodMessage": "¿Cómo te gustaría agregar un repositorio de GitHub?",
+      "pasteUrl": "Pegar una URL de GitHub",
+      "pasteUrlDescription": "Ingresa una URL de repositorio de GitHub o la forma abreviada propietario/repo",
+      "browseRepos": "Explorar mis repositorios",
+      "browseReposDescription": "Buscar y seleccionar de tus repositorios de GitHub",
+      "enterUrl": "Ingresa una URL de repositorio de GitHub o propietario/repo",
+      "urlRequired": "La URL es obligatoria",
+      "invalidUrlFormat": "Formato de URL de GitHub inválido. Usa https://github.com/propietario/repo o propietario/repo",
+      "selectRepo": "Selecciona un repositorio para importar",
+      "noRepos": "No se encontraron repositorios. Asegúrate de tener repositorios en GitHub.",
+      "cloneDestination": "Destino del clon (deja vacío para el predeterminado)"
+    },
+    "mergeReview": {
+      "message": "Revisa la fusión. ¿Qué te gustaría hacer?",
+      "approveAndMerge": "Aprobar y fusionar",
+      "approveDescription": "Aceptar los cambios y fusionar la rama",
+      "reject": "Rechazar",
+      "rejectDescription": "Proporcionar comentarios — la implementación iterará",
+      "rejectFeedback": "¿Qué necesita cambiar antes de fusionar?",
+      "approveComment": "¿Algún comentario? (opcional, presiona Enter para omitir)",
+      "feedbackRequired": "Los comentarios son obligatorios para el rechazo"
+    },
+    "planReview": {
+      "message": "Revisa el plan de implementación. ¿Qué te gustaría hacer?",
+      "approveAndContinue": "Aprobar y continuar",
+      "approveDescription": "Aceptar el plan y proceder a la implementación",
+      "rejectAndIterate": "Rechazar e iterar",
+      "rejectDescription": "Proporcionar comentarios y volver a ejecutar la planificación",
+      "rejectFeedback": "¿Qué necesita cambiar en el plan?",
+      "approveComment": "¿Algún comentario? (opcional, presiona Enter para omitir)",
+      "feedbackRequired": "Los comentarios son obligatorios para el rechazo"
+    },
+    "workflowDefaults": {
+      "message": "Selecciona los valores predeterminados del flujo de trabajo para nuevas funcionalidades",
+      "instructions": "(Espacio para alternar, Enter para confirmar)",
+      "allowPrd": "Permitir PRD",
+      "allowPrdDescription": "Auto-aprobar la fase de requisitos",
+      "allowPlan": "Permitir plan",
+      "allowPlanDescription": "Auto-aprobar la fase de planificación",
+      "allowMerge": "Permitir fusión",
+      "allowMergeDescription": "Auto-aprobar y auto-fusionar después de la implementación",
+      "pushOnFinish": "Push al finalizar",
+      "pushOnFinishDescription": "Enviar la rama al remoto cuando la implementación termine",
+      "createPr": "Crear PR",
+      "createPrDescription": "Abrir pull request cuando la implementación termine"
+    }
+  }
+}

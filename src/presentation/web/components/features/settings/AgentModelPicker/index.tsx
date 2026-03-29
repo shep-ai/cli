@@ -181,7 +181,7 @@ export function AgentModelPicker({
                     }}
                   >
                     <GroupIcon className="h-4 w-4 shrink-0" />
-                    <span className="flex-1 text-left">{group.label}</span>
+                    <span className="flex-1 text-start">{group.label}</span>
                     {isActive && !hasModels ? (
                       <Check className="text-primary h-3.5 w-3.5 shrink-0" />
                     ) : null}
@@ -215,7 +215,7 @@ export function AgentModelPicker({
                         key={m.id}
                         type="button"
                         className={cn(
-                          'flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left transition-colors',
+                          'flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-start transition-colors',
                           'hover:bg-accent hover:text-accent-foreground',
                           isSelected && 'bg-accent/50'
                         )}

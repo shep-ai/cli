@@ -11,6 +11,7 @@
  */
 
 import { Command } from 'commander';
+import { getCliI18n } from '../../i18n.js';
 import { createNewCommand } from './new.command.js';
 import { createLsCommand } from './ls.command.js';
 import { createShowCommand } from './show.command.js';
@@ -30,7 +31,7 @@ import { createUnarchiveCommand } from './unarchive.command.js';
  */
 export function createFeatCommand(): Command {
   return new Command('feat')
-    .description('Manage features through the SDLC lifecycle')
+    .description(getCliI18n().t('cli:commands.feat.description'))
     .addCommand(createNewCommand())
     .addCommand(createLsCommand())
     .addCommand(createShowCommand())

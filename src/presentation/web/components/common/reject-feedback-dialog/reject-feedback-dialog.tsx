@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,18 +16,17 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import type { RejectFeedbackDialogProps } from './reject-feedback-dialog-config';
 
-const DEFAULT_TITLE = 'Reject Requirements';
-const DEFAULT_DESCRIPTION =
-  'Provide feedback for the agent to address in the next iteration. Feedback is required.';
-
 export function RejectFeedbackDialog({
   open,
   onOpenChange,
   onConfirm,
   isSubmitting,
-  title = DEFAULT_TITLE,
-  description = DEFAULT_DESCRIPTION,
+  title,
+  description,
 }: RejectFeedbackDialogProps) {
+  const { t } = useTranslation('web');
+  const resolvedTitle = title ?? t('rejectFeedback.defaultTitle');
+  const resolvedDescription = description ?? t('rejectFeedback.defaultDescription');
   const [feedback, setFeedback] = useState('');
 
   // Reset feedback when dialog opens
@@ -42,12 +42,12 @@ export function RejectFeedbackDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
+          <AlertDialogTitle>{resolvedTitle}</AlertDialogTitle>
+          <AlertDialogDescription>{resolvedDescription}</AlertDialogDescription>
         </AlertDialogHeader>
         <Textarea
-          aria-label="Rejection feedback"
-          placeholder="Describe what needs to change..."
+          aria-label={t('rejectFeedback.ariaLabel')}
+          placeholder={t('rejectFeedback.placeholder')}
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           disabled={isSubmitting}
@@ -56,7 +56,7 @@ export function RejectFeedbackDialog({
         />
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isSubmitting} onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('rejectFeedback.cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
@@ -65,11 +65,11 @@ export function RejectFeedbackDialog({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Rejecting…
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                {t('rejectFeedback.rejecting')}
               </>
             ) : (
-              'Confirm Reject'
+              t('rejectFeedback.confirmReject')
             )}
           </AlertDialogAction>
         </AlertDialogFooter>

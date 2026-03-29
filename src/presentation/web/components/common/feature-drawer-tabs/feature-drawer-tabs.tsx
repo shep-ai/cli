@@ -417,7 +417,7 @@ export function FeatureDrawerTabs({
         {/* Integrated header: title + inline tabs + actions */}
         <div className="shrink-0 px-4 pt-4 pb-3" data-testid="feature-drawer-header">
           {/* Row 1: Feature name (left) + tab triggers (right) */}
-          <div className="flex items-baseline gap-4 pr-6">
+          <div className="flex items-baseline gap-4 pe-6">
             {featureName ? (
               <h2 className="text-foreground min-w-0 shrink truncate text-base font-semibold tracking-tight">
                 {featureName}

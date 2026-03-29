@@ -60,7 +60,7 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
         {/* Header with inline tabs */}
         <div className="shrink-0 px-4 pt-4 pb-3" data-testid="repository-drawer-header">
-          <div className="flex items-baseline gap-4 pr-6">
+          <div className="flex items-baseline gap-4 pe-6">
             <h2 className="text-foreground min-w-0 shrink truncate text-base font-semibold tracking-tight">
               {data.name}
             </h2>

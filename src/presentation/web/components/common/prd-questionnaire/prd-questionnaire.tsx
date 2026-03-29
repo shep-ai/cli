@@ -96,7 +96,7 @@ export function PrdQuestionnaire({
                   key={opt.id}
                   type="button"
                   className={cn(
-                    'border-border w-full overflow-hidden rounded-md border px-3 py-3 text-left text-xs transition-all',
+                    'border-border w-full overflow-hidden rounded-md border px-3 py-3 text-start text-xs transition-all',
                     'hover:border-primary/70 hover:bg-primary/5 group',
                     selected && 'border-primary bg-primary/5',
                     opt.isNew && 'animate-option-highlight'
@@ -148,7 +148,7 @@ export function PrdQuestionnaire({
               setCurrentStep((s) => s - 1);
             }}
           >
-            <ChevronLeft className="mr-1 h-4 w-4" />
+            <ChevronLeft className="me-1 h-4 w-4" />
             Previous
           </Button>
 
@@ -164,7 +164,7 @@ export function PrdQuestionnaire({
               }}
             >
               {selections[currentQuestion.id] ? 'Next' : 'Skip'}
-              <ChevronRight className="ml-1 h-4 w-4" />
+              <ChevronRight className="ms-1 h-4 w-4" />
             </Button>
           ) : null}
         </div>

@@ -249,6 +249,16 @@ export type ModelConfiguration = {
    */
   default: string;
 };
+export enum Language {
+  English = 'en',
+  Russian = 'ru',
+  Portuguese = 'pt',
+  Spanish = 'es',
+  Arabic = 'ar',
+  Hebrew = 'he',
+  French = 'fr',
+  German = 'de',
+}
 
 /**
  * User profile information
@@ -266,6 +276,10 @@ export type UserProfile = {
    * GitHub username (optional, for PR attribution)
    */
   githubUsername?: string;
+  /**
+   * Preferred UI language (default: English)
+   */
+  preferredLanguage?: Language;
 };
 export enum EditorType {
   VsCode = 'vscode',

@@ -27,7 +27,7 @@ export function CategoryFilter({ activeCategory, onCategoryChange, counts }: Cat
         >
           {label}
           {counts && value ? (
-            <span className="ml-1 text-xs opacity-70">({counts[value]})</span>
+            <span className="ms-1 text-xs opacity-70">({counts[value]})</span>
           ) : null}
         </Button>
       ))}

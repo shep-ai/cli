@@ -133,7 +133,7 @@ export function FeatureNode({
       {/* Action buttons — centered as a group to the left of the node.
           Tooltip side convention: left-side buttons use side="left", right-side buttons use side="right". */}
       <div
-        className="absolute top-0 bottom-0 -left-14 flex items-center justify-center pr-3 pl-4 opacity-0 transition-opacity group-hover:opacity-100"
+        className="absolute -start-14 top-0 bottom-0 flex items-center justify-center ps-4 pe-3 opacity-0 transition-opacity group-hover:opacity-100"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col items-center gap-2">
@@ -262,10 +262,10 @@ export function FeatureNode({
         className={cn(
           'bg-card flex min-h-35 w-97 cursor-pointer flex-col rounded-lg border p-3 shadow-sm transition-[border-color] duration-200 dark:bg-neutral-800/80',
           data.state === 'action-required' &&
-            'border-l-[3px] border-l-rose-400 dark:border-l-amber-500',
+            'border-s-[3px] border-s-rose-400 dark:border-s-amber-500',
           data.state === 'action-required' &&
             selected &&
-            'border-t-rose-400 border-r-rose-400 border-b-rose-400 dark:border-t-amber-500 dark:border-r-amber-500 dark:border-b-amber-500',
+            'border-e-rose-400 border-t-rose-400 border-b-rose-400 dark:border-e-amber-500 dark:border-t-amber-500 dark:border-b-amber-500',
           selected &&
             data.state !== 'action-required' &&
             'border-blue-400 dark:border-amber-500/60',
@@ -275,7 +275,7 @@ export function FeatureNode({
       >
         {/* Phase dot + label — absolute top-right corner (hidden during creation) */}
         {data.state !== 'creating' ? (
-          <div className="absolute top-3 right-4">
+          <div className="absolute end-4 top-3">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -306,7 +306,7 @@ export function FeatureNode({
         ) : null}
 
         {/* Agent icon + Name */}
-        <div className="flex items-center gap-1.5 pr-24">
+        <div className="flex items-center gap-1.5 pe-24">
           {data.agentType ? (
             <AgentIcon agentType={data.agentType} className="h-4 w-4 shrink-0" />
           ) : null}

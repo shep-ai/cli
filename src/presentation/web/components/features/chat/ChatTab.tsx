@@ -191,7 +191,7 @@ function ChatHeader({
       </div>
 
       {/* Right — actions with separator */}
-      <div className="flex items-center gap-1 pl-2">
+      <div className="flex items-center gap-1 ps-2">
         {sessionInfo ? (
           <>
             <ToolbarButton

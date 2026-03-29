@@ -269,7 +269,7 @@ function FeaturePrInfo({
           <div data-testid="pr-merge-conflict" className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-medium">Merge Status</span>
             <Badge className="border-transparent bg-orange-50 text-orange-700 hover:bg-orange-50">
-              <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+              <AlertTriangle className="me-1 h-3.5 w-3.5" />
               Conflicts
             </Badge>
           </div>

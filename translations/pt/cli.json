@@ -1,0 +1,613 @@
+{
+  "commands": {
+    "settings": {
+      "description": "Gerenciar configurações globais do Shep",
+      "wizardFailed": "O assistente de configurações falhou",
+      "show": {
+        "description": "Exibir configurações atuais",
+        "formatOption": "Formato de saída: table|json|yaml",
+        "failedToLoad": "Falha ao carregar configurações"
+      },
+      "init": {
+        "description": "Inicializar configurações para os padrões",
+        "forceOption": "Pular confirmação",
+        "resetWarning": "Isso irá redefinir todas as configurações para os padrões. Considere fazer backup de ~/.shep/data primeiro.",
+        "confirmPrompt": "Tem certeza? (s/N): ",
+        "cancelled": "Operação cancelada.",
+        "success": "Configurações inicializadas para os padrões.",
+        "failed": "Falha ao inicializar configurações"
+      },
+      "agent": {
+        "description": "Configurar agente de codificação AI",
+        "agentOption": "Tipo de agente (ex: claude-code)",
+        "authOption": "Método de autenticação (session ou token)",
+        "tokenOption": "Token de API para autenticação baseada em token",
+        "authRequired": "--auth é obrigatório ao usar a flag --agent",
+        "success": "Agente configurado: {{type}} ({{authMethod}})",
+        "cancelled": "Configuração cancelada.",
+        "failed": "Falha ao configurar agente"
+      },
+      "ide": {
+        "description": "Configurar IDE/editor preferido",
+        "editorOption": "Nome do IDE/editor ({{editors}})",
+        "unknownEditor": "Editor desconhecido \"{{editor}}\". Válidos: {{validEditors}}",
+        "notInPath": "Editor '{{editor}}' não encontrado no PATH. O editor será salvo mesmo assim.",
+        "success": "Editor padrão definido como: {{editor}}",
+        "cancelled": "Configuração cancelada.",
+        "failed": "Falha ao configurar IDE"
+      },
+      "model": {
+        "description": "Configurar o modelo LLM padrão para execuções do agente",
+        "selectPrompt": "Selecione o modelo LLM padrão",
+        "noModels": "Nenhum modelo disponível para o agente \"{{agentType}}\". Configure um agente diferente com: shep settings agent",
+        "success": "Modelo configurado: {{model}}",
+        "cancelled": "Configuração cancelada.",
+        "failed": "Falha ao configurar modelo"
+      },
+      "workflow": {
+        "description": "Configurar comportamento padrão do fluxo de trabalho para novos recursos",
+        "allowPrdOption": "Aprovar automaticamente a fase de requisitos",
+        "allowPlanOption": "Aprovar automaticamente a fase de planejamento",
+        "allowMergeOption": "Aprovar automaticamente e fazer merge após a implementação",
+        "allowAllOption": "Ativar todas as portas de aprovação",
+        "pushOption": "Enviar branch para o remoto ao concluir",
+        "noPushOption": "Não enviar branch para o remoto ao concluir",
+        "prOption": "Abrir PR ao concluir",
+        "noPrOption": "Não abrir PR ao concluir",
+        "success": "Padrões de fluxo de trabalho atualizados: {{summary}}",
+        "summaryNone": "nenhum",
+        "allowPrd": "Permitir PRD",
+        "allowPlan": "Permitir Plano",
+        "allowMerge": "Permitir Merge",
+        "push": "Push",
+        "pr": "PR",
+        "cancelled": "Configuração cancelada.",
+        "failed": "Falha ao configurar padrões de fluxo de trabalho"
+      },
+      "language": {
+        "description": "Configurar idioma de exibição",
+        "selectPrompt": "Selecione o idioma de exibição",
+        "success": "Idioma definido como: {{language}}",
+        "cancelled": "Configuração cancelada.",
+        "failed": "Falha ao configurar idioma"
+      }
+    },
+    "version": {
+      "description": "Exibir informações da versão",
+      "nodeLabel": "Node:",
+      "platformLabel": "Plataforma:"
+    },
+    "start": {
+      "description": "Iniciar a interface web do Shep como daemon em segundo plano",
+      "portOption": "Número da porta (1024-65535)",
+      "portValidation": "A porta deve ser um número inteiro entre 1024 e 65535"
+    },
+    "stop": {
+      "description": "Parar o daemon da interface web do Shep em execução",
+      "noDaemonRunning": "Nenhum daemon do Shep está em execução."
+    },
+    "restart": {
+      "description": "Reiniciar graciosamente o daemon da interface web do Shep (inicia se não estiver em execução)",
+      "portOption": "Número da porta (1024-65535)",
+      "portValidation": "A porta deve ser um número inteiro entre 1024 e 65535",
+      "daemonNotRunning": "O daemon não estava em execução — iniciando..."
+    },
+    "status": {
+      "description": "Mostrar o status do daemon da interface web do Shep",
+      "logsOption": "Mostrar as últimas N linhas do log do daemon (padrão 50)",
+      "followOption": "Acompanhar a saída do log do daemon em tempo real",
+      "noLogFile": "Nenhum arquivo de log do daemon encontrado.",
+      "expectedAt": "Esperado em: {{path}}",
+      "logEmpty": "O arquivo de log está vazio.",
+      "followHint": "--- acompanhando daemon.log (Ctrl+C para parar) ---",
+      "notRunning": "O daemon do Shep não está em execução.",
+      "startHint": "Execute `shep start` para iniciá-lo.",
+      "title": "Status do Daemon Shep",
+      "pidLabel": "PID",
+      "portLabel": "Porta",
+      "urlLabel": "URL",
+      "startedLabel": "Iniciado",
+      "uptimeLabel": "Tempo ativo",
+      "cpuLabel": "CPU %",
+      "memoryLabel": "Memória (RSS)",
+      "envTitle": "Ambiente",
+      "shepHomeLabel": "Diretório Shep",
+      "cliVersionLabel": "Versão do CLI",
+      "nodeVersionLabel": "Versão do Node",
+      "dbPathLabel": "Caminho do BD",
+      "logFileLabel": "Arquivo de Log",
+      "daemonConfigLabel": "Configuração do Daemon"
+    },
+    "ui": {
+      "description": "Iniciar a interface web do Shep",
+      "portOption": "Número da porta (1024-65535)",
+      "noOpenOption": "Não abrir o navegador automaticamente",
+      "portValidation": "A porta deve ser um número inteiro entre 1024 e 65535",
+      "heading": "Interface Web Shep",
+      "startingDev": "Iniciando servidor web (modo desenvolvimento)...",
+      "starting": "Iniciando servidor web...",
+      "serverReady": "Servidor pronto em {{url}}",
+      "pressCtrlC": "Pressione Ctrl+C para parar",
+      "shuttingDown": "Encerrando...",
+      "failedToStart": "Falha ao iniciar a interface web"
+    },
+    "run": {
+      "description": "Executar um fluxo de trabalho de agente AI",
+      "agentArgument": "Nome do agente a executar (ex: analyze-repository)",
+      "promptOption": "Prompt para enviar ao agente",
+      "promptDefault": "Analisar este repositório",
+      "repoOption": "Caminho do repositório (padrão: diretório atual)",
+      "streamOption": "Transmitir saída em tempo real",
+      "runningAgent": "Executando agente:",
+      "repositoryLabel": "Repositório: {{path}}",
+      "promptLabel": "Prompt: {{prompt}}",
+      "agentCompleted": "Agente {{name}} concluído",
+      "resultHeading": "Resultado:",
+      "noOutput": "Sem saída",
+      "agentWorking": "Agente {{name}} está trabalhando...",
+      "agentFailed": "Execução do agente falhou",
+      "failedToRun": "Falha ao executar agente"
+    },
+    "install": {
+      "description": "Instalar uma ferramenta de desenvolvimento",
+      "toolArgument": "Ferramenta para instalar ({{tools}})",
+      "howOption": "Mostrar instruções de instalação sem executar",
+      "runWithTool": "Execute {{command}} com uma destas opções:",
+      "unrecognizedTool": "Hmm, não reconheço '{{tool}}'. Você quis dizer uma destas?",
+      "alreadyInstalled": "{{tool}} já está instalado",
+      "noAutoInstall": "{{tool}} não suporta instalação automatizada",
+      "installSuccess": "{{tool}} instalado com sucesso",
+      "installFailed": "Falha ao instalar {{tool}}: {{error}}",
+      "failedToInstall": "Falha ao instalar {{tool}}",
+      "instructionsHeading": "Instruções de Instalação para {{name}}",
+      "nameLabel": "Nome:",
+      "summaryLabel": "Resumo:",
+      "descriptionLabel": "Descrição:",
+      "tagsLabel": "Tags:",
+      "binaryLabel": "Binário:",
+      "packageManagerLabel": "Gerenciador de Pacotes:",
+      "installCommandsHeading": "Comandos de Instalação",
+      "verifyHeading": "Verificar Instalação",
+      "openDirHeading": "Abrir Diretório",
+      "docsHeading": "Documentação"
+    },
+    "ide": {
+      "description": "Abrir um worktree de recurso no seu IDE",
+      "featArgument": "ID ou prefixo do recurso",
+      "openInOption": "Abrir em {{name}}",
+      "openedSuccess": "Abriu {{editor}} em {{path}}",
+      "failedToOpen": "Falha ao abrir IDE"
+    },
+    "tools": {
+      "description": "Gerenciar ferramentas de desenvolvimento",
+      "list": {
+        "description": "Listar todas as ferramentas disponíveis com seu status de instalação",
+        "installed": "instalado",
+        "missing": "ausente",
+        "failedToList": "Erro ao listar ferramentas: {{error}}"
+      }
+    },
+    "feat": {
+      "description": "Gerenciar recursos através do ciclo de vida SDLC",
+      "new": {
+        "description": "Criar um novo recurso",
+        "descriptionArgument": "Descrição do recurso",
+        "repoOption": "Caminho do repositório (padrão: diretório atual)",
+        "pushOption": "Enviar branch para o remoto após a implementação",
+        "prOption": "Abrir PR quando a implementação for concluída (implica --push)",
+        "noPrOption": "Não abrir PR quando a implementação for concluída",
+        "allowPrdOption": "Aprovar automaticamente até os requisitos, pausar depois",
+        "allowPlanOption": "Aprovar automaticamente até o planejamento, pausar na implementação",
+        "allowMergeOption": "Aprovar automaticamente a fase de merge",
+        "allowAllOption": "Executar totalmente autônomo (sem pausas de aprovação)",
+        "parentOption": "ID do recurso pai (prefixo completo ou parcial)",
+        "pendingOption": "Criar recurso sem iniciar o agente",
+        "fastOption": "Pular fases do SDLC e implementar diretamente a partir do seu prompt",
+        "modelOption": "Identificador do modelo LLM para esta execução (ex: claude-opus-4-6)",
+        "attachOption": "Anexar um arquivo (repetível)",
+        "parentNotFound": "Recurso pai não encontrado: {{id}}",
+        "attachmentNotFound": "Anexo não encontrado: {{path}}",
+        "spinnerText": "Pensando",
+        "featureCreated": "Recurso criado",
+        "blockedInfo": "Recurso criado em estado Bloqueado — aguardando o pai atingir a Implementação",
+        "pendingInfo": "Recurso criado em estado Pendente — execute {{command}} para começar",
+        "idLabel": "ID:",
+        "nameLabel": "Nome:",
+        "branchLabel": "Branch:",
+        "statusLabel": "Status:",
+        "worktreeLabel": "Worktree:",
+        "specLabel": "Spec:",
+        "agentLabel": "Agente:",
+        "pendingStatus": "pendente",
+        "spawnedStatus": "iniciado",
+        "pushPr": "push + PR",
+        "pushOnly": "somente push",
+        "pushLabel": "Push:",
+        "reviewLabel": "Revisão:",
+        "fullyAutonomous": "totalmente autônomo",
+        "pauseAfterEvery": "pausar após cada fase",
+        "autoApprove": "aprovação automática: {{approved}}",
+        "failedToCreate": "Falha ao criar recurso"
+      },
+      "ls": {
+        "description": "Listar recursos",
+        "repoOption": "Filtrar por caminho do repositório",
+        "includeDeletedOption": "Incluir recursos excluídos",
+        "showArchivedOption": "Incluir recursos arquivados",
+        "noFeatures": "Nenhum recurso encontrado",
+        "featuresHeading": "Recursos ({{count}})",
+        "nameHeader": "NOME",
+        "statusHeader": "STATUS",
+        "gatesHeader": "R P M \u2191",
+        "elapsedHeader": "TEMPO",
+        "doneHeader": "FEITO",
+        "failedToList": "Falha ao listar recursos"
+      },
+      "show": {
+        "description": "Mostrar detalhes do recurso",
+        "idArgument": "ID do recurso",
+        "title": "Recurso: {{name}}",
+        "idLabel": "ID",
+        "slugLabel": "Slug",
+        "descriptionLabel": "Descrição",
+        "userQueryLabel": "Consulta do Usuário",
+        "repositoryLabel": "Repositório",
+        "branchLabel": "Branch",
+        "statusLabel": "Status",
+        "lifecycleLabel": "Ciclo de Vida",
+        "agentLabel": "Agente",
+        "modelLabel": "Modelo",
+        "worktreeLabel": "Worktree",
+        "specDirLabel": "Diretório Spec",
+        "agentRunLabel": "Execução do Agente",
+        "timestampsTitle": "Timestamps",
+        "createdLabel": "Criado",
+        "updatedLabel": "Atualizado",
+        "workflowTitle": "Fluxo de Trabalho",
+        "pushLabel": "Push",
+        "openPrLabel": "Abrir PR",
+        "gatesLabel": "Portas",
+        "gatesNotSet": "não definido",
+        "pullRequestTitle": "Pull Request",
+        "urlLabel": "URL",
+        "numberLabel": "Número",
+        "prStatusLabel": "Status",
+        "commitLabel": "Commit",
+        "ciLabel": "CI",
+        "ciFixesLabel": "Correções CI",
+        "ciFixAttempts": "{{count}} tentativa(s)",
+        "yesValue": "Sim",
+        "noValue": "Não",
+        "planTitle": "Plano",
+        "planState": "Estado   {{state}}",
+        "planTasks": "Tarefas   {{count}}",
+        "messagesTitle": "Mensagens ({{count}})",
+        "phaseTimingTitle": "Tempo por Fase",
+        "ciFixHistoryTitle": "Histórico de Correções CI",
+        "awaitingApprovalTitle": "Aguardando Aprovação",
+        "awaitingApprovalMessage": "{{phase}} está aguardando sua revisão.",
+        "awaitingApprovalApprove": "Retomar o agente",
+        "awaitingApprovalReject": "Cancelar com feedback",
+        "currentPhase": "fase atual",
+        "failedToShow": "Falha ao mostrar recurso"
+      },
+      "start": {
+        "description": "Iniciar um recurso pendente (iniciar o agente)",
+        "idArgument": "ID do recurso (ou prefixo)",
+        "spinnerText": "Iniciando recurso",
+        "blockedWarning": "Recurso passou para Bloqueado — o pai ainda não atingiu a Implementação",
+        "featureStarted": "Recurso iniciado",
+        "featureLabel": "Recurso:",
+        "branchLabel": "Branch:",
+        "statusLabel": "Status:",
+        "agentLabel": "Agente:",
+        "spawnedStatus": "iniciado",
+        "failedToStart": "Falha ao iniciar recurso"
+      },
+      "approve": {
+        "description": "Aprovar um recurso aguardando revisão",
+        "idArgument": "ID do recurso (auto-resolve se omitido)",
+        "approvedSuccess": "Aprovado: {{name}}",
+        "phaseLabel": "Fase:",
+        "approved": "aprovado",
+        "agentLabel": "Agente:",
+        "agentResumed": "retomado",
+        "failedToApprove": "Falha ao aprovar recurso"
+      },
+      "reject": {
+        "description": "Rejeitar um recurso aguardando revisão",
+        "idArgument": "ID do recurso (auto-resolve se omitido)",
+        "reasonOption": "Feedback de rejeição (obrigatório)",
+        "rejectedWarning": "Rejeitado: {{name}}",
+        "reasonLabel": "Motivo:",
+        "iterationLabel": "Iteração:",
+        "iterationWarning": "Aviso: 5+ iterações. Considere refinar o prompt.",
+        "agentLabel": "Agente:",
+        "agentRerunning": "reexecutando requisitos",
+        "failedToReject": "Falha ao rejeitar recurso"
+      },
+      "del": {
+        "description": "Excluir um recurso",
+        "idArgument": "ID ou prefixo do recurso",
+        "forceOption": "Pular confirmação",
+        "noCleanupOption": "Pular limpeza de worktree e branch",
+        "noClosePrOption": "Manter o pull request aberto",
+        "confirmDelete": "Excluir recurso \"{{name}}\"?",
+        "cancelled": "Cancelado",
+        "confirmCleanup": "Também limpar worktree e branches?",
+        "confirmClosePr": "Também fechar o pull request? (PR #{{number}})",
+        "featureDeleted": "Recurso excluído",
+        "nameLabel": "Nome:",
+        "branchLabel": "Branch:",
+        "cleanupLabel": "Limpeza:",
+        "cleanupDetail": "worktree, branch local, branch remota",
+        "prLabel": "PR:",
+        "prClosed": "#{{number}} fechado",
+        "failedToDelete": "Falha ao excluir recurso"
+      },
+      "resume": {
+        "description": "Retomar um agente de recurso parado ou com falha",
+        "idArgument": "ID do recurso (ou prefixo)",
+        "agentResumed": "Agente do recurso retomado",
+        "featureLabel": "Recurso:",
+        "runIdLabel": "ID da Execução:",
+        "failedToResume": "Falha ao retomar recurso"
+      },
+      "review": {
+        "description": "Revisão interativa de um recurso aguardando aprovação",
+        "idArgument": "ID do recurso (auto-resolve se omitido)",
+        "reviewing": "Revisando: {{name}}",
+        "phaseLabel": "Fase:",
+        "branchLabel": "Branch:",
+        "approvedSuccess": "Aprovado: {{name}}",
+        "changesLabel": "Alterações:",
+        "changesUpdated": "{{count}} seleção(ões) atualizada(s)",
+        "commentLabel": "Comentário:",
+        "agentLabel": "Agente:",
+        "proceedingTo": "prosseguindo para {{phase}}",
+        "rejectedWarning": "Rejeitado: {{name}}",
+        "feedbackLabel": "Feedback:",
+        "iterationLabel": "Iteração:",
+        "iterationWarning": "Aviso: 5+ iterações. Considere refinar o prompt.",
+        "agentRerunning": "reexecutando {{phase}}",
+        "failedToReview": "Falha ao revisar recurso"
+      },
+      "logs": {
+        "description": "Visualizar logs do agente do recurso",
+        "idArgument": "ID do recurso (ou prefixo)",
+        "followOption": "Acompanhar saída do log (como tail -f)",
+        "linesOption": "Número de linhas a exibir do final",
+        "noAgentRun": "Recurso \"{{name}}\" não tem execução de agente",
+        "failedToRead": "Falha ao ler logs do recurso"
+      },
+      "adopt": {
+        "description": "Adotar uma branch existente como recurso rastreado",
+        "branchArgument": "Nome da branch a adotar",
+        "repoOption": "Caminho do repositório (padrão: diretório atual)",
+        "spinnerText": "Adotando branch",
+        "branchAdopted": "Branch adotada",
+        "idLabel": "ID:",
+        "nameLabel": "Nome:",
+        "branchLabel": "Branch:",
+        "statusLabel": "Status:",
+        "prLabel": "PR:",
+        "worktreeLabel": "Worktree:",
+        "failedToAdopt": "Falha ao adotar branch"
+      },
+      "archive": {
+        "description": "Arquivar um recurso para ocultá-lo do canvas",
+        "idArgument": "ID ou prefixo do recurso",
+        "forceOption": "Pular confirmação",
+        "confirmArchive": "Arquivar recurso \"{{name}}\"?",
+        "cancelled": "Cancelado",
+        "featureArchived": "Recurso arquivado",
+        "nameLabel": "Nome:",
+        "failedToArchive": "Falha ao arquivar recurso"
+      },
+      "unarchive": {
+        "description": "Restaurar um recurso arquivado ao seu estado anterior",
+        "idArgument": "ID ou prefixo do recurso",
+        "featureUnarchived": "Recurso desarquivado",
+        "nameLabel": "Nome:",
+        "restoredLabel": "Restaurado:",
+        "failedToUnarchive": "Falha ao desarquivar recurso"
+      },
+      "resolveWaiting": {
+        "featureNotFound": "Recurso não encontrado: \"{{id}}\"",
+        "noAgentRun": "Recurso \"{{name}}\" não tem execução de agente",
+        "notWaitingForApproval": "Recurso \"{{name}}\" não está aguardando aprovação (status: {{status}})",
+        "noFeaturesWaiting": "Nenhum recurso aguardando aprovação neste repositório",
+        "multipleFeaturesWaiting": "Múltiplos recursos aguardando aprovação. Especifique um:"
+      }
+    },
+    "repo": {
+      "description": "Gerenciar repositórios rastreados",
+      "add": {
+        "description": "Importar um repositório GitHub (clonar e registrar)",
+        "urlOption": "URL do repositório GitHub ou abreviação proprietário/repo",
+        "destOption": "Substituir diretório de destino do clone",
+        "importSuccess": "Repositório importado: {{name}}",
+        "pathInfo": "Caminho: {{path}}",
+        "authError": "GitHub CLI não está autenticado. Execute `gh auth login` para entrar.",
+        "invalidUrl": "URL do GitHub inválida: {{error}}",
+        "supportedFormats": "Formatos suportados: https://github.com/proprietário/repo, git@github.com:proprietário/repo.git, ou proprietário/repo",
+        "cloneFailed": "Clone falhou: {{error}}",
+        "failedToImport": "Falha ao importar repositório"
+      },
+      "ls": {
+        "description": "Listar repositórios rastreados",
+        "title": "Repositórios",
+        "idColumn": "ID",
+        "nameColumn": "Nome",
+        "featuresColumn": "Recursos",
+        "pathColumn": "Caminho",
+        "createdColumn": "Criado",
+        "noRepos": "Nenhum repositório encontrado",
+        "failedToList": "Falha ao listar repositórios"
+      },
+      "show": {
+        "description": "Exibir detalhes de um repositório rastreado",
+        "idArgument": "ID do repositório (ou prefixo)",
+        "title": "Repositório",
+        "timestampsTitle": "Timestamps",
+        "createdLabel": "Criado",
+        "updatedLabel": "Atualizado",
+        "deletedLabel": "Excluído",
+        "featuresTitle": "Recursos ({{count}})",
+        "noFeatures": "Nenhum recurso encontrado",
+        "failedToShow": "Falha ao mostrar repositório"
+      },
+      "resolve": {
+        "multipleMatch": "Múltiplos repositórios correspondem ao prefixo \"{{id}}\": {{matches}}",
+        "notFound": "Repositório não encontrado: {{id}}"
+      }
+    },
+    "agent": {
+      "description": "Gerenciar e visualizar execuções de agentes",
+      "show": {
+        "description": "Exibir detalhes de uma execução de agente",
+        "idArgument": "ID da execução do agente (ou prefixo)",
+        "title": "Execução do Agente",
+        "pathsTitle": "Caminhos",
+        "timingTitle": "Tempo",
+        "failedToShow": "Falha ao mostrar execução do agente"
+      },
+      "ls": {
+        "description": "Listar todas as execuções de agentes",
+        "title": "Execuções de Agentes",
+        "idColumn": "ID",
+        "agentColumn": "Agente",
+        "statusColumn": "Status",
+        "durationColumn": "Duração",
+        "pidColumn": "PID",
+        "warningColumn": "Aviso",
+        "noRuns": "Nenhuma execução de agente encontrada",
+        "failedToList": "Falha ao listar execuções de agentes"
+      },
+      "stop": {
+        "description": "Parar um agente em execução",
+        "idArgument": "ID da execução do agente (ou prefixo)",
+        "stoppedSuccess": "Parado {{id}}: {{reason}}",
+        "failedToStop": "Falha ao parar execução do agente"
+      },
+      "logs": {
+        "description": "Visualizar logs de execução do agente",
+        "idArgument": "ID da execução do agente (ou prefixo)",
+        "followOption": "Acompanhar saída do log (como tail -f)",
+        "linesOption": "Número de linhas a exibir do final",
+        "failedToRead": "Falha ao ler logs do agente"
+      },
+      "delete": {
+        "description": "Excluir um registro de execução de agente",
+        "idArgument": "ID da execução do agente (ou prefixo)",
+        "forceOption": "Forçar exclusão mesmo se estiver em execução",
+        "deletedSuccess": "Excluído {{id}}",
+        "failedToDelete": "Falha ao excluir execução do agente"
+      },
+      "approve": {
+        "description": "Aprovar uma execução de agente pausada e retomar a execução",
+        "idArgument": "ID da execução do agente (ou prefixo)",
+        "approvedSuccess": "Aprovado {{id}}: {{reason}}",
+        "failedToApprove": "Falha ao aprovar execução do agente"
+      },
+      "reject": {
+        "description": "Rejeitar uma execução de agente pausada e cancelá-la",
+        "idArgument": "ID da execução do agente (ou prefixo)",
+        "reasonOption": "Motivo da rejeição",
+        "rejectedSuccess": "Rejeitado {{id}}: {{reason}}",
+        "failedToReject": "Falha ao rejeitar execução do agente"
+      },
+      "resolve": {
+        "multipleMatch": "Múltiplas execuções correspondem ao prefixo \"{{id}}\": {{matches}}",
+        "notFound": "Execução de agente não encontrada: {{id}}"
+      }
+    },
+    "session": {
+      "description": "Gerenciar e visualizar sessões do provedor de agentes CLI",
+      "ls": {
+        "description": "Listar sessões do provedor de agentes CLI",
+        "claudeCodeOption": "Listar sessões para Claude Code",
+        "cursorCliOption": "Listar sessões para Cursor CLI",
+        "geminiCliOption": "Listar sessões para Gemini CLI",
+        "limitOption": "Número máximo de sessões a exibir (0 = todas)",
+        "flatOption": "Mostrar lista plana sem agrupamento",
+        "oneProviderOnly": "Apenas uma flag de provedor pode ser especificada por vez",
+        "noSessions": "Nenhuma sessão encontrada",
+        "failedToList": "Falha ao listar sessões"
+      },
+      "show": {
+        "description": "Exibir detalhes de uma sessão do provedor de agentes",
+        "idArgument": "ID da sessão",
+        "claudeCodeOption": "Consultar sessões do Claude Code",
+        "cursorCliOption": "Consultar sessões do Cursor CLI",
+        "geminiCliOption": "Consultar sessões do Gemini CLI",
+        "messagesOption": "Número de mensagens a exibir (0 = todas)",
+        "oneProviderOnly": "Apenas uma flag de provedor pode ser especificada por vez",
+        "sessionNotFound": "Sessão não encontrada: {{error}}",
+        "failedToShow": "Falha ao mostrar sessão",
+        "title": "Sessão",
+        "noMessages": "Nenhuma mensagem nesta sessão",
+        "noDisplayableMessages": "Nenhuma mensagem exibível nesta sessão",
+        "messageCount": "{{count}} mensagens",
+        "showingMessages": "Mostrando as primeiras {{first}} e últimas {{last}} de {{total}} mensagens",
+        "messagesSkipped": "··· {{count}} mensagens ignoradas ···",
+        "userLabel": "Você",
+        "assistantLabel": "Assistente",
+        "toolUsage": "Uso de Ferramentas"
+      }
+    },
+    "upgrade": {
+      "description": "Atualizar o Shep CLI para a versão mais recente",
+      "versionCheckTimeout": "Não foi possível completar a verificação de versão (tempo esgotado)",
+      "versionCheckFailed": "Não foi possível completar a verificação de versão",
+      "alreadyUpToDate": "Já está atualizado (v{{version}})",
+      "upgradingFromTo": "Atualizando de v{{current}} para v{{latest}}",
+      "upgradingToLatest": "Atualizando de v{{current}} para a mais recente",
+      "stoppingDaemon": "Parando daemon antes da atualização...",
+      "restartingDaemon": "Reiniciando daemon...",
+      "daemonRestarted": "Daemon reiniciado com sucesso.",
+      "upgradeSuccess": "Shep CLI atualizado com sucesso",
+      "upgradeFailed": "Atualização falhou",
+      "upgradeFailedDaemonRestored": "Atualização falhou — daemon restaurado na versão anterior."
+    },
+    "_serve": {
+      "description": "Iniciar o servidor web daemon (apenas uso interno)",
+      "portOption": "Porta para escutar",
+      "portValidation": "A porta deve ser um número inteiro entre 1024 e 65535"
+    }
+  },
+  "ui": {
+    "installMessages": {
+      "alreadyInstalled": "{{tool}} já está instalado",
+      "installSuccess": "{{tool}} instalado com sucesso",
+      "installFailed": "Falha ao instalar {{tool}}: {{error}}",
+      "unknownTool": "Ferramenta desconhecida: \"{{tool}}\". Disponíveis: {{available}}",
+      "checkingAvailability": "Verificando se {{tool}} está disponível...",
+      "installingHeading": "Instalando {{tool}}"
+    },
+    "daemon": {
+      "alreadyRunning": "O Shep já está em execução em {{url}}",
+      "heading": "Interface Web Shep",
+      "startingServer": "Iniciando servidor",
+      "daemonSpawned": "Daemon iniciado em {{url}}",
+      "serverReady": "Servidor pronto em {{url}}",
+      "serverMayBeStarting": "O servidor pode ainda estar iniciando em {{url}}",
+      "daemonFailed": "O daemon falhou ao iniciar (código de saída {{code}}).",
+      "checkLogs": "Verifique os logs: {{path}}",
+      "stoppingDaemon": "Parando daemon do Shep (PID {{pid}})...",
+      "sigkillFallback": "O daemon não parou graciosamente, enviando SIGKILL...",
+      "daemonStopped": "Daemon do Shep parado."
+    },
+    "logViewer": {
+      "noLogFile": "Nenhum arquivo de log encontrado para {{label}}",
+      "expectedAt": "Esperado: {{path}}",
+      "logEmpty": "O arquivo de log está vazio para {{label}}"
+    }
+  },
+  "bootstrap": {
+    "failedDatabase": "Falha ao inicializar banco de dados",
+    "failedSettings": "Falha ao inicializar configurações",
+    "unexpectedError": "Ocorreu um erro inesperado",
+    "unhandledRejection": "Rejeição de promise não tratada"
+  }
+}

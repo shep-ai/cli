@@ -1,0 +1,109 @@
+{
+  "prompts": {
+    "selectAgent": {
+      "message": "Wählen Sie Ihren KI-Coding-Agenten",
+      "choices": {
+        "claudeCode": { "name": "Claude Code", "description": "Anthropic Claude Code CLI" },
+        "geminiCli": { "name": "Gemini CLI", "description": "Google Gemini CLI" },
+        "codexCli": {
+          "name": "Codex CLI",
+          "description": "OpenAI Codex CLI Terminal-Agent (GPT-Modelle)"
+        },
+        "cursor": { "name": "Cursor", "description": "Cursor KI-Coding-Agent" },
+        "devMock": {
+          "name": "Dev (Mock)",
+          "description": "Lokaler Entwicklungs-Mock — kein Agent-Binary erforderlich"
+        },
+        "aider": { "name": "Aider", "disabled": "(Demnächst verfügbar)" },
+        "continue": { "name": "Continue", "disabled": "(Demnächst verfügbar)" }
+      }
+    },
+    "selectIde": { "message": "Wählen Sie Ihre bevorzugte IDE" },
+    "selectAuthMethod": {
+      "message": "Wählen Sie die Authentifizierungsmethode",
+      "choices": {
+        "session": {
+          "name": "Bestehende Sitzung verwenden",
+          "description": "Claude Code integrierte Authentifizierung verwenden"
+        },
+        "token": {
+          "name": "API-Token verwenden",
+          "description": "Einen Anthropic API-Schlüssel angeben"
+        }
+      }
+    },
+    "enterApiKey": "Geben Sie Ihren Anthropic API-Schlüssel ein",
+    "prdReview": {
+      "reviewComplete": "Überprüfung abgeschlossen{{changeLabel}}. Was möchten Sie tun?",
+      "changeLabel_one": " ({{count}} Änderung)",
+      "changeLabel_other": " ({{count}} Änderungen)",
+      "approveAndContinue": "Genehmigen und fortfahren",
+      "approveDescription": "Anforderungen akzeptieren und mit der Recherche fortfahren",
+      "rejectAndIterate": "Ablehnen und überarbeiten",
+      "rejectDescription": "Feedback geben und Anforderungen erneut ausführen",
+      "feedbackPrompt": "Was muss geändert werden? (Feedback zur Überarbeitung)",
+      "feedbackRequired": "Feedback ist für eine Ablehnung erforderlich"
+    },
+    "selectLanguage": { "message": "Anzeigesprache auswählen" }
+  },
+  "wizards": {
+    "onboarding": {
+      "welcomeTitle": "Willkommen bei Shep AI CLI",
+      "welcomeSubtitle": "Richten wir Ihre Umgebung in 3 schnellen Schritten ein.",
+      "prerequisiteWarning": "Voraussetzung: ",
+      "prerequisiteLabel": "GitHub CLI (gh)",
+      "prerequisiteDescription": "wird für vollständige CI/CD-Selbstheilungsfähigkeiten benötigt.",
+      "installFrom": "Installieren Sie es von: ",
+      "installUrl": "https://cli.github.com/",
+      "setupComplete": "Einrichtung abgeschlossen! Sie können Shep jetzt verwenden."
+    },
+    "agentConfig": { "enterApiKey": "Geben Sie Ihren Anthropic API-Schlüssel ein" },
+    "githubImport": {
+      "methodMessage": "Wie möchten Sie ein GitHub-Repository hinzufügen?",
+      "pasteUrl": "Eine GitHub-URL einfügen",
+      "pasteUrlDescription": "Geben Sie eine GitHub-Repository-URL oder owner/repo-Kurzform ein",
+      "browseRepos": "Meine Repositories durchsuchen",
+      "browseReposDescription": "Suchen und wählen Sie aus Ihren GitHub-Repositories",
+      "enterUrl": "Geben Sie eine GitHub-Repository-URL oder owner/repo ein",
+      "urlRequired": "URL ist erforderlich",
+      "invalidUrlFormat": "Ungültiges GitHub-URL-Format. Verwenden Sie https://github.com/owner/repo oder owner/repo",
+      "selectRepo": "Wählen Sie ein Repository zum Importieren",
+      "noRepos": "Keine Repositories gefunden. Stellen Sie sicher, dass Sie Repositories auf GitHub haben.",
+      "cloneDestination": "Zielverzeichnis für Klon (leer lassen für Standard)"
+    },
+    "mergeReview": {
+      "message": "Überprüfen Sie den Merge. Was möchten Sie tun?",
+      "approveAndMerge": "Genehmigen und mergen",
+      "approveDescription": "Änderungen akzeptieren und den Branch mergen",
+      "reject": "Ablehnen",
+      "rejectDescription": "Feedback geben — Implementierung wird überarbeitet",
+      "rejectFeedback": "Was muss vor dem Mergen geändert werden?",
+      "approveComment": "Kommentare? (optional, Enter zum Überspringen)",
+      "feedbackRequired": "Feedback ist für eine Ablehnung erforderlich"
+    },
+    "planReview": {
+      "message": "Überprüfen Sie den Implementierungsplan. Was möchten Sie tun?",
+      "approveAndContinue": "Genehmigen und fortfahren",
+      "approveDescription": "Plan akzeptieren und mit der Implementierung fortfahren",
+      "rejectAndIterate": "Ablehnen und überarbeiten",
+      "rejectDescription": "Feedback geben und Planung erneut ausführen",
+      "rejectFeedback": "Was muss im Plan geändert werden?",
+      "approveComment": "Kommentare? (optional, Enter zum Überspringen)",
+      "feedbackRequired": "Feedback ist für eine Ablehnung erforderlich"
+    },
+    "workflowDefaults": {
+      "message": "Workflow-Standardeinstellungen für neue Features wählen",
+      "instructions": "(Leertaste zum Umschalten, Enter zum Bestätigen)",
+      "allowPrd": "PRD erlauben",
+      "allowPrdDescription": "Anforderungsphase automatisch genehmigen",
+      "allowPlan": "Plan erlauben",
+      "allowPlanDescription": "Planungsphase automatisch genehmigen",
+      "allowMerge": "Merge erlauben",
+      "allowMergeDescription": "Nach Implementierung automatisch genehmigen und mergen",
+      "pushOnFinish": "Nach Abschluss pushen",
+      "pushOnFinishDescription": "Branch nach Abschluss der Implementierung zum Remote pushen",
+      "createPr": "PR erstellen",
+      "createPrDescription": "Pull Request nach Abschluss der Implementierung öffnen"
+    }
+  }
+}

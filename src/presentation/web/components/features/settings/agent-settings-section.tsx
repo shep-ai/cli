@@ -159,7 +159,7 @@ export function AgentSettingsSection({ agent }: AgentSettingsSectionProps) {
                 onChange={(e) => setToken(e.target.value)}
                 onBlur={handleTokenBlur}
                 placeholder="Enter your API token"
-                className="pr-10"
+                className="pe-10"
               />
               <Button
                 type="button"

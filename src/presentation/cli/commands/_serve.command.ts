@@ -40,11 +40,12 @@ import type { IPhaseTimingRepository } from '@/application/ports/output/agents/p
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IDeploymentService } from '@/application/ports/output/services/deployment-service.interface.js';
+import { getCliI18n } from '../i18n.js';
 
 function parsePort(value: string): number {
   const port = parseInt(value, 10);
   if (isNaN(port) || port < 1024 || port > 65535) {
-    throw new InvalidArgumentError('Port must be an integer between 1024 and 65535');
+    throw new InvalidArgumentError(getCliI18n().t('cli:commands._serve.portValidation'));
   }
   return port;
 }
@@ -53,11 +54,12 @@ function parsePort(value: string): number {
  * Create the hidden _serve command (daemon child entry point).
  */
 export function createServeCommand(): Command {
+  const t = getCliI18n().t;
   const cmd = new Command('_serve')
-    .description('Start the web server daemon (internal use only)')
+    .description(t('cli:commands._serve.description'))
     .helpOption(false)
     .addHelpCommand(false)
-    .option('-p, --port <number>', 'Port to listen on', parsePort)
+    .option('-p, --port <number>', t('cli:commands._serve.portOption'), parsePort)
     .action(async (options: { port?: number }) => {
       try {
         const port = options.port ?? 4050;
