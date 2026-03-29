@@ -46,7 +46,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
       INSERT INTO settings (
         id, created_at, updated_at,
         model_analyze, model_requirements, model_plan, model_implement, model_default,
-        user_name, user_email, user_github_username,
+        user_name, user_email, user_github_username, user_preferred_language,
         env_default_editor, env_shell_preference, env_terminal_preference,
         sys_auto_update, sys_log_level,
         agent_type, agent_auth_method, agent_token,
@@ -74,7 +74,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement, @model_default,
-        @user_name, @user_email, @user_github_username,
+        @user_name, @user_email, @user_github_username, @user_preferred_language,
         @env_default_editor, @env_shell_preference, @env_terminal_preference,
         @sys_auto_update, @sys_log_level,
         @agent_type, @agent_auth_method, @agent_token,
@@ -156,6 +156,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         user_name = @user_name,
         user_email = @user_email,
         user_github_username = @user_github_username,
+        user_preferred_language = @user_preferred_language,
         env_default_editor = @env_default_editor,
         env_shell_preference = @env_shell_preference,
         env_terminal_preference = @env_terminal_preference,
