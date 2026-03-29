@@ -214,7 +214,7 @@ function SessionRow({
 
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger className="flex items-start gap-2 py-2 pr-2">
+      <DropdownMenuSubTrigger className="flex items-start gap-2 py-2 pe-2">
         {/* Agent icon with optional active indicator */}
         <div className="relative mt-0.5 shrink-0">
           <AgentIcon className="h-4 w-4" />

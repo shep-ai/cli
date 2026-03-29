@@ -159,7 +159,7 @@ export function AttachmentChip({
   }
 
   return (
-    <div className="group relative flex items-center gap-2 rounded-full border py-1 pr-3 pl-2">
+    <div className="group relative flex items-center gap-2 rounded-full border py-1 ps-2 pe-3">
       <div
         className={cn(
           'flex h-6 w-6 shrink-0 items-center justify-center rounded-full',

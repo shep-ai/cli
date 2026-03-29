@@ -54,8 +54,8 @@ const markdownComponents: Components = {
 
     return <CollapsibleCode language={lang}>{children}</CollapsibleCode>;
   },
-  ul: ({ children }) => <ul className="mb-2 list-disc pl-4 last:mb-0">{children}</ul>,
-  ol: ({ children }) => <ol className="mb-2 list-decimal pl-4 last:mb-0">{children}</ol>,
+  ul: ({ children }) => <ul className="mb-2 list-disc ps-4 last:mb-0">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-2 list-decimal ps-4 last:mb-0">{children}</ol>,
   li: ({ children }) => <li className="mb-0.5">{children}</li>,
   h1: ({ children }) => <h1 className="mb-1 text-base font-bold">{children}</h1>,
   h2: ({ children }) => <h2 className="mb-1 text-sm font-bold">{children}</h2>,
@@ -66,7 +66,7 @@ const markdownComponents: Components = {
     </a>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="border-muted-foreground/30 my-1 border-l-2 pl-3 italic opacity-80">
+    <blockquote className="border-muted-foreground/30 my-1 border-s-2 ps-3 italic opacity-80">
       {children}
     </blockquote>
   ),
@@ -76,7 +76,7 @@ const markdownComponents: Components = {
     </div>
   ),
   thead: ({ children }) => <thead className="bg-muted/50 border-b">{children}</thead>,
-  th: ({ children }) => <th className="px-2 py-1 text-left font-semibold">{children}</th>,
+  th: ({ children }) => <th className="px-2 py-1 text-start font-semibold">{children}</th>,
   td: ({ children }) => <td className="border-muted border-t px-2 py-1">{children}</td>,
   tr: ({ children }) => <tr>{children}</tr>,
   hr: () => <hr className="border-border/40 my-3 border-t" />,
@@ -300,7 +300,7 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
                 setFullscreenCode(!showPreview);
                 setMaximized(true);
               }}
-              className="text-muted-foreground hover:text-foreground ml-1 rounded p-0.5 transition-colors"
+              className="text-muted-foreground hover:text-foreground ms-1 rounded p-0.5 transition-colors"
               title="Open fullscreen"
             >
               <Maximize2 className="h-3 w-3" />

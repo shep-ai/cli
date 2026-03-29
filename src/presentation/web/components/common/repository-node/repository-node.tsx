@@ -105,7 +105,7 @@ export function RepositoryNode({
   );
 
   return (
-    <div className={cn('group relative', data.onDelete && data.id && 'pl-10')}>
+    <div className={cn('group relative', data.onDelete && data.id && 'ps-10')}>
       {data.showHandles ? (
         <Handle
           type="target"
@@ -290,7 +290,7 @@ export function RepositoryNode({
               </>
             ) : null}
 
-            {data.onAdd ? <div className="ml-1.5" /> : null}
+            {data.onAdd ? <div className="ms-1.5" /> : null}
             {data.onAdd ? (
               <TooltipProvider>
                 <Tooltip>
@@ -423,7 +423,7 @@ export function RepositoryNode({
                 <span className="truncate text-xs text-red-500">{deployAction.deployError}</span>
               ) : isDeploymentActive ? (
                 <>
-                  <span className="mr-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-green-500" />
+                  <span className="me-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-green-500" />
                   {deployAction.url ? (
                     <a
                       href={deployAction.url}
@@ -440,7 +440,7 @@ export function RepositoryNode({
               ) : (
                 <span className="text-muted-foreground">
                   Run
-                  <span className="text-muted-foreground/50 ml-2 text-[10px]">
+                  <span className="text-muted-foreground/50 ms-2 text-[10px]">
                     start local environment
                   </span>
                 </span>

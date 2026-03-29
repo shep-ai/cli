@@ -176,7 +176,7 @@ function ActivityLogCollapsible({ entries }: { entries: string[] }) {
         {entries.length} agent actions
       </button>
       {expanded ? (
-        <div className="bg-muted/50 ml-2 rounded-md px-3 py-2">
+        <div className="bg-muted/50 ms-2 rounded-md px-3 py-2">
           {/* eslint-disable react/no-array-index-key -- stable append-only log */}
           {entries.map((entry, i) => (
             <div

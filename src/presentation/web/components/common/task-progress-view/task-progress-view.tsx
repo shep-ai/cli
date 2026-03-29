@@ -180,7 +180,7 @@ function TaskCard({ task, index }: { task: PlanTaskData; index: number }) {
         onClick={handleToggle}
         disabled={!hasDetails}
         className={cn(
-          'flex w-full items-start gap-2 px-3 py-2.5 text-left',
+          'flex w-full items-start gap-2 px-3 py-2.5 text-start',
           hasDetails && 'hover:bg-muted/50 cursor-pointer transition-colors'
         )}
       >
@@ -248,7 +248,7 @@ function ActionItemRow({ item }: { item: ActionItemData }) {
         ) : null}
       </div>
       {totalCriteria > 0 ? (
-        <div className="ml-5.5 flex flex-col gap-1">
+        <div className="ms-5.5 flex flex-col gap-1">
           {item.acceptanceCriteria.map((ac, acIndex) => (
             <AcceptanceCriterionRow key={ac.description || `ac-${acIndex}`} criterion={ac} />
           ))}

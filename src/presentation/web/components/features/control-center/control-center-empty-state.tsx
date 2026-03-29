@@ -396,7 +396,7 @@ function CopyableCommand({ command }: { command: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="group/cmd flex cursor-pointer items-center justify-between gap-2 rounded-md bg-zinc-100 py-1 pr-2 pl-2.5 text-left transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+      className="group/cmd flex cursor-pointer items-center justify-between gap-2 rounded-md bg-zinc-100 py-1 ps-2.5 pe-2 text-start transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
     >
       <code className="min-w-0 truncate text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300">
         {command}

@@ -1213,7 +1213,7 @@ function ParentFeatureCombobox({
               ? `${selectedFeature.name} (${selectedFeature.id.slice(0, 8)})`
               : 'Select parent feature...'}
           </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -1423,7 +1423,7 @@ export function RepositoryCombobox({
             <span className="truncate">
               {selectedRepo ? selectedRepo.name : 'Select repository...'}
             </span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
           </button>
         </PopoverTrigger>
         <PopoverContent

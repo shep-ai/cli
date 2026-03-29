@@ -41,7 +41,7 @@ export const WithAction: Story = {
     description: 'Get started by creating your first project.',
     action: (
       <Button>
-        <Plus className="mr-2 h-4 w-4" />
+        <Plus className="me-2 h-4 w-4" />
         Create Project
       </Button>
     ),
@@ -56,7 +56,7 @@ export const FullExample: Story = {
       'It looks like you have not created any features yet. Start by creating a new feature to track your development workflow.',
     action: (
       <Button>
-        <Plus className="mr-2 h-4 w-4" />
+        <Plus className="me-2 h-4 w-4" />
         New Feature
       </Button>
     ),

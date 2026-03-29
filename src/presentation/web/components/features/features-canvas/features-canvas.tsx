@@ -130,7 +130,7 @@ export function FeaturesCanvas({
         description={t('canvas.noFeaturesDescription')}
         action={
           <Button onClick={onAddFeature}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="me-2 h-4 w-4" />
             {t('canvas.newFeature')}
           </Button>
         }
@@ -171,7 +171,7 @@ export function FeaturesCanvas({
           className="dark:[&_circle]:!fill-white/[0.1]"
         />
         {!isEmpty && toolbar ? (
-          <Panel position="top-right" className="!mt-3 !mr-3">
+          <Panel position="top-right" className="!me-3 !mt-3">
             {toolbar}
           </Panel>
         ) : null}

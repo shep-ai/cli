@@ -67,7 +67,7 @@ export function ServerLogViewerContent({
             <Terminal className="h-4 w-4 text-zinc-400" />
             <DialogTitle className="text-sm font-medium text-zinc-100">Server Logs</DialogTitle>
           </div>
-          <div className="flex items-center gap-2 pr-8">
+          <div className="flex items-center gap-2 pe-8">
             <span
               className={`inline-block h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-zinc-500'}`}
             />

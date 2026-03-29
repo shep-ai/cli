@@ -162,9 +162,9 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
                 className="h-7 cursor-pointer rounded-md px-3 text-xs"
               >
                 {isPending ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  <Loader2 className="me-1 h-3 w-3 animate-spin" />
                 ) : (
-                  <Rocket className="mr-1 h-3 w-3" />
+                  <Rocket className="me-1 h-3 w-3" />
                 )}
                 Launch
               </Button>
@@ -177,7 +177,7 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
                 data-testid="tool-card-install-button"
                 className="h-7 cursor-pointer rounded-md px-3 text-xs"
               >
-                <Download className="mr-1 h-3 w-3" />
+                <Download className="me-1 h-3 w-3" />
                 Install
               </Button>
             ) : null}

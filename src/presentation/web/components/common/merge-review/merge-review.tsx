@@ -56,7 +56,7 @@ function EvidenceItem({ evidence }: { evidence: MergeReviewEvidence }) {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left"
+        className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-start"
       >
         {expanded ? (
           <ChevronDown className="text-muted-foreground h-3 w-3 shrink-0" />
@@ -67,7 +67,7 @@ function EvidenceItem({ evidence }: { evidence: MergeReviewEvidence }) {
         <div className="min-w-0 flex-1">
           <span className="text-foreground text-xs font-medium">{evidence.description}</span>
           {evidence.taskRef ? (
-            <span className="text-muted-foreground ml-1.5 text-[10px]">({evidence.taskRef})</span>
+            <span className="text-muted-foreground ms-1.5 text-[10px]">({evidence.taskRef})</span>
           ) : null}
         </div>
         {url ? (
@@ -248,7 +248,7 @@ export function MergeReview({
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground text-xs font-medium">Merge Status</span>
                   <Badge className="border-transparent bg-orange-50 text-orange-700 hover:bg-orange-50">
-                    <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                    <AlertTriangle className="me-1 h-3.5 w-3.5" />
                     Conflicts
                   </Badge>
                 </div>

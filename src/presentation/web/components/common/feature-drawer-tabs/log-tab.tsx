@@ -101,7 +101,7 @@ export function LogTab({ content, isConnected, error }: LogTabProps) {
             <button
               type="button"
               onClick={jumpToBottom}
-              className="text-muted-foreground hover:text-foreground ml-1 flex items-center gap-1 text-xs"
+              className="text-muted-foreground hover:text-foreground ms-1 flex items-center gap-1 text-xs"
             >
               <ArrowDown className="h-3 w-3" />
               Jump to bottom
