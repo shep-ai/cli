@@ -2,28 +2,61 @@
 
 # Shep AI
 
-### One command. Full lifecycle. Merged PR.
+### AI-assisted feature development with human checkpoints
 
-_Describe a feature in plain English — Shep researches, plans, codes, tests, and opens a PR. You approve when you want to, or let it run hands-free._
+_Describe a feature in plain English. Shep builds it step by step — researching, planning, coding, and testing — pausing for your approval at every critical decision._
 
 [![CI](https://github.com/shep-ai/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/shep-ai/cli/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@shepai/cli.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shepai/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-≥18-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-≥8-f69220.svg?logo=pnpm&logoColor=white)](https://pnpm.io/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/shep-ai/cli/pulls)
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196.svg?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
 
-<br />
-
-[Features](#features) · [Quick Start](#quick-start) · [CLI Reference](#cli-reference) · [Architecture](#architecture) · [Contributing](#contributing)
+[How It Works](#how-it-works) · [Quick Start](#quick-start) · [Trust & Safety](#trust--safety) · [CLI Reference](#cli-reference) · [FAQ](#faq)
 
 <br />
 
 <img src="docs/screenshots/cover.png" alt="Shep AI" width="900" />
 
 </div>
+
+---
+
+## Who is Shep for?
+
+Solo developers and small teams who use AI coding agents (Claude Code, Cursor, Gemini CLI) and want structure around the messy parts — turning a feature idea into a clear plan, keeping work isolated per feature, and not losing context when switching between tasks.
+
+Shep is not a replacement for your coding agent. It's the orchestration layer that sits above it: it manages requirements, plans, git branches, and review gates so you can focus on the parts that need human judgment.
+
+---
+
+## How It Works
+
+Every feature moves through a structured pipeline. You control how much autonomy the agent gets.
+
+```
+ You describe       Shep generates       Shep researches       Shep writes         Shep codes          Shep opens
+ a feature    →     requirements    →    your codebase    →    a plan         →    + tests        →    a PR
+                         ▲                                       ▲                                       ▲
+                     Gate 1: PRD                             Gate 2: Plan                            Gate 3: Merge
+                   (approve/edit)                          (approve/edit)                          (approve/reject)
+```
+
+**Three approval gates.** Each one pauses execution and waits for you to review, edit, or approve before the agent continues. You choose which gates to enable:
+
+| Flag | Gate | What you're approving |
+|------|------|-----------------------|
+| `--allow-prd` | Requirements | Auto-approve the generated PRD |
+| `--allow-plan` | Plan | Auto-approve the implementation plan |
+| `--allow-merge` | Merge | Auto-approve the final PR |
+| `--allow-all` | All three | Fully autonomous — agent handles everything |
+
+**With no flags**, every gate requires your explicit approval. You see exactly what the agent intends to do before it does it.
+
+### What happens when things go wrong
+
+- **CI fails after PR creation.** Shep reads the CI logs, diagnoses the failure, and pushes a fix. It retries up to 3 times before pausing and asking for your input.
+- **Agent gets stuck or produces bad output.** The feature enters a `Blocked` state. You get notified and can provide feedback, reject the current phase, or restart from a checkpoint.
+- **You don't like the plan.** Reject it with comments. Shep regenerates the plan incorporating your feedback.
+- **You want to take over mid-feature.** The code lives in a standard git worktree on a named branch. You can open it in your IDE and work on it directly at any point.
 
 ---
 
@@ -35,28 +68,62 @@ npx @shepai/cli
 
 # Or install globally
 npm i -g @shepai/cli
-shep
 
-# Browser opens at http://localhost:4050 — you're in
+# Start Shep — opens the web dashboard at http://localhost:4050
+shep
 ```
+
+### Your first feature
+
+```bash
+# With approval gates (recommended to start)
+shep feat new "add a /health endpoint that returns uptime and version"
+
+# Shep will pause at each gate for your review.
+# Once you're comfortable, try autonomous mode:
+shep feat new "add rate limiting to the API" --allow-all --push --pr
+```
+
+### Parallel features
+
+Each feature gets its own git worktree — no stashing, no branch conflicts:
+
+```bash
+shep feat new "add stripe payments" --push --pr
+shep feat new "add dark mode toggle" --push --pr
+# Both run simultaneously in isolated worktrees
+```
+
+---
+
+## Trust & Safety
+
+Shep runs entirely on your machine. Here's the security model:
+
+| Concern | How Shep handles it |
+|---------|-------------------|
+| **Data stays local** | All data lives in `~/.shep/` as SQLite databases. Nothing is sent to Shep servers — there are none. |
+| **Agent sandboxing** | Shep delegates coding to your chosen agent (Claude Code, Cursor CLI, Gemini CLI). The agent's own permission model applies. Shep does not grant additional permissions. |
+| **Git isolation** | Every feature runs in its own git worktree branched from your main branch. Your working directory is never modified. |
+| **No credential access** | Shep never reads, stores, or transmits your API keys. Agent authentication is handled by the agent itself. |
+| **Review before merge** | Unless you explicitly pass `--allow-merge`, no code is merged without your approval. PRs are created as drafts when using `--pr`. |
+| **Audit trail** | Every agent action, approval, and state transition is logged. View with `shep feat logs <id>`. |
+
+**What `--allow-all` actually means:** The agent will auto-approve requirements, auto-approve the plan, and auto-merge the PR. It does _not_ bypass CI — your CI pipeline still runs and must pass. Use this for low-risk tasks on repos with good test coverage, not for changes to production infrastructure.
 
 ---
 
 ## Features
 
-```bash
-shep feat new "add stripe payments" --allow-all --push --pr
-# ↳ PRD → research → plan → code → tests → PR → CI watch — done.
-```
+- **Structured lifecycle** — Requirements, research, planning, implementation, and review as distinct phases, not one opaque prompt
+- **Three configurable approval gates** — Full control, full autonomy, or anything in between
+- **Parallel features via worktrees** — Multiple features in flight at once with zero branch conflicts
+- **Agent-agnostic** — Claude Code, Cursor CLI, or Gemini CLI — swap anytime per feature or per repo
+- **Web dashboard** — Interactive graph of repos and features with real-time status, diff review, and approval actions at `localhost:4050`
+- **CI fix loop** — When CI fails, the agent reads logs, diagnoses, and retries before asking for help
+- **100% local** — SQLite storage, no cloud dependency, no account needed
 
-- **Full lifecycle in one shot** — From idea to merged PR: requirements, technical research, implementation plan, code with tests, PR creation, and CI fix loop
-- **Approve or go hands-free** — Three review gates (PRD, Plan, Merge) you can enable, disable, or skip entirely with `--allow-all`
-- **Run 10 features in parallel** — Each gets its own git worktree — switch context instantly, no stashing, no branch juggling, no conflicts
-- **Pick your agent** — Claude Code, Cursor CLI, or Gemini CLI — swap per feature, per repo, anytime
-- **Live dashboard** — Interactive graph of every repo and feature — review diffs, approve merges, launch dev servers, all in-browser
-- **100% local, zero signup** — SQLite in `~/.shep/`, nothing leaves your machine, no account needed
-
-> **[See the full Features Guide with screenshots →](./docs/FEATURES.md)**
+> **[Full features guide with screenshots →](./docs/FEATURES.md)**
 
 ---
 
@@ -141,111 +208,49 @@ shep run <agent> [-p prompt] [-r repo] [-s]   Run an agent directly
 
 ---
 
-## Architecture
+## FAQ
 
-Clean Architecture with four layers. Dependencies point inward — domain has zero external deps.
+**How is this different from just using Claude Code / Cursor directly?**
+Those tools are excellent at writing code given a prompt. Shep adds the layer above: breaking a feature into structured phases, managing requirements and plans as reviewable artifacts, isolating work in git worktrees, and handling the PR/CI lifecycle. Think of it as a project manager for your AI coding agent.
 
-```mermaid
-flowchart TB
-    P["<b>Presentation</b><br/>CLI · Web UI · TUI"]
-    A["<b>Application</b><br/>Use Cases · Orchestration · Ports"]
-    D["<b>Domain</b><br/>Entities · Value Objects · Services"]
-    I["<b>Infrastructure</b><br/>SQLite · LangGraph · DI"]
+**What happens if the agent writes bad code?**
+The same thing that happens in a normal code review. Shep creates a PR. Your CI runs. If tests fail, Shep attempts to fix them. If the fix loop exhausts retries, the feature pauses and you're notified. You can also reject at any approval gate with feedback, and Shep will regenerate.
 
-    P --> A --> D
-    I --> A
+**Does this work on large codebases?**
+Shep's research phase scans your codebase to build context before planning. The quality of the output depends on the underlying agent's ability to handle your repo. If Claude Code or Cursor works well on your codebase directly, Shep will too — it adds structure, not limitations.
 
-    style P fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style A fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style D fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style I fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
-```
+**Can I use this on a team?**
+Shep runs locally and operates on your git repo. Multiple team members can each run Shep independently. Features are just branches and PRs — your existing review process applies. There is no shared server or collaboration layer today.
 
-| Layer          | Path                                | Responsibility                                    |
-| -------------- | ----------------------------------- | ------------------------------------------------- |
-| Domain         | `packages/core/src/domain/`         | Business logic, TypeSpec-generated types          |
-| Application    | `packages/core/src/application/`    | Use cases, output port interfaces                 |
-| Infrastructure | `packages/core/src/infrastructure/` | SQLite repos, LangGraph agents, DI (tsyringe)     |
-| Presentation   | `src/presentation/`                 | CLI (Commander), TUI (Inquirer), Web UI (Next.js) |
-
-### Feature Lifecycle
-
-Every feature progresses through a structured SDLC pipeline with 9 states:
-
-```
-Started -> Analyze -> Requirements -> Research -> Planning -> Implementation -> Review -> Maintain
-                                                                                   |
-                                                                               (Blocked)
-```
-
-Human approval gates are configurable at PRD, Plan, and Merge phases. In `--allow-all` mode the agent handles everything autonomously.
-
-### Tech Stack
-
-| Component       | Technology                                                                |
-| --------------- | ------------------------------------------------------------------------- |
-| Language        | TypeScript (ES2022)                                                       |
-| Package Manager | pnpm                                                                      |
-| CLI Framework   | Commander                                                                 |
-| TUI Framework   | [@inquirer/prompts](https://github.com/SBoudrias/Inquirer.js)             |
-| Web UI          | Next.js 16 + React 19 + shadcn/ui + Tailwind CSS 4                        |
-| Graph Viz       | React Flow (XYFlow) 12                                                    |
-| Design System   | Storybook 8.x                                                             |
-| Build Tool      | tsc + tsc-alias (prod), tsx (CLI dev), Next.js (web dev)                  |
-| Database        | SQLite (better-sqlite3, per-repo)                                         |
-| Domain Models   | TypeSpec -> generated TypeScript                                          |
-| Agent System    | [LangGraph](https://www.langchain.com/langgraph) (`@langchain/langgraph`) |
-| DI Container    | tsyringe                                                                  |
-| Testing         | Vitest (unit/integration) + Playwright (e2e)                              |
-| Methodology     | TDD (Red-Green-Refactor)                                                  |
-
-### Supported Tools
-
-Shep can detect, install, and manage the following tools:
-
-| Category   | Tools                                                                             |
-| ---------- | --------------------------------------------------------------------------------- |
-| IDEs       | Alacritty, Antigravity, Cursor, iTerm2, Kitty, TMux, VS Code, Warp, Windsurf, Zed |
-| CLI Agents | Claude Code, Cursor CLI, Gemini CLI                                               |
-| Dev Tools  | Git, GitHub CLI                                                                   |
-
-### Web UI
-
-The web dashboard runs at `http://localhost:4050` and provides:
-
-- **Dashboard canvas** — Interactive React Flow graph with feature and repository nodes
-- **Feature drawer** — Tabs for overview, activity, approval, rejection, PR info, deployment, and timeline
-- **Create feature form** — Start new features from the UI
-- **Settings, Tools, Skills, and Version pages**
-- **Real-time updates** via Server-Sent Events (SSE)
-
-### Data Model
-
-```
-Repository --+-- Feature --+-- Plan --+-- Task -- ActionItem
-             |             |          +-- Artifact
-             |             +-- Requirement -- Research
-```
-
-All data lives locally in `~/.shep/`. Per-repo SQLite databases. No cloud dependency.
+**Is my code sent anywhere?**
+Not by Shep. Your code is sent to whichever AI agent you configure (Claude, Cursor, Gemini) under that agent's own privacy terms. Shep itself stores everything in local SQLite and makes no network calls.
 
 ---
 
-## Documentation
+## Architecture
 
-| Document                                           | Description                                |
-| -------------------------------------------------- | ------------------------------------------ |
-| [Features Guide](./docs/FEATURES.md)               | Full features overview with screenshots    |
-| [Competitive Landscape](./docs/competitors/)       | How Shep fits in the AI dev tool ecosystem |
-| [CLAUDE.md](./CLAUDE.md)                           | Guidance for Claude Code instances         |
-| [AGENTS.md](./AGENTS.md)                           | Agent system architecture                  |
-| [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md) | AI agent contribution guidelines           |
-| [Architecture](./docs/architecture/)               | System design and patterns                 |
-| [Concepts](./docs/concepts/)                       | Core domain concepts                       |
-| [UI](./docs/ui/)                                   | Web UI architecture and design system      |
-| [Guides](./docs/guides/)                           | User guides and tutorials                  |
-| [Development](./docs/development/)                 | Contributing and development setup         |
-| [API Reference](./docs/api/)                       | Interface and model documentation          |
+Shep follows Clean Architecture with four layers. If you're interested in contributing or understanding the internals:
+
+| Layer | Path | Responsibility |
+|-------|------|---------------|
+| Domain | `packages/core/src/domain/` | Business logic, TypeSpec-generated types |
+| Application | `packages/core/src/application/` | Use cases, port interfaces |
+| Infrastructure | `packages/core/src/infrastructure/` | SQLite, LangGraph agents, DI |
+| Presentation | `src/presentation/` | CLI, TUI, Web UI |
+
+> **[Full architecture docs →](./docs/architecture/overview.md)**
+
+---
+
+## Supported Agents & Tools
+
+| Category | Supported |
+|----------|-----------|
+| AI Agents | Claude Code, Cursor CLI, Gemini CLI |
+| IDEs | VS Code, Cursor, Zed, Windsurf, and [more](./docs/FEATURES.md) |
+| Required | Git, GitHub CLI |
+
+---
 
 ## Contributing
 
@@ -253,7 +258,6 @@ We welcome contributions from humans and AI agents alike.
 
 - **Humans**: See [CONTRIBUTING.md](./CONTRIBUTING.md)
 - **AI Agents**: See [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md)
-- **Spec-driven workflow**: All features start with `/shep-kit:new-feature` — see [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md)
 
 ## License
 
