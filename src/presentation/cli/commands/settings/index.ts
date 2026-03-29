@@ -12,6 +12,7 @@
  *   shep settings ide       # Configure preferred IDE
  *   shep settings workflow  # Configure workflow defaults
  *   shep settings model     # Configure default LLM model
+ *   shep settings telegram  # Configure Telegram remote control
  */
 
 import { Command } from 'commander';
@@ -21,6 +22,7 @@ import { createAgentCommand } from './agent.command.js';
 import { createIdeCommand } from './ide.command.js';
 import { createWorkflowCommand } from './workflow.command.js';
 import { createModelCommand } from './model.command.js';
+import { createTelegramCommand } from './telegram.command.js';
 import { onboardingWizard } from '../../../tui/wizards/onboarding/onboarding.wizard.js';
 import { messages } from '../../ui/index.js';
 
@@ -35,7 +37,8 @@ export function createSettingsCommand(): Command {
     .addCommand(createAgentCommand())
     .addCommand(createIdeCommand())
     .addCommand(createWorkflowCommand())
-    .addCommand(createModelCommand());
+    .addCommand(createModelCommand())
+    .addCommand(createTelegramCommand());
 
   // Default action: launch the full setup wizard when no subcommand is given
   cmd.action(async () => {
