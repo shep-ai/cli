@@ -1,0 +1,161 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: stripe-payments
+number: 80
+branch: "feat/080-stripe-payments"
+oneLiner: "integrate stripe for subscription billing and payment processing"
+userQuery: >
+  add stripe payments
+summary: >
+  Add Stripe-based subscription billing to the Shep CLI platform, enabling paid tiers
+  (free, pro, enterprise) with recurring payments, customer management, webhook handling,
+  and billing UI across CLI and web presentation layers following Clean Architecture.
+phase: Analysis
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - "stripe (npm package for Stripe API)"
+  - "TypeSpec (domain model definitions)"
+  - "tsyringe (dependency injection)"
+  - "better-sqlite3 (local persistence)"
+  - "umzug (database migrations)"
+  - "Next.js 16 App Router (web UI and API routes)"
+  - "shadcn/ui + Radix (UI components)"
+  - "Commander.js (CLI commands)"
+  - "Vitest (unit and integration tests)"
+  - "Playwright (E2E tests)"
+  - "Storybook (component documentation)"
+  - "zod (webhook payload validation)"
+
+relatedLinks:
+  - title: "Stripe Node.js SDK"
+    url: "https://github.com/stripe/stripe-node"
+  - title: "Stripe Webhooks Documentation"
+    url: "https://docs.stripe.com/webhooks"
+  - title: "Stripe Checkout Sessions"
+    url: "https://docs.stripe.com/api/checkout/sessions"
+  - title: "Stripe Customer Portal"
+    url: "https://docs.stripe.com/customer-management/integrate-customer-portal"
+  - title: "Stripe Billing Subscriptions"
+    url: "https://docs.stripe.com/billing/subscriptions/overview"
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: "What subscription tiers and pricing should be supported (free, pro, enterprise)?"
+    status: "open"
+  - question: "Should Stripe Checkout (hosted) or embedded payment forms be used for initial setup?"
+    status: "open"
+  - question: "Should billing state be stored locally only or synced with a remote backend?"
+    status: "open"
+  - question: "How should the free tier work - is it the default with no Stripe interaction, or does it still require a Stripe customer?"
+    status: "open"
+  - question: "Should the Stripe Customer Portal be used for self-service billing management?"
+    status: "open"
+  - question: "What features should be gated behind paid tiers?"
+    status: "open"
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The Shep CLI platform currently has no monetization or billing infrastructure. To sustain
+  the project and offer tiered functionality (free, pro, enterprise), the platform needs
+  Stripe payment integration for subscription billing. This requires new domain models,
+  application use cases, infrastructure services, database tables, CLI commands, and web UI
+  components — all following the existing Clean Architecture patterns.
+
+  The key challenge is that Shep is a CLI-first tool with a local SQLite database. Stripe
+  integration requires webhook handling (typically server-side), customer management, and
+  subscription lifecycle tracking. The architecture must account for the hybrid local/remote
+  nature of this feature.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The codebase follows strict Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`): TypeSpec-generated types in `domain/generated/output.ts`. All domain models defined in `tsp/domain/entities/`. New billing entities will be added here.
+  - **Application** (`packages/core/src/application/`): Use cases in `use-cases/` (8 groups: agents, features, ide, interactive, repositories, settings, tools, upgrade). Port interfaces in `ports/output/` for repositories (6 interfaces) and services (15 interfaces). Billing use cases and ports will be added here.
+  - **Infrastructure** (`packages/core/src/infrastructure/`): DI container in `di/container.ts`. Repositories in `repositories/`. Services in `services/` (~20 service implementations). SQLite persistence with 48 migrations. Stripe service implementation and billing repository will be added here.
+  - **Presentation** (`src/presentation/`): CLI (Commander.js commands in `cli/commands/`), TUI (inquirer prompts), Web (Next.js 16 App Router with shadcn/ui). Billing commands and UI components will be added here.
+
+  ### Architecture Patterns
+
+  1. **Dependency Injection (tsyringe)**: All services registered in `infrastructure/di/container.ts` with factory patterns for repositories and singletons for services/use cases. Web access via `resolve()` from `@/lib/server-container`.
+  2. **Repository Pattern**: Port interfaces in `application/ports/output/repositories/`, SQLite implementations in `infrastructure/repositories/`, with dedicated mapper files for domain-to-database conversion.
+  3. **Use Case Pattern**: Single-responsibility use cases as the only entry point from presentation to core. Each use case receives dependencies via constructor injection.
+  4. **TypeSpec-First Modeling**: Domain types defined in `.tsp` files, compiled to TypeScript via `pnpm tsp:compile`. Generated output is never edited directly.
+  5. **Migration-Based Schema**: Umzug manages SQLite migrations. Latest migration is `048-add-turn-status.ts`. New billing tables will follow as `049+`.
+  6. **Settings Singleton**: Global settings loaded at bootstrap, accessible via `getSettings()`. Billing config would extend the Settings model.
+  7. **SSE for Real-Time Updates**: Web UI uses Server-Sent Events via `/api/agent-events` for live updates. Billing status changes could leverage the same pattern.
+
+  ### Relevant Technologies
+
+  - **TypeSpec** for domain model definitions (billing entities, subscription status enums)
+  - **better-sqlite3** for local persistence of billing state
+  - **tsyringe** for DI registration of billing services and repositories
+  - **Next.js App Router** for webhook API routes and billing UI pages
+  - **shadcn/ui** for billing management components (subscription cards, payment forms)
+  - **Commander.js** for CLI billing commands (setup, status, upgrade, cancel)
+  - **zod** for webhook payload validation (already a dependency)
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/` | High | New TypeSpec models for billing account, subscription, payment method, and billing-related enums |
+  | `tsp/domain/entities/settings.tsp` | Medium | Extend Settings model with billing configuration (tier, account ID, enabled flag) |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-regenerated after TypeSpec compilation with new billing types |
+  | `packages/core/src/application/use-cases/` | High | New billing use case directory with create-billing-account, manage-subscription, check-tier, handle-webhook use cases |
+  | `packages/core/src/application/ports/output/repositories/` | High | New IBillingRepository interface for billing account persistence |
+  | `packages/core/src/application/ports/output/services/` | High | New IBillingService interface abstracting Stripe API interactions |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register billing repository, service, and use cases in DI container |
+  | `packages/core/src/infrastructure/repositories/` | High | New SQLiteBillingRepository implementation with mapper |
+  | `packages/core/src/infrastructure/services/` | High | New Stripe billing service implementation (customer management, subscriptions, webhooks) |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations/` | Medium | New migration(s) for billing_accounts table and settings columns (049+) |
+  | `packages/core/src/infrastructure/persistence/sqlite/mappers/` | Medium | New billing mapper for domain-to-database conversion; update settings mapper |
+  | `src/presentation/cli/commands/` | Medium | New billing command group (setup, status, upgrade, cancel, portal) |
+  | `src/presentation/web/app/api/` | High | New webhook endpoint for Stripe event handling; billing API routes |
+  | `src/presentation/web/app/` | Medium | New billing/settings page or section for subscription management |
+  | `src/presentation/web/components/features/` | Medium | New billing UI components (subscription card, tier selector, payment status) with Storybook stories |
+  | `tests/unit/` | High | Unit tests for all billing use cases, mappers, and domain logic |
+  | `tests/integration/` | Medium | Integration tests for billing repository with in-memory SQLite |
+  | `tests/e2e/` | Low | E2E tests for CLI billing commands and web billing UI |
+
+  ## Dependencies
+
+  ### Existing Infrastructure
+  - **SQLite persistence layer** (better-sqlite3, umzug migrations)
+  - **DI container** (tsyringe, `infrastructure/di/container.ts`)
+  - **Settings service** (extends with billing config)
+  - **Web server** (Next.js for webhook routes)
+  - **TypeSpec pipeline** (tsp compile for domain types)
+
+  ### New External Dependencies
+  - **stripe** npm package (Stripe Node.js SDK for API interaction)
+
+  ### Architecture Considerations
+  - Webhook handling requires a publicly accessible endpoint — the web server must be running to receive Stripe events. This may require a tunnel (ngrok/cloudflare) for local development.
+  - Billing state must be consistent between local SQLite and Stripe's remote state. The webhook handler is the primary mechanism for syncing Stripe state changes back to local storage.
+  - The `IBillingService` port interface must abstract all Stripe-specific logic so the application layer remains provider-agnostic (could swap to another payment provider).
+
+  ## Size Estimate
+
+  **L** — This is a large feature requiring changes across all four architecture layers:
+
+  - **Domain**: 3-5 new TypeSpec entity/enum files + Settings extension
+  - **Application**: 5-8 new use cases + 2 new port interfaces
+  - **Infrastructure**: Stripe service implementation, SQLite repository + mapper, 2-3 migrations, DI registration
+  - **Presentation (CLI)**: New billing command group with 4-5 subcommands
+  - **Presentation (Web)**: Webhook API route, billing page/section, 3-5 new components with Storybook stories
+  - **Testing**: Unit tests for all use cases, integration tests for repository, E2E for CLI and web
+  - **Total estimated files**: 30-45 new/modified files across 5-8 implementation phases
+
+  ---
+
+  _Generated by feature agent — proceed with research_
