@@ -5,22 +5,28 @@
  *
  * Tests for the utility that reads package.json from a directory, detects
  * the best dev script, and identifies the package manager from lockfiles.
+ * Includes subdirectory scanning fallback for monorepos / nested projects.
  *
  * TDD Phase: RED → GREEN
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { join } from 'node:path';
 
 vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
   existsSync: vi.fn(),
+  readdirSync: vi.fn(),
+  statSync: vi.fn(),
 }));
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { detectDevScript } from '@/infrastructure/services/deployment/detect-dev-script.js';
 
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockExistsSync = vi.mocked(existsSync);
+const mockReaddirSync = vi.mocked(readdirSync);
+const mockStatSync = vi.mocked(statSync);
 
 describe('detectDevScript', () => {
   beforeEach(() => {
@@ -43,6 +49,7 @@ describe('detectDevScript', () => {
       scriptName: 'dev',
       command: 'npm run dev',
       needsInstall: false,
+      resolvedDir: '/project',
     });
   });
 
@@ -65,6 +72,7 @@ describe('detectDevScript', () => {
       scriptName: 'dev',
       command: 'pnpm dev',
       needsInstall: false,
+      resolvedDir: '/project',
     });
   });
 
@@ -87,6 +95,7 @@ describe('detectDevScript', () => {
       scriptName: 'dev',
       command: 'yarn dev',
       needsInstall: false,
+      resolvedDir: '/project',
     });
   });
 
@@ -106,6 +115,7 @@ describe('detectDevScript', () => {
       scriptName: 'start',
       command: 'npm run start',
       needsInstall: true,
+      resolvedDir: '/project',
     });
   });
 
@@ -125,6 +135,7 @@ describe('detectDevScript', () => {
       scriptName: 'serve',
       command: 'npm run serve',
       needsInstall: true,
+      resolvedDir: '/project',
     });
   });
 
@@ -135,6 +146,7 @@ describe('detectDevScript', () => {
       })
     );
     mockExistsSync.mockReturnValue(false);
+    mockReaddirSync.mockReturnValue([] as unknown as ReturnType<typeof readdirSync>);
 
     const result = detectDevScript('/project');
 
@@ -151,6 +163,7 @@ describe('detectDevScript', () => {
       })
     );
     mockExistsSync.mockReturnValue(false);
+    mockReaddirSync.mockReturnValue([] as unknown as ReturnType<typeof readdirSync>);
 
     const result = detectDevScript('/project');
 
@@ -165,6 +178,7 @@ describe('detectDevScript', () => {
       throw new Error('ENOENT: no such file or directory');
     });
     mockExistsSync.mockReturnValue(false);
+    mockReaddirSync.mockReturnValue([] as unknown as ReturnType<typeof readdirSync>);
 
     const result = detectDevScript('/project');
 
@@ -190,6 +204,7 @@ describe('detectDevScript', () => {
       scriptName: 'dev',
       command: 'npm run dev',
       needsInstall: true,
+      resolvedDir: '/project',
     });
   });
 
@@ -252,5 +267,165 @@ describe('detectDevScript', () => {
     const result = detectDevScript('/project');
 
     expect(result.success && result.packageManager).toBe('pnpm');
+  });
+
+  describe('subdirectory scanning fallback', () => {
+    it('should find dev script in a subdirectory when root has no package.json', () => {
+      const sitePackageJson = JSON.stringify({
+        scripts: { dev: 'next dev' },
+      });
+
+      mockReadFileSync.mockImplementation((filePath) => {
+        const p = String(filePath);
+        if (p === join('/worktree', 'package.json')) {
+          throw new Error('ENOENT');
+        }
+        if (p === join('/worktree', 'site', 'package.json')) {
+          return sitePackageJson;
+        }
+        throw new Error('ENOENT');
+      });
+
+      mockExistsSync.mockImplementation((path) => {
+        const p = String(path);
+        return p === join('/worktree', 'site', 'node_modules');
+      });
+
+      mockReaddirSync.mockReturnValue(['site', 'specs'] as unknown as ReturnType<
+        typeof readdirSync
+      >);
+
+      mockStatSync.mockReturnValue({ isDirectory: () => true } as ReturnType<typeof statSync>);
+
+      const result = detectDevScript('/worktree');
+
+      expect(result).toEqual({
+        success: true,
+        packageManager: 'npm',
+        scriptName: 'dev',
+        command: 'npm run dev',
+        needsInstall: false,
+        resolvedDir: join('/worktree', 'site'),
+      });
+    });
+
+    it('should skip hidden directories and node_modules during scan', () => {
+      mockReadFileSync.mockImplementation((filePath) => {
+        const p = String(filePath);
+        if (p === join('/worktree', 'package.json')) {
+          throw new Error('ENOENT');
+        }
+        if (p === join('/worktree', 'app', 'package.json')) {
+          return JSON.stringify({ scripts: { dev: 'vite' } });
+        }
+        throw new Error('ENOENT');
+      });
+
+      mockExistsSync.mockReturnValue(false);
+
+      mockReaddirSync.mockReturnValue([
+        '.git',
+        '.next',
+        'node_modules',
+        'app',
+      ] as unknown as ReturnType<typeof readdirSync>);
+
+      mockStatSync.mockReturnValue({ isDirectory: () => true } as ReturnType<typeof statSync>);
+
+      const result = detectDevScript('/worktree');
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.resolvedDir).toBe(join('/worktree', 'app'));
+      }
+    });
+
+    it('should skip non-directory entries during subdirectory scan', () => {
+      mockReadFileSync.mockImplementation((filePath) => {
+        const p = String(filePath);
+        if (p === join('/worktree', 'package.json')) {
+          throw new Error('ENOENT');
+        }
+        if (p === join('/worktree', 'app', 'package.json')) {
+          return JSON.stringify({ scripts: { dev: 'vite' } });
+        }
+        throw new Error('ENOENT');
+      });
+
+      mockExistsSync.mockReturnValue(false);
+
+      mockReaddirSync.mockReturnValue(['README.md', 'app'] as unknown as ReturnType<
+        typeof readdirSync
+      >);
+
+      mockStatSync.mockImplementation((path) => {
+        const p = String(path);
+        if (p.endsWith('README.md')) {
+          return { isDirectory: () => false } as ReturnType<typeof statSync>;
+        }
+        return { isDirectory: () => true } as ReturnType<typeof statSync>;
+      });
+
+      const result = detectDevScript('/worktree');
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.resolvedDir).toBe(join('/worktree', 'app'));
+      }
+    });
+
+    it('should return error when no subdirectory has a dev script either', () => {
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error('ENOENT');
+      });
+
+      mockExistsSync.mockReturnValue(false);
+
+      mockReaddirSync.mockReturnValue(['docs', 'specs'] as unknown as ReturnType<
+        typeof readdirSync
+      >);
+
+      mockStatSync.mockReturnValue({ isDirectory: () => true } as ReturnType<typeof statSync>);
+
+      const result = detectDevScript('/worktree');
+
+      expect(result.success).toBe(false);
+    });
+
+    it('should detect package manager in the subdirectory context', () => {
+      mockReadFileSync.mockImplementation((filePath) => {
+        const p = String(filePath);
+        if (p === join('/worktree', 'package.json')) {
+          throw new Error('ENOENT');
+        }
+        if (p === join('/worktree', 'site', 'package.json')) {
+          return JSON.stringify({ scripts: { dev: 'next dev' } });
+        }
+        throw new Error('ENOENT');
+      });
+
+      mockExistsSync.mockImplementation((path) => {
+        const p = String(path);
+        return (
+          p === join('/worktree', 'site', 'package-lock.json') ||
+          p === join('/worktree', 'site', 'node_modules')
+        );
+      });
+
+      mockReaddirSync.mockReturnValue(['site'] as unknown as ReturnType<typeof readdirSync>);
+
+      mockStatSync.mockReturnValue({ isDirectory: () => true } as ReturnType<typeof statSync>);
+
+      const result = detectDevScript('/worktree');
+
+      expect(result).toEqual({
+        success: true,
+        packageManager: 'npm',
+        scriptName: 'dev',
+        command: 'npm run dev',
+        needsInstall: false,
+        resolvedDir: join('/worktree', 'site'),
+      });
+    });
   });
 });

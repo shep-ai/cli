@@ -244,15 +244,16 @@ export class DeploymentService implements IDeploymentService {
     }
 
     // Build spawn args based on package manager
-    const { packageManager, scriptName, command, needsInstall } = detection;
+    const { packageManager, scriptName, command, needsInstall, resolvedDir } = detection;
+    const spawnDir = resolvedDir;
     const args = packageManager === 'npm' ? ['run', scriptName] : [scriptName];
 
     // Install dependencies if node_modules is missing (e.g. fresh worktree)
     if (needsInstall) {
-      log.info(`node_modules missing in "${targetPath}" — running ${packageManager} install`);
+      log.info(`node_modules missing in "${spawnDir}" — running ${packageManager} install`);
       try {
         execFileSync(packageManager, ['install'], {
-          cwd: targetPath,
+          cwd: spawnDir,
           shell: true,
           stdio: 'ignore',
           ...(IS_WINDOWS ? { windowsHide: true } : {}),
@@ -265,12 +266,12 @@ export class DeploymentService implements IDeploymentService {
     }
 
     log.info(
-      `Spawning dev server: command="${command}", packageManager="${packageManager}", scriptName="${scriptName}", cwd="${targetPath}"`
+      `Spawning dev server: command="${command}", packageManager="${packageManager}", scriptName="${scriptName}", cwd="${spawnDir}"`
     );
 
     const child = this.deps.spawn(packageManager, args, {
       shell: true,
-      cwd: targetPath,
+      cwd: spawnDir,
       // On Unix, detached: true creates a process group via setsid() so we can
       // kill the entire tree with process.kill(-pid). On Windows this flag causes
       // CREATE_NEW_CONSOLE which opens a visible terminal window and disconnects

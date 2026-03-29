@@ -49,13 +49,14 @@ function createMockDeps(mockChild?: ReturnType<typeof createMockChild>): Deploym
   const child = mockChild ?? createMockChild();
   return {
     spawn: vi.fn().mockReturnValue(child),
-    detectDevScript: vi.fn().mockReturnValue({
+    detectDevScript: vi.fn().mockImplementation((_dirPath: string) => ({
       success: true,
       packageManager: 'npm',
       scriptName: 'dev',
       command: 'npm run dev',
       needsInstall: false,
-    }),
+      resolvedDir: _dirPath,
+    })),
     kill: vi.fn(),
     isAlive: vi.fn().mockReturnValue(true),
   };
@@ -133,11 +134,33 @@ describe('DeploymentService', () => {
         packageManager: 'pnpm',
         scriptName: 'dev',
         command: 'pnpm dev',
+        resolvedDir: '/project/path',
       });
 
       service.start('feature-1', '/project/path');
 
       expect(deps.spawn).toHaveBeenCalledWith('pnpm', ['dev'], expect.any(Object));
+    });
+
+    it('should use resolvedDir from detectDevScript as spawn cwd', () => {
+      (deps.detectDevScript as ReturnType<typeof vi.fn>).mockReturnValue({
+        success: true,
+        packageManager: 'npm',
+        scriptName: 'dev',
+        command: 'npm run dev',
+        needsInstall: false,
+        resolvedDir: '/worktree/site',
+      });
+
+      service.start('feature-1', '/worktree');
+
+      expect(deps.spawn).toHaveBeenCalledWith(
+        'npm',
+        ['run', 'dev'],
+        expect.objectContaining({
+          cwd: '/worktree/site',
+        })
+      );
     });
 
     it('should throw when detectDevScript fails', () => {
@@ -483,6 +506,7 @@ describe('DeploymentService', () => {
           scriptName: 'dev',
           command: 'npm run dev',
           needsInstall: false,
+          resolvedDir: '/good/path',
         });
 
       service.recoverAll();
