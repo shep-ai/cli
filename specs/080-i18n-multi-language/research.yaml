@@ -1,0 +1,122 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: i18n-multi-language
+summary: Technical analysis for 080-i18n-multi-language
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - id: "decision-001"
+    title: "Language preference location in Settings model"
+    status: "accepted"
+    chosen: "UserProfile.preferredLanguage"
+    alternatives:
+      - "Root Settings.language"
+      - "New LocaleConfig nested object"
+    rejected:
+      - "Root Settings.language"
+      - "New LocaleConfig nested object"
+    rationale: "UserProfile is the natural home for language preference because it groups user-specific settings (name, email, GitHub username). This follows the established nesting pattern in the Settings entity and maps cleanly to a user_preferred_language column in the flattened database schema."
+  - id: "decision-002"
+    title: "React i18n library for Web UI"
+    status: "accepted"
+    chosen: "react-i18next"
+    alternatives:
+      - "next-intl"
+    rejected:
+      - "next-intl"
+    rationale: "react-i18next shares the i18next core with CLI and TUI layers. This means one set of translation JSON files, one namespace convention, and one API pattern across all three presentation layers. next-intl would require maintaining parallel translation infrastructure."
+  - id: "decision-003"
+    title: "Translation file organization"
+    status: "accepted"
+    chosen: "Shared directory with layer namespaces"
+    alternatives:
+      - "Co-located per presentation layer"
+      - "Single flat file per language"
+    rejected:
+      - "Co-located per presentation layer"
+      - "Single flat file per language"
+    rationale: "A shared directory with layer-specific namespaces provides the best balance: common strings are defined once in common.json, while layer-specific strings live in cli.json/tui.json/web.json. Structure: translations/{locale}/{namespace}.json."
+  - id: "decision-004"
+    title: "Non-English translation authoring method"
+    status: "accepted"
+    chosen: "AI-generated translations"
+    alternatives:
+      - "Professional translation service"
+      - "Community contributions"
+    rejected:
+      - "Professional translation service"
+      - "Community contributions"
+    rationale: "AI-generated translations provide the best cost/quality tradeoff for a developer tool. Technical terminology is well-handled by modern LLMs, the audience is tolerant of minor imperfections, and translations can be refined over time via community PRs."
+  - id: "decision-005"
+    title: "CLI per-command language override"
+    status: "accepted"
+    chosen: "No per-command override"
+    alternatives:
+      - "Global --language flag"
+    rejected:
+      - "Global --language flag"
+    rationale: "Language preference is a persistent user setting, not a per-command concern. Users set their language once via settings and expect it to persist. A per-command override adds complexity with minimal benefit."
+  - id: "decision-006"
+    title: "RTL CSS strategy for Web UI"
+    status: "accepted"
+    chosen: "CSS logical properties throughout"
+    alternatives:
+      - "Tailwind rtl: variant modifiers"
+      - "Separate RTL stylesheet"
+    rejected:
+      - "Tailwind rtl: variant modifiers"
+      - "Separate RTL stylesheet"
+    rationale: "CSS logical properties are the modern standard for bidirectional layouts. They work automatically for both LTR and RTL, requiring zero conditional logic. Tailwind v4 has strong logical property support."
+  - id: "decision-007"
+    title: "Arabic and Hebrew font loading strategy"
+    status: "accepted"
+    chosen: "Lazy load on language switch"
+    alternatives:
+      - "Eager load all fonts"
+    rejected:
+      - "Eager load all fonts"
+    rationale: "Lazy loading is the correct tradeoff because the vast majority of users will use LTR languages. Loading Arabic/Hebrew fonts upfront penalizes every user for a feature most will not use. Fonts are cached after first load."
+  - id: "decision-008"
+    title: "Web UI language detection on page load"
+    status: "accepted"
+    chosen: "Server-side from settings API"
+    alternatives:
+      - "Client-side from localStorage cache"
+      - "Browser Accept-Language header"
+    rejected:
+      - "Client-side from localStorage cache"
+      - "Browser Accept-Language header"
+    rationale: "Server-side resolution from the settings API is the most reliable approach. The layout.tsx already runs on the server and can fetch settings synchronously. This avoids any flash of wrong language/direction and is consistent with existing settings architecture."
+  - id: "decision-009"
+    title: "Translation key naming convention"
+    status: "accepted"
+    chosen: "Dot-separated hierarchical keys"
+    alternatives:
+      - "Flat snake_case keys"
+    rejected:
+      - "Flat snake_case keys"
+    rationale: "Dot-separated hierarchical keys are the i18next standard and map directly to nested JSON objects. They provide natural grouping, make it easy to find related strings, and scale well to ~600 keys."
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-29
+
+  ## Technology Decisions
+
+  TBD
+
+  ---
+
+  _To be updated during research phase_

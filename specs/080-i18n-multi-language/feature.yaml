@@ -1,0 +1,41 @@
+feature:
+  id: "080-i18n-multi-language"
+  name: "i18n-multi-language"
+  number: 80
+  branch: "feat/080-i18n-multi-language"
+  lifecycle: "research"
+  createdAt: "2026-03-29T09:38:49Z"
+status:
+  phase: "implementation-complete"
+  progress:
+    completed: 28
+    total: 28
+    percentage: 100
+  currentTask: null
+  lastUpdated: "2026-03-29T17:51:23.072Z"
+  lastUpdatedBy: "feature-agent:implement"
+  completedPhases:
+    - "analyze"
+    - "requirements"
+    - "research"
+    - "plan"
+    - "phase-1"
+    - "phase-2"
+    - "phase-3"
+    - "phase-4"
+    - "phase-5"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-29T09:38:49Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []
