@@ -6,7 +6,7 @@
  * the shared translations/ directory at the project root.
  */
 
-import i18next from 'i18next';
+import i18next, { type i18n } from 'i18next';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,11 +32,14 @@ function getTranslationsDir(): string {
       return candidate;
     }
   }
-  // Fallback — will fail gracefully when files are not found
   return candidates[0];
 }
 
-function loadNamespace(
+/**
+ * Load a single namespace JSON file for a given locale.
+ * Returns an empty object if the file does not exist or cannot be parsed.
+ */
+export function loadNamespace(
   translationsDir: string,
   locale: string,
   ns: string
@@ -50,9 +53,13 @@ function loadNamespace(
   }
 }
 
-function buildResources(
+/**
+ * Build i18next resources object by loading namespace files from disk.
+ */
+export function buildResources(
   translationsDir: string,
-  language: string
+  language: string,
+  namespaces: readonly string[]
 ): Record<string, Record<string, Record<string, unknown>>> {
   const resources: Record<string, Record<string, Record<string, unknown>>> = {};
   const locales =
@@ -60,7 +67,7 @@ function buildResources(
 
   for (const locale of locales) {
     resources[locale] = {};
-    for (const ns of NAMESPACES) {
+    for (const ns of namespaces) {
       resources[locale][ns] = loadNamespace(translationsDir, locale, ns);
     }
   }
@@ -68,17 +75,24 @@ function buildResources(
   return resources;
 }
 
+/** Module-level CLI i18next instance. */
+let cliI18n: i18n | undefined;
+
 /**
  * Initialize i18next for the CLI layer.
+ *
+ * Creates a dedicated i18next instance (via createInstance) to avoid
+ * conflicts with other presentation layers sharing the same process.
  *
  * @param language - BCP-47 language code (e.g. 'en', 'ru', 'ar')
  * @returns The initialized i18next instance
  */
-export async function initI18n(language: string): Promise<typeof i18next> {
+export async function initI18n(language: string): Promise<i18n> {
   const translationsDir = getTranslationsDir();
-  const resources = buildResources(translationsDir, language);
+  const resources = buildResources(translationsDir, language, NAMESPACES);
 
-  await i18next.init({
+  const instance = i18next.createInstance();
+  await instance.init({
     lng: language,
     fallbackLng: FALLBACK_LANGUAGE,
     defaultNS: 'common',
@@ -89,7 +103,19 @@ export async function initI18n(language: string): Promise<typeof i18next> {
     },
   });
 
-  return i18next;
+  cliI18n = instance;
+  return instance;
 }
 
-export { i18next };
+/**
+ * Get the initialized CLI i18next instance.
+ * Throws if initI18n() has not been called.
+ */
+export function getCliI18n(): i18n {
+  if (!cliI18n) {
+    throw new Error('CLI i18n not initialized. Call initI18n() first.');
+  }
+  return cliI18n;
+}
+
+export { FALLBACK_LANGUAGE, getTranslationsDir };
