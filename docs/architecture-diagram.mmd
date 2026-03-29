@@ -1,0 +1,59 @@
+graph TB
+    subgraph Presentation["<b>Presentation Layer</b><br/>(User Interface)"]
+        CLI["CLI<br/><i>shep feat new</i>"]
+        TUI["TUI<br/><i>Terminal UI</i>"]
+        Web["Web Dashboard<br/><i>localhost:4050</i>"]
+    end
+
+    subgraph Application["<b>Application Layer</b><br/>(Use Cases & Business Logic)"]
+        UC1["Feature Management<br/><i>CreateFeature, ResumeFeature</i>"]
+        UC2["Agent Orchestration<br/><i>ExecuteAgent, MonitorAgent</i>"]
+        UC3["Repository Management<br/><i>ManageRepo, CreateWorktree</i>"]
+        UC4["Review & Approval<br/><i>ApprovePhase, RejectPhase</i>"]
+    end
+
+    subgraph Domain["<b>Domain Layer</b><br/>(Core Business Entities)"]
+        E1["Feature<br/><i>Requirements, Status, Phases</i>"]
+        E2["Agent<br/><i>Type, Config, Execution</i>"]
+        E3["Repository<br/><i>Path, Branches, Worktrees</i>"]
+        E4["Approval Gate<br/><i>PRD, Plan, Merge</i>"]
+    end
+
+    subgraph Infrastructure["<b>Infrastructure Layer</b><br/>(External Systems & Services)"]
+        DB["SQLite Database<br/><i>~/.shep/</i>"]
+        Git["Git Operations<br/><i>Worktrees, Branches, PRs</i>"]
+        AI["AI Agents<br/><i>Claude, Cursor, Gemini</i>"]
+        CI["CI/CD Integration<br/><i>GitHub Actions</i>"]
+    end
+
+    CLI --> UC1
+    TUI --> UC1
+    Web --> UC1
+    CLI --> UC2
+    TUI --> UC2
+    Web --> UC2
+    CLI --> UC3
+    TUI --> UC3
+    Web --> UC3
+    CLI --> UC4
+    TUI --> UC4
+    Web --> UC4
+
+    UC1 --> E1
+    UC2 --> E2
+    UC3 --> E3
+    UC4 --> E4
+
+    UC1 -.-> DB
+    UC2 -.-> DB
+    UC3 -.-> DB
+    UC4 -.-> DB
+
+    UC2 -.-> AI
+    UC3 -.-> Git
+    UC2 -.-> CI
+
+    style Presentation fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style Application fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style Domain fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style Infrastructure fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
