@@ -9,6 +9,7 @@ import { injectable, inject } from 'tsyringe';
 import type { IGitPrService } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import type {
   CiStatusResult,
+  CommitInfo,
   DiffHunk,
   DiffLine,
   DiffSummary,
@@ -966,6 +967,50 @@ export class GitPrService implements IGitPrService {
         ahead: parseInt(aheadResult.stdout.trim(), 10) || 0,
         behind: parseInt(behindResult.stdout.trim(), 10) || 0,
       };
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
+  async getCurrentBranch(cwd: string): Promise<string> {
+    try {
+      const { stdout } = await this.execFile('git', ['symbolic-ref', '--short', 'HEAD'], { cwd });
+      return stdout.trim();
+    } catch {
+      return 'HEAD';
+    }
+  }
+
+  async getCommitHistory(cwd: string, branch: string, limit = 50): Promise<CommitInfo[]> {
+    // Use NUL (\x00) as field separator to safely handle subjects with pipes
+    const format = '%H%x00%h%x00%s%x00%an%x00%ae%x00%aI%x00%D';
+    try {
+      const { stdout } = await this.execFile(
+        'git',
+        ['log', `--pretty=format:${format}`, '--max-count', String(limit), branch],
+        { cwd }
+      );
+      const raw = stdout.trim();
+      if (!raw) return [];
+      return raw.split('\n').map((line) => {
+        const [hash, shortHash, subject, authorName, authorEmail, date, refsRaw] =
+          line.split('\x00');
+        const refs = refsRaw
+          ? refsRaw
+              .split(', ')
+              .map((r) => r.trim())
+              .filter(Boolean)
+          : [];
+        return {
+          hash: hash ?? '',
+          shortHash: shortHash ?? '',
+          subject: subject ?? '',
+          authorName: authorName ?? '',
+          authorEmail: authorEmail ?? '',
+          date: date ?? '',
+          refs,
+        };
+      });
     } catch (error) {
       throw this.parseGitError(error);
     }
