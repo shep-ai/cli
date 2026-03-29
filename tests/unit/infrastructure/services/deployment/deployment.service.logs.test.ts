@@ -38,12 +38,13 @@ function createMockDeps(mockChild?: ReturnType<typeof createMockChild>): Deploym
   const child = mockChild ?? createMockChild();
   return {
     spawn: vi.fn().mockReturnValue(child),
-    detectDevScript: vi.fn().mockReturnValue({
+    detectDevScript: vi.fn().mockImplementation((_dirPath: string) => ({
       success: true,
       packageManager: 'npm',
       scriptName: 'dev',
       command: 'npm run dev',
-    }),
+      resolvedDir: _dirPath,
+    })),
     kill: vi.fn(),
     isAlive: vi.fn().mockReturnValue(true),
   };

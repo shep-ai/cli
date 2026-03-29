@@ -6,7 +6,7 @@
  * presence. Returns the detected command or an error.
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createDeploymentLogger } from './deployment-logger.js';
 
@@ -26,6 +26,8 @@ export interface DetectDevScriptSuccess {
   scriptName: string;
   command: string;
   needsInstall: boolean;
+  /** The directory where package.json was found (may differ from input when scanning subdirs) */
+  resolvedDir: string;
 }
 
 export interface DetectDevScriptError {
@@ -46,6 +48,24 @@ const log = createDeploymentLogger('[detectDevScript]');
 export function detectDevScript(dirPath: string): DetectDevScriptResult {
   log.info(`scanning dirPath="${dirPath}"`);
 
+  // Try the given directory first
+  const directResult = detectDevScriptInDir(dirPath);
+  if (directResult.success) return directResult;
+
+  // Fallback: scan immediate subdirectories for a package.json with a dev script.
+  // This handles monorepos and projects where the app lives in a subdirectory
+  // (e.g., worktree root has no package.json but `site/` or `app/` does).
+  log.info(`no dev script at root, scanning subdirectories of "${dirPath}"`);
+  const subdirResult = scanSubdirectories(dirPath);
+  if (subdirResult) return subdirResult;
+
+  return directResult;
+}
+
+/**
+ * Attempt detection in a single directory.
+ */
+function detectDevScriptInDir(dirPath: string): DetectDevScriptResult {
   // Read and parse package.json
   let packageJson: { scripts?: Record<string, string> };
   try {
@@ -80,9 +100,43 @@ export function detectDevScript(dirPath: string): DetectDevScriptResult {
 
   const needsInstall = !existsSync(join(dirPath, 'node_modules'));
   log.info(
-    `detected — packageManager="${packageManager}", scriptName="${scriptName}", command="${command}", needsInstall=${needsInstall}`
+    `detected — packageManager="${packageManager}", scriptName="${scriptName}", command="${command}", needsInstall=${needsInstall}, resolvedDir="${dirPath}"`
   );
-  return { success: true, packageManager, scriptName, command, needsInstall };
+  return { success: true, packageManager, scriptName, command, needsInstall, resolvedDir: dirPath };
+}
+
+/**
+ * Scan immediate subdirectories for a package.json with a dev script.
+ * Skips hidden dirs, node_modules, and common non-project directories.
+ */
+function scanSubdirectories(dirPath: string): DetectDevScriptSuccess | null {
+  const SKIP_DIRS = new Set(['node_modules', '.git', '.next', 'dist', 'build', 'out', '.cache']);
+
+  let entries: string[];
+  try {
+    entries = readdirSync(dirPath);
+  } catch {
+    return null;
+  }
+
+  for (const entry of entries) {
+    if (entry.startsWith('.') || SKIP_DIRS.has(entry)) continue;
+
+    const subPath = join(dirPath, entry);
+    try {
+      if (!statSync(subPath).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+
+    const result = detectDevScriptInDir(subPath);
+    if (result.success) {
+      log.info(`found dev script in subdirectory "${entry}" — resolvedDir="${subPath}"`);
+      return result;
+    }
+  }
+
+  return null;
 }
 
 /**
