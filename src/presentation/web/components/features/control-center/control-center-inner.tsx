@@ -506,18 +506,20 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 /** (+) FAB that tracks sidebar width via CSS var + transition. */
 function CreateFab({ actions }: { actions: FloatingActionButtonAction[] }) {
   const { state } = useSidebar();
+  const { i18n } = useTranslation('web');
+  const isRtl = i18n.dir() === 'rtl';
   // Sidebar expanded = var(--sidebar-width) = 16rem, collapsed = var(--sidebar-width-icon) = 3rem
   // Position just outside the sidebar edge with 16px gap
-  const left =
+  const offset =
     state === 'expanded'
       ? 'calc(var(--sidebar-width) + 32px)'
       : 'calc(var(--sidebar-width-icon) + 32px)';
 
+  const positionStyle: React.CSSProperties = isRtl
+    ? { right: offset, transition: 'right 200ms ease-in-out' }
+    : { left: offset, transition: 'left 200ms ease-in-out' };
+
   return (
-    <FloatingActionButton
-      actions={actions}
-      className="!fixed bottom-6"
-      style={{ left, transition: 'left 200ms ease-in-out' }}
-    />
+    <FloatingActionButton actions={actions} className="!fixed bottom-6" style={positionStyle} />
   );
 }

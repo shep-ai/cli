@@ -103,8 +103,11 @@ export function FeatureNode({
   selected?: boolean;
   [key: string]: unknown;
 }) {
-  const { t } = useTranslation('web');
+  const { t, i18n } = useTranslation('web');
   const router = useRouter();
+  const isRtl = i18n.dir() === 'rtl';
+  const targetHandlePos = isRtl ? Position.Right : Position.Left;
+  const sourceHandlePos = isRtl ? Position.Left : Position.Right;
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -128,19 +131,21 @@ export function FeatureNode({
   const isDeployReady = deployAction.status === 'Ready';
 
   return (
-    <div className="animate-in fade-in group relative duration-300">
+    <div
+      className="animate-in fade-in group relative duration-300"
+      style={{ direction: isRtl ? 'rtl' : 'ltr' }}
+    >
       {data.showHandles ? (
         <Handle
           type="target"
-          position={Position.Left}
+          position={targetHandlePos}
           isConnectable={false}
           className="opacity-0!"
           style={{ top: 70 }}
         />
       ) : null}
 
-      {/* Action buttons — centered as a group to the left of the node.
-          Tooltip side convention: left-side buttons use side="left", right-side buttons use side="right". */}
+      {/* Action buttons — positioned on the target-handle side of the node (left in LTR, right in RTL). */}
       <div
         className="absolute -start-14 top-0 bottom-0 flex items-center justify-center ps-4 pe-3 opacity-0 transition-opacity group-hover:opacity-100"
         onPointerDown={(e) => e.stopPropagation()}
@@ -694,7 +699,7 @@ export function FeatureNode({
       {data.onAction && data.state !== 'deleting' ? (
         <Handle
           type="source"
-          position={Position.Right}
+          position={sourceHandlePos}
           className="h-0! w-0! border-0! bg-transparent!"
           style={{ top: 70 }}
         >
@@ -709,7 +714,7 @@ export function FeatureNode({
                     e.stopPropagation();
                     data.onAction?.();
                   }}
-                  className="nodrag absolute top-1/2 left-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-blue-500 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-600"
+                  className="nodrag absolute start-1/2 top-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-blue-500 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-blue-600"
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -721,7 +726,7 @@ export function FeatureNode({
       ) : data.showHandles ? (
         <Handle
           type="source"
-          position={Position.Right}
+          position={sourceHandlePos}
           isConnectable={false}
           className="opacity-0!"
           style={{ top: 70 }}

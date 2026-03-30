@@ -225,7 +225,13 @@
     "switchToLight": "Heller Modus",
     "switchToDark": "Dunkler Modus",
     "muteSounds": "Töne stummschalten",
-    "unmuteSounds": "Töne aktivieren"
+    "unmuteSounds": "Töne aktivieren",
+    "statusActionNeeded": "Handlung erforderlich",
+    "statusInProgress": "In Bearbeitung",
+    "statusPending": "Ausstehend",
+    "statusBlocked": "Blockiert",
+    "statusError": "Fehler",
+    "statusDone": "Abgeschlossen"
   },
   "deleteFeature": {
     "title": "Feature löschen?",

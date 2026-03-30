@@ -239,7 +239,13 @@
     "switchToLight": "Modo claro",
     "switchToDark": "Modo escuro",
     "muteSounds": "Silenciar sons",
-    "unmuteSounds": "Ativar sons"
+    "unmuteSounds": "Ativar sons",
+    "statusActionNeeded": "Ação necessária",
+    "statusInProgress": "Em andamento",
+    "statusPending": "Pendente",
+    "statusBlocked": "Bloqueado",
+    "statusError": "Erro",
+    "statusDone": "Concluído"
   },
   "deleteFeature": {
     "title": "Excluir recurso?",

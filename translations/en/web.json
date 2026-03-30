@@ -239,7 +239,13 @@
     "switchToLight": "Light mode",
     "switchToDark": "Dark mode",
     "muteSounds": "Mute sounds",
-    "unmuteSounds": "Unmute sounds"
+    "unmuteSounds": "Unmute sounds",
+    "statusActionNeeded": "Action Needed",
+    "statusInProgress": "In Progress",
+    "statusPending": "Pending",
+    "statusBlocked": "Blocked",
+    "statusError": "Error",
+    "statusDone": "Done"
   },
   "deleteFeature": {
     "title": "Delete feature?",

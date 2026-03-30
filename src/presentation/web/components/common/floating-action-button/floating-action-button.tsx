@@ -76,7 +76,7 @@ export function FloatingActionButton({ actions, className, style }: FloatingActi
         {/* Action chips — expand upward */}
         <div
           className={cn(
-            'absolute bottom-[calc(100%+24px)] left-0 flex flex-col items-start gap-2',
+            'absolute start-0 bottom-[calc(100%+24px)] flex flex-col items-start gap-2',
             !open && 'pointer-events-none'
           )}
           data-testid="fab-actions"

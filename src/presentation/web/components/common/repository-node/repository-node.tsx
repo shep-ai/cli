@@ -52,8 +52,11 @@ export function RepositoryNode({
   selected?: boolean;
   [key: string]: unknown;
 }) {
-  const { t } = useTranslation('web');
+  const { t, i18n } = useTranslation('web');
   const router = useRouter();
+  const isRtl = i18n.dir() === 'rtl';
+  const targetHandlePos = isRtl ? Position.Right : Position.Left;
+  const sourceHandlePos = isRtl ? Position.Left : Position.Right;
   const featureFlags = useFeatureFlags();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const repoScopeId = data.id ? `repo-${data.id}` : `repo-${data.name}`;
@@ -107,11 +110,14 @@ export function RepositoryNode({
   );
 
   return (
-    <div className={cn('group relative', data.onDelete && data.id && 'ps-10')}>
+    <div
+      className={cn('group relative', data.onDelete && data.id && 'ps-10')}
+      style={{ direction: isRtl ? 'rtl' : 'ltr' }}
+    >
       {data.showHandles ? (
         <Handle
           type="target"
-          position={Position.Left}
+          position={targetHandlePos}
           isConnectable={false}
           className="opacity-0!"
           style={{ top: 70 }}
@@ -121,7 +127,7 @@ export function RepositoryNode({
       {/* Delete button — visible on hover, positioned to the left */}
       {data.onDelete && data.id ? (
         <>
-          <div className="absolute top-1/2 left-0 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="absolute -start-3 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -200,7 +206,7 @@ export function RepositoryNode({
           <div
             className={cn(
               'flex shrink-0 items-center gap-2',
-              (data.repositoryPath ?? data.onAdd) && 'ml-auto'
+              (data.repositoryPath ?? data.onAdd) && 'ms-auto'
             )}
             onClick={(e) => e.stopPropagation()}
           >
@@ -359,7 +365,7 @@ export function RepositoryNode({
                   </span>
                   {data.committer ? (
                     <span
-                      className="text-muted-foreground/70 ml-auto flex shrink-0 items-center gap-1"
+                      className="text-muted-foreground/70 ms-auto flex shrink-0 items-center gap-1"
                       data-testid="repository-node-committer"
                     >
                       <User className="h-3 w-3 shrink-0" />
@@ -439,9 +445,9 @@ export function RepositoryNode({
                   )}
                 </>
               ) : (
-                <span className="text-muted-foreground">
-                  {t('repositoryNode.run')}
-                  <span className="text-muted-foreground/50 ms-2 text-[10px]">
+                <span className="text-muted-foreground inline-flex items-baseline gap-2">
+                  <span>{t('repositoryNode.run')}</span>
+                  <span className="text-muted-foreground/50 text-[10px]">
                     {t('repositoryNode.startLocalEnvironment')}
                   </span>
                 </span>
@@ -451,7 +457,7 @@ export function RepositoryNode({
                   <TooltipTrigger asChild>
                     <span
                       className={cn(
-                        'ml-auto flex items-center',
+                        'ms-auto flex items-center',
                         !isDeploymentActive &&
                           !deployAction.deployError &&
                           '[&_button]:text-green-600 [&_button]:hover:text-green-700 dark:[&_button]:text-green-400 dark:[&_button]:hover:text-green-300'
@@ -493,7 +499,7 @@ export function RepositoryNode({
       {data.onAdd || data.showHandles ? (
         <Handle
           type="source"
-          position={Position.Right}
+          position={sourceHandlePos}
           isConnectable={!data.showHandles}
           className="opacity-0!"
           style={{ top: 70 }}

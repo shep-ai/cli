@@ -239,7 +239,13 @@
     "switchToLight": "الوضع الفاتح",
     "switchToDark": "الوضع الداكن",
     "muteSounds": "كتم الأصوات",
-    "unmuteSounds": "تشغيل الأصوات"
+    "unmuteSounds": "تشغيل الأصوات",
+    "statusActionNeeded": "إجراء مطلوب",
+    "statusInProgress": "قيد التنفيذ",
+    "statusPending": "قيد الانتظار",
+    "statusBlocked": "محظور",
+    "statusError": "خطأ",
+    "statusDone": "مكتمل"
   },
   "deleteFeature": {
     "title": "حذف الميزة؟",

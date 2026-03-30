@@ -239,7 +239,13 @@
     "switchToLight": "Светлая тема",
     "switchToDark": "Тёмная тема",
     "muteSounds": "Отключить звуки",
-    "unmuteSounds": "Включить звуки"
+    "unmuteSounds": "Включить звуки",
+    "statusActionNeeded": "Требуется действие",
+    "statusInProgress": "В процессе",
+    "statusPending": "Ожидание",
+    "statusBlocked": "Заблокировано",
+    "statusError": "Ошибка",
+    "statusDone": "Завершено"
   },
   "deleteFeature": {
     "title": "Удалить функцию?",

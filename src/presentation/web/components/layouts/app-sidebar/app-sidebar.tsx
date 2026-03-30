@@ -56,7 +56,7 @@ export function AppSidebar({
 
   onFeatureClick,
 }: AppSidebarProps) {
-  const { t } = useTranslation('web');
+  const { t, i18n } = useTranslation('web');
   const pathname = usePathname();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -69,13 +69,18 @@ export function AppSidebar({
   const clickSound = useSoundAction('navigate');
 
   const grouped = featureStatusOrder.map((key) => {
-    const { label } = featureStatusConfig[key];
+    const { labelKey } = featureStatusConfig[key];
     const items = features.filter((f) => f.status === key);
-    return { key, label, items };
+    return { key, label: t(labelKey), items };
   });
 
   return (
-    <Sidebar data-testid="app-sidebar" data-no-drawer-close collapsible="icon">
+    <Sidebar
+      data-testid="app-sidebar"
+      data-no-drawer-close
+      collapsible="icon"
+      side={i18n.dir() === 'rtl' ? 'right' : 'left'}
+    >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

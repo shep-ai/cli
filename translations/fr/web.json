@@ -239,7 +239,13 @@
     "switchToLight": "Mode clair",
     "switchToDark": "Mode sombre",
     "muteSounds": "Couper les sons",
-    "unmuteSounds": "Activer les sons"
+    "unmuteSounds": "Activer les sons",
+    "statusActionNeeded": "Action requise",
+    "statusInProgress": "En cours",
+    "statusPending": "En attente",
+    "statusBlocked": "Bloqué",
+    "statusError": "Erreur",
+    "statusDone": "Terminé"
   },
   "deleteFeature": {
     "title": "Supprimer la fonctionnalité ?",

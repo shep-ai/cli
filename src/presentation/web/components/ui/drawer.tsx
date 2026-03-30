@@ -59,14 +59,7 @@ function DrawerContent({
         )}
         style={
           {
-            '--initial-transform':
-              direction === 'right'
-                ? 'calc(100% + 8px)'
-                : direction === 'left'
-                  ? 'calc(-100% - 8px)'
-                  : direction === 'top'
-                    ? 'calc(-100% - 8px)'
-                    : 'calc(100% + 8px)',
+            '--initial-transform': 'calc(100% + 8px)',
             // Override vaul's user-select:none on [data-vaul-drawer] so text is selectable
             userSelect: 'text',
             ...((props.style as React.CSSProperties) ?? {}),

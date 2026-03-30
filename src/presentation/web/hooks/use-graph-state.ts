@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Edge, Position } from '@xyflow/react';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -11,7 +12,7 @@ import {
   type RepoEntry,
   type GraphCallbacks,
 } from '@/lib/derive-graph';
-import { layoutWithDagre, CANVAS_LAYOUT_DEFAULTS } from '@/lib/layout-with-dagre';
+import { layoutWithDagre, getCanvasLayoutDefaults } from '@/lib/layout-with-dagre';
 
 export type { GraphCallbacks } from '@/lib/derive-graph';
 
@@ -139,6 +140,8 @@ export function useGraphState(
   initialEdges: Edge[],
   showArchived = false
 ): UseGraphStateReturn {
+  const { i18n } = useTranslation();
+  const layoutDefaults = useMemo(() => getCanvasLayoutDefaults(i18n.dir()), [i18n]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: parse only on mount (like useState initializer)
   const init = useMemo(() => parseMaps(initialNodes, initialEdges), []);
 
@@ -234,11 +237,11 @@ export function useGraphState(
       .map((e) => `${e.source}-${e.target}`)
       .sort()
       .join(',');
-    const topologyKey = `${nodeIds}|${edgeKeys}`;
+    const topologyKey = `${nodeIds}|${edgeKeys}|${layoutDefaults.direction}`;
 
     if (topologyKey !== layoutCacheRef.current.key) {
       // Topology changed — re-run dagre
-      const result = layoutWithDagre(derived.nodes, derived.edges, CANVAS_LAYOUT_DEFAULTS);
+      const result = layoutWithDagre(derived.nodes, derived.edges, layoutDefaults);
       const positions = new Map<
         string,
         { position: { x: number; y: number }; targetPosition: Position; sourcePosition: Position }
@@ -287,7 +290,7 @@ export function useGraphState(
       return cached ? { ...node, ...cached } : node;
     });
     return { nodes, edges: derived.edges };
-  }, [derived]);
+  }, [derived, layoutDefaults]);
 
   // --- Mutations ---
 

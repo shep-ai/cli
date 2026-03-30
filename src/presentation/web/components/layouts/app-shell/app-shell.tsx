@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import { Direction } from 'radix-ui';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
 import { ReactFileManagerDialog } from '@/components/common/react-file-manager-dialog';
@@ -137,15 +139,20 @@ function TurnStatusesBridge({ children }: { children: ReactNode }) {
 }
 
 export function AppShell({ children, sidebarOpen }: AppShellProps) {
+  const { i18n } = useTranslation();
+  const dir = i18n.dir();
+
   return (
-    <AgentEventsProvider>
-      <DrawerCloseGuardProvider>
-        <SidebarFeaturesProvider>
-          <TurnStatusesBridge>
-            <AppShellInner sidebarOpen={sidebarOpen}>{children}</AppShellInner>
-          </TurnStatusesBridge>
-        </SidebarFeaturesProvider>
-      </DrawerCloseGuardProvider>
-    </AgentEventsProvider>
+    <Direction.Provider dir={dir}>
+      <AgentEventsProvider>
+        <DrawerCloseGuardProvider>
+          <SidebarFeaturesProvider>
+            <TurnStatusesBridge>
+              <AppShellInner sidebarOpen={sidebarOpen}>{children}</AppShellInner>
+            </TurnStatusesBridge>
+          </SidebarFeaturesProvider>
+        </DrawerCloseGuardProvider>
+      </AgentEventsProvider>
+    </Direction.Provider>
   );
 }

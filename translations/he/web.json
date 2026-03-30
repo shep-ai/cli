@@ -239,7 +239,13 @@
     "switchToLight": "מצב בהיר",
     "switchToDark": "מצב כהה",
     "muteSounds": "השתק צלילים",
-    "unmuteSounds": "בטל השתקת צלילים"
+    "unmuteSounds": "בטל השתקת צלילים",
+    "statusActionNeeded": "נדרשת פעולה",
+    "statusInProgress": "בתהליך",
+    "statusPending": "ממתין",
+    "statusBlocked": "חסום",
+    "statusError": "שגיאה",
+    "statusDone": "הושלם"
   },
   "deleteFeature": {
     "title": "למחוק פיצ'ר?",
