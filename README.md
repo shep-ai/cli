@@ -80,6 +80,12 @@ shep feat new "add a /health endpoint that returns uptime and version" --push --
 
 Not in a git repo? Shep initializes one for you — `git init`, creates a branch, and starts working.
 
+Or use the dashboard — describe what you need, configure automation, and hit create:
+
+<div align="center">
+<img src="docs/screenshots/create-feature.png" alt="Shep — Create Feature with configurable automation" width="900" />
+</div>
+
 ### Go parallel
 
 ```bash
@@ -89,12 +95,24 @@ shep feat new "refactor auth middleware" --push --pr
 # All three run simultaneously in the same repo. Each in its own worktree.
 ```
 
+Launch from CLI or dashboard — monitor everything in one place. Open any feature in your IDE, terminal, or file manager with one click:
+
+<div align="center">
+<img src="docs/screenshots/parallel-features.png" alt="Shep — Three features running in parallel" width="900" />
+</div>
+
 Or work across multiple repos:
 
 ```bash
 shep feat new "add payments" --repo ~/projects/backend --push --pr
 shep feat new "add checkout UI" --repo ~/projects/frontend --push --pr
 ```
+
+Manage multiple repos from one dashboard. Start a local dev server per feature, chat with Shep for questions or HTML previews — all without leaving the UI:
+
+<div align="center">
+<img src="docs/screenshots/multi-repo.png" alt="Shep — Multiple repos with global chat and HTML preview" width="900" />
+</div>
 
 ---
 
