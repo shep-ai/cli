@@ -1,3 +1,15 @@
+# [1.156.0](https://github.com/shep-ai/cli/compare/v1.155.0...v1.156.0) (2026-03-30)
+
+
+### Bug Fixes
+
+* **cli:** fix 3 onboarding bugs blocking hacker news launch ([#486](https://github.com/shep-ai/cli/issues/486)) ([6bc7e0b](https://github.com/shep-ai/cli/commit/6bc7e0b93d3bceb2e256072fc30bce805a6ac483)), closes [#348](https://github.com/shep-ai/cli/issues/348) [#350](https://github.com/shep-ai/cli/issues/350) [#351](https://github.com/shep-ai/cli/issues/351) [#348](https://github.com/shep-ai/cli/issues/348) [#350](https://github.com/shep-ai/cli/issues/350) [#351](https://github.com/shep-ai/cli/issues/351)
+
+
+### Features
+
+* **dx:** add GitHub issue templates ([#483](https://github.com/shep-ai/cli/issues/483)) ([b7d3ac4](https://github.com/shep-ai/cli/commit/b7d3ac453c7b04f8526677d8e97171c4b860214d))
+
 # [1.155.0](https://github.com/shep-ai/cli/compare/v1.154.0...v1.155.0) (2026-03-29)
 
 
