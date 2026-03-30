@@ -25,7 +25,7 @@ technologies:
   - tsyringe (DI container)
 
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/230
+  - https://github.com/shep-ai/shep/issues/230
 
 phases:
   - id: phase-1

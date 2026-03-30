@@ -135,7 +135,7 @@ const mergeReviewFeature: FeatureNodeData = {
   baseBranch: 'main',
   hasPlan: true,
   pr: {
-    url: 'https://github.com/shep-ai/cli/pull/42',
+    url: 'https://github.com/shep-ai/shep/pull/42',
     number: 42,
     status: PrStatus.Open,
     ciStatus: CiStatus.Success,
@@ -253,7 +253,7 @@ const productFixture: ProductDecisionsSummaryData = {
 
 const mergeFixture: MergeReviewData = {
   pr: {
-    url: 'https://github.com/shep-ai/cli/pull/42',
+    url: 'https://github.com/shep-ai/shep/pull/42',
     number: 42,
     status: PrStatus.Open,
     commitHash: 'a1b2c3d4e5f6789',

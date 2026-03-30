@@ -20,7 +20,7 @@ status:
     - research
     - planning
     - implementation
-prUrl: https://github.com/shep-ai/cli/pull/63
+prUrl: https://github.com/shep-ai/shep/pull/63
 validation:
   lastRun: '2026-02-16T17:56:00Z'
   gatesPassed:

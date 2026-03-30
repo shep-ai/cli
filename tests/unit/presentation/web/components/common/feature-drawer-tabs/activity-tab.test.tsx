@@ -370,7 +370,7 @@ describe('ActivityTab', () => {
         {
           iteration: 4,
           message:
-            "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/cli/pull/258 fix",
+            "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/shep/pull/258 fix",
           phase: 'merge',
         },
       ];
@@ -466,7 +466,7 @@ describe('ActivityTab', () => {
       ];
 
       const longMessage =
-        "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/cli/pull/258 fix";
+        "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/shep/pull/258 fix";
       renderActivityTab({
         timings: timingsWithRejection,
         rejectionFeedback: [{ iteration: 1, message: longMessage, phase: 'merge' }],

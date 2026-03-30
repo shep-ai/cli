@@ -22,7 +22,7 @@ status:
     - phase-1
     - phase-2
     - phase-3
-prUrl: https://github.com/shep-ai/cli/pull/120
+prUrl: https://github.com/shep-ai/shep/pull/120
 validation:
   lastRun: null
   gatesPassed: []

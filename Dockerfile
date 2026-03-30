@@ -82,5 +82,5 @@ COPY package.json ./
 # Switch to non-root user
 USER shep
 
-# CLI entrypoint - allows: docker run ghcr.io/shep-ai/cli --version
+# CLI entrypoint - allows: docker run ghcr.io/shep-ai/shep --version
 ENTRYPOINT ["node", "dist/presentation/cli/index.js"]

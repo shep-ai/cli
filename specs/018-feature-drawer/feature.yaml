@@ -14,7 +14,7 @@ status:
   currentTask: null
   lastUpdated: '2026-02-16T22:00:00.000Z'
   lastUpdatedBy: shep-kit:implement
-prUrl: https://github.com/shep-ai/cli/pull/55
+prUrl: https://github.com/shep-ai/shep/pull/55
 validation:
   lastRun: '2026-02-16T13:15:00.000Z'
   gatesPassed:

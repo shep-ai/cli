@@ -24,7 +24,7 @@ technologies:
   - Next.js Server Actions — getSupportedModels exposed to web UI via "use server"
   - tsyringe — DI wiring unchanged; getSupportedModels added to existing token
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/229
+  - https://github.com/shep-ai/shep/issues/229
   - https://ui.shadcn.com/docs/components/combobox
 
 # Structured implementation phases

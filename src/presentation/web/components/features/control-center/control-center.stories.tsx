@@ -403,7 +403,7 @@ const archiveRepoNode: RepositoryNodeType = {
   id: 'repo-archive',
   type: 'repositoryNode',
   position: { x: 50, y: 115 },
-  data: { name: 'shep-ai/cli' },
+  data: { name: 'shep-ai/shep' },
 };
 
 const archivedFeatureNodes: FeatureNodeType[] = [

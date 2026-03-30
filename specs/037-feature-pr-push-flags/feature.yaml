@@ -24,7 +24,7 @@ status:
     - phase-2
     - phase-3
 
-prUrl: 'https://github.com/shep-ai/cli/pull/103'
+prUrl: 'https://github.com/shep-ai/shep/pull/103'
 
 validation:
   lastRun: null

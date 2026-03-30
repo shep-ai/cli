@@ -41,7 +41,7 @@ const meta: Meta<RepositoryNodeData> = {
     layout: 'centered',
   },
   args: {
-    name: 'shep-ai/cli',
+    name: 'shep-ai/shep',
     branch: 'main',
     commitMessage: 'feat: add dark mode toggle',
     committer: 'Jane Doe',
@@ -80,7 +80,7 @@ const onAdd = () => undefined;
 
 const multipleRepos: RepositoryNodeData[] = [
   {
-    name: 'shep-ai/cli',
+    name: 'shep-ai/shep',
     branch: 'main',
     commitMessage: 'feat: add dark mode toggle',
     committer: 'Jane Doe',
@@ -135,7 +135,7 @@ export const Multiple: Story = {
 
 const multipleReposWithButton: RepositoryNodeData[] = [
   {
-    name: 'shep-ai/cli',
+    name: 'shep-ai/shep',
     onAdd,
     branch: 'main',
     commitMessage: 'feat: add dark mode toggle',
@@ -193,7 +193,7 @@ export const MultipleWithButton: Story = {
 
 export const WithPulseAdd: Story = {
   args: {
-    repositoryPath: '/home/user/shep-ai/cli',
+    repositoryPath: '/home/user/shep-ai/shep',
     pulseAdd: true,
   },
   argTypes: {
@@ -204,14 +204,14 @@ export const WithPulseAdd: Story = {
 
 export const WithActions: Story = {
   args: {
-    repositoryPath: '/home/user/shep-ai/cli',
+    repositoryPath: '/home/user/shep-ai/shep',
   },
   render: (args) => <RepositoryNodeCanvas data={args} />,
 };
 
 export const WithActionsAndAddButton: Story = {
   args: {
-    repositoryPath: '/home/user/shep-ai/cli',
+    repositoryPath: '/home/user/shep-ai/shep',
   },
   argTypes: {
     onAdd: { action: 'onAdd' },
@@ -224,7 +224,7 @@ const onDelete = () => undefined;
 export const WithDeleteButton: Story = {
   args: {
     id: 'repo-abc-123',
-    repositoryPath: '/home/user/shep-ai/cli',
+    repositoryPath: '/home/user/shep-ai/shep',
   },
   argTypes: {
     onDelete: { action: 'onDelete' },
@@ -235,8 +235,8 @@ export const WithDeleteButton: Story = {
 const multipleReposWithActions: RepositoryNodeData[] = [
   {
     id: 'r1',
-    name: 'shep-ai/cli',
-    repositoryPath: '/home/user/shep-ai/cli',
+    name: 'shep-ai/shep',
+    repositoryPath: '/home/user/shep-ai/shep',
     onAdd,
     onDelete,
     branch: 'main',
@@ -305,7 +305,7 @@ export const MultipleWithActions: Story = {
 
 export const WithGitInfo: Story = {
   args: {
-    repositoryPath: '/home/user/shep-ai/cli',
+    repositoryPath: '/home/user/shep-ai/shep',
     branch: 'feat/repo-node-enrichment',
     commitMessage: 'feat(web): enrich repository node with branch and commit info',
     committer: 'Ariel Shadkhan',
@@ -316,7 +316,7 @@ export const WithGitInfo: Story = {
 
 export const WithGitInfoBehind: Story = {
   args: {
-    repositoryPath: '/home/user/shep-ai/cli',
+    repositoryPath: '/home/user/shep-ai/shep',
     branch: 'feat/old-feature-branch',
     commitMessage: 'fix: resolve merge conflict in auth module',
     committer: 'Jane Doe',
@@ -327,7 +327,7 @@ export const WithGitInfoBehind: Story = {
 
 export const GitInfoLoading: Story = {
   args: {
-    repositoryPath: '/home/user/shep-ai/cli',
+    repositoryPath: '/home/user/shep-ai/shep',
     gitInfoStatus: 'loading',
   },
   render: (args) => <RepositoryNodeCanvas data={args} />,

@@ -184,7 +184,7 @@ export class Renderer {
     if (allRepos.length === 0) {
       // Initialize with 2 default repos on welcome screen
       const defaultRepos = [
-        { fullName: 'shep-ai/cli', localPath: '/Users/developer/workspaces/shep-ai-cli' },
+        { fullName: 'shep-ai/shep', localPath: '/Users/developer/workspaces/shep-ai-cli' },
         {
           fullName: 'acme-corp/platform-api',
           localPath: '/Users/developer/workspaces/platform-api',

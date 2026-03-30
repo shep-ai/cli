@@ -1,11 +1,11 @@
 name: pr-status-accuracy
 number: 60
 branch: feat/060-pr-status-accuracy
-oneLiner: https://github.com/shep-ai/cli/issues/292
+oneLiner: https://github.com/shep-ai/shep/issues/292
 userQuery: |
-  https://github.com/shep-ai/cli/issues/292
+  https://github.com/shep-ai/shep/issues/292
 summary: |
-  https://github.com/shep-ai/cli/issues/292
+  https://github.com/shep-ai/shep/issues/292
 phase: Analysis
 sizeEstimate: M
 relatedFeatures: []
@@ -15,7 +15,7 @@ openQuestions: []
 content: |
   ## Problem Statement
 
-  https://github.com/shep-ai/cli/issues/292
+  https://github.com/shep-ai/shep/issues/292
 
   ## Success Criteria
 
@@ -44,7 +44,7 @@ rejectionFeedback:
       there is a bug
       currently we are not showing merge status conflicts for feature
       277a7337-4440-4e36-9fb2-de25b562d82c
-      https://github.com/shep-ai/cli/pull/298
+      https://github.com/shep-ai/shep/pull/298
       while it CI CD has conflicts. 
       it has conflicts and we dont see it
     phase: merge
@@ -60,7 +60,7 @@ rejectionFeedback:
       you can use featureId
       http://localhost:3000/feature/277a7337-4440-4e36-9fb2-de25b562d82c/merge-review
 
-      and pullrequest https://github.com/shep-ai/cli/pull/298
+      and pullrequest https://github.com/shep-ai/shep/pull/298
     phase: merge
     timestamp: '2026-03-11T12:33:18.746Z'
     attachments:

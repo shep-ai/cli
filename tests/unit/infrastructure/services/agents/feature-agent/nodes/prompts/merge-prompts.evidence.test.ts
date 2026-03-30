@@ -217,10 +217,10 @@ describe('buildCommitPushPrPrompt — evidence rendering', () => {
       baseState({ openPr: true, evidence }),
       'feat/test',
       'main',
-      'https://github.com/shep-ai/cli'
+      'https://github.com/shep-ai/shep'
     );
     expect(prompt).toContain(
-      '![Dashboard screenshot](https://raw.githubusercontent.com/shep-ai/cli/feat/test/.shep/evidence/dashboard.png)'
+      '![Dashboard screenshot](https://raw.githubusercontent.com/shep-ai/shep/feat/test/.shep/evidence/dashboard.png)'
     );
   });
 
@@ -300,9 +300,9 @@ describe('buildCommitPushPrPrompt — evidence rendering', () => {
 
 describe('parseGitHubOwnerRepo', () => {
   it('should parse HTTPS GitHub URLs', () => {
-    expect(parseGitHubOwnerRepo('https://github.com/shep-ai/cli')).toEqual({
+    expect(parseGitHubOwnerRepo('https://github.com/shep-ai/shep')).toEqual({
       owner: 'shep-ai',
-      repo: 'cli',
+      repo: 'shep',
     });
   });
 

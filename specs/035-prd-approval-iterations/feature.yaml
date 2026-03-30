@@ -19,7 +19,7 @@ status:
     - requirements
     - research
     - plan
-prUrl: https://github.com/shep-ai/cli/pull/86
+prUrl: https://github.com/shep-ai/shep/pull/86
 validation:
   lastRun: null
   gatesPassed: []

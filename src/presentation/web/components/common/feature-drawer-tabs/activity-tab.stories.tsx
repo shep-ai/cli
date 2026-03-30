@@ -415,7 +415,7 @@ export const MultipleRejections: Story = {
       {
         iteration: 4,
         message:
-          "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/cli/pull/258 fix",
+          "I've test and created a feature but the screenshots seems to be broken https://github.com/shep-ai/shep/pull/258 fix",
         phase: 'merge',
         timestamp: '2025-01-15T10:25:00Z',
       },

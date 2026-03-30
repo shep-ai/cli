@@ -5,7 +5,7 @@ feature:
   branch: feat/031-prd-review-questionnaire
   lifecycle: review
   createdAt: '2026-02-19T12:51:16Z'
-prUrl: 'https://github.com/shep-ai/cli/pull/79'
+prUrl: 'https://github.com/shep-ai/shep/pull/79'
 status:
   phase: in-review
   progress:
