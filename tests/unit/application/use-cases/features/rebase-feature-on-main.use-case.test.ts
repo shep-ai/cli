@@ -55,6 +55,8 @@ function createMockGitPrService(): IGitPrService {
     stageFiles: vi.fn(),
     rebaseContinue: vi.fn(),
     rebaseAbort: vi.fn(),
+    stash: vi.fn().mockResolvedValue(false),
+    stashPop: vi.fn().mockResolvedValue(undefined),
   } as unknown as IGitPrService;
 }
 
@@ -281,5 +283,75 @@ describe('RebaseFeatureOnMainUseCase', () => {
     expect(error).toBeInstanceOf(GitPrError);
     expect(error.code).toBe(GitPrErrorCode.GIT_ERROR);
     expect(mockConflictResolution.resolve).not.toHaveBeenCalled();
+  });
+
+  it('should stash uncommitted changes before rebase and pop after', async () => {
+    vi.mocked(mockFeatureRepo.findById).mockResolvedValue(sampleFeature);
+    vi.mocked(mockGitPrService.stash).mockResolvedValue(true);
+
+    await useCase.execute('feat-abc-123');
+
+    expect(mockGitPrService.stash).toHaveBeenCalledWith(
+      '/home/user/my-project',
+      'shep-rebase: auto-stash before rebase'
+    );
+    expect(mockGitPrService.rebaseOnMain).toHaveBeenCalled();
+    expect(mockGitPrService.stashPop).toHaveBeenCalledWith('/home/user/my-project');
+  });
+
+  it('should not pop stash when no changes were stashed', async () => {
+    vi.mocked(mockFeatureRepo.findById).mockResolvedValue(sampleFeature);
+    vi.mocked(mockGitPrService.stash).mockResolvedValue(false);
+
+    await useCase.execute('feat-abc-123');
+
+    expect(mockGitPrService.stash).toHaveBeenCalled();
+    expect(mockGitPrService.stashPop).not.toHaveBeenCalled();
+  });
+
+  it('should pop stash after rebase with conflict resolution', async () => {
+    vi.mocked(mockFeatureRepo.findById).mockResolvedValue(sampleFeature);
+    vi.mocked(mockGitPrService.stash).mockResolvedValue(true);
+    vi.mocked(mockGitPrService.rebaseOnMain).mockRejectedValue(
+      new GitPrError('Rebase conflicts detected', GitPrErrorCode.REBASE_CONFLICT)
+    );
+
+    await useCase.execute('feat-abc-123');
+
+    expect(mockConflictResolution.resolve).toHaveBeenCalled();
+    expect(mockGitPrService.stashPop).toHaveBeenCalledWith('/home/user/my-project');
+  });
+
+  it('should pop stash even when rebase fails with non-conflict error', async () => {
+    vi.mocked(mockFeatureRepo.findById).mockResolvedValue(sampleFeature);
+    vi.mocked(mockGitPrService.stash).mockResolvedValue(true);
+    vi.mocked(mockGitPrService.rebaseOnMain).mockRejectedValue(
+      new GitPrError('Unexpected git failure', GitPrErrorCode.GIT_ERROR)
+    );
+
+    const error = await useCase.execute('feat-abc-123').catch((e) => e);
+
+    expect(error).toBeInstanceOf(GitPrError);
+    expect(error.code).toBe(GitPrErrorCode.GIT_ERROR);
+    expect(mockGitPrService.stashPop).toHaveBeenCalledWith('/home/user/my-project');
+  });
+
+  it('should stash and pop with worktree path', async () => {
+    vi.mocked(mockFeatureRepo.findById).mockResolvedValue(sampleFeature);
+    vi.mocked(mockWorktreeService.exists).mockResolvedValue(true);
+    vi.mocked(mockWorktreeService.getWorktreePath).mockReturnValue(
+      '/home/user/my-project/.worktrees/feat-my-feature'
+    );
+    vi.mocked(mockGitPrService.stash).mockResolvedValue(true);
+
+    await useCase.execute('feat-abc-123');
+
+    expect(mockGitPrService.stash).toHaveBeenCalledWith(
+      '/home/user/my-project/.worktrees/feat-my-feature',
+      'shep-rebase: auto-stash before rebase'
+    );
+    expect(mockGitPrService.stashPop).toHaveBeenCalledWith(
+      '/home/user/my-project/.worktrees/feat-my-feature'
+    );
   });
 });
