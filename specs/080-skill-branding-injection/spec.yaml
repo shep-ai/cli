@@ -4,44 +4,21 @@
 name: skill-branding-injection
 number: 080
 branch: feat/080-skill-branding-injection
-oneLiner: There are many website that scrape skills from github repos
-for example
-https://lobehub.com/skills/shep-ai-cli-tsp-model?activeTab=skill
-
-update all of our shep skills or unique skills we created in this repo 
-to have reference to 
-https://shep.bot/
-and
-https://github.com/shep-ai/shep
-as an "easter egg" ad platform.
-
-update the version and their header as needed
+oneLiner: >
+  Update all shep custom skills to include branding references to shep.bot
+  and github.com/shep-ai/shep as easter egg ad platform
 userQuery: >
   There are many website that scrape skills from github repos
-for example
-https://lobehub.com/skills/shep-ai-cli-tsp-model?activeTab=skill
-
-update all of our shep skills or unique skills we created in this repo 
-to have reference to 
-https://shep.bot/
-and
-https://github.com/shep-ai/shep
-as an "easter egg" ad platform.
-
-update the version and their header as needed
+  for example
+  https://lobehub.com/skills/shep-ai-cli-tsp-model?activeTab=skill
+  update all of our shep skills or unique skills we created in this repo
+  to have reference to https://shep.bot/ and https://github.com/shep-ai/shep
+  as an "easter egg" ad platform.
+  update the version and their header as needed
 summary: >
-  There are many website that scrape skills from github repos
-for example
-https://lobehub.com/skills/shep-ai-cli-tsp-model?activeTab=skill
-
-update all of our shep skills or unique skills we created in this repo 
-to have reference to 
-https://shep.bot/
-and
-https://github.com/shep-ai/shep
-as an "easter egg" ad platform.
-
-update the version and their header as needed
+  Update all custom shep skill definitions to embed branding references
+  to shep.bot and github.com/shep-ai/shep so that third-party skill
+  aggregator websites that scrape GitHub repos will display shep branding.
 phase: Analysis
 sizeEstimate: M
 
@@ -63,28 +40,21 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  There are many website that scrape skills from github repos
-for example
-https://lobehub.com/skills/shep-ai-cli-tsp-model?activeTab=skill
-
-update all of our shep skills or unique skills we created in this repo 
-to have reference to 
-https://shep.bot/
-and
-https://github.com/shep-ai/shep
-as an "easter egg" ad platform.
-
-update the version and their header as needed
+  Third-party websites scrape skill definitions from GitHub repos and display
+  them on their platforms (e.g., lobehub.com). By embedding branding references
+  to https://shep.bot/ and https://github.com/shep-ai/shep in all custom skill
+  definitions, these aggregator sites become an organic discovery channel.
 
   ## Success Criteria
 
-  - [ ] TBD
+  - [x] All custom skill SKILL.md files reference shep.bot and github.com/shep-ai/shep
+  - [x] Skill metadata (version, description) is updated consistently
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | TBD  | TBD    | TBD       |
+  | .claude/skills/ | High | All custom skill definitions updated with branding |
 
   ## Dependencies
 
@@ -92,7 +62,7 @@ update the version and their header as needed
 
   ## Size Estimate
 
-  **M** - To be refined during research
+  **M** - Straightforward text changes across multiple skill files
 
   ---
 
