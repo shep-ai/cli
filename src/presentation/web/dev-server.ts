@@ -36,6 +36,10 @@ import {
   getPrSyncWatcher,
 } from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
 import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
+import {
+  initializeAutoArchiveWatcher,
+  getAutoArchiveWatcher,
+} from '@/infrastructure/services/auto-archive/auto-archive-watcher.service.js';
 
 const DEFAULT_PORT = 3000;
 
@@ -101,6 +105,10 @@ async function main() {
       gitForkService
     );
     getPrSyncWatcher().start();
+
+    // Start auto-archive watcher for completed features
+    initializeAutoArchiveWatcher(featureRepo);
+    getAutoArchiveWatcher().start();
   } catch (error) {
     console.warn('[dev-server] DI initialization failed — features will be empty:', error);
   }
@@ -156,6 +164,11 @@ async function main() {
       }
       try {
         getPrSyncWatcher().stop();
+      } catch {
+        /* not initialized */
+      }
+      try {
+        getAutoArchiveWatcher().stop();
       } catch {
         /* not initialized */
       }

@@ -70,6 +70,10 @@ vi.mock('@/infrastructure/services/notifications/notification-watcher.service.js
   initializeNotificationWatcher: vi.fn(),
   getNotificationWatcher: vi.fn().mockReturnValue({ start: vi.fn(), stop: vi.fn() }),
 }));
+vi.mock('@/infrastructure/services/auto-archive/auto-archive-watcher.service.js', () => ({
+  initializeAutoArchiveWatcher: vi.fn(),
+  getAutoArchiveWatcher: vi.fn().mockReturnValue({ start: vi.fn(), stop: vi.fn() }),
+}));
 
 import { startDaemon } from '../../../src/presentation/cli/commands/daemon/start-daemon.js';
 import { createStartCommand } from '../../../src/presentation/cli/commands/start.command.js';

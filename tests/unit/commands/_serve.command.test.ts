@@ -65,6 +65,15 @@ vi.mock('@/infrastructure/services/notifications/notification-watcher.service.js
   }),
 }));
 
+// Mock auto-archive watcher
+vi.mock('@/infrastructure/services/auto-archive/auto-archive-watcher.service.js', () => ({
+  initializeAutoArchiveWatcher: vi.fn(),
+  getAutoArchiveWatcher: vi.fn().mockReturnValue({
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
+}));
+
 const mockWebServerService = {
   start: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn().mockResolvedValue(undefined),

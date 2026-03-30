@@ -161,6 +161,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     interactive_agent_enabled: 1,
     interactive_agent_auto_timeout_minutes: 15,
     interactive_agent_max_concurrent_sessions: 3,
+    auto_archive_delay_minutes: 10,
     ...overrides,
   };
 }

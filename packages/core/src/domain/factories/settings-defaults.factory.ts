@@ -148,6 +148,7 @@ export function createDefaultSettings(): Settings {
     enableEvidence: false,
     commitEvidence: false,
     defaultFastMode: true,
+    autoArchiveDelayMinutes: 10,
   };
 
   const featureFlags: FeatureFlags = {

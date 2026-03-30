@@ -355,6 +355,15 @@ model WorkflowConfig {
    */
   @doc("Default new features to fast mode (default: true)")
   defaultFastMode: boolean = true;
+
+  /**
+   * Automatically archive features that reach the Maintain (completed) lifecycle
+   * after this many minutes. When set to 0, auto-archiving is disabled.
+   * The timer starts from the feature's updatedAt timestamp (the moment it
+   * transitioned to Maintain).
+   */
+  @doc("Minutes after completion before auto-archiving a feature (default: 10, 0 = disabled)")
+  autoArchiveDelayMinutes?: int32;
 }
 
 @doc("AI coding agent configuration")
