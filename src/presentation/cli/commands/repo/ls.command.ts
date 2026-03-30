@@ -12,6 +12,7 @@ import { container } from '@/infrastructure/di/container.js';
 import { ListRepositoriesUseCase } from '@/application/use-cases/repositories/list-repositories.use-case.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { colors, messages, renderListView } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 /** Format a duration in ms to a compact human-readable string. */
 function formatDuration(ms: number): string {
@@ -27,7 +28,8 @@ function formatDuration(ms: number): string {
 }
 
 export function createLsCommand(): Command {
-  return new Command('ls').description('List tracked repositories').action(async () => {
+  const t = getCliI18n().t;
+  return new Command('ls').description(t('cli:commands.repo.ls.description')).action(async () => {
     try {
       const useCase = container.resolve(ListRepositoriesUseCase);
       const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
@@ -48,20 +50,20 @@ export function createLsCommand(): Command {
       );
 
       renderListView({
-        title: 'Repositories',
+        title: t('cli:commands.repo.ls.title'),
         columns: [
-          { label: 'ID', width: 10 },
-          { label: 'Name', width: 28 },
-          { label: 'Features', width: 10 },
-          { label: 'Path', width: 36 },
-          { label: 'Created', width: 12 },
+          { label: t('cli:commands.repo.ls.idColumn'), width: 10 },
+          { label: t('cli:commands.repo.ls.nameColumn'), width: 28 },
+          { label: t('cli:commands.repo.ls.featuresColumn'), width: 10 },
+          { label: t('cli:commands.repo.ls.pathColumn'), width: 36 },
+          { label: t('cli:commands.repo.ls.createdColumn'), width: 12 },
         ],
         rows,
-        emptyMessage: 'No repositories found',
+        emptyMessage: t('cli:commands.repo.ls.noRepos'),
       });
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      messages.error('Failed to list repositories', err);
+      messages.error(t('cli:commands.repo.ls.failedToList'), err);
       process.exitCode = 1;
     }
   });

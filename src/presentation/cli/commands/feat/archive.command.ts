@@ -17,6 +17,7 @@ import { ShowFeatureUseCase } from '@/application/use-cases/features/show-featur
 import { ArchiveFeatureUseCase } from '@/application/use-cases/features/archive-feature.use-case.js';
 import { colors, messages } from '../../ui/index.js';
 import { confirm } from '@inquirer/prompts';
+import { getCliI18n } from '../../i18n.js';
 
 interface ArchiveOptions {
   force?: boolean;
@@ -26,10 +27,11 @@ interface ArchiveOptions {
  * Create the feat archive command
  */
 export function createArchiveCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('archive')
-    .description('Archive a feature to hide it from the canvas')
-    .argument('<id>', 'Feature ID or prefix')
-    .option('-f, --force', 'Skip confirmation prompt')
+    .description(t('cli:commands.feat.archive.description'))
+    .argument('<id>', t('cli:commands.feat.archive.idArgument'))
+    .option('-f, --force', t('cli:commands.feat.archive.forceOption'))
     .action(async (featureId: string, options: ArchiveOptions) => {
       try {
         const showUseCase = container.resolve(ShowFeatureUseCase);
@@ -37,11 +39,11 @@ export function createArchiveCommand(): Command {
 
         if (!options.force) {
           const confirmed = await confirm({
-            message: `Archive feature "${feature.name}"?`,
+            message: t('cli:commands.feat.archive.confirmArchive', { name: feature.name }),
             default: false,
           });
           if (!confirmed) {
-            messages.info('Cancelled');
+            messages.info(t('cli:commands.feat.archive.cancelled'));
             return;
           }
         }
@@ -50,12 +52,12 @@ export function createArchiveCommand(): Command {
         await archiveUseCase.execute(feature.id);
 
         messages.newline();
-        messages.success('Feature archived');
-        console.log(`  ${colors.muted('Name:')} ${feature.name}`);
+        messages.success(t('cli:commands.feat.archive.featureArchived'));
+        console.log(`  ${colors.muted(t('cli:commands.feat.archive.nameLabel'))} ${feature.name}`);
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to archive feature', err);
+        messages.error(t('cli:commands.feat.archive.failedToArchive'), err);
         process.exitCode = 1;
       }
     });

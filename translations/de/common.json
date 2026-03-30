@@ -1,0 +1,55 @@
+{
+  "errors": {
+    "notFound": "Nicht gefunden",
+    "unauthorized": "Nicht autorisiert",
+    "forbidden": "Zugriff verweigert",
+    "internal": "Interner Fehler",
+    "unknown": "Ein unbekannter Fehler ist aufgetreten",
+    "failedToLoad": "{{resource}} konnte nicht geladen werden",
+    "failedToSave": "{{resource}} konnte nicht gespeichert werden"
+  },
+  "labels": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "confirm": "Bestätigen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "yes": "Ja",
+    "no": "Nein",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "loading": "Laden...",
+    "saving": "Speichern...",
+    "saved": "Gespeichert",
+    "none": "Keine",
+    "default": "Standard",
+    "custom": "Benutzerdefiniert"
+  },
+  "status": {
+    "success": "Erfolg",
+    "error": "Fehler",
+    "warning": "Warnung",
+    "info": "Info",
+    "pending": "Ausstehend",
+    "inProgress": "In Bearbeitung",
+    "completed": "Abgeschlossen",
+    "failed": "Fehlgeschlagen"
+  },
+  "confirmation": {
+    "areYouSure": "Sind Sie sicher?",
+    "cannotBeUndone": "Diese Aktion kann nicht rückgängig gemacht werden."
+  },
+  "language": {
+    "en": "Englisch",
+    "ru": "Russisch",
+    "pt": "Portugiesisch",
+    "es": "Spanisch",
+    "ar": "Arabisch",
+    "he": "Hebräisch",
+    "fr": "Französisch",
+    "de": "Deutsch"
+  }
+}

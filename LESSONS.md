@@ -108,3 +108,25 @@ When an interactive chat session restarts (cold start / timeout), the boot promp
 - Extract and quote the user's latest message explicitly so the agent can't miss it
 
 **Root cause:** The agent treats everything in its prompt as actionable context. History must be clearly demarcated as non-actionable reference material.
+
+## Every processService.spawn() Call Must Pass ALL Per-Feature Flags
+
+There are multiple code paths that spawn an agent process: create, start, resume, approve, reject, and unblock. **Every single one** must pass the full set of per-feature workflow flags (`enableEvidence`, `commitEvidence`, `ciWatchEnabled`, `commitSpecs`, `forkAndPr`, etc.) from the Feature entity to the spawn options.
+
+**How this fails silently:** The flags are stored correctly in the DB and the agent worker correctly parses CLI args — but if a spawn site omits a flag, the worker never receives the CLI arg and falls back to its default (usually `false`). The user enables a setting in the UI, the DB reflects it, but the agent never sees it.
+
+**Pattern to check:** When adding a new per-feature boolean:
+1. `grep -r 'processService.spawn\|agentProcess.spawn'` across all use cases
+2. Verify EVERY hit passes the new flag from `feature.*` or `resolved.*`
+3. Pay special attention to `check-and-unblock-features.use-case.ts` — it's the easiest to miss because it spawns without an options object by default
+
+**Spawn sites as of now (6 total):**
+- `create-feature.use-case.ts` → `initializeAndSpawn()` (reference implementation — most complete)
+- `start-feature.use-case.ts` → `execute()` (starts pending features)
+- `resume-feature.use-case.ts` → `execute()` (resumes failed/interrupted)
+- `approve-agent-run.use-case.ts` → `execute()` (approval gate resume)
+- `reject-agent-run.use-case.ts` → `execute()` (rejection feedback resume)
+- `check-and-unblock-features.use-case.ts` → `execute()` (auto-unblock children)
+- `create-feature.ts` web action → `initializeAndSpawn()` Phase 2 call (passes input to use case)
+
+**Rule:** Treat `create-feature.use-case.ts initializeAndSpawn()` as the canonical spawn. When adding a flag, copy its option-passing pattern to all other sites.

@@ -23,6 +23,7 @@ import type { IIdeLauncherService } from '@/application/ports/output/services/id
 import type { EditorType } from '@/domain/generated/output.js';
 import { getIdeEntries } from '@/infrastructure/services/tool-installer/tool-metadata.js';
 import { messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 /** Valid IDE tool IDs derived from JSON metadata. */
 const VALID_EDITORS = new Set<string>(getIdeEntries().map(([id]) => id));
@@ -32,8 +33,13 @@ const VALID_EDITORS = new Set<string>(getIdeEntries().map(([id]) => id));
  */
 export function createIdeCommand(): Command {
   return new Command('ide')
-    .description('Configure preferred IDE/editor')
-    .option('--editor <name>', `IDE/editor name (${[...VALID_EDITORS].join(', ')})`)
+    .description(getCliI18n().t('cli:commands.settings.ide.description'))
+    .option(
+      '--editor <name>',
+      getCliI18n().t('cli:commands.settings.ide.editorOption', {
+        editors: [...VALID_EDITORS].join(', '),
+      })
+    )
     .addHelpText(
       'after',
       `
@@ -49,7 +55,10 @@ Examples:
         if (options.editor !== undefined) {
           if (!VALID_EDITORS.has(options.editor)) {
             messages.error(
-              `Unknown editor "${options.editor}". Valid: ${[...VALID_EDITORS].join(', ')}`,
+              getCliI18n().t('cli:commands.settings.ide.unknownEditor', {
+                editor: options.editor,
+                validEditors: [...VALID_EDITORS].join(', '),
+              }),
               new Error(`Unknown editor: ${options.editor}`)
             );
             process.exitCode = 1;
@@ -65,7 +74,7 @@ Examples:
         const available = await ideLauncher.checkAvailability(editorValue);
         if (!available) {
           messages.warning(
-            `Editor '${editorValue}' not found in PATH. The editor will still be saved.`
+            getCliI18n().t('cli:commands.settings.ide.notInPath', { editor: editorValue })
           );
         }
 
@@ -80,16 +89,18 @@ Examples:
         resetSettings();
         initializeSettings(updatedSettings);
 
-        messages.success(`Default editor set to: ${editorValue}`);
+        messages.success(
+          getCliI18n().t('cli:commands.settings.ide.success', { editor: editorValue })
+        );
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
 
         if (err.message.includes('force closed') || err.message.includes('User force closed')) {
-          messages.info('Configuration cancelled.');
+          messages.info(getCliI18n().t('cli:commands.settings.ide.cancelled'));
           return;
         }
 
-        messages.error('Failed to configure IDE', err);
+        messages.error(getCliI18n().t('cli:commands.settings.ide.failed'), err);
         process.exitCode = 1;
       }
     });

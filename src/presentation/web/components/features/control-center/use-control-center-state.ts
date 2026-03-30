@@ -9,7 +9,7 @@ import type { RepositoryNodeData } from '@/components/common/repository-node';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import {
   layoutWithDagre,
-  CANVAS_LAYOUT_DEFAULTS,
+  getCanvasLayoutDefaults,
   type LayoutDirection,
 } from '@/lib/layout-with-dagre';
 import { archiveFeature } from '@/app/actions/archive-feature';
@@ -588,7 +588,7 @@ export function useControlCenterState(
       // Layout is applied via reconcile on next server prop update.
       // For immediate re-layout, we apply dagre and trigger a reconcile-like update.
       const result = layoutWithDagre(nodesRef.current, edgesRef.current, {
-        ...CANVAS_LAYOUT_DEFAULTS,
+        ...getCanvasLayoutDefaults(),
         direction,
       });
       reconcile(result.nodes, result.edges);

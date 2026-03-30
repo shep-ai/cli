@@ -80,7 +80,7 @@ function CheckboxGroup({
       </div>
 
       {/* Child checkboxes */}
-      <div className="flex flex-col gap-3 pl-6">
+      <div className="flex flex-col gap-3 ps-6">
         {options.map((option) => (
           <CheckboxGroupItem
             key={option.id}

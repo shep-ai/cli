@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/drawer';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useTranslation } from 'react-i18next';
 import { useDeployAction, type DeployActionInput } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 
@@ -62,8 +63,10 @@ export function BaseDrawer({
   'data-testid': testId,
   deployTarget,
 }: BaseDrawerProps) {
+  const { i18n } = useTranslation();
   const featureFlags = useFeatureFlags();
   const contentRef = useRef<HTMLDivElement>(null);
+  const drawerDirection = i18n.dir() === 'rtl' ? 'left' : 'right';
 
   // Close when clicking outside the drawer panel (no overlay needed — canvas stays draggable).
   // Uses `click` (not `pointerdown`) so canvas drags don't trigger this.
@@ -92,7 +95,7 @@ export function BaseDrawer({
 
   return (
     <Drawer
-      direction="right"
+      direction={drawerDirection}
       modal={modal}
       handleOnly
       open={open}
@@ -103,7 +106,7 @@ export function BaseDrawer({
       {modal ? <DrawerOverlay /> : null}
       <DrawerContent
         ref={contentRef}
-        direction="right"
+        direction={drawerDirection}
         showCloseButton={false}
         className={cn(
           drawerVariants({ size }),
@@ -126,7 +129,7 @@ export function BaseDrawer({
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden"
+          className="ring-offset-background focus:ring-ring absolute end-4 top-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden"
           data-testid={testId ? `${testId}-close-button` : undefined}
         >
           <XIcon className="size-4" />

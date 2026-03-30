@@ -100,7 +100,7 @@ export function TimeoutSlider({
         onValueCommit={() => onBlur()}
         className="min-w-0 flex-1"
       />
-      <span className="text-muted-foreground shrink-0 text-right text-xs tabular-nums">
+      <span className="text-muted-foreground shrink-0 text-end text-xs tabular-nums">
         {formatDuration(PRESETS[localIndex])}
       </span>
     </div>

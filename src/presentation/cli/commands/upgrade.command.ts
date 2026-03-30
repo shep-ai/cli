@@ -13,6 +13,7 @@ import { container } from '@/infrastructure/di/container.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
 import { messages } from '../ui/index.js';
+import { getCliI18n } from '../i18n.js';
 import { stopDaemon } from './daemon/stop-daemon.js';
 import { startDaemon } from './daemon/start-daemon.js';
 
@@ -41,7 +42,7 @@ function getLatestVersion(spawnFn: SpawnFn): Promise<string | null> {
       if (!settled) {
         settled = true;
         child.kill();
-        messages.warning('Could not complete version check (timed out)');
+        messages.warning(getCliI18n().t('cli:commands.upgrade.versionCheckTimeout'));
         resolve(null);
       }
     }, VERSION_CHECK_TIMEOUT_MS);
@@ -66,7 +67,7 @@ function getLatestVersion(spawnFn: SpawnFn): Promise<string | null> {
       if (!settled) {
         settled = true;
         clearTimeout(timeout);
-        messages.warning('Could not complete version check');
+        messages.warning(getCliI18n().t('cli:commands.upgrade.versionCheckFailed'));
         resolve(null);
       }
     });
@@ -98,8 +99,9 @@ function runNpmInstall(spawnFn: SpawnFn): Promise<number> {
  * Create the upgrade command
  */
 export function createUpgradeCommand(spawnFn: SpawnFn = defaultSpawn): Command {
+  const t = getCliI18n().t;
   return new Command('upgrade')
-    .description('Upgrade Shep CLI to the latest version')
+    .description(t('cli:commands.upgrade.description'))
     .action(async () => {
       try {
         const versionService = container.resolve<IVersionService>('IVersionService');
@@ -110,15 +112,20 @@ export function createUpgradeCommand(spawnFn: SpawnFn = defaultSpawn): Command {
 
         // 2. Compare — exit early if up to date
         if (latestVersion && latestVersion === currentVersion) {
-          messages.success(`Already up to date (v${currentVersion})`);
+          messages.success(t('cli:commands.upgrade.alreadyUpToDate', { version: currentVersion }));
           return;
         }
 
         // 3. Show what we're doing
         if (latestVersion) {
-          messages.info(`Upgrading from v${currentVersion} to v${latestVersion}`);
+          messages.info(
+            t('cli:commands.upgrade.upgradingFromTo', {
+              current: currentVersion,
+              latest: latestVersion,
+            })
+          );
         } else {
-          messages.info(`Upgrading from v${currentVersion} to latest`);
+          messages.info(t('cli:commands.upgrade.upgradingToLatest', { current: currentVersion }));
         }
 
         // 4. Check daemon state before install (FR-1)
@@ -128,7 +135,7 @@ export function createUpgradeCommand(spawnFn: SpawnFn = defaultSpawn): Command {
         const previousPort = daemonWasRunning ? daemonState!.port : undefined;
 
         if (daemonWasRunning) {
-          messages.info('Stopping daemon before upgrade...');
+          messages.info(t('cli:commands.upgrade.stoppingDaemon'));
           await stopDaemon(daemonService);
         }
 
@@ -138,25 +145,25 @@ export function createUpgradeCommand(spawnFn: SpawnFn = defaultSpawn): Command {
           installExitCode = await runNpmInstall(spawnFn);
         } finally {
           if (daemonWasRunning) {
-            messages.info('Restarting daemon...');
+            messages.info(t('cli:commands.upgrade.restartingDaemon'));
             await startDaemon({ port: previousPort });
-            messages.success('Daemon restarted successfully.');
+            messages.success(t('cli:commands.upgrade.daemonRestarted'));
           }
         }
 
         if (installExitCode === 0) {
-          messages.success('Shep CLI upgraded successfully');
+          messages.success(t('cli:commands.upgrade.upgradeSuccess'));
         } else {
           if (daemonWasRunning) {
-            messages.error('Upgrade failed — daemon restored on previous version.');
+            messages.error(t('cli:commands.upgrade.upgradeFailedDaemonRestored'));
           } else {
-            messages.error('Upgrade failed');
+            messages.error(t('cli:commands.upgrade.upgradeFailed'));
           }
           process.exitCode = 1;
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Upgrade failed', err);
+        messages.error(t('cli:commands.upgrade.upgradeFailed'), err);
         process.exitCode = 1;
       }
     });

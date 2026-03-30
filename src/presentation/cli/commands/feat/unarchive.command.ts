@@ -15,14 +15,16 @@ import { container } from '@/infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import { UnarchiveFeatureUseCase } from '@/application/use-cases/features/unarchive-feature.use-case.js';
 import { colors, messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 /**
  * Create the feat unarchive command
  */
 export function createUnarchiveCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('unarchive')
-    .description('Restore an archived feature to its previous state')
-    .argument('<id>', 'Feature ID or prefix')
+    .description(t('cli:commands.feat.unarchive.description'))
+    .argument('<id>', t('cli:commands.feat.unarchive.idArgument'))
     .action(async (featureId: string) => {
       try {
         const showUseCase = container.resolve(ShowFeatureUseCase);
@@ -32,13 +34,17 @@ export function createUnarchiveCommand(): Command {
         const restored = await unarchiveUseCase.execute(feature.id);
 
         messages.newline();
-        messages.success('Feature unarchived');
-        console.log(`  ${colors.muted('Name:')}     ${feature.name}`);
-        console.log(`  ${colors.muted('Restored:')} ${restored.lifecycle}`);
+        messages.success(t('cli:commands.feat.unarchive.featureUnarchived'));
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.unarchive.nameLabel'))}     ${feature.name}`
+        );
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.unarchive.restoredLabel'))} ${restored.lifecycle}`
+        );
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to unarchive feature', err);
+        messages.error(t('cli:commands.feat.unarchive.failedToUnarchive'), err);
         process.exitCode = 1;
       }
     });

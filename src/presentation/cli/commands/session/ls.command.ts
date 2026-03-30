@@ -20,21 +20,23 @@ import { colors, messages } from '../../ui/index.js';
 import { fmt } from '../../ui/formatters.js';
 import type { AgentSession } from '@/domain/generated/output.js';
 import { AgentType } from '@/domain/generated/output.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createLsCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('ls')
-    .description('List agent provider CLI sessions')
-    .option('--claude-code', 'List sessions for Claude Code')
-    .option('--cursor-cli', 'List sessions for Cursor CLI')
-    .option('--gemini-cli', 'List sessions for Gemini CLI')
-    .option('-n, --limit <n>', 'Maximum number of sessions to show (0 = all)', '20')
-    .option('--flat', 'Show flat list without grouping')
+    .description(t('cli:commands.session.ls.description'))
+    .option('--claude-code', t('cli:commands.session.ls.claudeCodeOption'))
+    .option('--cursor-cli', t('cli:commands.session.ls.cursorCliOption'))
+    .option('--gemini-cli', t('cli:commands.session.ls.geminiCliOption'))
+    .option('-n, --limit <n>', t('cli:commands.session.ls.limitOption'), '20')
+    .option('--flat', t('cli:commands.session.ls.flatOption'))
     .action(async (opts) => {
       try {
         // Validate mutual exclusivity of provider flags
         const providerFlags = [opts.claudeCode, opts.cursorCli, opts.geminiCli].filter(Boolean);
         if (providerFlags.length > 1) {
-          messages.error('Only one provider flag may be specified at a time');
+          messages.error(t('cli:commands.session.ls.oneProviderOnly'));
           process.exitCode = 1;
           return;
         }
@@ -47,7 +49,7 @@ export function createLsCommand(): Command {
 
         if (sessions.length === 0) {
           messages.newline();
-          messages.info('No sessions found');
+          messages.info(t('cli:commands.session.ls.noSessions'));
           messages.newline();
           return;
         }
@@ -61,7 +63,7 @@ export function createLsCommand(): Command {
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to list sessions', err);
+        messages.error(t('cli:commands.session.ls.failedToList'), err);
         process.exitCode = 1;
       }
     });

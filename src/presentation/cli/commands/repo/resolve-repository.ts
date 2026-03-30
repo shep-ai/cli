@@ -5,10 +5,12 @@
 import { container } from '@/infrastructure/di/container.js';
 import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
 import type { Repository } from '@/domain/generated/output.js';
+import { getCliI18n } from '../../i18n.js';
 
 export async function resolveRepository(
   id: string
 ): Promise<{ repository: Repository } | { error: string }> {
+  const t = getCliI18n().t;
   const repo = container.resolve<IRepositoryRepository>('IRepositoryRepository');
 
   // Try exact match first
@@ -23,10 +25,13 @@ export async function resolveRepository(
     if (matches.length === 1) return { repository: matches[0] };
     if (matches.length > 1) {
       return {
-        error: `Multiple repositories match prefix "${id}": ${matches.map((m) => m.id.substring(0, 8)).join(', ')}`,
+        error: t('cli:commands.repo.resolve.multipleMatch', {
+          id,
+          matches: matches.map((m) => m.id.substring(0, 8)).join(', '),
+        }),
       };
     }
   }
 
-  return { error: `Repository not found: ${id}` };
+  return { error: t('cli:commands.repo.resolve.notFound', { id }) };
 }

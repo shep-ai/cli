@@ -34,10 +34,10 @@ function HunkView({ hunk }: { hunk: MergeReviewDiffHunk }) {
               line.type === 'removed' && 'bg-red-50 dark:bg-red-950/30'
             )}
           >
-            <span className="text-muted-foreground w-10 shrink-0 px-1 text-right text-[10px] select-none">
+            <span className="text-muted-foreground w-10 shrink-0 px-1 text-end text-[10px] select-none">
               {line.oldNumber ?? ''}
             </span>
-            <span className="text-muted-foreground w-10 shrink-0 px-1 text-right text-[10px] select-none">
+            <span className="text-muted-foreground w-10 shrink-0 px-1 text-end text-[10px] select-none">
               {line.newNumber ?? ''}
             </span>
             <span
@@ -49,7 +49,7 @@ function HunkView({ hunk }: { hunk: MergeReviewDiffHunk }) {
             >
               {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
             </span>
-            <span className="min-w-0 flex-1 pr-2 break-all whitespace-pre-wrap">
+            <span className="min-w-0 flex-1 pe-2 break-all whitespace-pre-wrap">
               {line.content}
             </span>
           </div>
@@ -70,7 +70,7 @@ function FileDiffItem({ file }: { file: MergeReviewFileDiff }) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="hover:bg-muted/50 flex w-full items-center gap-2 px-3 py-2 text-left"
+        className="hover:bg-muted/50 flex w-full items-center gap-2 px-3 py-2 text-start"
       >
         <ChevronRight
           className={cn(

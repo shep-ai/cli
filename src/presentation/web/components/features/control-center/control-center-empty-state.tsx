@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ExternalLink,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
 import { ReactFileManagerDialog } from '@/components/common/react-file-manager-dialog';
@@ -34,6 +35,7 @@ export function ControlCenterEmptyState({
   onRepositorySelect,
   className,
 }: ControlCenterEmptyStateProps) {
+  const { t } = useTranslation('web');
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showReactPicker, setShowReactPicker] = useState(false);
@@ -117,26 +119,26 @@ export function ControlCenterEmptyState({
         /* Repository step — fade in to match wizard transitions */
         <div className="animate-in fade-in flex w-full max-w-md flex-col items-center duration-300">
           <h1 className="text-foreground/90 text-center text-5xl font-extralight tracking-tight">
-            Add a project
+            {t('emptyState.addProject')}
           </h1>
           <p className="text-muted-foreground mt-3 text-center text-lg leading-relaxed font-light">
-            Add your project folder to unlock feature creation.
+            {t('emptyState.addProjectDescription')}
             <br />
-            Describe what you need — Shep handles the rest.
+            {t('emptyState.addProjectDescriptionLine2')}
           </p>
 
           {/* Status checklist */}
           <div className="mt-8 flex w-full flex-col gap-3">
             <AgentAuthBanner status={authStatus} onRetry={handleRetryAuth} />
             <ToolStatusRow
-              label="Git"
+              label={t('emptyState.git')}
               status={toolStatus?.git ?? null}
-              missingHint="Required for all phases"
+              missingHint={t('emptyState.gitRequired')}
             />
             <ToolStatusRow
-              label="GitHub CLI"
+              label={t('emptyState.githubCli')}
               status={toolStatus?.gh ?? null}
-              missingHint="Required for pull requests"
+              missingHint={t('emptyState.githubCliRequired')}
             />
           </div>
           {/* Primary CTA */}
@@ -152,12 +154,12 @@ export function ControlCenterEmptyState({
             ) : (
               <FolderOpen className="h-5 w-5" />
             )}
-            {loading ? 'Opening…' : 'Choose a Folder'}
+            {loading ? t('emptyState.opening') : t('emptyState.chooseFolder')}
           </button>
 
           {/* Subtitle under CTA */}
           <p className="text-muted-foreground/60 mt-3 text-center text-sm">
-            Any folder works — git will be initialized automatically if needed.
+            {t('emptyState.folderHint')}
           </p>
         </div>
       )}
@@ -178,7 +180,7 @@ export function ControlCenterEmptyState({
             className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 transition-colors duration-200"
           >
             <Terminal className="h-3.5 w-3.5" />
-            <span className="text-sm">or use the CLI</span>
+            <span className="text-sm">{t('emptyState.orUseCli')}</span>
             <ChevronDown
               className={cn(
                 'h-3.5 w-3.5 transition-transform duration-200',
@@ -198,7 +200,7 @@ export function ControlCenterEmptyState({
                   data-testid="cli-code-block-copy"
                   onClick={handleCopy}
                   className="absolute top-3 right-3 cursor-pointer rounded-md p-1.5 text-zinc-600 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-                  aria-label="Copy commands"
+                  aria-label={t('emptyState.copyCommands')}
                 >
                   {copied ? (
                     <Check className="h-3.5 w-3.5 text-emerald-400" />
@@ -238,10 +240,12 @@ function AgentAuthBanner({
   status: AgentAuthStatus | null;
   onRetry: () => void;
 }) {
+  const { t } = useTranslation('web');
+
   if (!status) {
     return (
       <ChecklistRow icon={<Loader2 className="text-muted-foreground/50 h-4 w-4 animate-spin" />}>
-        <span className="text-muted-foreground/50 text-sm">Checking setup…</span>
+        <span className="text-muted-foreground/50 text-sm">{t('emptyState.checkingSetup')}</span>
       </ChecklistRow>
     );
   }
@@ -249,7 +253,9 @@ function AgentAuthBanner({
   if (status.installed && status.authenticated) {
     return (
       <ChecklistRow icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}>
-        <span className="text-sm text-emerald-600 dark:text-emerald-400">{status.label} ready</span>
+        <span className="text-sm text-emerald-600 dark:text-emerald-400">
+          {t('emptyState.ready', { label: status.label })}
+        </span>
       </ChecklistRow>
     );
   }
@@ -258,7 +264,7 @@ function AgentAuthBanner({
     return (
       <ChecklistRow icon={<AlertCircle className="h-4 w-4 text-amber-500" />}>
         <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-          {status.label} not installed
+          {t('emptyState.notInstalled', { label: status.label })}
         </span>
         {status.installCommand ? <CopyableCommand command={status.installCommand} /> : null}
         <button
@@ -266,7 +272,7 @@ function AgentAuthBanner({
           onClick={onRetry}
           className="text-xs text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
         >
-          Re-check
+          {t('emptyState.reCheck')}
         </button>
       </ChecklistRow>
     );
@@ -275,7 +281,7 @@ function AgentAuthBanner({
   return (
     <ChecklistRow icon={<AlertCircle className="h-4 w-4 text-amber-500" />}>
       <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-        {status.label} needs authentication
+        {t('emptyState.needsAuth', { label: status.label })}
       </span>
       {status.authCommand ? <CopyableCommand command={status.authCommand} /> : null}
       <div className="flex items-center gap-3">
@@ -295,7 +301,7 @@ function AgentAuthBanner({
             className="flex items-center gap-1 text-xs font-medium text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
           >
             <Terminal className="h-3 w-3" />
-            Open {status.label}
+            {t('emptyState.open', { label: status.label })}
           </button>
         ) : null}
         <button
@@ -303,7 +309,7 @@ function AgentAuthBanner({
           onClick={onRetry}
           className="text-xs text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
         >
-          Re-check
+          {t('emptyState.reCheck')}
         </button>
       </div>
     </ChecklistRow>
@@ -320,10 +326,14 @@ function ToolStatusRow({
   status: ToolStatusEntry | null;
   missingHint: string;
 }) {
+  const { t } = useTranslation('web');
+
   if (!status) {
     return (
       <ChecklistRow icon={<Loader2 className="text-muted-foreground/50 h-4 w-4 animate-spin" />}>
-        <span className="text-muted-foreground/50 text-sm">Checking {label}…</span>
+        <span className="text-muted-foreground/50 text-sm">
+          {t('emptyState.checking', { label })}
+        </span>
       </ChecklistRow>
     );
   }
@@ -332,7 +342,9 @@ function ToolStatusRow({
     return (
       <ChecklistRow icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}>
         <span className="flex items-baseline gap-2">
-          <span className="text-sm text-emerald-600 dark:text-emerald-400">{label} ready</span>
+          <span className="text-sm text-emerald-600 dark:text-emerald-400">
+            {t('emptyState.ready', { label })}
+          </span>
           {status.version ? (
             <span className="text-muted-foreground/40 text-xs">v{status.version}</span>
           ) : null}
@@ -344,7 +356,7 @@ function ToolStatusRow({
   return (
     <ChecklistRow icon={<AlertCircle className="h-4 w-4 text-amber-500" />}>
       <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
-        {label} not found
+        {t('emptyState.notFound', { label })}
       </span>
       <span className="text-muted-foreground/50 text-xs">{missingHint}</span>
       {status.installCommand ? <CopyableCommand command={status.installCommand} /> : null}
@@ -355,7 +367,7 @@ function ToolStatusRow({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-xs text-amber-600 underline underline-offset-2 hover:text-amber-800 dark:text-amber-400"
         >
-          Docs <ExternalLink className="h-3 w-3" />
+          {t('emptyState.docs')} <ExternalLink className="h-3 w-3" />
         </a>
       ) : null}
     </ChecklistRow>
@@ -384,7 +396,7 @@ function CopyableCommand({ command }: { command: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="group/cmd flex cursor-pointer items-center justify-between gap-2 rounded-md bg-zinc-100 py-1 pr-2 pl-2.5 text-left transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+      className="group/cmd flex cursor-pointer items-center justify-between gap-2 rounded-md bg-zinc-100 py-1 ps-2.5 pe-2 text-start transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
     >
       <code className="min-w-0 truncate text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-300">
         {command}

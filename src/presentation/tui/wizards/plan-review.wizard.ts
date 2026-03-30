@@ -6,6 +6,7 @@
  */
 
 import { select, input } from '@inquirer/prompts';
+import { getTuiI18n } from '../i18n.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
 export type PlanReviewAction = 'approve' | 'reject';
@@ -16,18 +17,19 @@ export interface PlanReviewWizardResult {
 }
 
 export async function planReviewWizard(): Promise<PlanReviewWizardResult> {
+  const t = getTuiI18n().t;
   const action = await select<PlanReviewAction>({
-    message: 'Review the implementation plan. What would you like to do?',
+    message: t('tui:wizards.planReview.message'),
     choices: [
       {
-        name: 'Approve and continue',
+        name: t('tui:wizards.planReview.approveAndContinue'),
         value: 'approve',
-        description: 'Accept the plan and proceed to implementation',
+        description: t('tui:wizards.planReview.approveDescription'),
       },
       {
-        name: 'Reject and iterate',
+        name: t('tui:wizards.planReview.rejectAndIterate'),
         value: 'reject',
-        description: 'Provide feedback and re-run planning',
+        description: t('tui:wizards.planReview.rejectDescription'),
       },
     ],
     theme: shepTheme,
@@ -36,13 +38,13 @@ export async function planReviewWizard(): Promise<PlanReviewWizardResult> {
   let feedback: string | undefined;
   if (action === 'reject') {
     feedback = await input({
-      message: 'What needs to change in the plan?',
+      message: t('tui:wizards.planReview.rejectFeedback'),
       theme: shepTheme,
-      validate: (value) => value.trim().length > 0 || 'Feedback is required for rejection',
+      validate: (value) => value.trim().length > 0 || t('tui:wizards.planReview.feedbackRequired'),
     });
   } else {
     feedback = await input({
-      message: 'Any comments? (optional, press Enter to skip)',
+      message: t('tui:wizards.planReview.approveComment'),
       theme: shepTheme,
     });
     if (feedback?.trim().length === 0) feedback = undefined;

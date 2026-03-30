@@ -19,6 +19,7 @@ import { DeleteFeatureUseCase } from '@/application/use-cases/features/delete-fe
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import { colors, messages } from '../../ui/index.js';
 import { confirm } from '@inquirer/prompts';
+import { getCliI18n } from '../../i18n.js';
 
 interface DelOptions {
   force?: boolean;
@@ -30,12 +31,13 @@ interface DelOptions {
  * Create the feat del command
  */
 export function createDelCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('del')
-    .description('Delete a feature')
-    .argument('<id>', 'Feature ID or prefix')
-    .option('-f, --force', 'Skip confirmation prompt')
-    .option('--no-cleanup', 'Skip worktree and branch cleanup')
-    .option('--no-close-pr', 'Keep the pull request open')
+    .description(t('cli:commands.feat.del.description'))
+    .argument('<id>', t('cli:commands.feat.del.idArgument'))
+    .option('-f, --force', t('cli:commands.feat.del.forceOption'))
+    .option('--no-cleanup', t('cli:commands.feat.del.noCleanupOption'))
+    .option('--no-close-pr', t('cli:commands.feat.del.noClosePrOption'))
     .action(async (featureId: string, options: DelOptions) => {
       try {
         // First show what we're about to delete
@@ -44,11 +46,11 @@ export function createDelCommand(): Command {
 
         if (!options.force) {
           const confirmed = await confirm({
-            message: `Delete feature "${feature.name}"?`,
+            message: t('cli:commands.feat.del.confirmDelete', { name: feature.name }),
             default: false,
           });
           if (!confirmed) {
-            messages.info('Cancelled');
+            messages.info(t('cli:commands.feat.del.cancelled'));
             return;
           }
         }
@@ -59,7 +61,7 @@ export function createDelCommand(): Command {
           cleanup = false;
         } else if (!options.force) {
           cleanup = await confirm({
-            message: 'Also clean up worktree and branches?',
+            message: t('cli:commands.feat.del.confirmCleanup'),
             default: true,
           });
         }
@@ -74,7 +76,7 @@ export function createDelCommand(): Command {
             closePr = true;
           } else {
             closePr = await confirm({
-              message: `Also close the pull request? (PR #${feature.pr!.number})`,
+              message: t('cli:commands.feat.del.confirmClosePr', { number: feature.pr!.number }),
               default: true,
             });
           }
@@ -88,19 +90,23 @@ export function createDelCommand(): Command {
         await deleteUseCase.execute(feature.id, executeOptions);
 
         messages.newline();
-        messages.success('Feature deleted');
-        console.log(`  ${colors.muted('Name:')}   ${feature.name}`);
-        console.log(`  ${colors.muted('Branch:')} ${feature.branch}`);
+        messages.success(t('cli:commands.feat.del.featureDeleted'));
+        console.log(`  ${colors.muted(t('cli:commands.feat.del.nameLabel'))}   ${feature.name}`);
+        console.log(`  ${colors.muted(t('cli:commands.feat.del.branchLabel'))} ${feature.branch}`);
         if (cleanup) {
-          console.log(`  ${colors.muted('Cleanup:')} worktree, local branch, remote branch`);
+          console.log(
+            `  ${colors.muted(t('cli:commands.feat.del.cleanupLabel'))} ${t('cli:commands.feat.del.cleanupDetail')}`
+          );
         }
         if (closePr && hasOpenPr) {
-          console.log(`  ${colors.muted('PR:')}     #${feature.pr!.number} closed`);
+          console.log(
+            `  ${colors.muted(t('cli:commands.feat.del.prLabel'))}     ${t('cli:commands.feat.del.prClosed', { number: feature.pr!.number })}`
+          );
         }
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to delete feature', err);
+        messages.error(t('cli:commands.feat.del.failedToDelete'), err);
         process.exitCode = 1;
       }
     });

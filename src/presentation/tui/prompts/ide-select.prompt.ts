@@ -7,6 +7,7 @@
  */
 
 import { getIdeEntries } from '@/infrastructure/services/tool-installer/tool-metadata.js';
+import { getTuiI18n } from '../i18n.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
 /**
@@ -20,7 +21,7 @@ export function createIdeSelectConfig() {
   }));
 
   return {
-    message: 'Select your preferred IDE',
+    message: getTuiI18n().t('tui:prompts.selectIde.message'),
     choices,
     theme: shepTheme,
   };

@@ -22,6 +22,7 @@ import type {
   RejectionFeedbackEntry,
 } from '@/domain/generated/output.js';
 import { colors, symbols, messages, renderDetailView } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 
 const AGENT_LABELS: Record<string, string> = {
@@ -411,9 +412,10 @@ export function renderPhaseTimings(
 }
 
 export function createShowCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('show')
-    .description('Show feature details')
-    .argument('<id>', 'Feature ID')
+    .description(t('cli:commands.feat.show.description'))
+    .argument('<id>', t('cli:commands.feat.show.idArgument'))
     .action(async (featureId: string) => {
       try {
         const useCase = container.resolve(ShowFeatureUseCase);
@@ -436,10 +438,11 @@ export function createShowCommand(): Command {
 
         if (feature.plan) {
           textBlocks.push({
-            title: 'Plan',
-            content: [`State   ${feature.plan.state}`, `Tasks   ${feature.plan.tasks.length}`].join(
-              '\n'
-            ),
+            title: t('cli:commands.feat.show.planTitle'),
+            content: [
+              t('cli:commands.feat.show.planState', { state: feature.plan.state }),
+              t('cli:commands.feat.show.planTasks', { count: feature.plan.tasks.length }),
+            ].join('\n'),
           });
         }
 
@@ -449,7 +452,7 @@ export function createShowCommand(): Command {
             .map((m) => `${colors.muted(`${m.role}:`)} ${m.content.slice(0, 80)}`)
             .join('\n');
           textBlocks.push({
-            title: `Messages (${feature.messages.length})`,
+            title: t('cli:commands.feat.show.messagesTitle', { count: feature.messages.length }),
             content: last5,
           });
         }
@@ -457,7 +460,10 @@ export function createShowCommand(): Command {
         if (timings.length > 0) {
           const rejections = loadRejectionFeedback(feature.specPath);
           const lines = renderPhaseTimings(timings, run, rejections);
-          textBlocks.push({ title: 'Phase Timing', content: lines.join('\n') });
+          textBlocks.push({
+            title: t('cli:commands.feat.show.phaseTimingTitle'),
+            content: lines.join('\n'),
+          });
         }
 
         if (feature.pr?.ciFixHistory && feature.pr.ciFixHistory.length > 0) {
@@ -471,7 +477,7 @@ export function createShowCommand(): Command {
             return `  #${r.attempt}  ${outcomeColor(r.outcome)}  ${colors.muted(r.startedAt)}  ${r.failureSummary.slice(0, 60)}`;
           });
           textBlocks.push({
-            title: 'CI Fix History',
+            title: t('cli:commands.feat.show.ciFixHistoryTitle'),
             content: fixLines.join('\n'),
           });
         }
@@ -479,82 +485,113 @@ export function createShowCommand(): Command {
         if (run?.status === 'waiting_approval') {
           const phase = run.result?.startsWith('node:')
             ? (NODE_TO_PHASE[run.result.slice(5)] ?? run.result.slice(5))
-            : 'current phase';
+            : t('cli:commands.feat.show.currentPhase');
           textBlocks.push({
-            title: 'Awaiting Approval',
+            title: t('cli:commands.feat.show.awaitingApprovalTitle'),
             content: [
-              `${phase} is waiting for your review.`,
+              t('cli:commands.feat.show.awaitingApprovalMessage', { phase }),
               '',
-              `  ${colors.accent(`shep feat approve ${feature.id.slice(0, 8)}`)}  Resume the agent`,
-              `  ${colors.accent(`shep feat reject ${feature.id.slice(0, 8)}`)}   Cancel with feedback`,
+              `  ${colors.accent(`shep feat approve ${feature.id.slice(0, 8)}`)}  ${t('cli:commands.feat.show.awaitingApprovalApprove')}`,
+              `  ${colors.accent(`shep feat reject ${feature.id.slice(0, 8)}`)}   ${t('cli:commands.feat.show.awaitingApprovalReject')}`,
             ].join('\n'),
           });
         }
 
         renderDetailView({
-          title: `Feature: ${feature.name}`,
+          title: t('cli:commands.feat.show.title', { name: feature.name }),
           sections: [
             {
               fields: [
-                { label: 'ID', value: feature.id },
-                { label: 'Slug', value: feature.slug },
-                { label: 'Description', value: feature.description },
-                { label: 'User Query', value: feature.userQuery },
-                { label: 'Repository', value: feature.repositoryPath },
-                { label: 'Branch', value: colors.accent(feature.branch) },
-                { label: 'Status', value: formatStatus(feature, run) },
-                { label: 'Lifecycle', value: formatLifecycle(feature.lifecycle) },
+                { label: t('cli:commands.feat.show.idLabel'), value: feature.id },
+                { label: t('cli:commands.feat.show.slugLabel'), value: feature.slug },
+                { label: t('cli:commands.feat.show.descriptionLabel'), value: feature.description },
+                { label: t('cli:commands.feat.show.userQueryLabel'), value: feature.userQuery },
                 {
-                  label: 'Agent',
+                  label: t('cli:commands.feat.show.repositoryLabel'),
+                  value: feature.repositoryPath,
+                },
+                {
+                  label: t('cli:commands.feat.show.branchLabel'),
+                  value: colors.accent(feature.branch),
+                },
+                {
+                  label: t('cli:commands.feat.show.statusLabel'),
+                  value: formatStatus(feature, run),
+                },
+                {
+                  label: t('cli:commands.feat.show.lifecycleLabel'),
+                  value: formatLifecycle(feature.lifecycle),
+                },
+                {
+                  label: t('cli:commands.feat.show.agentLabel'),
                   value: run
                     ? (AGENT_LABELS[run.agentType as string] ?? (run.agentType as string))
                     : null,
                 },
-                { label: 'Model', value: run?.modelId ?? null },
-                { label: 'Worktree', value: worktreePath },
-                { label: 'Spec Dir', value: feature.specPath ?? null },
-                { label: 'Agent Run', value: feature.agentRunId ?? null },
+                { label: t('cli:commands.feat.show.modelLabel'), value: run?.modelId ?? null },
+                { label: t('cli:commands.feat.show.worktreeLabel'), value: worktreePath },
+                {
+                  label: t('cli:commands.feat.show.specDirLabel'),
+                  value: feature.specPath ?? null,
+                },
+                {
+                  label: t('cli:commands.feat.show.agentRunLabel'),
+                  value: feature.agentRunId ?? null,
+                },
               ],
             },
             {
-              title: 'Timestamps',
+              title: t('cli:commands.feat.show.timestampsTitle'),
               fields: [
-                { label: 'Created', value: formatTs(feature.createdAt) },
-                { label: 'Updated', value: formatTs(feature.updatedAt) },
+                {
+                  label: t('cli:commands.feat.show.createdLabel'),
+                  value: formatTs(feature.createdAt),
+                },
+                {
+                  label: t('cli:commands.feat.show.updatedLabel'),
+                  value: formatTs(feature.updatedAt),
+                },
               ],
             },
             {
-              title: 'Workflow',
+              title: t('cli:commands.feat.show.workflowTitle'),
               fields: [
                 {
-                  label: 'Push',
-                  value: feature.push ? colors.success('Yes') : colors.muted('No'),
+                  label: t('cli:commands.feat.show.pushLabel'),
+                  value: feature.push
+                    ? colors.success(t('cli:commands.feat.show.yesValue'))
+                    : colors.muted(t('cli:commands.feat.show.noValue')),
                 },
                 {
-                  label: 'Open PR',
-                  value: feature.openPr ? colors.success('Yes') : colors.muted('No'),
+                  label: t('cli:commands.feat.show.openPrLabel'),
+                  value: feature.openPr
+                    ? colors.success(t('cli:commands.feat.show.yesValue'))
+                    : colors.muted(t('cli:commands.feat.show.noValue')),
                 },
                 {
-                  label: 'Gates',
+                  label: t('cli:commands.feat.show.gatesLabel'),
                   value: feature.approvalGates
                     ? [
                         `PRD ${feature.approvalGates.allowPrd ? colors.success('\u2713') : colors.error('\u2717')}`,
                         `Plan ${feature.approvalGates.allowPlan ? colors.success('\u2713') : colors.error('\u2717')}`,
                         `Merge ${feature.approvalGates.allowMerge ? colors.success('\u2713') : colors.error('\u2717')}`,
                       ].join('  ')
-                    : colors.muted('not set'),
+                    : colors.muted(t('cli:commands.feat.show.gatesNotSet')),
                 },
               ],
             },
             ...(feature.pr
               ? [
                   {
-                    title: 'Pull Request',
+                    title: t('cli:commands.feat.show.pullRequestTitle'),
                     fields: [
-                      { label: 'URL', value: feature.pr.url },
-                      { label: 'Number', value: `#${feature.pr.number}` },
+                      { label: t('cli:commands.feat.show.urlLabel'), value: feature.pr.url },
                       {
-                        label: 'Status',
+                        label: t('cli:commands.feat.show.numberLabel'),
+                        value: `#${feature.pr.number}`,
+                      },
+                      {
+                        label: t('cli:commands.feat.show.prStatusLabel'),
                         value:
                           feature.pr.status === 'Merged'
                             ? colors.success(`${feature.pr.status} \u2713`)
@@ -562,9 +599,12 @@ export function createShowCommand(): Command {
                               ? colors.error(feature.pr.status)
                               : colors.warning(feature.pr.status),
                       },
-                      { label: 'Commit', value: feature.pr.commitHash ?? null },
                       {
-                        label: 'CI',
+                        label: t('cli:commands.feat.show.commitLabel'),
+                        value: feature.pr.commitHash ?? null,
+                      },
+                      {
+                        label: t('cli:commands.feat.show.ciLabel'),
                         value: feature.pr.ciStatus
                           ? feature.pr.ciStatus === 'Success'
                             ? colors.success(`${feature.pr.ciStatus} \u2713`)
@@ -574,10 +614,12 @@ export function createShowCommand(): Command {
                           : null,
                       },
                       {
-                        label: 'CI Fixes',
+                        label: t('cli:commands.feat.show.ciFixesLabel'),
                         value:
                           feature.pr.ciFixAttempts && feature.pr.ciFixAttempts > 0
-                            ? `${feature.pr.ciFixAttempts} attempt(s)`
+                            ? t('cli:commands.feat.show.ciFixAttempts', {
+                                count: feature.pr.ciFixAttempts,
+                              })
                             : null,
                       },
                     ],
@@ -589,7 +631,7 @@ export function createShowCommand(): Command {
         });
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to show feature', err);
+        messages.error(t('cli:commands.feat.show.failedToShow'), err);
         process.exitCode = 1;
       }
     });

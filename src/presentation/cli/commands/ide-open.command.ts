@@ -15,6 +15,7 @@ import { LaunchIdeUseCase } from '@/application/use-cases/ide/launch-ide.use-cas
 import { getSettings } from '@/infrastructure/services/settings.service.js';
 import { getIdeEntries } from '@/infrastructure/services/tool-installer/tool-metadata.js';
 import { messages } from '../ui/index.js';
+import { getCliI18n } from '../i18n.js';
 
 /** Commander converts --kebab-case flags to camelCase option keys. */
 function toCamelCase(s: string): string {
@@ -33,15 +34,16 @@ function resolveEditorId(options: Record<string, boolean | undefined>, ideIds: s
 }
 
 export function createIdeOpenCommand(): Command {
+  const t = getCliI18n().t;
   const cmd = new Command('ide')
-    .description('Open a feature worktree in your IDE')
-    .argument('<feat-id>', 'Feature ID or prefix');
+    .description(t('cli:commands.ide.description'))
+    .argument('<feat-id>', t('cli:commands.ide.featArgument'));
 
   const ideEntries = getIdeEntries();
   const ideIds = ideEntries.map(([id]) => id);
 
   for (const [id, meta] of ideEntries) {
-    cmd.option(`--${id}`, `Open in ${meta.name}`);
+    cmd.option(`--${id}`, t('cli:commands.ide.openInOption', { name: meta.name }));
   }
 
   cmd.action(async (featId: string, options: Record<string, boolean | undefined>) => {
@@ -63,10 +65,15 @@ export function createIdeOpenCommand(): Command {
         return;
       }
 
-      messages.success(`Opened ${result.editorName} at ${result.worktreePath}`);
+      messages.success(
+        t('cli:commands.ide.openedSuccess', {
+          editor: result.editorName,
+          path: result.worktreePath,
+        })
+      );
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      messages.error('Failed to open IDE', err);
+      messages.error(t('cli:commands.ide.failedToOpen'), err);
       process.exitCode = 1;
     }
   });

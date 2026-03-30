@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FolderPlus, Github, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -17,6 +18,7 @@ export interface AddRepositoryButtonProps {
 }
 
 export function AddRepositoryButton({ onSelect, onGitHubImport }: AddRepositoryButtonProps) {
+  const { t } = useTranslation('web');
   const featureFlags = useFeatureFlags();
   const [loading, setLoading] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -76,7 +78,7 @@ export function AddRepositoryButton({ onSelect, onGitHubImport }: AddRepositoryB
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label="Add Repository"
+                  aria-label={t('addRepository.addRepository')}
                   data-testid="add-repository-button"
                   disabled={loading}
                 >
@@ -88,7 +90,7 @@ export function AddRepositoryButton({ onSelect, onGitHubImport }: AddRepositoryB
                 </Button>
               </PopoverTrigger>
             </TooltipTrigger>
-            <TooltipContent>Add Repository</TooltipContent>
+            <TooltipContent>{t('addRepository.addRepository')}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
 

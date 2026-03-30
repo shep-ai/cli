@@ -1,0 +1,407 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "i18n-multi-language"
+number: 80
+branch: "feat/080-i18n-multi-language"
+oneLiner: "Add multi-language i18n support with RTL for Arabic and Hebrew across CLI, TUI, and Web UI"
+summary: >
+  Introduce a full internationalization (i18n) system across all three presentation layers
+  (CLI, TUI, Web UI) supporting 8 languages: English, Russian, Portuguese, Spanish, Arabic,
+  Hebrew, French, and German. Arabic and Hebrew require right-to-left (RTL) layout support
+  in the Web UI. Includes a new Language enum in TypeSpec, a language preference in Settings,
+  translation file infrastructure with namespaced JSON resource bundles, and a language selector
+  in both the Web UI settings page and CLI. All ~600 hardcoded English strings will be extracted
+  to translation keys and resolved at runtime via i18next.
+phase: "Requirements"
+sizeEstimate: "L"
+
+relatedFeatures: []
+
+technologies:
+  - "TypeSpec (domain model for Language enum and Settings.language field)"
+  - "i18next (universal i18n framework for CLI, TUI, and Web)"
+  - "react-i18next (React/Next.js integration for Web UI)"
+  - "Tailwind CSS v4 (RTL utilities via logical properties)"
+  - "Radix UI v1.4.3 (built-in RTL support via dir attribute)"
+  - "Next.js 16 App Router (root layout lang/dir attributes)"
+  - "SQLite / better-sqlite3 (persist language preference)"
+  - "Umzug v3 (database migration for new column)"
+  - "Google Noto Sans Arabic / Noto Sans Hebrew (multilingual fonts via next/font/google)"
+
+relatedLinks:
+  - title: "i18next documentation"
+    url: "https://www.i18next.com/"
+  - title: "react-i18next documentation"
+    url: "https://react.i18next.com/"
+  - title: "Tailwind CSS RTL support"
+    url: "https://tailwindcss.com/docs/hover-focus-and-other-states#rtl-support"
+  - title: "MDN Writing Modes and RTL"
+    url: "https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_writing_modes"
+
+openQuestions:
+  - question: "Where should the language preference live in the Settings model?"
+    resolved: true
+    options:
+      - option: "UserProfile.preferredLanguage"
+        description: "Add to existing UserProfile nested object alongside name/email/githubUsername. Consistent with user-specific preferences pattern. Maps to user_preferred_language column."
+        selected: true
+      - option: "Root Settings.language"
+        description: "Add as top-level Settings field. Simpler access path but breaks the nested grouping pattern established for user preferences."
+        selected: false
+      - option: "New LocaleConfig nested object"
+        description: "Create a new nested config object for locale settings (language, dateFormat, timezone). More extensible but adds complexity for a single field."
+        selected: false
+    selectionRationale: "UserProfile is the natural home for language preference because it groups user-specific settings (name, email, GitHub username) — language is inherently a user preference. This follows the established nesting pattern in the Settings entity and maps cleanly to a user_preferred_language column in the flattened database schema."
+    answer: "UserProfile.preferredLanguage"
+
+  - question: "Which i18n library should be used for the Web UI React integration?"
+    resolved: true
+    options:
+      - option: "react-i18next"
+        description: "React bindings for i18next. Shares the same i18next core used in CLI/TUI, enabling shared translation files and consistent APIs across all layers. Mature, widely adopted, works with Next.js App Router via client components."
+        selected: true
+      - option: "next-intl"
+        description: "Next.js-native i18n with built-in server component support and URL routing. More idiomatic for Next.js but introduces a second i18n system separate from CLI/TUI's i18next, duplicating translation infrastructure."
+        selected: false
+    selectionRationale: "react-i18next is recommended because it shares the i18next core with CLI and TUI layers. This means one set of translation JSON files, one namespace convention, and one API pattern across all three presentation layers. next-intl would require maintaining parallel translation infrastructure and learning two different i18n APIs."
+    answer: "react-i18next"
+
+  - question: "How should translation files be organized?"
+    resolved: true
+    options:
+      - option: "Shared directory with layer namespaces"
+        description: "Single translations/ directory at project root with per-language subdirectories, each containing namespace files (cli.json, tui.json, web.json, common.json). All layers load from the same location. Enables sharing common strings across layers."
+        selected: true
+      - option: "Co-located per presentation layer"
+        description: "Each presentation layer has its own translations/ directory (src/presentation/cli/translations/, etc.). Clear ownership but duplicates common strings and makes cross-layer consistency harder."
+        selected: false
+      - option: "Single flat file per language"
+        description: "One large JSON file per language (en.json, ru.json). Simple but becomes unwieldy at ~600 keys. No namespace separation makes key conflicts likely."
+        selected: false
+    selectionRationale: "A shared directory with layer-specific namespaces provides the best balance: common strings (errors, confirmations) are defined once in common.json, while layer-specific strings live in cli.json/tui.json/web.json. This prevents duplication, enables shared terminology, and keeps files manageable. Structure: translations/{locale}/{namespace}.json."
+    answer: "Shared directory with layer namespaces"
+
+  - question: "How should translations for non-English languages be authored?"
+    resolved: true
+    options:
+      - option: "AI-generated translations"
+        description: "Use an LLM to generate all 7 non-English translation files from the English source. Fast, consistent, and good enough for a developer tool. Can be reviewed and improved incrementally by native speakers."
+        selected: true
+      - option: "Professional translation service"
+        description: "Hire professional translators for each language. Highest quality but expensive, slow (weeks), and overkill for a developer CLI tool where users are technical and tolerant of minor translation imperfections."
+        selected: false
+      - option: "Community contributions"
+        description: "Ship with English only and let the community contribute translations. Avoids translation effort but means non-English support is incomplete at launch and may never reach full coverage."
+        selected: false
+    selectionRationale: "AI-generated translations provide the best cost/quality tradeoff for a developer tool. Technical terminology is well-handled by modern LLMs, the audience is tolerant of minor imperfections, and the entire set can be generated in minutes. Translations can be refined over time via community PRs."
+    answer: "AI-generated translations"
+
+  - question: "Should the CLI support a --language flag for per-command language override?"
+    resolved: true
+    options:
+      - option: "No per-command override"
+        description: "Language is only set via settings. Simpler implementation. Users change language once and it persists. No flag parsing overhead on every command."
+        selected: true
+      - option: "Global --language flag"
+        description: "Add --language flag to root CLI command inherited by all subcommands. Allows per-invocation override. Adds complexity to flag parsing and i18n initialization."
+        selected: false
+    selectionRationale: "Language preference is a persistent user setting, not a per-command concern. Users set their language once via settings and expect it to persist. A per-command override adds complexity with minimal benefit — the settings command already provides the mechanism to change language."
+    answer: "No per-command override"
+
+  - question: "What RTL strategy should be used for the Web UI CSS?"
+    resolved: true
+    options:
+      - option: "CSS logical properties throughout"
+        description: "Replace all physical properties (margin-left, padding-right, text-align: left) with logical equivalents (margin-inline-start, padding-inline-end, text-align: start). Tailwind v4 supports logical properties natively. Works automatically for both LTR and RTL without any dir-specific overrides."
+        selected: true
+      - option: "Tailwind rtl: variant modifiers"
+        description: "Keep physical properties and add rtl: variant overrides (e.g., rtl:mr-4 rtl:ml-0). Requires explicit RTL handling for every directional style. More verbose and error-prone."
+        selected: false
+      - option: "Separate RTL stylesheet"
+        description: "Maintain a parallel RTL stylesheet that overrides LTR defaults. Maximum control but doubles CSS maintenance burden and is fragile."
+        selected: false
+    selectionRationale: "CSS logical properties are the modern standard for bidirectional layouts. They work automatically — margin-inline-start is left margin in LTR and right margin in RTL, requiring zero conditional logic. Tailwind v4 has strong logical property support. This approach is less error-prone than rtl: variants because you write styles once and they adapt to text direction automatically."
+    answer: "CSS logical properties throughout"
+
+  - question: "Should multilingual fonts (Arabic/Hebrew) be loaded eagerly or lazily?"
+    resolved: true
+    options:
+      - option: "Lazy load on language switch"
+        description: "Only load Noto Sans Arabic/Hebrew when the user switches to those languages. No performance impact for the majority of users (LTR languages). Brief FOUT on first switch to Arabic/Hebrew, but subsequent loads are cached."
+        selected: true
+      - option: "Eager load all fonts"
+        description: "Include Arabic and Hebrew fonts in the initial bundle. No FOUT when switching but adds ~100-200KB to initial page load for all users regardless of language."
+        selected: false
+    selectionRationale: "Lazy loading is the correct tradeoff because the vast majority of users will use LTR languages. Loading Arabic/Hebrew fonts upfront penalizes every user for a feature most won't use. next/font/google supports dynamic imports, and the fonts are cached after first load, so the FOUT only occurs once."
+    answer: "Lazy load on language switch"
+
+  - question: "How should the Web UI detect and apply language on page load?"
+    resolved: true
+    options:
+      - option: "Server-side from settings API"
+        description: "Root layout fetches language from settings on the server, sets html lang/dir attributes during SSR. No flash of wrong language. Consistent with how other settings (theme) are loaded."
+        selected: true
+      - option: "Client-side from localStorage cache"
+        description: "Cache language in localStorage, read on client mount. Faster than API call but causes flash of default language on first render. Requires sync between localStorage and settings DB."
+        selected: false
+      - option: "Browser Accept-Language header"
+        description: "Auto-detect from browser headers. Convenient but ignores the user's explicit settings preference and adds complexity for first-visit detection vs. returning users."
+        selected: false
+    selectionRationale: "Server-side resolution from the settings API is the most reliable approach. The layout.tsx already runs on the server and can fetch settings synchronously (better-sqlite3 is sync). This avoids any flash of wrong language/direction and is consistent with the existing settings architecture. The html lang and dir attributes are set correctly from the first render."
+    answer: "Server-side from settings API"
+
+  - question: "What translation key naming convention should be used?"
+    resolved: true
+    options:
+      - option: "Dot-separated hierarchical keys"
+        description: "Use structured dot notation like cli.commands.init.description, web.settings.language.label. Maps naturally to nested JSON. Clear provenance of each key. Easy to find and maintain."
+        selected: true
+      - option: "Flat snake_case keys"
+        description: "Use flat keys like cli_commands_init_description. Simpler JSON structure but harder to navigate and group related strings. No nesting support in JSON."
+        selected: false
+    selectionRationale: "Dot-separated hierarchical keys are the i18next standard and map directly to nested JSON objects. They provide natural grouping (all command descriptions under cli.commands.{name}), make it easy to find related strings, and scale well to ~600 keys. i18next natively supports this format."
+    answer: "Dot-separated hierarchical keys"
+
+content: |
+  ## Problem Statement
+
+  Shep currently has all user-facing strings hardcoded in English across its three presentation
+  layers (CLI, TUI, Web UI). There is no mechanism to display the interface in other languages,
+  and the Web UI has no support for right-to-left (RTL) text direction. This limits Shep's
+  accessibility for non-English-speaking developers worldwide.
+
+  The goal is to add multi-language support for 8 languages: English (en), Russian (ru),
+  Portuguese (pt), Spanish (es), Arabic (ar), Hebrew (he), French (fr), and German (de). Arabic
+  and Hebrew require RTL layout support in the Web UI. The i18n system must work uniformly across
+  CLI, TUI, and Web UI while respecting Clean Architecture boundaries — translation is a
+  presentation-layer concern backed by a domain-level language preference in Settings.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository is a pnpm monorepo with Clean Architecture:
+
+  ```
+  packages/core/src/
+  ├── domain/           # Core business logic, TypeSpec-generated types
+  │   └── generated/    # output.ts from TypeSpec compilation
+  ├── application/      # Use cases, port interfaces
+  │   ├── use-cases/    # Settings, agents, features
+  │   └── ports/        # ISettingsRepository, etc.
+  └── infrastructure/   # DB, services, persistence
+      ├── repositories/ # SQLiteSettingsRepository
+      ├── services/     # Settings singleton service
+      └── persistence/  # Migrations, mappers
+          └── sqlite/
+              ├── migrations/      # Individual migration files (up to 048)
+              └── mappers/         # settings.mapper.ts (toDatabase/fromDatabase)
+
+  src/presentation/
+  ├── cli/              # Commander.js CLI (51 files with user-facing strings)
+  │   ├── commands/     # Command handlers with .description() help text
+  │   └── ui/           # messages.ts, colors.ts, symbols.ts, formatters
+  ├── tui/              # Inquirer.js TUI (11 files with user-facing strings)
+  │   └── prompts/      # Agent select, IDE select, auth method prompts
+  └── web/              # Next.js 16 App Router (45+ files with user-facing strings)
+      ├── app/          # Routes, layout.tsx, globals.css, server actions
+      └── components/   # Radix-based UI components, settings sections
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Domain → Application → Infrastructure → Presentation (deps point inward)
+  - **TypeSpec-first**: All domain models defined in `tsp/`, compiled to `output.ts`
+  - **Singleton Settings**: One Settings record in SQLite, accessed via `getSettings()` service
+  - **Repository pattern**: `ISettingsRepository` with SQLite implementation
+  - **Database migrations**: Umzug v3 with idempotent `up()`/`down()` functions (current: 048)
+  - **Settings mapper**: Bidirectional `toDatabase()`/`fromDatabase()` flattening nested objects to snake_case columns
+  - **Presentation-agnostic core**: Use cases return data; presentation layers format it
+  - **i18n belongs in presentation layer**: Translation is a UI concern, not domain logic
+  - **Existing enum pattern**: TypeSpec enums in `tsp/common/enums/` with PascalCase names and lowercase string values
+
+  ### Relevant Technologies
+
+  - **CLI**: Commander.js for routing, `messages` module for output, `@inquirer/prompts` for interactive input
+  - **TUI**: `@inquirer/prompts` with structured choice objects (message, name, description)
+  - **Web**: Next.js 16 + React 19 + Tailwind CSS v4 + Radix UI v1.4.3 + Sonner toasts
+  - **Root layout**: `<html lang=\"en\">` hardcoded, no `dir` attribute
+  - **Fonts**: System font stack only (no custom web fonts loaded)
+  - **Settings persistence**: SQLite via better-sqlite3 with prepared statements
+  - **State management**: React useState + useTransition for settings, React Query for data fetching
+
+  ### Current String Distribution
+
+  | Layer | Files with Strings | Estimated Unique Strings | Key Patterns |
+  | ----- | ------------------ | ------------------------ | ------------ |
+  | CLI   | 51 of 66           | ~250                     | .description(), messages.success/error/info(), console.log() |
+  | TUI   | 11 of 17           | ~40                      | message:, choices[].name, choices[].description |
+  | Web   | 45+ of 267         | ~300                     | JSX text, labels, placeholders, aria-labels, toast messages |
+  | Total | 107+               | ~600                     | All hardcoded in English |
+
+  ## Success Criteria
+
+  ### Domain & Persistence
+  - [ ] Language enum defined in TypeSpec with 8 values: en, ru, pt, es, ar, he, fr, de
+  - [ ] Settings.user.preferredLanguage field added to TypeSpec Settings entity (type: Language, default: en)
+  - [ ] TypeSpec compiles successfully with new Language enum and Settings field
+  - [ ] Database migration 049 adds user_preferred_language column (TEXT, DEFAULT 'en') to settings table
+  - [ ] Settings mapper correctly maps preferredLanguage between domain object and database row
+  - [ ] SQLite repository INSERT/UPDATE statements include user_preferred_language column
+  - [ ] Existing UpdateSettingsUseCase works with the new language field without modification
+
+  ### Translation Infrastructure
+  - [ ] i18next installed and configured as the core i18n framework
+  - [ ] react-i18next installed and configured for Web UI integration
+  - [ ] Translation directory structure created: translations/{locale}/{namespace}.json
+  - [ ] Four namespaces defined: common.json, cli.json, tui.json, web.json
+  - [ ] English (en) translation files contain all ~600 extracted string keys
+  - [ ] Translation files exist for all 7 non-English languages (ru, pt, es, ar, he, fr, de)
+  - [ ] Translation keys use dot-separated hierarchical naming convention
+  - [ ] i18next initialization reads language from Settings on startup
+
+  ### CLI Layer
+  - [ ] All ~250 CLI user-facing strings extracted to translation keys in cli.json and common.json
+  - [ ] CLI initializes i18next with the persisted language preference on startup
+  - [ ] CLI `shep settings` command can view and change language preference
+  - [ ] All CLI command descriptions, help text, success/error/warning messages use translated strings
+  - [ ] CLI messages.ts functions continue to work (callers pass translated text)
+
+  ### TUI Layer
+  - [ ] All ~40 TUI user-facing strings extracted to translation keys in tui.json and common.json
+  - [ ] TUI prompt messages, choice names, and descriptions use translated strings
+  - [ ] TUI initializes i18next with the persisted language preference
+
+  ### Web UI Layer
+  - [ ] All ~300 Web UI user-facing strings extracted to translation keys in web.json and common.json
+  - [ ] react-i18next provider wraps the application in root layout
+  - [ ] All components use useTranslation() hook or Trans component for translated strings
+  - [ ] Language settings section added to Web UI settings page with dropdown selector
+  - [ ] Language settings section has a colocated .stories.tsx Storybook story
+  - [ ] Language change in Web UI persists to settings and updates UI without page reload
+
+  ### RTL Support
+  - [ ] HTML lang attribute set dynamically based on language preference
+  - [ ] HTML dir attribute set to "rtl" for Arabic (ar) and Hebrew (he), "ltr" for others
+  - [ ] All physical CSS directional properties replaced with logical properties (margin-inline-start, etc.)
+  - [ ] Tailwind utility classes use logical property equivalents where applicable
+  - [ ] Radix UI components render correctly in RTL mode via dir attribute propagation
+  - [ ] Web UI layout, navigation, and content areas mirror correctly in RTL
+  - [ ] Noto Sans Arabic and Noto Sans Hebrew fonts lazy-loaded when RTL language is selected
+
+  ### Testing
+  - [ ] All existing tests continue to pass with i18n changes
+  - [ ] Unit tests cover Language enum values and Settings.preferredLanguage defaults
+  - [ ] Unit tests cover i18next initialization and translation key resolution
+  - [ ] Unit tests cover settings mapper with language field (toDatabase/fromDatabase round-trip)
+  - [ ] Integration tests cover language persistence (save and reload language setting)
+  - [ ] Web UI tests cover language switching and UI re-rendering
+  - [ ] Web UI tests cover RTL layout rendering for Arabic and Hebrew
+  - [ ] Storybook stories render correctly for the language settings section
+
+  ## Functional Requirements
+
+  - **FR-1**: The system SHALL define a Language enum in TypeSpec with values: English (en), Russian (ru), Portuguese (pt), Spanish (es), Arabic (ar), Hebrew (he), French (fr), German (de).
+  - **FR-2**: The Settings entity SHALL include a preferredLanguage field in UserProfile, typed as Language, defaulting to English (en).
+  - **FR-3**: A database migration SHALL add a user_preferred_language TEXT column with DEFAULT 'en' to the settings table.
+  - **FR-4**: The settings mapper SHALL bidirectionally convert between Settings.user.preferredLanguage (domain) and user_preferred_language (database column).
+  - **FR-5**: The system SHALL provide translation resource files in JSON format for all 8 supported languages, organized by namespace (common, cli, tui, web).
+  - **FR-6**: The CLI SHALL initialize i18next on startup using the language preference from persisted Settings, and all user-facing output SHALL use translated strings.
+  - **FR-7**: The CLI SHALL expose language preference management through the existing `shep settings` command, allowing users to view and change their language.
+  - **FR-8**: The TUI SHALL initialize i18next using the language preference from Settings, and all prompt messages, choice labels, and descriptions SHALL use translated strings.
+  - **FR-9**: The Web UI SHALL initialize react-i18next with the language preference loaded server-side from Settings, and all user-facing text SHALL use translated strings via useTranslation() hook.
+  - **FR-10**: The Web UI SHALL include a language settings section on the settings page with a dropdown selector showing all 8 supported languages with their native names.
+  - **FR-11**: Changing language in the Web UI settings SHALL persist the preference to the database and update all visible UI strings without a full page reload.
+  - **FR-12**: The Web UI root HTML element SHALL set the `lang` attribute to the current language code and the `dir` attribute to "rtl" for Arabic and Hebrew, or "ltr" for all other languages.
+  - **FR-13**: The Web UI SHALL lazy-load Noto Sans Arabic and Noto Sans Hebrew fonts when the user selects Arabic or Hebrew as their language.
+  - **FR-14**: The Web UI layout, navigation, sidebars, and content areas SHALL mirror horizontally when displayed in RTL mode (Arabic/Hebrew).
+  - **FR-15**: Translation keys SHALL follow dot-separated hierarchical naming (e.g., cli.commands.init.description, web.settings.language.label) and map to nested JSON structures in translation files.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Performance**: Language switching in the Web UI SHALL complete and re-render all visible strings within 500ms. Font loading for Arabic/Hebrew SHALL not block initial page render for LTR languages.
+  - **NFR-2 — Bundle size**: Arabic and Hebrew fonts SHALL be lazy-loaded, not included in the initial JavaScript bundle. Translation JSON files for non-active languages SHALL not be included in the initial page load.
+  - **NFR-3 — Maintainability**: All translation keys SHALL be organized in namespace files (common, cli, tui, web) to keep individual files under 200 keys. Adding a new language SHALL require only creating new translation JSON files without any code changes.
+  - **NFR-4 — Translation completeness**: English translation files SHALL cover 100% of user-facing strings. Non-English translations SHALL cover 100% of keys, with fallback to English for any missing keys at runtime.
+  - **NFR-5 — Architecture compliance**: i18n infrastructure (translation loading, locale resolution) SHALL live in the presentation layer. The domain layer SHALL only define the Language enum and Settings.preferredLanguage field. No i18n library imports SHALL appear in domain or application layers.
+  - **NFR-6 — RTL correctness**: All directional CSS SHALL use logical properties (inline-start/inline-end) rather than physical properties (left/right). No Tailwind classes with hardcoded directional values (ml-, mr-, pl-, pr-, left-, right-) SHALL remain in RTL-affected components.
+  - **NFR-7 — Backwards compatibility**: Existing installations with no language column SHALL default to English (en) after migration. No existing settings data SHALL be lost during migration.
+  - **NFR-8 — Testing**: Every i18n-related change SHALL have corresponding test coverage. RTL layout tests SHALL verify correct mirroring of key layout elements. Translation key tests SHALL verify no missing keys between English and other languages.
+  - **NFR-9 — Accessibility**: Language selector SHALL be keyboard-navigable and screen-reader compatible. RTL mode SHALL not break any existing accessibility features (aria-labels, focus order).
+  - **NFR-10 — Fallback behavior**: If a translation key is missing for the current language, the system SHALL fall back to English rather than displaying the raw key. This applies to all three presentation layers.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Where should language preference live in Settings? | UserProfile.preferredLanguage | Groups with existing user preferences (name, email). Follows established nesting pattern. |
+  | 2 | Which React i18n library for Web UI? | react-i18next | Shares i18next core with CLI/TUI — one set of translation files, one API pattern across all layers. |
+  | 3 | How should translation files be organized? | Shared directory with layer namespaces | Single source of truth, shared common strings, namespace separation keeps files manageable. |
+  | 4 | How should non-English translations be authored? | AI-generated translations | Best cost/quality tradeoff for a developer tool. Fast, consistent, refinable via community PRs. |
+  | 5 | CLI per-command --language flag? | No per-command override | Language is a persistent setting, not a per-invocation concern. Settings command handles changes. |
+  | 6 | RTL CSS strategy? | CSS logical properties | Modern standard, works automatically for both directions, less error-prone than variant overrides. |
+  | 7 | Font loading strategy for Arabic/Hebrew? | Lazy load on language switch | No performance penalty for majority LTR users. Cached after first load. |
+  | 8 | How to detect and apply language on Web page load? | Server-side from settings API | No flash of wrong language. Consistent with existing settings architecture. SSR-compatible. |
+  | 9 | Translation key naming convention? | Dot-separated hierarchical keys | i18next standard. Natural grouping. Maps to nested JSON. Scales to ~600 keys. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | tsp/common/enums/ | High | New Language enum definition (language.tsp) |
+  | tsp/common/enums/index.tsp | Low | Import and re-export new Language enum |
+  | tsp/domain/entities/settings.tsp | High | Add preferredLanguage field to UserProfile model |
+  | packages/core/src/domain/generated/output.ts | High | Regenerated with new Language type and Settings.user.preferredLanguage field |
+  | packages/core/src/infrastructure/persistence/sqlite/migrations/ | High | New migration 049 adding user_preferred_language column |
+  | packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts | High | Map preferredLanguage between domain object and database row |
+  | packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts | High | Update INSERT/UPDATE SQL to include user_preferred_language column |
+  | src/presentation/cli/commands/ | High | All 51 command files need string extraction to translation keys |
+  | src/presentation/cli/ui/messages.ts | Medium | No structural change — callers pass translated text to existing functions |
+  | src/presentation/tui/prompts/ | Medium | All prompt files need string extraction to translation keys |
+  | src/presentation/web/app/layout.tsx | High | Dynamic lang and dir attributes, react-i18next provider, font loading |
+  | src/presentation/web/app/globals.css | Medium | Replace physical directional properties with logical properties |
+  | src/presentation/web/components/features/settings/ | High | New language-settings-section.tsx + stories |
+  | src/presentation/web/components/ui/ | Medium | Audit and update directional CSS to logical properties |
+  | src/presentation/web/components/ | High | 45+ component files need string extraction to translation keys |
+  | New: translations/{locale}/{namespace}.json | High | Translation resource files for 8 languages x 4 namespaces |
+  | New: i18n initialization modules per layer | High | CLI, TUI, Web each need an i18n init module in their presentation layer |
+
+  ## Dependencies
+
+  ### Existing Code Dependencies
+  - TypeSpec compiler and `tsp/` domain model definitions
+  - Settings singleton service and SQLite persistence layer
+  - Umzug migration system (current: migration 048)
+  - Settings mapper (toDatabase/fromDatabase) for field serialization
+  - Root layout.tsx for HTML lang/dir attributes
+  - All presentation layer files with user-facing strings (~107 files)
+  - Existing UpdateSettingsUseCase for persisting language changes
+
+  ### New Library Dependencies
+  - **i18next**: Core i18n framework (universal — works in Node.js CLI and browser)
+  - **react-i18next**: React bindings for i18next (Web UI)
+  - **Noto Sans Arabic / Noto Sans Hebrew**: Multilingual fonts via next/font/google (lazy-loaded)
+
+  ### Infrastructure Dependencies
+  - Database migration 049 to add user_preferred_language column
+  - TypeSpec compilation to regenerate domain types with Language enum
+  - Translation file authoring for 8 languages (~600 strings each, 4 namespaces)
+
+  ## Size Estimate
+
+  **L (week+)** — This is a large feature touching 100+ files across all three presentation
+  layers. The work breaks down into four major phases:
+
+  1. **Domain & infrastructure** (S): TypeSpec enum, migration, mapper, repository updates
+  2. **i18n framework setup** (M): i18next configuration, translation file structure, init modules
+  3. **String extraction** (L): ~600 strings across 107+ files — the bulk of the effort
+  4. **RTL support** (M): Logical CSS properties, font loading, layout mirroring, testing
+
+  A phased approach (infrastructure → framework → extraction → RTL) is strongly recommended
+  to allow incremental validation. Translation authoring for 7 non-English languages will be
+  AI-generated to keep the timeline manageable.
+
+  ---
+
+  _Requirements defined — proceed with research_

@@ -60,6 +60,8 @@ import { startDaemon } from './commands/daemon/start-daemon.js';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
+import { initI18n as initCliI18n } from './i18n.js';
+import { initI18n as initTuiI18n } from '../tui/i18n.js';
 
 /**
  * Bootstrap function - initializes all dependencies before CLI starts.
@@ -89,7 +91,17 @@ async function bootstrap() {
       throw error;
     }
 
-    // Step 3: Set up Commander CLI
+    // Step 3: Initialize i18n for CLI and TUI layers
+    try {
+      const { getSettings } = await import('@/infrastructure/services/settings.service.js');
+      const currentSettings = getSettings();
+      const language = currentSettings.user?.preferredLanguage ?? 'en';
+      await Promise.all([initCliI18n(language), initTuiI18n(language)]);
+    } catch {
+      // i18n init failure is non-fatal — fall back to English
+    }
+
+    // Step 4: Set up Commander CLI
     const versionService = container.resolve<IVersionService>('IVersionService');
     const { version, description } = versionService.getVersion();
 

@@ -10,28 +10,33 @@
 import { Command } from 'commander';
 import { container } from '@/infrastructure/di/container.js';
 import { ListToolsUseCase } from '@/application/use-cases/tools/list-tools.use-case.js';
+import { getCliI18n } from '../i18n.js';
 
 /**
  * Create the tools command group
  */
 export function createToolsCommand(): Command {
-  const tools = new Command('tools').description('Manage development tools');
+  const t = getCliI18n().t;
+  const tools = new Command('tools').description(t('cli:commands.tools.description'));
 
   tools
     .command('list')
-    .description('List all available tools with their installed status')
+    .description(t('cli:commands.tools.list.description'))
     .action(async () => {
       try {
         const listToolsUseCase = container.resolve(ListToolsUseCase);
         const result = await listToolsUseCase.execute();
 
         for (const tool of result) {
-          const statusLabel = tool.status.status === 'available' ? 'installed' : 'missing';
+          const statusLabel =
+            tool.status.status === 'available'
+              ? t('cli:commands.tools.list.installed')
+              : t('cli:commands.tools.list.missing');
           console.log(`[${statusLabel}]  ${tool.id}  ${tool.name}`);
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        console.error(`Error listing tools: ${err.message}`);
+        console.error(t('cli:commands.tools.list.failedToList', { error: err.message }));
         process.exitCode = 1;
       }
     });

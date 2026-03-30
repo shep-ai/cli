@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   History,
   Copy,
@@ -104,6 +105,7 @@ export function FeatureSessionsDropdown({
   className,
   onCreateFromSession,
 }: FeatureSessionsDropdownProps) {
+  const { t } = useTranslation('web');
   const [expanded, setExpanded] = useState(false);
 
   // Read sessions from the centralized SessionsProvider context.
@@ -127,7 +129,7 @@ export function FeatureSessionsDropdown({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                aria-label="View sessions"
+                aria-label={t('featureNode.viewSessions')}
                 data-testid="feature-node-sessions-button"
                 className={cn(
                   'nodrag relative flex h-5 cursor-pointer items-center gap-0.5 rounded px-0.5 text-[10px] transition-colors',
@@ -147,7 +149,9 @@ export function FeatureSessionsDropdown({
               </button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent side="top">{active ? 'Sessions (active)' : 'Sessions'}</TooltipContent>
+          <TooltipContent side="top">
+            {active ? t('featureNode.sessionsActive') : t('featureNode.sessions')}
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
 
@@ -160,12 +164,14 @@ export function FeatureSessionsDropdown({
       >
         <DropdownMenuLabel className="flex items-center gap-1.5 text-xs">
           <History className="h-3 w-3" />
-          Agent Sessions
+          {t('featureNode.agentSessions')}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         {sessions.length === 0 ? (
-          <div className="text-muted-foreground py-4 text-center text-xs">No sessions found</div>
+          <div className="text-muted-foreground py-4 text-center text-xs">
+            {t('featureNode.noSessionsFound')}
+          </div>
         ) : (
           <>
             {visibleSessions.map((session) => (
@@ -188,7 +194,9 @@ export function FeatureSessionsDropdown({
                 <ChevronDown
                   className={cn('h-3 w-3 transition-transform', expanded && 'rotate-180')}
                 />
-                {expanded ? 'Show less' : `Show ${sessions.length - PREVIEW_COUNT} more`}
+                {expanded
+                  ? t('featureNode.showLess')
+                  : t('featureNode.showMore', { count: sessions.length - PREVIEW_COUNT })}
               </DropdownMenuItem>
             ) : null}
           </>
@@ -214,7 +222,7 @@ function SessionRow({
 
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger className="flex items-start gap-2 py-2 pr-2">
+      <DropdownMenuSubTrigger className="flex items-start gap-2 py-2 pe-2">
         {/* Agent icon with optional active indicator */}
         <div className="relative mt-0.5 shrink-0">
           <AgentIcon className="h-4 w-4" />

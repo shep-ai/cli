@@ -200,7 +200,7 @@ export function AdoptBranchDrawer({
                     <span className="truncate">
                       {selectedRepo ? selectedRepo.name : 'Select repository...'}
                     </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent
@@ -286,7 +286,7 @@ export function AdoptBranchDrawer({
                           ? 'Loading branches...'
                           : branchName || 'Select a branch...'}
                     </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
@@ -327,11 +327,11 @@ export function AdoptBranchDrawer({
                             >
                               <Check
                                 className={cn(
-                                  'mr-2 h-4 w-4',
+                                  'me-2 h-4 w-4',
                                   branch === branchName ? 'opacity-100' : 'opacity-0'
                                 )}
                               />
-                              <GitBranch className="mr-2 h-3 w-3 opacity-50" />
+                              <GitBranch className="me-2 h-3 w-3 opacity-50" />
                               {branch}
                             </CommandItem>
                           ))}
@@ -375,7 +375,7 @@ export function AdoptBranchDrawer({
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                   Adopting...
                 </>
               ) : (

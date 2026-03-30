@@ -19,12 +19,14 @@ import { Command } from 'commander';
 import { container } from '@/infrastructure/di/container.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import { colors, fmt, messages } from '../ui/index.js';
+import { getCliI18n } from '../i18n.js';
 
 /**
  * Create the version command
  */
 export function createVersionCommand(): Command {
-  return new Command('version').description('Display version information').action(() => {
+  const t = getCliI18n().t;
+  return new Command('version').description(t('cli:commands.version.description')).action(() => {
     const versionService = container.resolve<IVersionService>('IVersionService');
     const info = versionService.getVersion();
 
@@ -32,8 +34,10 @@ export function createVersionCommand(): Command {
     console.log(`${fmt.heading(info.name)} ${fmt.version(info.version)}`);
     console.log(colors.muted(info.description));
     messages.newline();
-    console.log(`${fmt.label('Node:')}     ${process.version}`);
-    console.log(`${fmt.label('Platform:')} ${process.platform} ${process.arch}`);
+    console.log(`${fmt.label(t('cli:commands.version.nodeLabel'))}     ${process.version}`);
+    console.log(
+      `${fmt.label(t('cli:commands.version.platformLabel'))} ${process.platform} ${process.arch}`
+    );
     messages.newline();
   });
 }

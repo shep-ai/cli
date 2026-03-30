@@ -20,21 +20,23 @@ import type { AgentSession, AgentSessionMessage } from '@/domain/generated/outpu
 import { AgentType } from '@/domain/generated/output.js';
 import type { SessionMetadata } from '@shepai/core/infrastructure/services/agents/sessions/claude-code-session.repository.js';
 import { formatRelativeTime } from './ls.command.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createShowCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('show')
-    .description('Display details of an agent provider session')
-    .argument('<id>', 'Session ID')
-    .option('--claude-code', 'Query Claude Code sessions')
-    .option('--cursor-cli', 'Query Cursor CLI sessions')
-    .option('--gemini-cli', 'Query Gemini CLI sessions')
-    .option('-m, --messages <n>', 'Number of messages to display (0 = all)', '20')
+    .description(t('cli:commands.session.show.description'))
+    .argument('<id>', t('cli:commands.session.show.idArgument'))
+    .option('--claude-code', t('cli:commands.session.show.claudeCodeOption'))
+    .option('--cursor-cli', t('cli:commands.session.show.cursorCliOption'))
+    .option('--gemini-cli', t('cli:commands.session.show.geminiCliOption'))
+    .option('-m, --messages <n>', t('cli:commands.session.show.messagesOption'), '20')
     .action(async (id: string, opts) => {
       try {
         // Validate mutual exclusivity of provider flags
         const providerFlags = [opts.claudeCode, opts.cursorCli, opts.geminiCli].filter(Boolean);
         if (providerFlags.length > 1) {
-          messages.error('Only one provider flag may be specified at a time');
+          messages.error(t('cli:commands.session.show.oneProviderOnly'));
           process.exitCode = 1;
           return;
         }
@@ -49,12 +51,12 @@ export function createShowCommand(): Command {
         renderSessionDetail(session, messageLimit);
       } catch (error) {
         if (error instanceof SessionNotFoundError) {
-          messages.error(`Session not found: ${error.message}`);
+          messages.error(t('cli:commands.session.show.sessionNotFound', { error: error.message }));
           process.exitCode = 1;
           return;
         }
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to show session', err);
+        messages.error(t('cli:commands.session.show.failedToShow'), err);
         process.exitCode = 1;
       }
     });
@@ -72,6 +74,7 @@ function resolveAgentType(opts: {
 }
 
 function renderSessionDetail(session: AgentSession, _messageLimit: number): void {
+  const t = getCliI18n().t;
   const sessionMessages = session.messages ?? [];
   const totalCount = session.messageCount;
   const meta = (session as AgentSession & { metadata?: SessionMetadata }).metadata;
@@ -79,7 +82,7 @@ function renderSessionDetail(session: AgentSession, _messageLimit: number): void
   const lines: string[] = [];
 
   lines.push('');
-  lines.push(`  ${fmt.heading('Session')}`);
+  lines.push(`  ${fmt.heading(t('cli:commands.session.show.title'))}`);
   lines.push('');
 
   // Row 1: ID + Provider
@@ -129,7 +132,7 @@ function renderSessionDetail(session: AgentSession, _messageLimit: number): void
   // Tool usage section
   if (meta && Object.keys(meta.toolUsage).length > 0) {
     lines.push('');
-    lines.push(`  ${colors.muted('Tool Usage')}`);
+    lines.push(`  ${colors.muted(t('cli:commands.session.show.toolUsage'))}`);
 
     const sorted = Object.entries(meta.toolUsage).sort((a, b) => b[1] - a[1]);
     const totalTools = sorted.reduce((sum, [, count]) => sum + count, 0);
@@ -151,7 +154,7 @@ function renderSessionDetail(session: AgentSession, _messageLimit: number): void
 
   // Messages
   if (sessionMessages.length === 0) {
-    messages.info('No messages in this session');
+    messages.info(t('cli:commands.session.show.noMessages'));
     return;
   }
 
@@ -159,7 +162,7 @@ function renderSessionDetail(session: AgentSession, _messageLimit: number): void
   const meaningful = sessionMessages.filter((m) => m.content.trim().length > 0);
 
   if (meaningful.length === 0) {
-    messages.info('No displayable messages in this session');
+    messages.info(t('cli:commands.session.show.noDisplayableMessages'));
     return;
   }
 
@@ -167,7 +170,7 @@ function renderSessionDetail(session: AgentSession, _messageLimit: number): void
 
   if (meaningful.length <= _messageLimit || _messageLimit === 0) {
     // Show all
-    messages.info(`${meaningful.length} messages`);
+    messages.info(t('cli:commands.session.show.messageCount', { count: meaningful.length }));
     renderMessages(meaningful);
   } else {
     // Show first half + gap + last half
@@ -176,10 +179,16 @@ function renderSessionDetail(session: AgentSession, _messageLimit: number): void
     const skipped = meaningful.length - first.length - last.length;
 
     messages.info(
-      `Showing first ${first.length} and last ${last.length} of ${meaningful.length} messages`
+      t('cli:commands.session.show.showingMessages', {
+        first: first.length,
+        last: last.length,
+        total: meaningful.length,
+      })
     );
     renderMessages(first);
-    console.log(`  ${colors.muted(`  ··· ${skipped} messages skipped ···`)}\n`);
+    console.log(
+      `  ${colors.muted(`  ${t('cli:commands.session.show.messagesSkipped', { count: skipped })}`)}\n`
+    );
     renderMessages(last);
   }
 }
@@ -213,6 +222,7 @@ function computeDuration(start: Date | string, end: Date | string): string | nul
 }
 
 function renderMessages(msgs: AgentSessionMessage[]): void {
+  const t = getCliI18n().t;
   const lines: string[] = [''];
   for (const msg of msgs) {
     const content = msg.content.trim();
@@ -220,9 +230,9 @@ function renderMessages(msgs: AgentSessionMessage[]): void {
     const timeStr = timestamp ? colors.muted(` (${timestamp})`) : '';
 
     if (msg.role === 'user') {
-      lines.push(`  ${colors.info('You')}${timeStr}`);
+      lines.push(`  ${colors.info(t('cli:commands.session.show.userLabel'))}${timeStr}`);
     } else {
-      lines.push(`  ${colors.success('Assistant')}${timeStr}`);
+      lines.push(`  ${colors.success(t('cli:commands.session.show.assistantLabel'))}${timeStr}`);
     }
 
     for (const line of content.split('\n')) {
