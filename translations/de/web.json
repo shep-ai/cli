@@ -65,6 +65,8 @@
       "title": "Workflow",
       "description": "Konfigurieren Sie PR-Verhalten, Genehmigungsstufen und CI-Einstellungen",
       "sectionDescription": "Automatisierungsverhalten nach der Implementierung",
+      "defaultFastMode": "Schnellmodus als Standard",
+      "defaultFastModeDescription": "SDLC-Phasen überspringen und direkt aus dem Prompt implementieren",
       "subsections": { "approve": "Genehmigen", "evidence": "Nachweise", "git": "Git" },
       "autoApprovePrd": "PRD automatisch genehmigen",
       "autoApprovePrdDescription": "Manuelle Überprüfung der Anforderungen überspringen",

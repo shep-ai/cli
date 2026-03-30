@@ -67,6 +67,8 @@
       "title": "Рабочий процесс",
       "description": "Настройте поведение PR, этапы одобрения и параметры CI",
       "sectionDescription": "Поведение автоматизации после реализации",
+      "defaultFastMode": "Быстрый режим по умолчанию",
+      "defaultFastModeDescription": "Пропустить фазы SDLC и реализовать напрямую из промпта",
       "subsections": {
         "approve": "Одобрение",
         "evidence": "Подтверждение",

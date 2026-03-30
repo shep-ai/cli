@@ -67,6 +67,8 @@
       "title": "سير العمل",
       "description": "تكوين سلوك PR وبوابات الموافقة وإعدادات CI",
       "sectionDescription": "سلوك الأتمتة بعد التنفيذ",
+      "defaultFastMode": "الوضع السريع كافتراضي",
+      "defaultFastModeDescription": "تخطي مراحل SDLC والتنفيذ مباشرة من الأمر",
       "subsections": {
         "approve": "الموافقة",
         "evidence": "الأدلة",

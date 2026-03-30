@@ -67,6 +67,8 @@
       "title": "תהליך עבודה",
       "description": "הגדר התנהגות PR, שערי אישור והגדרות CI",
       "sectionDescription": "התנהגות אוטומציה לאחר מימוש",
+      "defaultFastMode": "מצב מהיר כברירת מחדל",
+      "defaultFastModeDescription": "דילוג על שלבי SDLC ויישום ישירות מהפרומפט",
       "subsections": {
         "approve": "אישור",
         "evidence": "ראיות",
