@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Plus, Loader2, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -40,6 +41,7 @@ const DURATION_MS = 250;
  * Renders inline — parent controls positioning.
  */
 export function FloatingActionButton({ actions, className, style }: FloatingActionButtonProps) {
+  const { t } = useTranslation('web');
   const [open, setOpen] = useState(false);
 
   // Close on Escape key
@@ -118,7 +120,7 @@ export function FloatingActionButton({ actions, className, style }: FloatingActi
         <Button
           size="icon"
           data-testid="fab-trigger"
-          aria-label={open ? 'Close actions' : 'Create new'}
+          aria-label={open ? t('fab.closeActions') : t('fab.createNew')}
           className={cn(
             'relative h-14 w-14 rounded-full shadow-lg',
             'bg-indigo-500 text-white hover:bg-indigo-400 dark:bg-indigo-500 dark:hover:bg-indigo-400',

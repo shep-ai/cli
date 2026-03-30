@@ -169,7 +169,17 @@ describe('CheckAndUnblockFeaturesUseCase', () => {
       blockedChild.agentRunId,
       blockedChild.repositoryPath,
       blockedChild.specPath,
-      blockedChild.worktreePath
+      blockedChild.worktreePath,
+      {
+        approvalGates: blockedChild.approvalGates,
+        push: blockedChild.push,
+        openPr: blockedChild.openPr,
+        forkAndPr: blockedChild.forkAndPr,
+        commitSpecs: blockedChild.commitSpecs,
+        ciWatchEnabled: blockedChild.ciWatchEnabled,
+        enableEvidence: blockedChild.enableEvidence,
+        commitEvidence: blockedChild.commitEvidence,
+      }
     );
   });
 
@@ -289,7 +299,17 @@ describe('CheckAndUnblockFeaturesUseCase', () => {
       'run-xyz',
       '/my-repo',
       '/my-repo/specs/001-child',
-      '/my-repo/.worktrees/child'
+      '/my-repo/.worktrees/child',
+      {
+        approvalGates: blockedChild.approvalGates,
+        push: blockedChild.push,
+        openPr: blockedChild.openPr,
+        forkAndPr: blockedChild.forkAndPr,
+        commitSpecs: blockedChild.commitSpecs,
+        ciWatchEnabled: blockedChild.ciWatchEnabled,
+        enableEvidence: blockedChild.enableEvidence,
+        commitEvidence: blockedChild.commitEvidence,
+      }
     );
   });
 

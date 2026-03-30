@@ -2,6 +2,7 @@
 
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { InteractiveMessageRole } from '@shepai/core/domain/generated/output';
 
@@ -75,13 +76,14 @@ export function ChatMessageBubble({
   streaming = false,
   className,
 }: ChatMessageBubbleProps) {
+  const { t } = useTranslation('web');
   const isUser = role === InteractiveMessageRole.user;
   const timeStr = timestamp ? formatTime(timestamp) : null;
 
   return (
     <div
       className={cn('flex w-full flex-col', isUser ? 'items-end' : 'items-start', className)}
-      aria-label={isUser ? 'Your message' : 'Agent message'}
+      aria-label={isUser ? t('chat.yourMessage') : t('chat.agentMessage')}
     >
       <div
         className={cn(
@@ -98,7 +100,7 @@ export function ChatMessageBubble({
         )}
         {streaming && !isUser ? (
           <span
-            aria-label="Agent is typing"
+            aria-label={t('chat.agentIsTyping')}
             className="ms-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-current align-middle opacity-75"
           />
         ) : null}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
 import { Handle, Position } from '@xyflow/react';
 import {
@@ -58,30 +59,37 @@ function getBadgeIcon(data: FeatureNodeData): LucideIcon {
 }
 
 /** Short, friendly label for each action-required gate. */
-function getActionRequiredLabel(data: FeatureNodeData): string {
-  if (data.lifecycle === 'requirements') return 'Review Requirements';
-  if (data.lifecycle === 'implementation') return 'Review Technical Plan';
-  if (data.lifecycle === 'review') return 'Review Changes';
-  return 'Review';
+function getActionRequiredLabel(data: FeatureNodeData, t: (key: string) => string): string {
+  if (data.lifecycle === 'requirements') return t('featureNode.reviewRequirements');
+  if (data.lifecycle === 'implementation') return t('featureNode.reviewTechnicalPlan');
+  if (data.lifecycle === 'review') return t('featureNode.reviewChanges');
+  return t('featureNode.review');
 }
 
-function getBadgeText(data: FeatureNodeData): string {
+function getBadgeText(
+  data: FeatureNodeData,
+  t: (key: string, opts?: Record<string, unknown>) => string
+): string {
   const config = featureNodeStateConfig[data.state];
   switch (data.state) {
     case 'creating':
-      return 'Creating...';
+      return t('featureNode.creating');
     case 'running':
       return lifecycleRunningVerbs[data.lifecycle];
     case 'done':
-      return data.runtime ? `Completed in ${data.runtime}` : 'Completed';
+      return data.runtime
+        ? t('featureNode.completedIn', { runtime: data.runtime })
+        : t('featureNode.completed');
     case 'blocked':
-      return data.blockedBy ? `Waiting on ${data.blockedBy}` : 'Blocked';
+      return data.blockedBy
+        ? t('featureNode.waitingOn', { blockedBy: data.blockedBy })
+        : t('featureNode.blocked');
     case 'pending':
-      return 'Pending';
+      return t('featureNode.pending');
     case 'action-required':
-      return getActionRequiredLabel(data);
+      return getActionRequiredLabel(data, t);
     case 'error':
-      return data.errorMessage ?? 'Something went wrong';
+      return data.errorMessage ?? t('featureNode.somethingWentWrong');
     default:
       return config.label;
   }
@@ -95,6 +103,7 @@ export function FeatureNode({
   selected?: boolean;
   [key: string]: unknown;
 }) {
+  const { t } = useTranslation('web');
   const router = useRouter();
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
@@ -146,7 +155,7 @@ export function FeatureNode({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    aria-label="Archive feature"
+                    aria-label={t('featureNode.archiveFeature')}
                     data-testid="feature-node-archive-button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -157,7 +166,7 @@ export function FeatureNode({
                     <Archive className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="left">Archive feature</TooltipContent>
+                <TooltipContent side="left">{t('featureNode.archiveFeature')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : null}
@@ -168,7 +177,7 @@ export function FeatureNode({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    aria-label="Delete feature"
+                    aria-label={t('featureNode.deleteFeature')}
                     data-testid="feature-node-delete-button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -179,7 +188,7 @@ export function FeatureNode({
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="left">Delete feature</TooltipContent>
+                <TooltipContent side="left">{t('featureNode.deleteFeature')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : null}
@@ -190,7 +199,7 @@ export function FeatureNode({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    aria-label="Unarchive feature"
+                    aria-label={t('featureNode.unarchiveFeature')}
                     data-testid="feature-node-unarchive-button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -201,7 +210,7 @@ export function FeatureNode({
                     <ArchiveRestore className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="left">Unarchive feature</TooltipContent>
+                <TooltipContent side="left">{t('featureNode.unarchiveFeature')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : null}
@@ -233,15 +242,14 @@ export function FeatureNode({
         <AlertDialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
           <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
             <AlertDialogHeader>
-              <AlertDialogTitle>Archive feature?</AlertDialogTitle>
+              <AlertDialogTitle>{t('featureNode.archiveConfirmTitle')}</AlertDialogTitle>
               <AlertDialogDescription>
-                <strong>{data.name}</strong> will be hidden from the canvas. You can unarchive it
-                later to restore it.
+                {t('featureNode.archiveConfirmDescription', { name: data.name })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setArchiveConfirmOpen(false)}>
-                Cancel
+                {t('featureNode.cancel')}
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
@@ -249,7 +257,7 @@ export function FeatureNode({
                   data.onArchive?.(data.featureId);
                 }}
               >
-                Archive
+                {t('featureNode.archive')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -322,7 +330,7 @@ export function FeatureNode({
                 </span>
               </TooltipTrigger>
               <TooltipContent side="top">
-                {data.fastMode ? 'Fast Mode' : 'Spec Driven'}
+                {data.fastMode ? t('featureNode.fastMode') : t('featureNode.specDriven')}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -382,7 +390,7 @@ export function FeatureNode({
               <span
                 className={cn('translate-y-px truncate text-[11px] font-medium', config.badgeClass)}
               >
-                {getBadgeText(data)}
+                {getBadgeText(data, t)}
               </span>
             </div>
           ) : null}
@@ -410,7 +418,7 @@ export function FeatureNode({
                         }}
                       >
                         {idCopied ? (
-                          <span className="text-emerald-500">Copied!</span>
+                          <span className="text-emerald-500">{t('featureNode.copied')}</span>
                         ) : (
                           data.featureId.slice(0, 6)
                         )}
@@ -446,7 +454,7 @@ export function FeatureNode({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="text-xs">Chat with agent</p>
+                      <p className="text-xs">{t('featureNode.chatWithAgent')}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -466,7 +474,7 @@ export function FeatureNode({
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              aria-label="Stop Dev Server"
+                              aria-label={t('featureNode.stopDevServer')}
                               className="flex h-5 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -483,7 +491,9 @@ export function FeatureNode({
                               )}
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top">Stop Dev Server</TooltipContent>
+                          <TooltipContent side="top">
+                            {t('featureNode.stopDevServer')}
+                          </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                       {deployAction.url ? (
@@ -511,7 +521,7 @@ export function FeatureNode({
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              aria-label="Stop Dev Server"
+                              aria-label={t('featureNode.stopDevServer')}
                               className="flex h-5 shrink-0 cursor-pointer items-center justify-center rounded-full text-red-500 transition-colors hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -525,11 +535,13 @@ export function FeatureNode({
                               )}
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top">Stop Dev Server</TooltipContent>
+                          <TooltipContent side="top">
+                            {t('featureNode.stopDevServer')}
+                          </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                       <span className="text-muted-foreground animate-pulse text-[10px]">
-                        Starting…
+                        {t('featureNode.starting')}
                       </span>
                     </span>
                   ) : (
@@ -548,7 +560,11 @@ export function FeatureNode({
                               onClick={(e) => e.stopPropagation()}
                             >
                               <ActionButton
-                                label={deployAction.deployError ? 'Retry' : 'Start Dev Server'}
+                                label={
+                                  deployAction.deployError
+                                    ? t('featureNode.retry')
+                                    : t('featureNode.startDevServer')
+                                }
                                 onClick={deployAction.deploy}
                                 loading={deployAction.deployLoading}
                                 error={false}
@@ -560,7 +576,9 @@ export function FeatureNode({
                             </span>
                           </TooltipTrigger>
                           <TooltipContent side="top">
-                            {deployAction.deployError ? 'Retry Dev Server' : 'Start Dev Server'}
+                            {deployAction.deployError
+                              ? t('featureNode.retryDevServer')
+                              : t('featureNode.startDevServer')}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -569,7 +587,7 @@ export function FeatureNode({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="min-w-0 truncate text-[10px] text-red-500">
-                                Failed
+                                {t('featureNode.failed')}
                               </span>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-64">
@@ -588,40 +606,40 @@ export function FeatureNode({
             {data.state === 'deleting' ? (
               <div className="flex items-center gap-1.5 text-xs">
                 <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gray-400" />
-                <span className="text-muted-foreground">Deleting…</span>
+                <span className="text-muted-foreground">{t('featureNode.deleting')}</span>
               </div>
             ) : data.state === 'creating' ? (
               <div className="flex items-center gap-1.5 text-xs">
                 <Icon className="h-3.5 w-3.5 shrink-0 animate-spin text-teal-600 dark:text-teal-400" />
                 <span className="font-medium text-teal-600 dark:text-teal-400">
-                  {getBadgeText(data)}
+                  {getBadgeText(data, t)}
                 </span>
               </div>
             ) : data.state === 'running' ? (
               <div className="flex items-center gap-1.5 text-xs">
                 <Icon className="h-3.5 w-3.5 shrink-0 animate-spin text-teal-600 dark:text-teal-400" />
                 <span className="font-medium text-teal-600 dark:text-teal-400">
-                  {getBadgeText(data)}
+                  {getBadgeText(data, t)}
                 </span>
               </div>
             ) : data.state === 'action-required' ? (
               <Button
                 variant="default"
                 size="xs"
-                aria-label={getActionRequiredLabel(data)}
+                aria-label={getActionRequiredLabel(data, t)}
                 data-testid="feature-node-approve-button"
                 // eslint-disable-next-line @typescript-eslint/no-empty-function -- click bubbles to card's onNodeClick
                 onClick={() => {}}
                 className="nodrag dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90 cursor-pointer bg-neutral-900 text-[11px] text-white hover:bg-neutral-800"
               >
                 <Eye className="h-3 w-3" />
-                {getActionRequiredLabel(data)}
+                {getActionRequiredLabel(data, t)}
               </Button>
             ) : data.state === 'error' && data.onRetry ? (
               <Button
                 variant="outline"
                 size="xs"
-                aria-label="Retry"
+                aria-label={t('featureNode.retry')}
                 data-testid="feature-node-retry-button"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -630,7 +648,7 @@ export function FeatureNode({
                 className="nodrag cursor-pointer text-[11px] font-medium"
               >
                 <RotateCcw className="h-3 w-3" />
-                Retry
+                {t('featureNode.retry')}
               </Button>
             ) : data.state === 'blocked' ? (
               <div className="flex items-center gap-1.5 text-xs" data-testid="feature-node-badge">
@@ -639,7 +657,7 @@ export function FeatureNode({
                   return <BadgeIcon className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)} />;
                 })()}
                 <span className={cn('truncate text-[11px] font-medium', config.badgeClass)}>
-                  {getBadgeText(data)}
+                  {getBadgeText(data, t)}
                 </span>
               </div>
             ) : data.state === 'done' ? (
@@ -649,14 +667,14 @@ export function FeatureNode({
                   return <BadgeIcon className={cn('h-3.5 w-3.5 shrink-0', config.badgeClass)} />;
                 })()}
                 <span className={cn('text-[11px] font-medium', config.badgeClass)}>
-                  {getBadgeText(data)}
+                  {getBadgeText(data, t)}
                 </span>
               </div>
             ) : data.state === 'pending' && data.onStart ? (
               <Button
                 variant="outline"
                 size="xs"
-                aria-label="Start"
+                aria-label={t('featureNode.start')}
                 data-testid="feature-node-start-button"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -665,7 +683,7 @@ export function FeatureNode({
                 className="nodrag cursor-pointer text-[11px] font-medium"
               >
                 <Play className="h-3 w-3" />
-                Start
+                {t('featureNode.start')}
               </Button>
             ) : null}
           </div>
@@ -685,7 +703,7 @@ export function FeatureNode({
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Add feature"
+                  aria-label={t('featureNode.addFeature')}
                   data-testid="feature-node-action-button"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -696,7 +714,7 @@ export function FeatureNode({
                   <Plus className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">Add feature</TooltipContent>
+              <TooltipContent side="right">{t('featureNode.addFeature')}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </Handle>

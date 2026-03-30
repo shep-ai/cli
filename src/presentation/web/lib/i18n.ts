@@ -2,16 +2,30 @@
  * Web UI i18n configuration.
  *
  * Initializes i18next with react-i18next for the web presentation layer.
- * Uses the common and web namespaces. English translations are bundled
- * inline; other languages will be loaded on demand in a future phase.
+ * Uses the common and web namespaces. All supported language translations
+ * are bundled inline so language switching works immediately.
  */
 
 import i18next, { type i18n } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-// Import English translations inline — they are always needed as fallback
+// Import all language translations inline
 import commonEn from '../../../../translations/en/common.json';
 import webEn from '../../../../translations/en/web.json';
+import commonRu from '../../../../translations/ru/common.json';
+import webRu from '../../../../translations/ru/web.json';
+import commonPt from '../../../../translations/pt/common.json';
+import webPt from '../../../../translations/pt/web.json';
+import commonEs from '../../../../translations/es/common.json';
+import webEs from '../../../../translations/es/web.json';
+import commonAr from '../../../../translations/ar/common.json';
+import webAr from '../../../../translations/ar/web.json';
+import commonHe from '../../../../translations/he/common.json';
+import webHe from '../../../../translations/he/web.json';
+import commonFr from '../../../../translations/fr/common.json';
+import webFr from '../../../../translations/fr/web.json';
+import commonDe from '../../../../translations/de/common.json';
+import webDe from '../../../../translations/de/web.json';
 
 const FALLBACK_LANGUAGE = 'en';
 const NAMESPACES = ['common', 'web'] as const;
@@ -31,10 +45,14 @@ function createI18nInstance(): i18n {
     defaultNS: 'common',
     ns: [...NAMESPACES],
     resources: {
-      en: {
-        common: commonEn,
-        web: webEn,
-      },
+      en: { common: commonEn, web: webEn },
+      ru: { common: commonRu, web: webRu },
+      pt: { common: commonPt, web: webPt },
+      es: { common: commonEs, web: webEs },
+      ar: { common: commonAr, web: webAr },
+      he: { common: commonHe, web: webHe },
+      fr: { common: commonFr, web: webFr },
+      de: { common: commonDe, web: webDe },
     },
     interpolation: {
       escapeValue: false, // React already escapes output

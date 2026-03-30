@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, X, Bot, GripVertical, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,7 @@ function persistState(pos: Position | null, size: Size | null) {
 }
 
 export function GlobalChatPopup() {
+  const { t } = useTranslation('web');
   const [isOpen, setIsOpen] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -426,7 +428,9 @@ export function GlobalChatPopup() {
         {/* Tooltip — slides up on hover */}
         <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 translate-y-1 opacity-0 transition-all duration-200 group-hover/fab:translate-y-0 group-hover/fab:opacity-100">
           <div className="bg-foreground rounded-lg px-3 py-1.5 text-center shadow-lg">
-            <p className="text-background text-xs font-medium whitespace-nowrap">Shep Chat</p>
+            <p className="text-background text-xs font-medium whitespace-nowrap">
+              {t('chat.shepChat')}
+            </p>
             <p className="text-background/50 mt-0.5 flex items-center justify-center gap-1 text-[10px]">
               <kbd className="bg-background/15 rounded px-1 py-px font-mono">⌘</kbd>
               <kbd className="bg-background/15 rounded px-1 py-px font-mono">⇧</kbd>

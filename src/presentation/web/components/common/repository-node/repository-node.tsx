@@ -19,6 +19,7 @@ import {
   RotateCcw,
   MessageSquare,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
 import {
@@ -51,6 +52,7 @@ export function RepositoryNode({
   selected?: boolean;
   [key: string]: unknown;
 }) {
+  const { t } = useTranslation('web');
   const router = useRouter();
   const featureFlags = useFeatureFlags();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -124,7 +126,7 @@ export function RepositoryNode({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    aria-label="Remove repository"
+                    aria-label={t('repositoryNode.removeRepository')}
                     data-testid="repository-node-delete-button"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -135,7 +137,7 @@ export function RepositoryNode({
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Remove repository</TooltipContent>
+                <TooltipContent>{t('repositoryNode.removeRepository')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
@@ -143,15 +145,14 @@ export function RepositoryNode({
           <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <DialogContent className="max-w-xs">
               <DialogHeader>
-                <DialogTitle>Remove repository?</DialogTitle>
+                <DialogTitle>{t('repositoryNode.removeConfirmTitle')}</DialogTitle>
                 <DialogDescription>
-                  This will remove <strong>{data.name}</strong> and all its features from your
-                  workspace. The repository files on disk won&apos;t be affected.
+                  {t('repositoryNode.removeConfirmDescription', { name: data.name })}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="grid grid-cols-2 gap-2 sm:flex-none">
                 <DialogClose asChild>
-                  <Button variant="outline">Cancel</Button>
+                  <Button variant="outline">{t('repositoryNode.cancel')}</Button>
                 </DialogClose>
                 <Button
                   variant="destructive"
@@ -160,7 +161,7 @@ export function RepositoryNode({
                     data.onDelete?.(data.id!);
                   }}
                 >
-                  Remove
+                  {t('repositoryNode.remove')}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -210,7 +211,7 @@ export function RepositoryNode({
                     <TooltipTrigger asChild>
                       <span className="flex items-center">
                         <ActionButton
-                          label="Open in IDE"
+                          label={t('repositoryNode.openInIde')}
                           onClick={actions.openInIde}
                           loading={actions.ideLoading}
                           error={!!actions.ideError}
@@ -221,7 +222,7 @@ export function RepositoryNode({
                         />
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>Open in IDE</TooltipContent>
+                    <TooltipContent>{t('repositoryNode.openInIde')}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <TooltipProvider>
@@ -229,7 +230,7 @@ export function RepositoryNode({
                     <TooltipTrigger asChild>
                       <span className="flex items-center">
                         <ActionButton
-                          label="Open in Shell"
+                          label={t('repositoryNode.openInShell')}
                           onClick={actions.openInShell}
                           loading={actions.shellLoading}
                           error={!!actions.shellError}
@@ -240,7 +241,7 @@ export function RepositoryNode({
                         />
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>Open in Shell</TooltipContent>
+                    <TooltipContent>{t('repositoryNode.openInShell')}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <TooltipProvider>
@@ -248,7 +249,7 @@ export function RepositoryNode({
                     <TooltipTrigger asChild>
                       <span className="flex items-center">
                         <ActionButton
-                          label="Open Folder"
+                          label={t('repositoryNode.openFolder')}
                           onClick={actions.openFolder}
                           loading={actions.folderLoading}
                           error={!!actions.folderError}
@@ -259,7 +260,7 @@ export function RepositoryNode({
                         />
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>Open Folder</TooltipContent>
+                    <TooltipContent>{t('repositoryNode.openFolder')}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <TooltipProvider>
@@ -268,7 +269,7 @@ export function RepositoryNode({
                       <Button
                         variant="ghost"
                         size="icon-xs"
-                        aria-label="Chat with agent"
+                        aria-label={t('repositoryNode.chatWithAgent')}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (data.id) router.push(`/repository/${data.id}/chat`);
@@ -279,7 +280,7 @@ export function RepositoryNode({
                         <ChatDotIndicator status={chatTurnStatus} />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Chat with agent</TooltipContent>
+                    <TooltipContent>{t('repositoryNode.chatWithAgent')}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <FeatureSessionsDropdown
@@ -296,7 +297,7 @@ export function RepositoryNode({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      aria-label="New feature"
+                      aria-label={t('repositoryNode.newFeature')}
                       data-testid="repository-node-add-button"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -308,10 +309,10 @@ export function RepositoryNode({
                       )}
                     >
                       <Plus className="h-3 w-3" />
-                      <span className="translate-y-px">New</span>
+                      <span className="translate-y-px">{t('repositoryNode.new')}</span>
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top">New feature</TooltipContent>
+                  <TooltipContent side="top">{t('repositoryNode.newFeature')}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ) : null}
@@ -340,7 +341,7 @@ export function RepositoryNode({
                     data-testid="repository-node-behind"
                   >
                     <ArrowDown className="h-3 w-3 shrink-0" />
-                    {data.behindCount} behind
+                    {t('repositoryNode.behind', { count: data.behindCount })}
                   </span>
                 ) : null}
               </div>
@@ -386,7 +387,7 @@ export function RepositoryNode({
             <div className="text-muted-foreground border-border/50 border-t px-4 py-2">
               <div className="flex items-center gap-2 text-xs opacity-40">
                 <GitBranch className="h-3 w-3 shrink-0" />
-                <span>Not a git repository</span>
+                <span>{t('repositoryNode.notAGitRepository')}</span>
               </div>
             </div>
           </>
@@ -434,14 +435,14 @@ export function RepositoryNode({
                       {deployAction.url}
                     </a>
                   ) : (
-                    <span className="text-muted-foreground">Starting...</span>
+                    <span className="text-muted-foreground">{t('repositoryNode.starting')}</span>
                   )}
                 </>
               ) : (
                 <span className="text-muted-foreground">
-                  Run
+                  {t('repositoryNode.run')}
                   <span className="text-muted-foreground/50 ms-2 text-[10px]">
-                    start local environment
+                    {t('repositoryNode.startLocalEnvironment')}
                   </span>
                 </span>
               )}
@@ -459,10 +460,10 @@ export function RepositoryNode({
                       <ActionButton
                         label={
                           deployAction.deployError
-                            ? 'Retry'
+                            ? t('repositoryNode.retry')
                             : isDeploymentActive
-                              ? 'Stop Dev Server'
-                              : 'Start Dev Server'
+                              ? t('repositoryNode.stopDevServer')
+                              : t('repositoryNode.startDevServer')
                         }
                         onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
                         loading={deployAction.deployLoading || deployAction.stopLoading}
@@ -477,7 +478,9 @@ export function RepositoryNode({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                    {isDeploymentActive
+                      ? t('repositoryNode.stopDevServer')
+                      : t('repositoryNode.startDevServer')}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

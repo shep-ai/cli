@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PaperclipIcon, Send, ChevronLeft, Check, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -88,6 +89,7 @@ export function DrawerActionBar({
   chatInput: controlledChatInput,
   onChatInputChange,
 }: DrawerActionBarProps) {
+  const { t } = useTranslation('web');
   const isWarning = approveVariant === 'warning';
   const ApproveIcon = isWarning ? AlertTriangle : Check;
   const accentBg = isWarning ? 'bg-orange-500/85' : 'bg-blue-500/85';
@@ -325,7 +327,7 @@ export function DrawerActionBar({
           <form ref={formRef} onSubmit={handleFormSubmit} className="p-3">
             <div
               role="region"
-              aria-label="File drop zone"
+              aria-label={t('createDrawer.fileDropZone')}
               data-drag-over={isDragOver ? 'true' : 'false'}
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
@@ -383,13 +385,13 @@ export function DrawerActionBar({
                         type="button"
                         onClick={handleAddFiles}
                         disabled={disabled}
-                        aria-label="Attach files"
+                        aria-label={t('chat.attachFiles')}
                         className="text-muted-foreground hover:text-foreground cursor-pointer rounded p-1 transition-colors"
                       >
                         <PaperclipIcon className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top">Attach files</TooltipContent>
+                    <TooltipContent side="top">{t('chat.attachFiles')}</TooltipContent>
                   </Tooltip>
 
                   {/* Single action button: Approve when empty, Reject when text present */}
@@ -454,7 +456,9 @@ export function DrawerActionBar({
                       </TooltipTrigger>
                       {!isWarning ? (
                         <TooltipContent side="top">
-                          {approveExpanded ? approveLabel : 'Send revision feedback'}
+                          {approveExpanded
+                            ? approveLabel
+                            : t('drawerActionBar.sendRevisionFeedback')}
                         </TooltipContent>
                       ) : null}
                     </Tooltip>

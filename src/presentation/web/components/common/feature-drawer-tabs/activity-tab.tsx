@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2,
   AlertCircle,
@@ -293,6 +294,7 @@ function getIterationOutcome(
  * ------------------------------------------------------------------------- */
 
 export function ActivityTab({ timings, loading, error, rejectionFeedback }: ActivityTabProps) {
+  const { t } = useTranslation('web');
   const now = useTickingNow(timings);
 
   if (loading) {
@@ -316,7 +318,7 @@ export function ActivityTab({ timings, loading, error, rejectionFeedback }: Acti
     return (
       <div className="flex flex-col items-center justify-center gap-2 p-8">
         <Clock className="text-muted-foreground h-8 w-8" />
-        <p className="text-muted-foreground text-base">No activity recorded yet</p>
+        <p className="text-muted-foreground text-base">{t('activityTab.noActivityRecorded')}</p>
       </div>
     );
   }
@@ -540,6 +542,7 @@ function NodeTimingRow({
   maxDurationMs: number;
   now: number;
 }) {
+  const { t } = useTranslation('web');
   const base = timing.phase.includes(':') ? timing.phase.split(':')[0] : timing.phase;
   const suffix = timing.phase.includes(':') ? timing.phase.split(':')[1] : null;
   const isSubPhase = suffix !== null;
@@ -611,7 +614,7 @@ function NodeTimingRow({
             type="button"
             onClick={handleCopyPrompt}
             className="text-muted-foreground/50 hover:text-foreground/70 -ms-1 shrink-0 opacity-0 transition-opacity group-hover/phase:opacity-100"
-            title="Copy prompt to clipboard"
+            title={t('activityTab.copyPromptToClipboard')}
           >
             {copied ? (
               <Check className="h-3.5 w-3.5 text-emerald-500" />
@@ -721,6 +724,7 @@ function SummaryTotals({
   totalOutputTokens: number;
   totalCostUsd: number;
 }) {
+  const { t } = useTranslation('web');
   const totalTokens = totalInputTokens + totalOutputTokens;
   return (
     <div
@@ -731,10 +735,14 @@ function SummaryTotals({
         Summary
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <SummaryCell icon={Clock} label="Execution" value={formatDuration(totalExecMs)} />
+        <SummaryCell
+          icon={Clock}
+          label={t('activityTab.execution')}
+          value={formatDuration(totalExecMs)}
+        />
         <SummaryCell
           icon={Timer}
-          label="Wait"
+          label={t('activityTab.wait')}
           value={totalWaitMs > 0 ? formatDuration(totalWaitMs) : 'n/a'}
         />
         <SummaryCell
@@ -748,7 +756,7 @@ function SummaryTotals({
         />
         <SummaryCell
           icon={DollarSign}
-          label="Cost"
+          label={t('activityTab.cost')}
           value={totalCostUsd > 0 ? formatCost(totalCostUsd) : 'n/a'}
         />
         <div className="col-span-2 flex flex-col gap-0.5">

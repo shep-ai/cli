@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePathname } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
@@ -600,11 +601,12 @@ function DrawerActionBarForTech({
   chatInput?: string;
   onChatInputChange?: (value: string) => void;
 }) {
+  const { t } = useTranslation('web');
   return (
     <DrawerActionBar
       onReject={onReject}
       onApprove={onApprove}
-      approveLabel="Approve Plan"
+      approveLabel={t('featureDrawer.approvePlan')}
       revisionPlaceholder="Ask AI to revise the plan..."
       isProcessing={isProcessing}
       isRejecting={isRejecting}

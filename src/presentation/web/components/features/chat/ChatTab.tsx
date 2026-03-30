@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
 import { Trash2, Square, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -169,6 +170,7 @@ function ChatHeader({
   onClear: () => Promise<void>;
   onStop: () => Promise<void>;
 }) {
+  const { t } = useTranslation('web');
   return (
     <div className="flex h-8 shrink-0 items-center border-b px-3">
       {/* Left — session info + activity */}
@@ -186,7 +188,7 @@ function ChatHeader({
             </span>
           </>
         ) : (
-          <span className="text-muted-foreground/40 text-[11px]">No session</span>
+          <span className="text-muted-foreground/40 text-[11px]">{t('chat.noSession')}</span>
         )}
       </div>
 
@@ -198,11 +200,11 @@ function ChatHeader({
               onClick={() => {
                 void onStop();
               }}
-              title="Force stop agent process"
+              title={t('chat.forceStopAgent')}
               variant="danger"
             >
               <Square className="h-2.5 w-2.5 fill-current" />
-              <span>Stop</span>
+              <span>{t('chat.stop')}</span>
             </ToolbarButton>
             <span className="text-border mx-0.5">|</span>
           </>
@@ -211,10 +213,10 @@ function ChatHeader({
           onClick={() => {
             void onClear();
           }}
-          title="Clear chat history"
+          title={t('chat.clearChatHistory')}
         >
           <Trash2 className="h-2.5 w-2.5" />
-          <span>Clear</span>
+          <span>{t('chat.clear')}</span>
         </ToolbarButton>
       </div>
     </div>

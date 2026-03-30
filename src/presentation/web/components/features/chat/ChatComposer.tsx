@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ComposerPrimitive, ThreadPrimitive } from '@assistant-ui/react';
 import { SendHorizontal, CircleStop, Paperclip } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,7 @@ export function ChatComposer({
   onPickFiles,
   agentPicker,
 }: ChatComposerProps) {
+  const { t } = useTranslation('web');
   const [isFocused, setIsFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -66,7 +68,7 @@ export function ChatComposer({
           <ComposerPrimitive.Input
             rows={1}
             autoFocus
-            placeholder="Write a message..."
+            placeholder={t('chat.writeMessage')}
             onPaste={onPaste}
             className="max-h-[4.5rem] min-h-0 resize-none rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus:outline-none focus-visible:ring-0"
           />
@@ -105,13 +107,13 @@ export function ChatComposer({
                 <button
                   type="button"
                   onClick={onPickFiles}
-                  aria-label="Attach files"
+                  aria-label={t('chat.attachFiles')}
                   className="text-muted-foreground hover:text-foreground cursor-pointer rounded p-1 transition-colors"
                 >
                   <Paperclip className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="top">Attach files</TooltipContent>
+              <TooltipContent side="top">{t('chat.attachFiles')}</TooltipContent>
             </Tooltip>
 
             {/* Send / Cancel */}

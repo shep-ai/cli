@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   PaperclipIcon,
   ChevronsUpDown,
@@ -158,12 +159,6 @@ function getExtension(filename: string): string {
   return dot >= 0 ? filename.slice(dot).toLowerCase() : '';
 }
 
-const AUTO_APPROVE_OPTIONS = [
-  { id: 'allowPrd', label: 'PRD', description: 'Auto-approve requirements move to planning.' },
-  { id: 'allowPlan', label: 'Plan', description: 'Auto-approve planning move to implementation.' },
-  { id: 'allowMerge', label: 'Merge', description: 'Auto-approve merge move to Done.' },
-];
-
 const EMPTY_GATES: Record<string, boolean> = {
   allowPrd: false,
   allowPlan: false,
@@ -209,6 +204,7 @@ export function FeatureCreateDrawer({
   canPushDirectly,
 }: FeatureCreateDrawerProps) {
   const createSound = useSoundAction('create');
+  const { t } = useTranslation('web');
   // Validate repositoryPath from URL against active repos — prevents stale URL params
   // from selecting deleted repos after add/delete/re-add cycles.
   // Trust the prop when: repos not loaded yet (undefined), empty list (no repos to check),
@@ -628,6 +624,20 @@ export function FeatureCreateDrawer({
   const needsRepo = !validRepoPath && !selectedRepoPath;
   const showRepoSelector = !validRepoPath && repositories !== undefined;
 
+  const AUTO_APPROVE_OPTIONS = [
+    { id: 'allowPrd', label: t('createDrawer.prd'), description: t('createDrawer.prdDescription') },
+    {
+      id: 'allowPlan',
+      label: t('createDrawer.plan'),
+      description: t('createDrawer.planDescription'),
+    },
+    {
+      id: 'allowMerge',
+      label: t('createDrawer.merge'),
+      description: t('createDrawer.mergeDescription'),
+    },
+  ];
+
   return (
     <BaseDrawer
       open={open}
@@ -640,12 +650,12 @@ export function FeatureCreateDrawer({
         <>
           <div className="flex items-center gap-2">
             <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
-            <DrawerTitle>NEW FEATURE</DrawerTitle>
+            <DrawerTitle>{t('createDrawer.title')}</DrawerTitle>
           </div>
           {isSubmitting ? (
             <DrawerDescription asChild>
               <div>
-                <Badge variant="secondary">Creating...</Badge>
+                <Badge variant="secondary">{t('createDrawer.creating')}</Badge>
               </div>
             </DrawerDescription>
           ) : null}
@@ -654,14 +664,14 @@ export function FeatureCreateDrawer({
       footer={
         <div className="flex flex-row justify-end gap-2">
           <Button variant="outline" onClick={attemptClose} disabled={isSubmitting}>
-            Cancel
+            {t('createDrawer.cancel')}
           </Button>
           <Button
             type="submit"
             form="create-feature-form"
             disabled={!description.trim() || isSubmitting || needsRepo}
           >
-            {isSubmitting ? 'Creating...' : '+ Create Feature'}
+            {isSubmitting ? t('createDrawer.creating') : t('createDrawer.createFeature')}
           </Button>
         </div>
       }
@@ -680,7 +690,7 @@ export function FeatureCreateDrawer({
             {showRepoSelector ? (
               <div className="flex flex-col gap-1.5" data-testid="repo-selector-section">
                 <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                  REPOSITORY
+                  {t('createDrawer.repository')}
                 </Label>
                 <RepositoryCombobox
                   repositories={localRepos}
@@ -696,7 +706,7 @@ export function FeatureCreateDrawer({
             ) : validRepoPath ? (
               <div className="flex flex-col gap-1.5" data-testid="repo-readonly-section">
                 <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                  REPOSITORY
+                  {t('createDrawer.repository')}
                 </Label>
                 <p className="text-sm" data-testid="repo-readonly-label">
                   {repositories?.find((r) => r.path === validRepoPath)?.name ??
@@ -708,7 +718,7 @@ export function FeatureCreateDrawer({
             {/* Description + inline controls with drop zone */}
             <div
               role="region"
-              aria-label="File drop zone"
+              aria-label={t('createDrawer.fileDropZone')}
               data-drag-over={isDragOver ? 'true' : 'false'}
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
@@ -723,7 +733,7 @@ export function FeatureCreateDrawer({
                 htmlFor="feature-description"
                 className="text-muted-foreground text-xs font-semibold tracking-wider"
               >
-                DESCRIBE YOUR FEATURE
+                {t('createDrawer.describeFeature')}
               </Label>
               <div
                 ref={promptContainerRef}
@@ -736,7 +746,7 @@ export function FeatureCreateDrawer({
               >
                 <Textarea
                   id="feature-description"
-                  placeholder="e.g. Add GitHub OAuth login with callback handling and token refresh..."
+                  placeholder={t('createDrawer.featurePlaceholder')}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   onPaste={handlePaste}
@@ -792,12 +802,12 @@ export function FeatureCreateDrawer({
                           className="flex cursor-pointer items-center gap-1 text-sm font-medium"
                         >
                           <Clock className="h-3.5 w-3.5" />
-                          Pending
+                          {t('createDrawer.pendingMode')}
                         </Label>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Create without starting — start manually later.
+                      {t('createDrawer.pendingModeDescription')}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -814,12 +824,12 @@ export function FeatureCreateDrawer({
                           className="flex cursor-pointer items-center gap-1 text-sm font-medium"
                         >
                           <Zap className="h-3.5 w-3.5" />
-                          Fast Mode
+                          {t('createDrawer.fastModeLabel')}
                         </Label>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Skip SDLC phases and implement directly from your prompt.
+                      {t('createDrawer.fastModeDescription')}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -828,13 +838,13 @@ export function FeatureCreateDrawer({
                         type="button"
                         onClick={handleAddFiles}
                         disabled={isSubmitting}
-                        aria-label="Attach files"
+                        aria-label={t('chat.attachFiles')}
                         className="text-muted-foreground hover:text-foreground cursor-pointer rounded p-1 transition-colors"
                       >
                         <PaperclipIcon className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Attach files</TooltipContent>
+                    <TooltipContent side="bottom">{t('chat.attachFiles')}</TooltipContent>
                   </Tooltip>
                 </div>
               </div>
@@ -847,7 +857,7 @@ export function FeatureCreateDrawer({
                   htmlFor="parent-feature"
                   className="text-muted-foreground text-xs font-semibold tracking-wider"
                 >
-                  PARENT FEATURE
+                  {t('createDrawer.parentFeature')}
                 </Label>
                 <ParentFeatureCombobox
                   features={features}
@@ -865,11 +875,11 @@ export function FeatureCreateDrawer({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="text-muted-foreground w-16 shrink-0 cursor-default text-xs font-semibold tracking-wider">
-                      APPROVE
+                      {t('createDrawer.approve')}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    Auto-approve phase transitions without manual review.
+                    {t('createDrawer.approveDescription')}
                   </TooltipContent>
                 </Tooltip>
                 <div className="flex flex-1 items-center gap-4">
@@ -899,7 +909,7 @@ export function FeatureCreateDrawer({
                       </TooltipTrigger>
                       <TooltipContent side="bottom">
                         {fast && (opt.id === 'allowPrd' || opt.id === 'allowPlan')
-                          ? 'Skipped in Fast Mode'
+                          ? t('createDrawer.skippedInFastMode')
                           : opt.description}
                       </TooltipContent>
                     </Tooltip>
@@ -922,10 +932,12 @@ export function FeatureCreateDrawer({
                         AUTO_APPROVE_OPTIONS.every((o) => approvalGates[o.id]) && 'text-primary'
                       )}
                     >
-                      All
+                      {t('createDrawer.all')}
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">Toggle all approval gates</TooltipContent>
+                  <TooltipContent side="bottom">
+                    {t('createDrawer.toggleAllApprovalGates')}
+                  </TooltipContent>
                 </Tooltip>
               </div>
 
@@ -934,11 +946,11 @@ export function FeatureCreateDrawer({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="text-muted-foreground w-16 shrink-0 cursor-default text-xs font-semibold tracking-wider">
-                      EVIDENCE
+                      {t('createDrawer.evidence')}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    Collect and attach evidence after implementation.
+                    {t('createDrawer.evidenceDescription')}
                   </TooltipContent>
                 </Tooltip>
                 <div className="flex flex-1 items-center gap-4">
@@ -959,12 +971,12 @@ export function FeatureCreateDrawer({
                           htmlFor="enable-evidence"
                           className="cursor-pointer text-xs font-medium"
                         >
-                          Collect
+                          {t('createDrawer.collect')}
                         </Label>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Capture screenshots and artifacts after implementation.
+                      {t('createDrawer.collectDescription')}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -984,16 +996,16 @@ export function FeatureCreateDrawer({
                             (!enableEvidence || (!openPr && !forkAndPr)) && 'opacity-50'
                           )}
                         >
-                          Add to PR
+                          {t('createDrawer.addToPr')}
                         </Label>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       {!openPr && !forkAndPr
-                        ? 'Requires PR to be enabled'
+                        ? t('createDrawer.requiresPr')
                         : !enableEvidence
-                          ? 'Requires evidence collection to be enabled'
-                          : 'Include evidence in the pull request body.'}
+                          ? t('createDrawer.requiresEvidence')
+                          : t('createDrawer.addToPrDescription')}
                     </TooltipContent>
                   </Tooltip>
                 </div>
@@ -1002,7 +1014,7 @@ export function FeatureCreateDrawer({
               {/* Git row */}
               <div className="border-input flex items-start gap-4 rounded-md border px-3 py-2.5">
                 <span className="text-muted-foreground w-16 shrink-0 pt-0.5 text-xs font-semibold tracking-wider">
-                  GIT
+                  {t('createDrawer.git')}
                 </span>
                 <div className="flex flex-1 flex-wrap items-center gap-4">
                   <Tooltip>
@@ -1025,14 +1037,14 @@ export function FeatureCreateDrawer({
                             forkAndPr && 'opacity-50'
                           )}
                         >
-                          Push
+                          {t('createDrawer.push')}
                         </Label>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       {forkAndPr
                         ? 'Enabled — contributing to upstream'
-                        : 'Push branch to remote after implementation.'}
+                        : t('createDrawer.pushDescription')}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -1055,14 +1067,14 @@ export function FeatureCreateDrawer({
                             forkAndPr && 'opacity-50'
                           )}
                         >
-                          PR
+                          {t('createDrawer.pr')}
                         </Label>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       {forkAndPr
                         ? 'Enabled — contributing to upstream'
-                        : 'Open a pull request after pushing.'}
+                        : t('createDrawer.prDescription')}
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -1076,11 +1088,13 @@ export function FeatureCreateDrawer({
                           disabled={isSubmitting}
                         />
                         <Label htmlFor="ci-watch" className="cursor-pointer text-xs font-medium">
-                          Watch
+                          {t('createDrawer.watch')}
                         </Label>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Watch CI and auto-fix after push.</TooltipContent>
+                    <TooltipContent side="bottom">
+                      {t('createDrawer.watchDescription')}
+                    </TooltipContent>
                   </Tooltip>
                   {/* Separator between standard git and repo options */}
                   <div className="bg-border h-4 w-px shrink-0" />
@@ -1099,11 +1113,13 @@ export function FeatureCreateDrawer({
                           className="flex cursor-pointer items-center gap-1 text-xs font-medium"
                         >
                           <FileText className="h-3 w-3" />
-                          Commit Specs
+                          {t('createDrawer.commitSpecs')}
                         </Label>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Commit specs to repository.</TooltipContent>
+                    <TooltipContent side="bottom">
+                      {t('createDrawer.commitSpecsDescription')}
+                    </TooltipContent>
                   </Tooltip>
                   {!canPush && (
                     <Tooltip>
@@ -1125,12 +1141,12 @@ export function FeatureCreateDrawer({
                             className="flex cursor-pointer items-center gap-1 text-xs font-medium"
                           >
                             <GitFork className="h-3 w-3" />
-                            Fork & PR
+                            {t('createDrawer.forkAndPr')}
                           </Label>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">
-                        Contribute via fork (PR to upstream).
+                        {t('createDrawer.forkAndPrDescription')}
                       </TooltipContent>
                     </Tooltip>
                   )}
@@ -1161,6 +1177,7 @@ function ParentFeatureCombobox({
   onChange,
   disabled,
 }: ParentFeatureComboboxProps) {
+  const { t } = useTranslation('web');
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1211,7 +1228,7 @@ function ParentFeatureCombobox({
           <span className="truncate">
             {selectedFeature
               ? `${selectedFeature.name} (${selectedFeature.id.slice(0, 8)})`
-              : 'Select parent feature...'}
+              : t('createDrawer.selectParent')}
           </span>
           <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
         </button>
@@ -1226,7 +1243,7 @@ function ParentFeatureCombobox({
           <div className="border-b p-2">
             <Input
               ref={inputRef}
-              placeholder="Search features..."
+              placeholder={t('createDrawer.searchFeatures')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="h-8 border-0 p-0 text-sm shadow-none focus-visible:ring-0"
@@ -1249,11 +1266,13 @@ function ParentFeatureCombobox({
               data-testid="parent-feature-option-none"
             >
               <CheckIcon className={cn('h-4 w-4 shrink-0', value !== undefined && 'invisible')} />
-              <span className="text-muted-foreground italic">No parent</span>
+              <span className="text-muted-foreground italic">{t('createDrawer.noParent')}</span>
             </button>
 
             {filtered.length === 0 && query ? (
-              <p className="text-muted-foreground px-3 py-2 text-sm">No features found.</p>
+              <p className="text-muted-foreground px-3 py-2 text-sm">
+                {t('createDrawer.noFeaturesFound')}
+              </p>
             ) : (
               filtered.map((f) => (
                 <button
@@ -1311,6 +1330,7 @@ export function RepositoryCombobox({
   const [showReactPicker, setShowReactPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { reactFileManager: useReactFileManager } = useFeatureFlags();
+  const { t } = useTranslation('web');
 
   const selectedRepo = repositories.find((r) => r.path === value);
 
@@ -1436,7 +1456,7 @@ export function RepositoryCombobox({
             <div className="border-b p-2">
               <Input
                 ref={inputRef}
-                placeholder="Search repositories..."
+                placeholder={t('createDrawer.searchRepositories')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="h-8 border-0 p-0 text-sm shadow-none focus-visible:ring-0"

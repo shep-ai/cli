@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from 'react-i18next';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNpmVersionCheck } from '@/hooks/use-npm-version-check';
 import { useCliUpgrade } from '@/hooks/use-cli-upgrade';
@@ -23,6 +24,7 @@ export function VersionBadge({
   description,
   instancePath,
 }: VersionBadgeProps) {
+  const { t } = useTranslation('web');
   const shortHash = commitHash?.slice(0, 7);
   const { latest, updateAvailable } = useNpmVersionCheck(version);
   const { status: upgradeStatus, startUpgrade } = useCliUpgrade();
@@ -58,10 +60,14 @@ export function VersionBadge({
             <div className="text-[10px] leading-snug opacity-70">{description}</div>
           ) : null}
           <div className="border-t border-white/10 pt-1.5">
-            <Row label="Version" value={displayVersion} />
-            {isDev && branch ? <Row label="Branch" value={branch} /> : null}
-            {isDev && shortHash ? <Row label="Commit" value={shortHash} mono /> : null}
-            {isDev && instancePath ? <Row label="Path" value={instancePath} mono /> : null}
+            <Row label={t('versionBadge.version')} value={displayVersion} />
+            {isDev && branch ? <Row label={t('versionBadge.branch')} value={branch} /> : null}
+            {isDev && shortHash ? (
+              <Row label={t('versionBadge.commit')} value={shortHash} mono />
+            ) : null}
+            {isDev && instancePath ? (
+              <Row label={t('versionBadge.path')} value={instancePath} mono />
+            ) : null}
             {latest ? (
               <Row label="Latest" value={`v${latest}`} highlight={updateAvailable} />
             ) : null}
