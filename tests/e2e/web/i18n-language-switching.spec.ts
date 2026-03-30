@@ -18,7 +18,7 @@ test.describe('i18n: language switching', () => {
     await expect(languageTitle).toBeVisible();
 
     // The card title should say "Language" in English
-    await expect(languageTitle.locator('text=Language')).toBeVisible();
+    await expect(languageTitle.getByText('Language', { exact: true })).toBeVisible();
 
     // Open the language select dropdown
     const languageSelect = page.getByTestId('language-select');
@@ -31,7 +31,7 @@ test.describe('i18n: language switching', () => {
     await page.waitForTimeout(500);
 
     // The card title should now say "Язык" (Russian for "Language")
-    await expect(languageTitle.locator('text=Язык')).toBeVisible();
+    await expect(languageTitle.getByText('Язык', { exact: true })).toBeVisible();
 
     // The html lang attribute should be updated
     const htmlLang = await page.getAttribute('html', 'lang');
@@ -73,6 +73,6 @@ test.describe('i18n: language switching', () => {
     // Settings section title should be in Spanish
     const languageSection = page.getByTestId('language-settings-section');
     // "Idioma" is Spanish for "Language"
-    await expect(languageSection.locator('text=Idioma')).toBeVisible();
+    await expect(languageSection.getByText('Idioma', { exact: true })).toBeVisible();
   });
 });
