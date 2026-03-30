@@ -1,0 +1,33 @@
+feature:
+  id: "080-skill-branding-injection"
+  name: "skill-branding-injection"
+  number: 80
+  branch: "feat/080-skill-branding-injection"
+  lifecycle: "research"
+  createdAt: "2026-03-30T20:38:11Z"
+status:
+  phase: "research"
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2026-03-30T20:38:11Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "fast-implement"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-30T20:38:11Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []
