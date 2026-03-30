@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
   Code2,
@@ -14,6 +14,15 @@ import {
   Loader2,
   LayoutDashboard,
   MessageSquare,
+  GitBranch,
+  GitCommitHorizontal,
+  AlertTriangle,
+  Globe,
+  Tag,
+  Archive,
+  FileEdit,
+  FilePlus,
+  FileCheck2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BaseDrawer } from '@/components/common/base-drawer';
@@ -25,6 +34,8 @@ import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
 import { ChatTab } from '@/components/features/chat/ChatTab';
+import { getGitRepoInfo } from '@/app/actions/get-git-log';
+import type { GitRepoInfo } from '@/app/actions/get-git-log';
 
 const COPY_FEEDBACK_DELAY = 2000;
 
@@ -289,15 +300,7 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
 
         {/* Overview tab */}
         <TabsContent value="overview" className="mt-0 flex-1 overflow-y-auto">
-          {data.repositoryPath ? (
-            <div className="flex-1 overflow-y-auto">
-              {repoActions.syncError ? (
-                <div className="px-4 pt-3">
-                  <p className="text-destructive text-xs">{repoActions.syncError}</p>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          <RepoOverview data={data} syncError={repoActions.syncError} />
         </TabsContent>
 
         {/* Chat tab */}
@@ -306,5 +309,291 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
         </TabsContent>
       </Tabs>
     </BaseDrawer>
+  );
+}
+
+// ── Repo Overview ───────────────────────────────────────────────────
+
+function Section({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="px-3 pt-4 pb-1">
+      <div className="text-foreground mb-2 flex items-center gap-1.5 text-sm font-semibold tracking-wider uppercase">
+        <Icon className="size-4 opacity-50" />
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('bg-muted/60 rounded-md border border-transparent p-3', className)}>
+      {children}
+    </div>
+  );
+}
+
+function KV({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-foreground/40 text-[11px] font-medium tracking-wider uppercase">
+        {label}
+      </span>
+      <span className="text-sm leading-snug">{children}</span>
+    </div>
+  );
+}
+
+function RepoOverview({
+  data,
+  syncError,
+}: {
+  data: RepositoryNodeData;
+  syncError?: string | null;
+}) {
+  const [repoInfo, setRepoInfo] = useState<GitRepoInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!data.repositoryPath) return;
+    setLoading(true);
+    getGitRepoInfo(data.repositoryPath, 8).then((result) => {
+      setRepoInfo(result);
+      setLoading(false);
+    });
+  }, [data.repositoryPath]);
+
+  if (!data.repositoryPath) return null;
+
+  const wt = repoInfo?.workingTree;
+  const isDirty = wt && (wt.staged > 0 || wt.modified > 0 || wt.untracked > 0);
+  const ds = repoInfo?.diffStats;
+
+  return (
+    <div className="pb-4">
+      {loading ? (
+        <div className="text-foreground/40 flex items-center gap-2 px-4 py-8 text-sm">
+          <Loader2 className="size-4 animate-spin" /> Loading repository info...
+        </div>
+      ) : null}
+
+      {/* Quick stats grid */}
+      {repoInfo ? (
+        <div className="grid grid-cols-2 gap-2 px-3 pt-3">
+          {/* Current branch */}
+          <Card>
+            <KV label="Branch">
+              <span className="inline-flex items-center gap-1.5">
+                <GitBranch className="text-foreground/30 size-3.5 shrink-0" />
+                <code className="font-mono text-sm">
+                  {repoInfo.currentBranch ?? data.branch ?? '—'}
+                </code>
+              </span>
+              {data.behindCount != null && data.behindCount > 0 ? (
+                <span className="mt-0.5 block text-xs text-orange-600 dark:text-orange-400">
+                  {data.behindCount} behind default
+                </span>
+              ) : null}
+            </KV>
+          </Card>
+
+          {/* Working tree */}
+          <Card>
+            <KV label="Working Tree">
+              {isDirty ? (
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                  {wt.staged > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                      <FileCheck2 className="size-3.5" /> {wt.staged} staged
+                    </span>
+                  ) : null}
+                  {wt.modified > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400">
+                      <FileEdit className="size-3.5" /> {wt.modified} modified
+                    </span>
+                  ) : null}
+                  {wt.untracked > 0 ? (
+                    <span className="text-foreground/50 inline-flex items-center gap-1 text-sm">
+                      <FilePlus className="size-3.5" /> {wt.untracked} untracked
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
+                  <Check className="size-3.5" /> Clean
+                </span>
+              )}
+            </KV>
+          </Card>
+
+          {/* Diff stats */}
+          {ds ? (
+            <Card>
+              <KV label="Uncommitted Changes">
+                <div className="flex items-center gap-3 text-sm">
+                  <span>
+                    {ds.filesChanged} file{ds.filesChanged !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-green-600 dark:text-green-400">+{ds.insertions}</span>
+                  <span className="text-red-500 dark:text-red-400">-{ds.deletions}</span>
+                </div>
+              </KV>
+            </Card>
+          ) : null}
+
+          {/* Remotes */}
+          {repoInfo.remotes.length > 0 ? (
+            <Card>
+              <KV label="Remote">
+                {repoInfo.remotes.map((r) => (
+                  <span key={r.name} className="inline-flex items-center gap-1.5 text-sm">
+                    <Globe className="text-foreground/30 size-3.5 shrink-0" />
+                    <span className="truncate">
+                      {r.url
+                        .replace(/\.git$/, '')
+                        .replace(/^https?:\/\/([^@]+@)?/, '')
+                        .replace(/x-access-token:[^@]+@/, '')}
+                    </span>
+                  </span>
+                ))}
+              </KV>
+            </Card>
+          ) : null}
+
+          {/* Stashes */}
+          {repoInfo.stashCount > 0 ? (
+            <Card>
+              <KV label="Stashes">
+                <span className="inline-flex items-center gap-1.5 text-sm">
+                  <Archive className="text-foreground/30 size-3.5 shrink-0" />
+                  {repoInfo.stashCount} stash{repoInfo.stashCount !== 1 ? 'es' : ''}
+                </span>
+              </KV>
+            </Card>
+          ) : null}
+
+          {/* Tags */}
+          {repoInfo.tags.length > 0 ? (
+            <Card>
+              <KV label="Tags">
+                <div className="flex flex-wrap gap-1.5">
+                  {repoInfo.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="bg-foreground/[0.04] inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs"
+                    >
+                      <Tag className="text-foreground/30 size-2.5" />
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </KV>
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Commit history */}
+      {repoInfo && repoInfo.commits.length > 0 ? (
+        <Section icon={GitCommitHorizontal} title="Recent Commits">
+          <div className="relative ml-3">
+            <div className="bg-border absolute top-2 bottom-2 left-[5px] w-px" />
+            {repoInfo.commits.map((c, i) => (
+              <div key={c.hash} className="group relative flex gap-3 py-1.5">
+                <div
+                  className={cn(
+                    'relative z-10 mt-1.5 size-[11px] shrink-0 rounded-full border-2',
+                    i === 0
+                      ? 'border-primary bg-primary'
+                      : 'border-border bg-background group-hover:border-foreground/30'
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <p className="min-w-0 truncate text-sm leading-snug">{c.subject}</p>
+                    <code className="text-foreground/30 shrink-0 font-mono text-[11px]">
+                      {c.shortHash}
+                    </code>
+                  </div>
+                  <div className="text-foreground/40 mt-0.5 flex items-center gap-2 text-xs">
+                    <span>{c.author}</span>
+                    <span>·</span>
+                    <span>{c.relativeDate}</span>
+                    {c.branch ? (
+                      <>
+                        <span>·</span>
+                        <span className="inline-flex items-center gap-0.5">
+                          <GitBranch className="size-3" />
+                          {c.branch}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      ) : null}
+
+      {/* Branches — below commits, main/master first */}
+      {repoInfo && repoInfo.branches.length > 1 ? (
+        <Section icon={GitBranch} title="Branches">
+          <div className="flex flex-col">
+            {[...repoInfo.branches]
+              .sort((a, b) => {
+                const isDefault = (n: string) => /^(main|master)$/.test(n);
+                if (a.isCurrent && !b.isCurrent) return -1;
+                if (!a.isCurrent && b.isCurrent) return 1;
+                if (isDefault(a.name) && !isDefault(b.name)) return -1;
+                if (!isDefault(a.name) && isDefault(b.name)) return 1;
+                return 0;
+              })
+              .map((b) => (
+                <div
+                  key={b.name}
+                  className={cn(
+                    'flex items-center justify-between rounded px-2 py-1.5',
+                    b.isCurrent && 'bg-muted/60'
+                  )}
+                >
+                  <span className="inline-flex items-center gap-1.5 text-sm">
+                    {b.isCurrent ? (
+                      <span className="size-2 shrink-0 rounded-full bg-green-500" />
+                    ) : /^(main|master)$/.test(b.name) ? (
+                      <span className="size-2 shrink-0 rounded-full bg-blue-500" />
+                    ) : (
+                      <span className="bg-foreground/10 size-2 shrink-0 rounded-full" />
+                    )}
+                    <code className="font-mono text-[13px]">{b.name}</code>
+                    {b.isCurrent ? (
+                      <span className="text-foreground/40 text-[10px]">current</span>
+                    ) : null}
+                  </span>
+                  <span className="text-foreground/40 text-xs">{b.lastCommitDate}</span>
+                </div>
+              ))}
+          </div>
+        </Section>
+      ) : null}
+
+      {/* Errors */}
+      {syncError ? (
+        <Section icon={AlertTriangle} title="Issues">
+          <Card className="bg-destructive/5 border-transparent">
+            <p className="text-destructive text-sm">{syncError}</p>
+          </Card>
+        </Section>
+      ) : null}
+    </div>
   );
 }

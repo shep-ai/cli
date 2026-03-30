@@ -531,7 +531,7 @@ export function FeatureDrawerTabs({
                         <button
                           type="button"
                           onClick={() => onStart(featureNode.featureId)}
-                          className="flex items-center gap-1 self-stretch px-3 text-green-600 hover:bg-green-500/10 dark:text-green-400"
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400"
                           data-testid="feature-drawer-start-button"
                         >
                           <Play className="size-3.5" /> Start
@@ -540,7 +540,7 @@ export function FeatureDrawerTabs({
                         <button
                           type="button"
                           onClick={() => onRetry(featureNode.featureId)}
-                          className="flex items-center gap-1 self-stretch px-3 text-red-500 hover:bg-red-500/10 dark:text-red-400"
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400"
                           data-testid="feature-drawer-retry-button"
                         >
                           <RotateCcw className="size-3.5" /> Retry
@@ -549,7 +549,7 @@ export function FeatureDrawerTabs({
                         <button
                           type="button"
                           onClick={() => onStop(featureNode.featureId)}
-                          className="flex items-center gap-1 self-stretch px-3 text-red-500 hover:bg-red-500/10 dark:text-red-400"
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400"
                           data-testid="feature-drawer-stop-button"
                         >
                           <Square className="size-3.5" /> Stop

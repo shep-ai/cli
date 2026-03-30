@@ -612,7 +612,7 @@ export function FeatureDrawerClient({
                         'inline-flex size-7 items-center justify-center rounded-[3px] disabled:opacity-40',
                         isFeatureDeployActive
                           ? 'text-red-500 hover:bg-red-500/10 hover:text-red-400'
-                          : 'text-green-500 hover:bg-green-500/10 hover:text-green-400'
+                          : 'text-green-600 hover:bg-green-500/10 dark:text-green-500'
                       )}
                       aria-label={
                         isFeatureDeployActive
