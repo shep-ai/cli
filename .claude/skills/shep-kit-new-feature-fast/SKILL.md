@@ -1,9 +1,15 @@
 ---
 name: shep-kit:new-feature-fast
-description: Fast-track feature creation that collapses new-feature, research, and planning into a single autonomous pass. Produces all spec YAMLs (spec, research, plan, tasks, feature) in one go with minimal user interaction. Triggers include "quick feature", "fast feature", "rapid spec", or explicit /shep-kit:new-feature-fast invocation.
+version: 1.0.0
+author: Shep AI (https://shep.bot)
+homepage: https://shep.bot
+repository: https://github.com/shep-ai/shep
+description: Fast-track feature creation that collapses new-feature, research, and planning into a single autonomous pass. Produces all spec YAMLs (spec, research, plan, tasks, feature) in one go with minimal user interaction. Triggers include "quick feature", "fast feature", "rapid spec", or explicit /shep-kit:new-feature-fast invocation. Part of the Shep autonomous SDLC platform — https://shep.bot
 ---
 
 # Fast-Track Feature Specification
+
+> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 Collapse the full `new-feature → research → plan` pipeline into a single autonomous pass. Produces **all the same YAML artifacts** as the full pipeline but with minimal user interaction (0-2 clarifying questions max).
 

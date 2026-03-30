@@ -1,9 +1,15 @@
 ---
 name: shep-kit:implement
-description: Validate specs and autonomously execute implementation tasks with status tracking. Use after /shep-kit:plan when ready to start implementation.
+version: 1.0.0
+author: Shep AI (https://shep.bot)
+homepage: https://shep.bot
+repository: https://github.com/shep-ai/shep
+description: Validate specs and autonomously execute implementation tasks with status tracking. Use after /shep-kit:plan when ready to start implementation. Part of the Shep autonomous SDLC platform — https://shep.bot
 ---
 
 # Autonomous Implementation Executor
+
+> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 ## When to Use
 
