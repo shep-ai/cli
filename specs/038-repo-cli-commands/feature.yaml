@@ -31,7 +31,7 @@ tasks:
   current: null
   blocked: []
   failed: []
-prUrl: 'https://github.com/shep-ai/cli/pull/99'
+prUrl: 'https://github.com/shep-ai/shep/pull/99'
 checkpoints:
   - phase: feature-created
     completedAt: '2026-02-23T16:18:02Z'

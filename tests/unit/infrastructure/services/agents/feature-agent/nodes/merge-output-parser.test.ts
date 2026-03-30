@@ -66,10 +66,10 @@ describe('merge-output-parser', () => {
     });
 
     it('should handle URLs with complex org/repo names', () => {
-      const output = 'https://github.com/shep-ai/cli/pull/88';
+      const output = 'https://github.com/shep-ai/shep/pull/88';
       const result = parsePrUrl(output);
       expect(result).toEqual({
-        url: 'https://github.com/shep-ai/cli/pull/88',
+        url: 'https://github.com/shep-ai/shep/pull/88',
         number: 88,
       });
     });

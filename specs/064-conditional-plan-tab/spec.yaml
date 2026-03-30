@@ -4,11 +4,11 @@
 name: conditional-plan-tab
 number: 064
 branch: feat/064-conditional-plan-tab
-oneLiner: https://github.com/shep-ai/cli/issues/322
+oneLiner: https://github.com/shep-ai/shep/issues/322
 userQuery: >
-  https://github.com/shep-ai/cli/issues/322
+  https://github.com/shep-ai/shep/issues/322
 summary: >
-  https://github.com/shep-ai/cli/issues/322
+  https://github.com/shep-ai/shep/issues/322
 phase: Analysis
 sizeEstimate: M
 
@@ -26,7 +26,7 @@ openQuestions: []
 content: |
   ## Problem Statement
 
-  https://github.com/shep-ai/cli/issues/322
+  https://github.com/shep-ai/shep/issues/322
 
   ## Success Criteria
 

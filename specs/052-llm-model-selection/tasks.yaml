@@ -25,7 +25,7 @@ technologies:
   - Next.js Server Actions
   - tsyringe
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/229
+  - https://github.com/shep-ai/shep/issues/229
 
 # Structured task list
 tasks:

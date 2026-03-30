@@ -30,7 +30,7 @@ technologies:
   - tsyringe (DI)
 
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/192
+  - https://github.com/shep-ai/shep/issues/192
 
 openQuestions:
   - question: >
@@ -130,7 +130,7 @@ content: |
   something the system generates itself. The user-typed name is only used temporarily in the
   DB between `createRecord` and `initializeAndSpawn`, and as part of `composeUserInput()`.
 
-  GitHub Issue: https://github.com/shep-ai/cli/issues/192 — "Remove feature name from new
+  GitHub Issue: https://github.com/shep-ai/shep/issues/192 — "Remove feature name from new
   feature" with body "keep only description".
 
   ## Success Criteria

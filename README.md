@@ -13,7 +13,7 @@
 
 _Manage 10 features at once — isolated branches, automatic commits, CI watching, and PRs — from a dashboard or the terminal._
 
-[![CI](https://github.com/shep-ai/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/shep-ai/cli/actions/workflows/ci.yml)
+[![CI](https://github.com/shep-ai/shep/actions/workflows/ci.yml/badge.svg)](https://github.com/shep-ai/shep/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@shepai/cli.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shepai/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 

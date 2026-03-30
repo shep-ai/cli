@@ -23,7 +23,7 @@ Guides for developing and contributing to Shep AI CLI.
 
 ```bash
 # Clone repository
-git clone https://github.com/shep-ai/cli.git
+git clone https://github.com/shep-ai/shep.git
 cd cli
 
 # Install dependencies

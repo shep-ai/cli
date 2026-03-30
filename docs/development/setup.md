@@ -28,7 +28,7 @@ Install pnpm: `npm install -g pnpm`
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/shep-ai/cli.git
+git clone https://github.com/shep-ai/shep.git
 cd cli
 ```
 

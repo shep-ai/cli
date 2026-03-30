@@ -288,7 +288,7 @@ const repoNode: RepositoryNodeType = {
   type: 'repositoryNode',
   position: { x: 50, y: 162 },
   data: {
-    name: 'shep-ai/cli',
+    name: 'shep-ai/shep',
   },
 };
 
@@ -347,7 +347,7 @@ const singleRepoSingleFeatureNodes: CanvasNodeType[] = [
     id: 'repo-1',
     type: 'repositoryNode',
     position: { x: 50, y: 127 },
-    data: { name: 'shep-ai/cli' },
+    data: { name: 'shep-ai/shep' },
   },
   {
     id: 'feat-1',
@@ -382,7 +382,7 @@ const singleRepoMultiFeatNodes: CanvasNodeType[] = [
     id: 'repo-1',
     type: 'repositoryNode',
     position: { x: 50, y: 162 },
-    data: { name: 'shep-ai/cli' },
+    data: { name: 'shep-ai/shep' },
   },
   {
     id: 'feat-1',
@@ -449,7 +449,7 @@ const multiRepoNodes: CanvasNodeType[] = [
     id: 'repo-1',
     type: 'repositoryNode',
     position: { x: 50, y: 86 },
-    data: { name: 'shep-ai/cli' },
+    data: { name: 'shep-ai/shep' },
   },
   {
     id: 'repo-2',
@@ -506,7 +506,7 @@ const mixedRepoFeatureNodesRaw: CanvasNodeType[] = [
     id: 'repo-1',
     type: 'repositoryNode',
     position: { x: 0, y: 0 },
-    data: { name: 'shep-ai/cli' },
+    data: { name: 'shep-ai/shep' },
   },
   {
     id: 'repo-2',
@@ -640,7 +640,7 @@ const fastModeNodesRaw: CanvasNodeType[] = [
     id: 'repo-1',
     type: 'repositoryNode',
     position: { x: 0, y: 0 },
-    data: { name: 'shep-ai/cli' },
+    data: { name: 'shep-ai/shep' },
   },
   {
     id: 'feat-fast-1',

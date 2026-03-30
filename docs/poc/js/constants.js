@@ -457,7 +457,7 @@ export const MOCK_IMPLEMENTATION_PHASES = [
  * Mock repositories for demo
  */
 export const MOCK_REPOS = [
-  { id: 'repo_1', org: 'shep-ai', name: 'cli', fullName: 'shep-ai/cli' },
+  { id: 'repo_1', org: 'shep-ai', name: 'cli', fullName: 'shep-ai/shep' },
   { id: 'repo_2', org: 'acme-corp', name: 'platform-api', fullName: 'acme-corp/platform-api' },
   { id: 'repo_3', org: 'acme-corp', name: 'web-dashboard', fullName: 'acme-corp/web-dashboard' },
 ];

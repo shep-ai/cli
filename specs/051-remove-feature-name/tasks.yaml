@@ -16,7 +16,7 @@ technologies:
   - Storybook
 
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/192
+  - https://github.com/shep-ai/shep/issues/192
 
 tasks:
   - id: task-1

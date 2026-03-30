@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({
 const nodeTypes = { repositoryNode: RepositoryNode };
 
 const defaultData: RepositoryNodeData = {
-  name: 'shep-ai/cli',
+  name: 'shep-ai/shep',
 };
 
 function renderRepositoryNode(dataOverrides?: Partial<RepositoryNodeData>) {
@@ -33,8 +33,8 @@ function renderRepositoryNode(dataOverrides?: Partial<RepositoryNodeData>) {
 
 describe('RepositoryNode', () => {
   it('renders repository name', () => {
-    renderRepositoryNode({ name: 'shep-ai/cli' });
-    expect(screen.getByText('shep-ai/cli')).toBeInTheDocument();
+    renderRepositoryNode({ name: 'shep-ai/shep' });
+    expect(screen.getByText('shep-ai/shep')).toBeInTheDocument();
   });
 
   it('renders GitHub icon', () => {

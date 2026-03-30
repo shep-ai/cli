@@ -21,8 +21,8 @@ technologies:
   # - React
 
 relatedLinks:
-  - https://github.com/shep-ai/cli/blob/main/CLAUDE.md#code-organization-rules
-  - https://github.com/shep-ai/cli/blob/main/CLAUDE.md#clean-architecture
+  - https://github.com/shep-ai/shep/blob/main/CLAUDE.md#code-organization-rules
+  - https://github.com/shep-ai/shep/blob/main/CLAUDE.md#clean-architecture
 
 # Open questions (must be resolved before implementation)
 openQuestions:

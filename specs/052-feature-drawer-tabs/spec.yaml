@@ -6,7 +6,7 @@ number: 052
 branch: feat/052-feature-drawer-tabs
 oneLiner: add tabbed layout to the feature drawer with overview, activity, messages, and plan tabs
 userQuery: >
-  https://github.com/shep-ai/cli/issues/230
+  https://github.com/shep-ai/shep/issues/230
 summary: >
   The feature drawer currently shows all information in a single scrollable view.
   This feature adds a tabbed layout to organize content into four logical sections
@@ -31,7 +31,7 @@ technologies:
   - SSE (Server-Sent Events for real-time updates)
 
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/230
+  - https://github.com/shep-ai/shep/issues/230
 
 # Open questions (must be resolved before implementation)
 openQuestions:

@@ -720,15 +720,15 @@ export function SettingsPageClient({
             links={[
               {
                 label: t('settings.agent.links.agentSystem'),
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/architecture/agent-system.md',
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/architecture/agent-system.md',
               },
               {
                 label: t('settings.agent.links.addingAgents'),
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/development/adding-agents.md',
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/development/adding-agents.md',
               },
               {
                 label: t('settings.agent.links.configurationGuide'),
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/guides/configuration.md',
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/guides/configuration.md',
               },
             ]}
           >
@@ -860,7 +860,7 @@ export function SettingsPageClient({
             links={[
               {
                 label: t('settings.environment.links.configurationGuide'),
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/guides/configuration.md',
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/guides/configuration.md',
               },
             ]}
           >
@@ -986,11 +986,11 @@ export function SettingsPageClient({
             links={[
               {
                 label: t('settings.workflow.links.approvalGates'),
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/016-hitl-approval-gates/spec.yaml',
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/016-hitl-approval-gates/spec.yaml',
               },
               {
                 label: t('settings.workflow.links.pushAndPrFlags'),
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/037-feature-pr-push-flags/spec.yaml',
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/037-feature-pr-push-flags/spec.yaml',
               },
             ]}
           >
@@ -1101,11 +1101,11 @@ export function SettingsPageClient({
             links={[
               {
                 label: t('settings.ci.links.cicdPipeline'),
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/development/cicd.md',
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/development/cicd.md',
               },
               {
                 label: t('settings.ci.links.ciSecurityGates'),
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/003-cicd-security-gates/spec.md',
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/003-cicd-security-gates/spec.md',
               },
             ]}
           >
@@ -1408,7 +1408,7 @@ export function SettingsPageClient({
             links={[
               {
                 label: t('settings.notifications.links.notificationSystem'),
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/021-agent-notifications/spec.yaml',
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/021-agent-notifications/spec.yaml',
               },
             ]}
           >
@@ -1637,11 +1637,11 @@ export function SettingsPageClient({
             links={[
               {
                 label: t('settings.database.links.settingsService'),
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/architecture/settings-service.md',
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/architecture/settings-service.md',
               },
               {
                 label: t('settings.database.links.settingsSpec'),
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/005-global-settings-service/spec.md',
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/005-global-settings-service/spec.md',
               },
             ]}
           >

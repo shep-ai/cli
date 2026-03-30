@@ -8,7 +8,7 @@ The complete **Features Control Center** showing all three core panels: reposito
 
 ## Key Elements
 
-- **Repository sidebar** (left): Lists connected repositories (shep-ai/cli, shep-copilot, etc.) with "Add Repository" button at the bottom
+- **Repository sidebar** (left): Lists connected repositories (shep-ai/shep, shep-copilot, etc.) with "Add Repository" button at the bottom
 - **Feature card canvas** (center): Spatial layout of feature cards across lifecycle stages — SSO Integration, 2FA Authentication, Dark Mode Support, API Rate Limiting, Audit Logging — each with stage badges, progress bars, and unique IDs
 - **Properties panel** (right): "Requirements Discovery & Validation" form open for SSO Integration, showing:
   - "Action Required: Review PRD" banner

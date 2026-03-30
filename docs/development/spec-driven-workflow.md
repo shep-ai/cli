@@ -88,6 +88,181 @@ Commits, pushes, creates PR, watches CI. If CI fails: fixes and retries. Then wa
 
 Switches to main, pulls, deletes feature branch, marks `feature.yaml` complete.
 
+## Real Examples
+
+From `specs/077-codex-cli-agent/` — adding OpenAI Codex CLI as a supported agent.
+
+<details>
+<summary><strong>spec.yaml</strong> — Requirements & scope</summary>
+
+```yaml
+name: "codex-cli-agent"
+number: 77
+branch: "feat/077-codex-cli-agent"
+oneLiner: "Add OpenAI Codex CLI as a supported agent executor"
+summary: >
+  Integrate OpenAI's Codex CLI as a new agent executor. Add a CodexCli variant
+  to the AgentType enum in TypeSpec, implement a CodexCliExecutorService that
+  spawns the codex binary, and wire it through factory, DI, and all presentation
+  layers (TUI wizard, Web UI).
+phase: "Requirements"
+sizeEstimate: "M"
+technologies:
+  - "TypeSpec (domain model enum extension)"
+  - "Node.js child_process (subprocess spawning)"
+  - "OpenAI Codex CLI (codex exec --json)"
+relatedLinks:
+  - title: "Codex CLI documentation"
+    url: "https://developers.openai.com/codex/cli"
+openQuestions:
+  - question: "Which sandbox mode should the executor use by default?"
+    resolved: true
+    answer: "danger-full-access sandbox"
+
+content: |
+  ## Problem Statement
+  Shep supports Claude Code, Cursor CLI, and Gemini CLI but not OpenAI's Codex CLI...
+
+  ## Success Criteria
+  - CodexCli appears in agent selection (TUI + Web)
+  - Executor spawns codex exec with JSONL output parsing
+  - Session resume works via codex exec --resume
+```
+
+</details>
+
+<details>
+<summary><strong>research.yaml</strong> — Technical decisions</summary>
+
+```yaml
+name: "codex-cli-agent"
+summary: >
+  Technical research for integrating Codex CLI. Follows the established
+  subprocess-based executor pattern. No new npm dependencies required.
+
+decisions:
+  - title: "Executor architecture pattern"
+    chosen: "Single-class subprocess executor following ClaudeCode/GeminiCli pattern"
+    rejected:
+      - "SDK-based integration via @openai/codex-sdk — adds dependency, different pattern"
+      - "JSON-RPC protocol via app-server — over-engineered for our needs"
+    rationale: >
+      All existing executors use the same architecture: constructor-injected
+      SpawnFunction, spawn CLI binary, pipe prompt via stdin, parse JSON output.
+      Proven, testable, zero external dependencies.
+
+  - title: "Output parsing format"
+    chosen: "JSONL event stream from codex exec --json"
+    rejected:
+      - "Plain text parsing — fragile and loses structured metadata"
+    rationale: >
+      codex exec --json produces newline-delimited JSON events that map
+      directly to our AgentExecutionStreamEvent types.
+
+content: |
+  ## Codex CLI Integration Analysis
+  ...
+```
+
+</details>
+
+<details>
+<summary><strong>plan.yaml</strong> — Architecture & phases</summary>
+
+```yaml
+name: "codex-cli-agent"
+summary: >
+  Four phases: domain foundation, executor core, factory+DI wiring,
+  and presentation layer integration. Purely additive — no existing code modified.
+
+phases:
+  - id: "phase-1"
+    name: "Domain Foundation"
+    description: "Add CodexCli to AgentType enum in TypeSpec, regenerate output"
+    parallel: false
+
+  - id: "phase-2"
+    name: "Executor Service Core"
+    description: "Implement CodexCliExecutorService with JSONL parsing and session resume"
+    parallel: false
+
+  - id: "phase-3"
+    name: "Factory, DI, and Infrastructure Wiring"
+    description: "Wire executor into AgentExecutorFactory and DI container"
+    parallel: false
+
+  - id: "phase-4"
+    name: "Presentation Layer Integration"
+    description: "Add Codex CLI to TUI wizard, Web UI agent picker, and Storybook stories"
+    parallel: false
+
+filesToCreate:
+  - "packages/core/src/infrastructure/services/agents/common/executors/codex-cli-executor.service.ts"
+  - "tests/unit/infrastructure/services/agents/executors/codex-cli-executor.test.ts"
+filesToModify:
+  - "tsp/common/enums/agent-config.tsp"
+  - "packages/core/src/infrastructure/di/container.ts"
+
+content: |
+  ## Architecture
+  ...
+```
+
+</details>
+
+<details>
+<summary><strong>tasks.yaml</strong> — Task breakdown with TDD cycles</summary>
+
+```yaml
+name: "codex-cli-agent"
+summary: >
+  14 tasks across 4 phases. Each task defines RED-GREEN-REFACTOR steps.
+
+tasks:
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Add CodexCli variant to AgentType enum in TypeSpec"
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "CodexCli variant exists in agent-config.tsp with value codex-cli"
+      - "pnpm tsp:compile succeeds"
+      - "AgentType.CodexCli available in generated output.ts"
+    tdd:
+      red:
+        - "Write test asserting AgentType.CodexCli equals 'codex-cli'"
+      green:
+        - "Add CodexCli to enum in agent-config.tsp"
+        - "Run pnpm tsp:compile"
+      refactor:
+        - "Verify enum ordering follows convention"
+    estimatedEffort: "20min"
+
+  - id: "task-2"
+    phaseId: "phase-2"
+    title: "Implement executor scaffold with agentType and supportsFeature"
+    state: "Todo"
+    dependencies: ["task-1"]
+    acceptanceCriteria:
+      - "Class implements IAgentExecutor interface"
+      - "agentType returns AgentType.CodexCli"
+      - "supportsFeature returns correct values"
+    tdd:
+      red:
+        - "Write test for agentType property"
+        - "Write test for each supportsFeature capability"
+      green:
+        - "Create CodexCliExecutorService class skeleton"
+        - "Implement supportsFeature() with capability map"
+      refactor:
+        - "Extract capability map to constant"
+    estimatedEffort: "30min"
+
+  # ... 12 more tasks following same TDD structure
+```
+
+</details>
+
 ## Rules
 
 - Start every feature with `/shep-kit:new-feature`
