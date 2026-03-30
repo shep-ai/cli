@@ -1,0 +1,33 @@
+feature:
+  id: "080-auto-resolve-merged-branches"
+  name: "auto-resolve-merged-branches"
+  number: 80
+  branch: "feat/080-auto-resolve-merged-branches"
+  lifecycle: "research"
+  createdAt: "2026-03-30T18:24:19Z"
+status:
+  phase: "research"
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2026-03-30T18:24:19Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "fast-implement"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-30T18:24:19Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []
