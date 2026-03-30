@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Loader2, ExternalLink, Terminal } from 'lucide-react';
 import { DeploymentState } from '@shepai/core/domain/generated/output';
-import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ServerLogViewer } from '@/components/common/server-log-viewer';
 
 export interface DeploymentStatusBadgeProps {
@@ -11,6 +11,9 @@ export interface DeploymentStatusBadgeProps {
   url?: string | null;
   targetId?: string;
 }
+
+const tbBtn =
+  'text-muted-foreground hover:bg-foreground/8 hover:text-foreground inline-flex size-7 items-center justify-center rounded-[3px]';
 
 export function DeploymentStatusBadge({ status, url, targetId }: DeploymentStatusBadgeProps) {
   const [logViewerOpen, setLogViewerOpen] = useState(false);
@@ -21,23 +24,32 @@ export function DeploymentStatusBadge({ status, url, targetId }: DeploymentStatu
     case DeploymentState.Booting:
       return (
         <>
-          <Badge className="border-transparent bg-blue-50 text-blue-700 hover:bg-blue-50">
-            <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" />
-            Starting...
+          <div className="flex items-center gap-1 pl-1">
+            <Loader2 className="size-3 animate-spin text-blue-500" />
+            <span className="text-muted-foreground text-[11px]">Starting...</span>
             {showLogButton ? (
-              <button
-                type="button"
-                aria-label="View server logs"
-                className="ms-1.5 inline-flex items-center rounded-sm p-0.5 hover:bg-blue-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLogViewerOpen(true);
-                }}
-              >
-                <Terminal className="h-3 w-3" />
-              </button>
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="View server logs"
+                      className={tbBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLogViewerOpen(true);
+                      }}
+                    >
+                      <Terminal className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    Server logs
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : null}
-          </Badge>
+          </div>
           {showLogButton ? (
             <ServerLogViewer
               open={logViewerOpen}
@@ -50,36 +62,45 @@ export function DeploymentStatusBadge({ status, url, targetId }: DeploymentStatu
     case DeploymentState.Ready:
       return (
         <>
-          <Badge className="border-transparent bg-green-50 text-green-700 hover:bg-green-50">
-            <span className="me-1 inline-block h-2 w-2 rounded-full bg-green-500" />
+          <div className="flex translate-y-px items-center gap-1 pl-1">
+            <span className="inline-block size-1.5 rounded-full bg-green-500" />
             {url ? (
               <a
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 hover:underline"
+                className="inline-flex items-center gap-0.5 text-[11px] text-green-600 hover:text-green-500 dark:text-green-400 dark:hover:text-green-300"
                 onClick={(e) => e.stopPropagation()}
               >
                 {url}
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="size-2.5 shrink-0" />
               </a>
             ) : (
-              'Ready'
+              <span className="text-[11px] text-green-600 dark:text-green-400">Ready</span>
             )}
             {showLogButton ? (
-              <button
-                type="button"
-                aria-label="View server logs"
-                className="ms-1.5 inline-flex items-center rounded-sm p-0.5 hover:bg-green-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLogViewerOpen(true);
-                }}
-              >
-                <Terminal className="h-3 w-3" />
-              </button>
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="View server logs"
+                      className={tbBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLogViewerOpen(true);
+                      }}
+                    >
+                      <Terminal className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    Server logs
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : null}
-          </Badge>
+          </div>
           {showLogButton ? (
             <ServerLogViewer
               open={logViewerOpen}

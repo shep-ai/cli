@@ -5,24 +5,33 @@ import {
   Code2,
   Terminal,
   FolderOpen,
-  ChevronDown,
+  FileText,
   Copy,
   Check,
   Loader2,
   CircleAlert,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { OpenActionMenuProps } from './config';
 
 const COPY_FEEDBACK_DELAY = 2000;
+
+const tbBtn =
+  'text-muted-foreground hover:bg-foreground/8 hover:text-foreground inline-flex size-8 items-center justify-center rounded-[3px] disabled:opacity-40';
+
+function TbIcon({
+  loading,
+  error,
+  icon: Icon,
+}: {
+  loading?: boolean;
+  error?: string | null;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  if (loading) return <Loader2 className="size-3.5 animate-spin" />;
+  if (error) return <CircleAlert className="text-destructive size-3.5" />;
+  return <Icon className="size-4" />;
+}
 
 export function OpenActionMenu({
   actions,
@@ -38,96 +47,94 @@ export function OpenActionMenu({
     setTimeout(() => setCopied(false), COPY_FEEDBACK_DELAY);
   };
 
-  const anyLoading =
-    actions.ideLoading || actions.shellLoading || actions.folderLoading || actions.specsLoading;
-  const anyError =
-    actions.ideError ?? actions.shellError ?? actions.folderError ?? actions.specsError;
-
   return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5" disabled={anyLoading}>
-          {anyLoading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : anyError ? (
-            <CircleAlert className="text-destructive size-4" />
-          ) : (
-            <FolderOpen className="size-4" />
-          )}
-          Open
-          <ChevronDown className="size-3 opacity-60" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
-        <DropdownMenuLabel>Open in</DropdownMenuLabel>
+    <TooltipProvider delayDuration={300}>
+      <div className="flex items-center">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={tbBtn}
+              onClick={actions.openInIde}
+              disabled={actions.ideLoading}
+              aria-label="Open in IDE"
+            >
+              <TbIcon loading={actions.ideLoading} error={actions.ideError} icon={Code2} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            Open in IDE
+          </TooltipContent>
+        </Tooltip>
 
-        <DropdownMenuItem
-          onClick={actions.openInIde}
-          disabled={actions.ideLoading}
-          className="gap-2"
-        >
-          {actions.ideLoading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : actions.ideError ? (
-            <CircleAlert className="text-destructive size-4" />
-          ) : (
-            <Code2 className="size-4" />
-          )}
-          IDE
-        </DropdownMenuItem>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={tbBtn}
+              onClick={actions.openInShell}
+              disabled={actions.shellLoading}
+              aria-label="Open terminal"
+            >
+              <TbIcon loading={actions.shellLoading} error={actions.shellError} icon={Terminal} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            Open terminal
+          </TooltipContent>
+        </Tooltip>
 
-        <DropdownMenuItem
-          onClick={actions.openInShell}
-          disabled={actions.shellLoading}
-          className="gap-2"
-        >
-          {actions.shellLoading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : actions.shellError ? (
-            <CircleAlert className="text-destructive size-4" />
-          ) : (
-            <Terminal className="size-4" />
-          )}
-          Terminal
-        </DropdownMenuItem>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={tbBtn}
+              onClick={actions.openFolder}
+              disabled={actions.folderLoading}
+              aria-label="Open folder"
+            >
+              <TbIcon
+                loading={actions.folderLoading}
+                error={actions.folderError}
+                icon={FolderOpen}
+              />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            Open folder
+          </TooltipContent>
+        </Tooltip>
 
-        <DropdownMenuItem
-          onClick={actions.openFolder}
-          disabled={actions.folderLoading}
-          className="gap-2"
-        >
-          {actions.folderLoading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : actions.folderError ? (
-            <CircleAlert className="text-destructive size-4" />
-          ) : (
-            <FolderOpen className="size-4" />
-          )}
-          Folder
-        </DropdownMenuItem>
+        {showSpecs ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className={tbBtn}
+                onClick={actions.openSpecsFolder}
+                disabled={actions.specsLoading}
+                aria-label="Open specs"
+              >
+                <TbIcon loading={actions.specsLoading} error={actions.specsError} icon={FileText} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              Open specs
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
 
-        <DropdownMenuItem
-          onClick={actions.openSpecsFolder}
-          disabled={actions.specsLoading || !showSpecs}
-          className="gap-2"
-        >
-          {actions.specsLoading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : actions.specsError ? (
-            <CircleAlert className="text-destructive size-4" />
-          ) : (
-            <FolderOpen className="size-4" />
-          )}
-          Specs Folder
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem onClick={handleCopyPath} className="gap-2">
-          {copied ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
-          {copied ? 'Copied!' : 'Copy path'}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" className={tbBtn} onClick={handleCopyPath} aria-label="Copy path">
+              {copied ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            {copied ? 'Copied!' : 'Copy path'}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </TooltipProvider>
   );
 }
