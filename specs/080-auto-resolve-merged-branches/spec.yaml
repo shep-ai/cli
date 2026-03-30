@@ -4,14 +4,15 @@
 name: auto-resolve-merged-branches
 number: 080
 branch: feat/080-auto-resolve-merged-branches
-oneLiner: There are "action needed" feature which are basiclly not in sync:
-On first page load, check if the related remote branch was merged and move to completed.
+oneLiner: >
+  There are "action needed" features which are not in sync.
+  On first page load, check if the related remote branch was merged and move to completed.
 userQuery: >
-  There are "action needed" feature which are basiclly not in sync:
-On first page load, check if the related remote branch was merged and move to completed.
+  There are "action needed" features which are not in sync.
+  On first page load, check if the related remote branch was merged and move to completed.
 summary: >
-  There are "action needed" feature which are basiclly not in sync:
-On first page load, check if the related remote branch was merged and move to completed.
+  There are "action needed" features which are not in sync.
+  On first page load, check if the related remote branch was merged and move to completed.
 phase: Analysis
 sizeEstimate: M
 
@@ -33,8 +34,8 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  There are "action needed" feature which are basiclly not in sync:
-On first page load, check if the related remote branch was merged and move to completed.
+  There are "action needed" features which are not in sync.
+  On first page load, check if the related remote branch was merged and move to completed.
 
   ## Success Criteria
 
