@@ -125,6 +125,7 @@ import { UpgradeCliUseCase } from '../../application/use-cases/upgrade/upgrade-c
 import { SyncRepositoryMainUseCase } from '../../application/use-cases/repositories/sync-repository-main.use-case.js';
 import { RebaseFeatureOnMainUseCase } from '../../application/use-cases/features/rebase-feature-on-main.use-case.js';
 import { GetBranchSyncStatusUseCase } from '../../application/use-cases/features/get-branch-sync-status.use-case.js';
+import { ResolveMergedFeaturesUseCase } from '../../application/use-cases/features/resolve-merged-features.use-case.js';
 import { ConflictResolutionService } from '../services/agents/conflict-resolution/conflict-resolution.service.js';
 
 // Interactive session use cases
@@ -408,6 +409,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(SyncRepositoryMainUseCase);
   container.registerSingleton(RebaseFeatureOnMainUseCase);
   container.registerSingleton(GetBranchSyncStatusUseCase);
+  container.registerSingleton(ResolveMergedFeaturesUseCase);
 
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
@@ -527,6 +529,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('GetBranchSyncStatusUseCase', {
     useFactory: (c) => c.resolve(GetBranchSyncStatusUseCase),
+  });
+  container.register('ResolveMergedFeaturesUseCase', {
+    useFactory: (c) => c.resolve(ResolveMergedFeaturesUseCase),
   });
 
   // Register interactive session infrastructure

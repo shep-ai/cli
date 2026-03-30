@@ -105,6 +105,16 @@ Examples:
         );
         getPrSyncWatcher().start();
 
+        // Fire-and-forget: resolve stale Review features whose branch was already merged
+        try {
+          const resolveMerged = container.resolve<{ execute(): Promise<number> }>(
+            'ResolveMergedFeaturesUseCase'
+          );
+          void resolveMerged.execute();
+        } catch {
+          // Non-fatal — use case may not be registered in all configurations
+        }
+
         const url = `http://localhost:${port}`;
         messages.success(`Server ready at ${fmt.code(url)}`);
         messages.info('Press Ctrl+C to stop');

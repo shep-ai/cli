@@ -101,6 +101,16 @@ async function main() {
       gitForkService
     );
     getPrSyncWatcher().start();
+
+    // Fire-and-forget: resolve stale Review features whose branch was already merged
+    try {
+      const resolveMerged = container.resolve<{ execute(): Promise<number> }>(
+        'ResolveMergedFeaturesUseCase'
+      );
+      void resolveMerged.execute();
+    } catch {
+      // Non-fatal — use case may not be registered in all configurations
+    }
   } catch (error) {
     console.warn('[dev-server] DI initialization failed — features will be empty:', error);
   }
