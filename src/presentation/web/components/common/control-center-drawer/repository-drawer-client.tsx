@@ -14,11 +14,13 @@ import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from '@/components/common/repository-node';
 import { ChatTab } from '@/components/features/chat/ChatTab';
+import { CommitHistoryTree } from '@/components/common/commit-history-tree/commit-history-tree';
+import { useCommitHistory } from '@/components/common/commit-history-tree/use-commit-history';
 
 export interface RepositoryDrawerClientProps {
   data: RepositoryNodeData;
   /** Initial tab key from URL (e.g. 'chat'). */
-  initialTab?: 'overview' | 'chat';
+  initialTab?: 'overview' | 'chat' | 'commits';
 }
 
 export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerClientProps) {
@@ -27,6 +29,7 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
   const pathname = usePathname();
   const isOpen = pathname.startsWith('/repository/');
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? 'overview');
+  const [commitBranch, setCommitBranch] = useState<string | undefined>(undefined);
   const repoActions = useRepositoryActions(
     data.repositoryPath ? { repositoryId: data.id, repositoryPath: data.repositoryPath } : null
   );
@@ -48,6 +51,12 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
 
   // Session ID for repo chat — deterministic per repo
   const repoSessionId = data.id ? `repo-${data.id}` : `repo-${data.name}`;
+
+  const commitHistory = useCommitHistory({
+    repositoryPath: data.repositoryPath,
+    branch: commitBranch,
+    enabled: activeTab === 'commits' && !!data.repositoryPath,
+  });
 
   return (
     <BaseDrawer
@@ -77,6 +86,14 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
               >
                 Chat
               </TabsTrigger>
+              {data.repositoryPath ? (
+                <TabsTrigger
+                  value="commits"
+                  className="text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:border-primary h-auto rounded-none border-b-2 border-transparent bg-transparent px-2 py-0.5 text-[12px] font-medium shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  Commits
+                </TabsTrigger>
+              ) : null}
             </TabsList>
           </div>
           <div className="mt-1 flex items-center gap-2">
@@ -190,6 +207,21 @@ export function RepositoryDrawerClient({ data, initialTab }: RepositoryDrawerCli
         {/* Chat tab */}
         <TabsContent value="chat" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
           <ChatTab featureId={repoSessionId} worktreePath={data.repositoryPath} />
+        </TabsContent>
+
+        {/* Commits tab */}
+        <TabsContent value="commits" className="mt-0 flex-1 overflow-y-auto">
+          <CommitHistoryTree
+            commits={commitHistory.data?.commits ?? null}
+            loading={commitHistory.loading}
+            error={commitHistory.error}
+            currentBranch={commitHistory.data?.currentBranch ?? ''}
+            defaultBranch={commitHistory.data?.defaultBranch ?? ''}
+            activeBranch={commitBranch ?? commitHistory.data?.currentBranch ?? ''}
+            onBranchChange={(branch) => {
+              setCommitBranch(branch);
+            }}
+          />
         </TabsContent>
       </Tabs>
     </BaseDrawer>
