@@ -403,6 +403,9 @@ export function SettingsPageClient({
   const [commitEvidence, setCommitEvidence] = useState(settings.workflow.commitEvidence);
   const [ciWatchEnabled, setCiWatchEnabled] = useState(settings.workflow.ciWatchEnabled !== false);
   const [hideCiStatus, setHideCiStatus] = useState(settings.workflow.hideCiStatus !== false);
+  const [defaultFastMode, setDefaultFastMode] = useState(
+    settings.workflow.defaultFastMode !== false
+  );
   const [ciMaxFix, setCiMaxFix] = useState(
     settings.workflow.ciMaxFixAttempts != null ? String(settings.workflow.ciMaxFixAttempts) : ''
   );
@@ -533,6 +536,7 @@ export function SettingsPageClient({
       commitEvidence?: boolean;
       ciWatchEnabled?: boolean;
       hideCiStatus?: boolean;
+      defaultFastMode?: boolean;
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
@@ -560,6 +564,7 @@ export function SettingsPageClient({
         commitEvidence: overrides.commitEvidence ?? commitEvidence,
         ciWatchEnabled: overrides.ciWatchEnabled ?? ciWatchEnabled,
         hideCiStatus: overrides.hideCiStatus ?? hideCiStatus,
+        defaultFastMode: overrides.defaultFastMode ?? defaultFastMode,
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
@@ -879,6 +884,17 @@ export function SettingsPageClient({
             description={t('settings.workflow.sectionDescription')}
             testId="workflow-settings-section"
           >
+            <SwitchRow
+              label={t('settings.workflow.defaultFastMode')}
+              description={t('settings.workflow.defaultFastModeDescription')}
+              id="default-fast-mode"
+              testId="switch-default-fast-mode"
+              checked={defaultFastMode}
+              onChange={(v) => {
+                setDefaultFastMode(v);
+                save(buildWorkflowPayload({ defaultFastMode: v }));
+              }}
+            />
             <SubsectionLabel>{t('settings.workflow.subsections.approve')}</SubsectionLabel>
             <SwitchRow
               label={t('settings.workflow.autoApprovePrd')}

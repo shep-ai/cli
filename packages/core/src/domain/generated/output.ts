@@ -450,6 +450,10 @@ export type WorkflowConfig = {
    * Hide CI status badges from UI (default: true)
    */
   hideCiStatus?: boolean;
+  /**
+   * Default new features to fast mode (default: true)
+   */
+  defaultFastMode: boolean;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',

@@ -55,11 +55,19 @@ interface WorkflowDefaults {
   allowPlan: boolean;
   allowMerge: boolean;
   push: boolean;
+  fast: boolean;
 }
 
 function getWorkflowDefaults(): WorkflowDefaults {
   if (!hasSettings()) {
-    return { openPr: false, allowPrd: false, allowPlan: false, allowMerge: false, push: false };
+    return {
+      openPr: false,
+      allowPrd: false,
+      allowPlan: false,
+      allowMerge: false,
+      push: false,
+      fast: true,
+    };
   }
   const settings = getSettings();
   const gates = settings.workflow.approvalGateDefaults;
@@ -69,6 +77,7 @@ function getWorkflowDefaults(): WorkflowDefaults {
     allowPlan: gates.allowPlan,
     allowMerge: gates.allowMerge,
     push: gates.pushOnImplementationComplete,
+    fast: settings.workflow.defaultFastMode,
   };
 }
 
@@ -91,6 +100,7 @@ export function createNewCommand(): Command {
     .option('--parent <fid>', t('cli:commands.feat.new.parentOption'))
     .option('--pending', t('cli:commands.feat.new.pendingOption'))
     .option('--fast', t('cli:commands.feat.new.fastOption'))
+    .option('--no-fast', t('cli:commands.feat.new.noFastOption'))
     .option('--model <model>', t('cli:commands.feat.new.modelOption'))
     .option('--attach <path>', t('cli:commands.feat.new.attachOption'), collect, [])
     .action(async (description: string, options: NewOptions) => {
@@ -148,6 +158,8 @@ export function createNewCommand(): Command {
           }
         }
 
+        const fast = options.fast ?? defaults.fast;
+
         const result = await spinner(t('cli:commands.feat.new.spinnerText'), () =>
           useCase.execute({
             userInput: description,
@@ -157,7 +169,7 @@ export function createNewCommand(): Command {
             openPr,
             ...(parentId !== undefined && { parentId }),
             ...(options.pending && { pending: true }),
-            ...(options.fast && { fast: true }),
+            ...(fast && { fast: true }),
             ...(options.model !== undefined && { model: options.model }),
             ...(attachmentPaths.length > 0 && { attachmentPaths }),
           })

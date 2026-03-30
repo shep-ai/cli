@@ -347,6 +347,7 @@ const SAMPLE_WORKFLOW_DEFAULTS: WorkflowDefaults = {
   ciWatchEnabled: true,
   enableEvidence: true,
   commitEvidence: false,
+  fast: true,
 };
 
 /**

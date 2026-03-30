@@ -83,6 +83,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
       enableEvidence: false,
       commitEvidence: false,
       ciWatchEnabled: true,
+      defaultFastMode: true,
     },
     onboardingComplete: false,
     ...overrides,
@@ -133,6 +134,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     workflow_enable_evidence: 0,
     workflow_commit_evidence: 0,
     hide_ci_status: 1,
+    default_fast_mode: 1,
     ci_watch_enabled: 1,
     ci_max_fix_attempts: null,
     ci_watch_timeout_ms: null,
@@ -854,6 +856,76 @@ describe('Settings Mapper', () => {
         const restored = fromDatabase(row);
         expect(restored.user.preferredLanguage).toBe(lang);
       }
+    });
+  });
+
+  describe('toDatabase() - defaultFastMode', () => {
+    it('should map workflow.defaultFastMode=true to default_fast_mode=1', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          defaultFastMode: true,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.default_fast_mode).toBe(1);
+    });
+
+    it('should map workflow.defaultFastMode=false to default_fast_mode=0', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          defaultFastMode: false,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.default_fast_mode).toBe(0);
+    });
+  });
+
+  describe('fromDatabase() - defaultFastMode', () => {
+    it('should map default_fast_mode=1 to workflow.defaultFastMode=true', () => {
+      const row = createTestRow({ default_fast_mode: 1 });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.defaultFastMode).toBe(true);
+    });
+
+    it('should map default_fast_mode=0 to workflow.defaultFastMode=false', () => {
+      const row = createTestRow({ default_fast_mode: 0 });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.defaultFastMode).toBe(false);
+    });
+
+    it('should default to true when column is null (migration backward compat)', () => {
+      const row = createTestRow({ default_fast_mode: undefined as any });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.defaultFastMode).toBe(true);
+    });
+  });
+
+  describe('round-trip - defaultFastMode', () => {
+    it('should preserve defaultFastMode=true through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          defaultFastMode: true,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.defaultFastMode).toBe(true);
+    });
+
+    it('should preserve defaultFastMode=false through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          defaultFastMode: false,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.defaultFastMode).toBe(false);
     });
   });
 });

@@ -222,6 +222,7 @@ export function FeatureCreateDrawer({
   const defaultCiWatch = workflowDefaults?.ciWatchEnabled !== false;
   const defaultEnableEvidence = workflowDefaults?.enableEvidence ?? false;
   const defaultCommitEvidence = workflowDefaults?.commitEvidence ?? false;
+  const defaultFast = workflowDefaults?.fast !== false;
 
   const [description, setDescription] = useState(initialDescription ?? '');
 
@@ -240,7 +241,7 @@ export function FeatureCreateDrawer({
   const [enableEvidence, setEnableEvidence] = useState(defaultEnableEvidence);
   const [commitEvidence, setCommitEvidence] = useState(defaultCommitEvidence);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
-  const [fast, setFast] = useState(false);
+  const [fast, setFast] = useState(defaultFast);
   const [pending, setPending] = useState(false);
   const [forkAndPr, setForkAndPr] = useState(false);
   const [commitSpecs, setCommitSpecs] = useState(true);
@@ -268,6 +269,7 @@ export function FeatureCreateDrawer({
       setCiWatchEnabled(workflowDefaults.ciWatchEnabled !== false);
       setEnableEvidence(workflowDefaults.enableEvidence);
       setCommitEvidence(workflowDefaults.commitEvidence);
+      setFast(workflowDefaults.fast !== false);
     }
   }, [workflowDefaults]);
 
@@ -324,7 +326,7 @@ export function FeatureCreateDrawer({
     setParentId(undefined);
     setSelectedRepoPath(validRepoPath || undefined);
     setLocalRepos(repositories ?? []);
-    setFast(false);
+    setFast(defaultFast);
     setPending(false);
     setForkAndPr(false);
     setCommitSpecs(true);
@@ -340,6 +342,7 @@ export function FeatureCreateDrawer({
     defaultEnableEvidence,
     defaultCiWatch,
     defaultCommitEvidence,
+    defaultFast,
     validRepoPath,
     repositories,
   ]);

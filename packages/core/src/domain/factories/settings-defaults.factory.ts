@@ -147,6 +147,7 @@ export function createDefaultSettings(): Settings {
     ciWatchEnabled: true,
     enableEvidence: false,
     commitEvidence: false,
+    defaultFastMode: true,
   };
 
   const featureFlags: FeatureFlags = {

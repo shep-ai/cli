@@ -13,6 +13,7 @@ export interface WorkflowDefaults {
   ciWatchEnabled: boolean;
   enableEvidence: boolean;
   commitEvidence: boolean;
+  fast: boolean;
 }
 
 export async function getWorkflowDefaults(): Promise<WorkflowDefaults> {
@@ -30,5 +31,6 @@ export async function getWorkflowDefaults(): Promise<WorkflowDefaults> {
     ciWatchEnabled: workflow.ciWatchEnabled,
     enableEvidence: workflow.enableEvidence,
     commitEvidence: workflow.commitEvidence,
+    fast: workflow.defaultFastMode,
   };
 }
