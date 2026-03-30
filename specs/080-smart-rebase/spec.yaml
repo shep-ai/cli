@@ -4,26 +4,16 @@
 name: smart-rebase
 number: 080
 branch: feat/080-smart-rebase
-oneLiner: On a new feature,
-clicking on rebase on main
-might do:
-Cannot rebase: working directory has uncommitted changes. Please commit or stash your changes before rebasing.
-
-in such case we need to run stash abd pop after the rebase, if there are conflicts it should run agentic resolve conflict
+oneLiner: >
+  Smart rebase with auto-stash and agentic conflict resolution
 userQuery: >
-  On a new feature,
-clicking on rebase on main
-might do:
-Cannot rebase: working directory has uncommitted changes. Please commit or stash your changes before rebasing.
-
-in such case we need to run stash abd pop after the rebase, if there are conflicts it should run agentic resolve conflict
+  On a new feature, clicking on rebase on main might show: Cannot rebase:
+  working directory has uncommitted changes. Please commit or stash your
+  changes before rebasing. In such case we need to run stash and pop after
+  the rebase, if there are conflicts it should run agentic resolve conflict.
 summary: >
-  On a new feature,
-clicking on rebase on main
-might do:
-Cannot rebase: working directory has uncommitted changes. Please commit or stash your changes before rebasing.
-
-in such case we need to run stash abd pop after the rebase, if there are conflicts it should run agentic resolve conflict
+  Smart rebase with auto-stash and agentic conflict resolution for feature
+  branches with uncommitted changes.
 phase: Analysis
 sizeEstimate: M
 
@@ -45,12 +35,12 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  On a new feature,
-clicking on rebase on main
-might do:
-Cannot rebase: working directory has uncommitted changes. Please commit or stash your changes before rebasing.
+  On a new feature, clicking on rebase on main might show:
+  Cannot rebase: working directory has uncommitted changes. Please commit or
+  stash your changes before rebasing.
 
-in such case we need to run stash abd pop after the rebase, if there are conflicts it should run agentic resolve conflict
+  In such case we need to run stash and pop after the rebase, if there are
+  conflicts it should run agentic resolve conflict.
 
   ## Success Criteria
 
