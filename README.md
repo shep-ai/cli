@@ -1,6 +1,13 @@
 <div align="center">
 
-# Shep
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="src/presentation/web/public/favicon-light.svg">
+    <source media="(prefers-color-scheme: light)" srcset="src/presentation/web/public/favicon-dark.svg">
+    <img src="src/presentation/web/public/favicon-light.svg" alt="Shep logo" width="28" valign="middle" />
+  </picture>
+  Shep
+</h1>
 
 ### Run multiple AI agents in parallel. Each in its own worktree.
 
