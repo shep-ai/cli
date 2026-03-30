@@ -1,3 +1,16 @@
+# [1.157.0](https://github.com/shep-ai/shep/compare/v1.156.0...v1.157.0) (2026-03-30)
+
+
+### Bug Fixes
+
+* **ci:** update all shep-ai/cli references to shep-ai/shep after repo rename ([#491](https://github.com/shep-ai/shep/issues/491)) ([3afe6d9](https://github.com/shep-ai/shep/commit/3afe6d9bb793328d12969465d6ab6f28ff962b94))
+
+
+### Features
+
+* **web:** add dashboard screenshots and streamline spec docs ([#490](https://github.com/shep-ai/shep/issues/490)) ([5741c4b](https://github.com/shep-ai/shep/commit/5741c4bd54803be8b59b190718306129c4cef55d))
+* **web:** add multi-language i18n support with rtl for arabic and hebrew ([#485](https://github.com/shep-ai/shep/issues/485)) ([47157cd](https://github.com/shep-ai/shep/commit/47157cd8ac3d9d79d3e48d662f341d5ecacda916))
+
 # [1.156.0](https://github.com/shep-ai/cli/compare/v1.155.0...v1.156.0) (2026-03-30)
 
 
