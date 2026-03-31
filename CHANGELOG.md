@@ -1,3 +1,10 @@
+# [1.158.0](https://github.com/shep-ai/shep/compare/v1.157.0...v1.158.0) (2026-03-31)
+
+
+### Features
+
+* **cli:** add smart rebase with auto-stash and conflict resolution ([#494](https://github.com/shep-ai/shep/issues/494)) ([ef391a0](https://github.com/shep-ai/shep/commit/ef391a0042d4450c3c7290ace914090bbe3a7a52))
+
 # [1.157.0](https://github.com/shep-ai/shep/compare/v1.156.0...v1.157.0) (2026-03-30)
 
 
