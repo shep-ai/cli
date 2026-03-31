@@ -952,6 +952,28 @@ export class GitPrService implements IGitPrService {
     }
   }
 
+  async stash(cwd: string, message?: string): Promise<boolean> {
+    try {
+      const args = ['stash', 'push'];
+      if (message) {
+        args.push('-m', message);
+      }
+      const { stdout } = await this.execFile('git', args, { cwd });
+      // git stash push outputs "No local changes to save" when clean
+      return !stdout.includes('No local changes to save');
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
+  async stashPop(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['stash', 'pop'], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
   async getBranchSyncStatus(
     cwd: string,
     featureBranch: string,

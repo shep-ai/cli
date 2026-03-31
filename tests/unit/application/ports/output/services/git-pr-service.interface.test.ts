@@ -187,6 +187,10 @@ describe('IGitPrService', () => {
       getBranchSyncStatus: async () => {
         return { ahead: 0, behind: 0 };
       },
+      stash: async () => false,
+      stashPop: async () => {
+        /* noop */
+      },
     };
 
     // Verify all methods exist
@@ -218,9 +222,11 @@ describe('IGitPrService', () => {
       'rebaseContinue',
       'rebaseAbort',
       'getBranchSyncStatus',
+      'stash',
+      'stashPop',
     ];
 
-    expect(methodNames).toHaveLength(27);
+    expect(methodNames).toHaveLength(29);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }
