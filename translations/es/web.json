@@ -447,6 +447,8 @@
     "prDescription": "Abrir un pull request después de enviar.",
     "watch": "Vigilar",
     "watchDescription": "Vigilar CI y auto-corregir errores.",
+    "sync": "Sync",
+    "syncDescription": "Pull latest main from remote before creating the feature branch.",
     "commitSpecs": "Commit de specs",
     "commitSpecsDescription": "Hacer commit de specs al repositorio.",
     "forkAndPr": "Fork y PR",

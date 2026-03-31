@@ -447,6 +447,8 @@
     "prDescription": "פתיחת בקשת משיכה לאחר הדחיפה.",
     "watch": "מעקב",
     "watchDescription": "מעקב אחר CI ותיקון שגיאות אוטומטי.",
+    "sync": "Sync",
+    "syncDescription": "Pull latest main from remote before creating the feature branch.",
     "commitSpecs": "שמירת מפרטים",
     "commitSpecsDescription": "שמירת מפרטים למאגר.",
     "forkAndPr": "Fork ו-PR",

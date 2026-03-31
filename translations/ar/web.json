@@ -447,6 +447,8 @@
     "prDescription": "فتح طلب سحب بعد الدفع.",
     "watch": "مراقبة",
     "watchDescription": "مراقبة CI وإصلاح الأخطاء تلقائياً.",
+    "sync": "Sync",
+    "syncDescription": "Pull latest main from remote before creating the feature branch.",
     "commitSpecs": "حفظ المواصفات",
     "commitSpecsDescription": "حفظ المواصفات في المستودع.",
     "forkAndPr": "Fork و PR",

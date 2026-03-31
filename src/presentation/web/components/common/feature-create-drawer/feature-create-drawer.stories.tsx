@@ -566,6 +566,43 @@ export const Interactive: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Sync (Rebase before branch) stories
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Sync toggle ON (default) — the "Sync" toggle in the GIT row is checked.
+ * Main will be pulled from remote before the feature branch is created.
+ */
+export const SyncOnDefault: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Sync On)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Sync On)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    // Wait for the GIT row to render and verify Sync toggle exists and is checked
+    const syncToggle = await body.findByLabelText('Sync');
+    await expect(syncToggle).toBeInTheDocument();
+  },
+};
+
+/**
+ * Sync toggle OFF — user disables the "Sync" toggle to skip pulling latest main.
+ * Useful when working offline or on local-only repositories.
+ */
+export const SyncOff: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Sync Off)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Sync Off)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const syncToggle = await body.findByLabelText('Sync');
+    await userEvent.click(syncToggle);
+  },
+};
+
+/* ---------------------------------------------------------------------------
  * Contribute (Fork & PR) stories
  * ------------------------------------------------------------------------- */
 

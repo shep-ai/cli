@@ -176,6 +176,7 @@ describe('CreateFeatureUseCase', () => {
 
     mockGitPrService = {
       getDefaultBranch: vi.fn().mockResolvedValue('main'),
+      syncMain: vi.fn().mockResolvedValue(undefined),
       createPr: vi.fn().mockResolvedValue(undefined),
       getPr: vi.fn().mockResolvedValue(null),
       getMergeableStatus: vi.fn().mockResolvedValue(undefined),
@@ -717,6 +718,56 @@ describe('CreateFeatureUseCase', () => {
         model: 'claude-sonnet-4-6',
       };
       expect(input.model).toBe('claude-sonnet-4-6');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // rebaseBeforeBranch (sync main before branch creation)
+  // -------------------------------------------------------------------------
+
+  describe('rebaseBeforeBranch', () => {
+    it('should sync main before creating worktree by default', async () => {
+      await useCase.execute(baseInput);
+
+      expect(mockGitPrService.syncMain).toHaveBeenCalledWith('/repo', 'main');
+      // syncMain should be called before worktree.create
+      const syncOrder = (mockGitPrService.syncMain as ReturnType<typeof vi.fn>).mock
+        .invocationCallOrder[0];
+      const createOrder = (mockWorktreeService.create as ReturnType<typeof vi.fn>).mock
+        .invocationCallOrder[0];
+      expect(syncOrder).toBeLessThan(createOrder);
+    });
+
+    it('should sync main when rebaseBeforeBranch is explicitly true', async () => {
+      await useCase.execute({ ...baseInput, rebaseBeforeBranch: true });
+
+      expect(mockGitPrService.syncMain).toHaveBeenCalledWith('/repo', 'main');
+    });
+
+    it('should skip sync when rebaseBeforeBranch is false', async () => {
+      await useCase.execute({ ...baseInput, rebaseBeforeBranch: false });
+
+      expect(mockGitPrService.syncMain).not.toHaveBeenCalled();
+    });
+
+    it('should still create worktree when syncMain fails', async () => {
+      (mockGitPrService.syncMain as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('no remote')
+      );
+
+      const result = await useCase.execute(baseInput);
+
+      expect(result.feature).toBeDefined();
+      expect(mockWorktreeService.create).toHaveBeenCalled();
+    });
+
+    it('should accept rebaseBeforeBranch field in CreateFeatureInput', () => {
+      const input: CreateFeatureInput = {
+        userInput: 'test',
+        repositoryPath: '/repo',
+        rebaseBeforeBranch: false,
+      };
+      expect(input.rebaseBeforeBranch).toBe(false);
     });
   });
 

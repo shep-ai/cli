@@ -39,6 +39,7 @@ interface NewOptions {
   pending?: boolean;
   model?: string;
   attach?: string[];
+  rebase?: boolean;
 }
 
 /** Commander collect pattern for repeatable options. */
@@ -92,6 +93,7 @@ export function createNewCommand(): Command {
     .option('--pending', t('cli:commands.feat.new.pendingOption'))
     .option('--fast', t('cli:commands.feat.new.fastOption'))
     .option('--model <model>', t('cli:commands.feat.new.modelOption'))
+    .option('--no-rebase', t('cli:commands.feat.new.noRebaseOption'))
     .option('--attach <path>', t('cli:commands.feat.new.attachOption'), collect, [])
     .action(async (description: string, options: NewOptions) => {
       try {
@@ -160,6 +162,7 @@ export function createNewCommand(): Command {
             ...(options.fast && { fast: true }),
             ...(options.model !== undefined && { model: options.model }),
             ...(attachmentPaths.length > 0 && { attachmentPaths }),
+            rebaseBeforeBranch: options.rebase,
           })
         );
 
