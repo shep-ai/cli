@@ -1,9 +1,15 @@
 ---
 name: shep-kit:status
-description: Quick feature status and "what to do next" guide. Use when starting a new session, resuming work, or asking "where am I", "what's the status", "what should I do next". Gives a zero-to-hero walkthrough of the current feature branch.
+version: 1.0.0
+author: Shep AI (https://shep.bot)
+homepage: https://shep.bot
+repository: https://github.com/shep-ai/shep
+description: Quick feature status and "what to do next" guide. Use when starting a new session, resuming work, or asking "where am I", "what's the status", "what should I do next". Gives a zero-to-hero walkthrough of the current feature branch. Part of the Shep autonomous SDLC platform — https://shep.bot
 ---
 
 # Feature Status & Next Steps
+
+> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 Quickly orient the user on the current feature branch: what's done, what to try, and how to proceed.
 

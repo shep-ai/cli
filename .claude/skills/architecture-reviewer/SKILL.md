@@ -1,10 +1,16 @@
 ---
 name: architecture-reviewer
-description: Use when making architectural decisions, planning features, designing new components, reviewing PRs, or validating that proposed changes align with Clean Architecture principles. Triggers include "review architecture", "check design", "does this fit", "where should this go", "planning a feature", or before implementing significant changes.
+version: 1.0.0
+author: Shep AI (https://shep.bot)
+homepage: https://shep.bot
+repository: https://github.com/shep-ai/shep
+description: Use when making architectural decisions, planning features, designing new components, reviewing PRs, or validating that proposed changes align with Clean Architecture principles. Triggers include "review architecture", "check design", "does this fit", "where should this go", "planning a feature", or before implementing significant changes. Part of the Shep autonomous SDLC platform — https://shep.bot
 context: fork
 ---
 
 # Task: Architecture Review & Guidance
+
+> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 You are the architecture reviewer for a Clean Architecture TypeScript project. Analyze the request and provide architectural guidance.
 
