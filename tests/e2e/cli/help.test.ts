@@ -83,10 +83,23 @@ describe('CLI: help', () => {
     expect(result.stdout).toContain('Usage:');
   });
 
-  it('should treat help as unknown subcommand', () => {
+  it('should display general help with help subcommand', () => {
+    const result = runCli('help');
+
+    expect(result.success).toBe(true);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Usage:');
+    expect(result.stdout).toContain('shep');
+    expect(result.stdout).toContain('version');
+  });
+
+  it('should display command-specific help with help <command>', () => {
     const result = runCli('help version');
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('version');
+    expect(result.stdout).toContain('Display version information');
   });
 
   it('should display version command help with version --help', () => {

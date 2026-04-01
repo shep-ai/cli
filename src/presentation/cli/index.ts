@@ -109,6 +109,7 @@ async function bootstrap() {
       .name('shep')
       .description(description)
       .version(version, '-v, --version', 'Display version number')
+      .addHelpCommand('help [command]', 'Display help for a command')
       // task-10: Default action starts the daemon (or shows already-running URL).
       // The onboarding gate above (lines 82-89) ensures the wizard runs on first launch;
       // after the gate, startDaemon() is the correct next step in both cases.
