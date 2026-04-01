@@ -1,0 +1,35 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-sidebar-repo-grouping[39m
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mmapNodeStateToSidebarStatus[2m > [22mmaps action-required → action-needed[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mmapNodeStateToSidebarStatus[2m > [22mmaps running → in-progress[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mmapNodeStateToSidebarStatus[2m > [22mmaps done → done[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mmapNodeStateToSidebarStatus[2m > [22mmaps blocked → blocked[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mmapNodeStateToSidebarStatus[2m > [22mmaps pending → pending[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mmapNodeStateToSidebarStatus[2m > [22mmaps error → error[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mmapNodeStateToSidebarStatus[2m > [22mmaps creating → null[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mSidebarFeaturesContext[2m > [22mthrows when useSidebarFeaturesContext is called outside provider[32m 13[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mSidebarFeaturesContext[2m > [22mprovides an empty features array by default[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mSidebarFeaturesContext[2m > [22mupdates features when setFeatures is called[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx[2m > [22mSidebarFeaturesContext[2m > [22mre-renders consumers when features change[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/repo-group.test.tsx[2m > [22mRepoGroup[2m > [22mrenders repo name[32m 28[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/repo-group.test.tsx[2m > [22mRepoGroup[2m > [22mshows feature count badge[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/repo-group.test.tsx[2m > [22mRepoGroup[2m > [22mrenders children when expanded (default)[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/repo-group.test.tsx[2m > [22mRepoGroup[2m > [22mhides children when collapsed[32m 110[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/repo-group.test.tsx[2m > [22mRepoGroup[2m > [22mtoggles children visibility on click[32m 33[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/repo-group.test.tsx[2m > [22mRepoGroup[2m > [22mstarts collapsed when defaultOpen is false[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/repo-group.test.tsx[2m > [22mRepoGroup[2m > [22mhas correct aria-expanded attribute[32m 18[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/layouts/app-sidebar.test.tsx[2m > [22mAppSidebar[2m > [22mrenders Control Center nav item in header[32m 81[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/layouts/app-sidebar.test.tsx[2m > [22mAppSidebar[2m > [22mrenders Tools nav item in header[32m 25[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/layouts/app-sidebar.test.tsx[2m > [22mAppSidebar[2m > [22mrenders Features label in content[32m 23[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/layouts/app-sidebar.test.tsx[2m > [22mAppSidebar[2m > [22mgroups features by status into Action Needed, In Progress, and Done sections[32m 28[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/layouts/app-sidebar.test.tsx[2m > [22mAppSidebar[2m > [22mfires onFeatureClick with featureId when a feature is clicked[32m 126[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/layouts/app-sidebar.test.tsx[2m > [22mAppSidebar[2m > [22mrenders Settings nav item in header linking to /settings[32m 28[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/layouts/app-sidebar.test.tsx[2m > [22mAppSidebar[2m > [22mdoes not show repo groups when there is only one repository[32m 33[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/layouts/app-sidebar.test.tsx[2m > [22mAppSidebar[2m > [22mshows repo groups when there are multiple repositories[32m 23[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m26 passed[39m[22m[90m (26)[39m
+[2m   Start at [22m 14:05:16
+[2m   Duration [22m 1.51s[2m (transform 364ms, setup 465ms, import 658ms, tests 594ms, environment 1.29s)[22m
+
