@@ -13,6 +13,7 @@ import {
   Wrench,
   Puzzle,
   Settings,
+  TableProperties,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -160,6 +161,12 @@ export function AppSidebar({
             label={t('navigation.controlCenter')}
             href="/"
             active={pathname === '/'}
+          />
+          <SidebarNavItem
+            icon={TableProperties}
+            label={t('navigation.features')}
+            href="/features"
+            active={pathname === '/features'}
           />
           <SidebarNavItem
             icon={Wrench}

@@ -1,0 +1,100 @@
+/*
+ * Tabulator theme overrides for Shep's light/dark mode.
+ * We import the base Tabulator CSS, then override colors
+ * using CSS custom properties from our Tailwind theme.
+ */
+@import 'tabulator-tables/dist/css/tabulator_midnight.min.css';
+
+/* ── Light-mode overrides ─────────────────────────────────────── */
+.tabulator {
+  --tabulator-bg: var(--color-background, #ffffff);
+  --tabulator-header-bg: var(--color-muted, #f4f4f5);
+  --tabulator-row-odd: var(--color-background, #ffffff);
+  --tabulator-row-even: var(--color-muted, #f4f4f5);
+  --tabulator-border: var(--color-border, #e4e4e7);
+  --tabulator-text: var(--color-foreground, #09090b);
+
+  background-color: var(--tabulator-bg);
+  border-color: var(--tabulator-border);
+  color: var(--tabulator-text);
+  font-size: 13px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tabulator .tabulator-header {
+  background-color: var(--tabulator-header-bg);
+  border-bottom-color: var(--tabulator-border);
+  color: var(--tabulator-text);
+}
+
+.tabulator .tabulator-header .tabulator-col {
+  background-color: var(--tabulator-header-bg);
+  border-right-color: var(--tabulator-border);
+}
+
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title {
+  color: var(--tabulator-text);
+  font-weight: 600;
+}
+
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row {
+  border-bottom-color: var(--tabulator-border);
+  color: var(--tabulator-text);
+}
+
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:nth-child(odd) {
+  background-color: var(--tabulator-row-odd);
+}
+
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:nth-child(even) {
+  background-color: var(--tabulator-row-even);
+}
+
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
+  background-color: var(--color-accent, #f4f4f5);
+}
+
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row .tabulator-cell {
+  border-right-color: var(--tabulator-border);
+}
+
+/* Tree toggle icon styling */
+.tabulator .tabulator-row .tabulator-data-tree-control {
+  border-color: var(--tabulator-text);
+}
+
+.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-collapse::after {
+  background-color: var(--tabulator-text);
+}
+
+.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand::after,
+.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand::before {
+  background-color: var(--tabulator-text);
+}
+
+/* Placeholder text */
+.tabulator .tabulator-tableholder .tabulator-placeholder span {
+  color: var(--color-muted-foreground, #71717a);
+  font-size: 14px;
+}
+
+/* Clickable name cells */
+.tabulator .tabulator-row .tabulator-cell.cursor-pointer {
+  cursor: pointer;
+}
+
+.tabulator .tabulator-row .tabulator-cell.cursor-pointer:hover {
+  text-decoration: underline;
+}
+
+/* ── Dark-mode overrides ──────────────────────────────────────── */
+:root.dark .tabulator,
+.dark .tabulator {
+  --tabulator-bg: var(--color-background, #09090b);
+  --tabulator-header-bg: var(--color-muted, #27272a);
+  --tabulator-row-odd: var(--color-background, #09090b);
+  --tabulator-row-even: color-mix(in srgb, var(--color-muted, #27272a) 50%, transparent);
+  --tabulator-border: var(--color-border, #27272a);
+  --tabulator-text: var(--color-foreground, #fafafa);
+}
