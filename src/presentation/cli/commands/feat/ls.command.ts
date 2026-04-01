@@ -20,6 +20,7 @@ import type { IPhaseTimingRepository } from '@/application/ports/output/agents/p
 import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
 import type { Feature, AgentRun, PhaseTiming, Repository } from '@/domain/generated/output.js';
 import { colors, symbols, messages, fmt } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 interface LsOptions {
   repo?: string;
@@ -356,11 +357,12 @@ function countFeatures(groups: RepoGroup[]): number {
 }
 
 export function createLsCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('ls')
-    .description('List features')
-    .option('-r, --repo <path>', 'Filter by repository path')
-    .option('--include-deleted', 'Include soft-deleted features')
-    .option('--show-archived', 'Include archived features')
+    .description(t('cli:commands.feat.ls.description'))
+    .option('-r, --repo <path>', t('cli:commands.feat.ls.repoOption'))
+    .option('--include-deleted', t('cli:commands.feat.ls.includeDeletedOption'))
+    .option('--show-archived', t('cli:commands.feat.ls.showArchivedOption'))
     .action(async (options: LsOptions) => {
       try {
         const useCase = container.resolve(ListFeaturesUseCase);
@@ -399,22 +401,24 @@ export function createLsCommand(): Command {
 
         if (total === 0) {
           messages.newline();
-          messages.info('No features found');
+          messages.info(t('cli:commands.feat.ls.noFeatures'));
           messages.newline();
           return;
         }
 
         const lines: string[] = [];
         lines.push('');
-        lines.push(`  ${fmt.heading(`Features (${total})`)}`);
+        lines.push(
+          `  ${fmt.heading(t('cli:commands.feat.ls.featuresHeading', { count: String(total) }))}`
+        );
         lines.push('');
 
         // Column headers
-        const h1 = colors.muted('NAME'.padEnd(FIRST_COL_WIDTH));
-        const h2 = colors.muted('STATUS'.padEnd(STATUS_WIDTH));
-        const h3 = colors.muted('R P M ↑'.padEnd(GATES_WIDTH));
-        const h4 = colors.muted('ELAPSED'.padEnd(ELAPSED_WIDTH));
-        const h5 = colors.muted('DONE');
+        const h1 = colors.muted(t('cli:commands.feat.ls.nameHeader').padEnd(FIRST_COL_WIDTH));
+        const h2 = colors.muted(t('cli:commands.feat.ls.statusHeader').padEnd(STATUS_WIDTH));
+        const h3 = colors.muted(t('cli:commands.feat.ls.gatesHeader').padEnd(GATES_WIDTH));
+        const h4 = colors.muted(t('cli:commands.feat.ls.elapsedHeader').padEnd(ELAPSED_WIDTH));
+        const h5 = colors.muted(t('cli:commands.feat.ls.doneHeader'));
         lines.push(`  ${h1}  ${h2}  ${h3}  ${h4}  ${h5}`);
 
         for (const group of groups) {
@@ -432,7 +436,7 @@ export function createLsCommand(): Command {
         console.log(lines.join('\n'));
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to list features', err);
+        messages.error(t('cli:commands.feat.ls.failedToList'), err);
         process.exitCode = 1;
       }
     });

@@ -48,6 +48,8 @@ interface CreateFeatureInput {
   agentType?: string;
   /** Optional model identifier for this feature run */
   model?: string;
+  /** Sync main from remote before creating the feature branch (default: true). */
+  rebaseBeforeBranch?: boolean;
 }
 
 export async function createFeature(
@@ -71,6 +73,7 @@ export async function createFeature(
     commitEvidence,
     agentType,
     model,
+    rebaseBeforeBranch,
   } = input;
 
   if (!description?.trim()) {
@@ -109,6 +112,7 @@ export async function createFeature(
       ...(commitEvidence != null ? { commitEvidence } : {}),
       ...(agentType ? { agentType } : {}),
       ...(model ? { model } : {}),
+      ...(rebaseBeforeBranch != null ? { rebaseBeforeBranch } : {}),
     });
 
     // Phase 2 (background): metadata generation, worktree, spec, agent spawn
@@ -127,9 +131,13 @@ export async function createFeature(
           ...(pending ? { pending } : {}),
           ...(forkAndPr != null ? { forkAndPr } : {}),
           ...(commitSpecs != null ? { commitSpecs } : {}),
+          ...(ciWatchEnabled != null ? { ciWatchEnabled } : {}),
+          ...(enableEvidence != null ? { enableEvidence } : {}),
+          ...(commitEvidence != null ? { commitEvidence } : {}),
           ...(agentType ? { agentType } : {}),
           ...(model ? { model } : {}),
           ...(sessionId ? { sessionId } : {}),
+          ...(rebaseBeforeBranch != null ? { rebaseBeforeBranch } : {}),
         },
         shouldSpawn
       )

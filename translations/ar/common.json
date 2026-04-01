@@ -1,0 +1,55 @@
+{
+  "errors": {
+    "notFound": "غير موجود",
+    "unauthorized": "غير مصرح",
+    "forbidden": "محظور",
+    "internal": "خطأ داخلي",
+    "unknown": "حدث خطأ غير معروف",
+    "failedToLoad": "فشل تحميل {{resource}}",
+    "failedToSave": "فشل حفظ {{resource}}"
+  },
+  "labels": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "close": "إغلاق",
+    "back": "رجوع",
+    "next": "التالي",
+    "yes": "نعم",
+    "no": "لا",
+    "enabled": "مفعّل",
+    "disabled": "معطّل",
+    "loading": "جارٍ التحميل...",
+    "saving": "جارٍ الحفظ...",
+    "saved": "تم الحفظ",
+    "none": "لا شيء",
+    "default": "افتراضي",
+    "custom": "مخصص"
+  },
+  "status": {
+    "success": "نجاح",
+    "error": "خطأ",
+    "warning": "تحذير",
+    "info": "معلومات",
+    "pending": "قيد الانتظار",
+    "inProgress": "قيد التنفيذ",
+    "completed": "مكتمل",
+    "failed": "فشل"
+  },
+  "confirmation": {
+    "areYouSure": "هل أنت متأكد؟",
+    "cannotBeUndone": "لا يمكن التراجع عن هذا الإجراء."
+  },
+  "language": {
+    "en": "الإنجليزية",
+    "ru": "الروسية",
+    "pt": "البرتغالية",
+    "es": "الإسبانية",
+    "ar": "العربية",
+    "he": "العبرية",
+    "fr": "الفرنسية",
+    "de": "الألمانية"
+  }
+}

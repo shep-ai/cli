@@ -23,7 +23,7 @@ technologies:
 
 relatedLinks:
   - title: "GitHub Issue #435 - Add archive option for features"
-    url: "https://github.com/shep-ai/cli/issues/435"
+    url: "https://github.com/shep-ai/shep/issues/435"
 
 phases:
   - id: "phase-1"

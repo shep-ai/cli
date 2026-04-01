@@ -31,10 +31,10 @@ const markdownComponents: Components = {
     <pre className="bg-muted my-2 overflow-x-auto rounded-lg border p-3">{children}</pre>
   ),
   ul: ({ children }) => (
-    <ul className="text-muted-foreground mb-2 list-disc space-y-1 pl-4 text-xs">{children}</ul>
+    <ul className="text-muted-foreground mb-2 list-disc space-y-1 ps-4 text-xs">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="text-muted-foreground mb-2 list-decimal space-y-1 pl-4 text-xs">{children}</ol>
+    <ol className="text-muted-foreground mb-2 list-decimal space-y-1 ps-4 text-xs">{children}</ol>
   ),
   li: ({ children }) => <li className="leading-relaxed">{children}</li>,
   a: ({ children, href }) => (

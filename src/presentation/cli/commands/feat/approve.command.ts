@@ -15,11 +15,13 @@ import type { IAgentRunRepository } from '@/application/ports/output/agents/agen
 import { ApproveAgentRunUseCase } from '@/application/use-cases/agents/approve-agent-run.use-case.js';
 import { resolveWaitingFeature } from './resolve-waiting-feature.js';
 import { colors, messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createApproveCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('approve')
-    .description('Approve a feature waiting for review')
-    .argument('[id]', 'Feature ID (auto-resolves if omitted)')
+    .description(t('cli:commands.feat.approve.description'))
+    .argument('[id]', t('cli:commands.feat.approve.idArgument'))
     .action(async (featureId?: string) => {
       try {
         const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
@@ -43,13 +45,17 @@ export function createApproveCommand(): Command {
         const phase = run.result?.startsWith('node:') ? run.result.slice(5) : 'unknown';
 
         messages.newline();
-        messages.success(`Approved: ${feature.name}`);
-        console.log(`  ${colors.muted('Phase:')}    ${colors.success(phase)} approved`);
-        console.log(`  ${colors.muted('Agent:')}    resumed`);
+        messages.success(t('cli:commands.feat.approve.approvedSuccess', { name: feature.name }));
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.approve.phaseLabel'))}    ${colors.success(phase)} ${t('cli:commands.feat.approve.approved')}`
+        );
+        console.log(
+          `  ${colors.muted(t('cli:commands.feat.approve.agentLabel'))}    ${t('cli:commands.feat.approve.agentResumed')}`
+        );
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to approve feature', err);
+        messages.error(t('cli:commands.feat.approve.failedToApprove'), err);
         process.exitCode = 1;
       }
     });

@@ -126,11 +126,11 @@ vi.mock('@/components/ui/button', () => ({
 }));
 
 const defaultData: RepositoryNodeData = {
-  name: 'shep-ai/cli',
+  name: 'shep-ai/shep',
 };
 
 const dataWithRepoPath: RepositoryNodeData = {
-  name: 'shep-ai/cli',
+  name: 'shep-ai/shep',
   repositoryPath: '/home/user/my-repo',
 };
 
@@ -441,7 +441,7 @@ describe('RepositoryNode', () => {
     it('renders repository name', () => {
       renderNode(defaultData);
 
-      expect(screen.getByTestId('repository-node-name')).toHaveTextContent('shep-ai/cli');
+      expect(screen.getByTestId('repository-node-name')).toHaveTextContent('shep-ai/shep');
     });
 
     it('renders add button when onAdd is provided', () => {

@@ -159,7 +159,14 @@ export class RejectAgentRunUseCase {
         resumeFromInterrupt: true,
         push: feature?.push ?? false,
         openPr: feature?.openPr ?? false,
+        forkAndPr: feature?.forkAndPr ?? false,
+        commitSpecs: feature?.commitSpecs ?? true,
+        ciWatchEnabled: feature?.ciWatchEnabled ?? true,
+        enableEvidence: feature?.enableEvidence ?? false,
+        commitEvidence: feature?.commitEvidence ?? false,
         resumePayload: JSON.stringify(rejectionPayload),
+        agentType: run.agentType,
+        ...(run.modelId ? { model: run.modelId } : {}),
         ...(feature.fast ? { fast: true } : {}),
       }
     );

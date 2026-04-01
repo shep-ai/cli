@@ -18,6 +18,7 @@ import {
   useSidebarFeaturesContext,
   mapNodeStateToSidebarStatus,
 } from '@/hooks/sidebar-features-context';
+import { useTranslation } from 'react-i18next';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 
 import { useSelectedFeatureId } from '@/hooks/use-selected-feature-id';
@@ -43,6 +44,7 @@ interface ControlCenterInnerProps {
 }
 
 export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenterInnerProps) {
+  const { t } = useTranslation('web');
   const router = useRouter();
   const pathname = usePathname();
   const selectedFeatureId = useSelectedFeatureId();
@@ -425,7 +427,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     const actions: FloatingActionButtonAction[] = [
       {
         id: 'new-feature',
-        label: 'New Feature',
+        label: t('fab.newFeature'),
         icon: <Sparkles className="h-4 w-4" />,
         onClick: () => {
           clickSound.play();
@@ -434,7 +436,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       },
       {
         id: 'add-local-repo',
-        label: 'Local Folder',
+        label: t('fab.localFolder'),
         icon: <FolderPlus className="h-4 w-4" />,
         onClick: handlePickFolder,
       },
@@ -442,7 +444,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     if (featureFlags.adoptBranch) {
       actions.push({
         id: 'adopt-branch',
-        label: 'Adopt Branch',
+        label: t('fab.adoptBranch'),
         icon: <GitBranch className="h-4 w-4" />,
         onClick: () => {
           guardedNavigate(() => router.push('/adopt'));
@@ -452,7 +454,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     if (featureFlags.githubImport) {
       actions.push({
         id: 'add-github-repo',
-        label: 'From GitHub',
+        label: t('fab.fromGithub'),
         icon: <Github className="h-4 w-4" />,
         onClick: () => {
           window.dispatchEvent(new CustomEvent('shep:open-github-import'));
@@ -461,6 +463,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     }
     return actions;
   }, [
+    t,
     clickSound,
     guardedNavigate,
     router,
@@ -503,18 +506,20 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 /** (+) FAB that tracks sidebar width via CSS var + transition. */
 function CreateFab({ actions }: { actions: FloatingActionButtonAction[] }) {
   const { state } = useSidebar();
+  const { i18n } = useTranslation('web');
+  const isRtl = i18n.dir() === 'rtl';
   // Sidebar expanded = var(--sidebar-width) = 16rem, collapsed = var(--sidebar-width-icon) = 3rem
   // Position just outside the sidebar edge with 16px gap
-  const left =
+  const offset =
     state === 'expanded'
       ? 'calc(var(--sidebar-width) + 32px)'
       : 'calc(var(--sidebar-width-icon) + 32px)';
 
+  const positionStyle: React.CSSProperties = isRtl
+    ? { right: offset, transition: 'right 200ms ease-in-out' }
+    : { left: offset, transition: 'left 200ms ease-in-out' };
+
   return (
-    <FloatingActionButton
-      actions={actions}
-      className="!fixed bottom-6"
-      style={{ left, transition: 'left 200ms ease-in-out' }}
-    />
+    <FloatingActionButton actions={actions} className="!fixed bottom-6" style={positionStyle} />
   );
 }

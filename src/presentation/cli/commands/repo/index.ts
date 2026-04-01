@@ -16,13 +16,15 @@ import { Command } from 'commander';
 import { createShowCommand } from './show.command.js';
 import { createLsCommand } from './ls.command.js';
 import { createAddCommand } from './add.command.js';
+import { getCliI18n } from '../../i18n.js';
 
 /**
  * Create the repo command with all subcommands
  */
 export function createRepoCommand(): Command {
+  const t = getCliI18n().t;
   const repo = new Command('repo')
-    .description('Manage tracked repositories')
+    .description(t('cli:commands.repo.description'))
     .addCommand(createLsCommand())
     .addCommand(createShowCommand())
     .addCommand(createAddCommand());

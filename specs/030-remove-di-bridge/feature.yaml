@@ -46,7 +46,7 @@ checkpoints:
     completedAt: '2026-02-18T15:40:00Z'
     completedBy: 'shep-kit:commit-pr'
 
-prUrl: 'https://github.com/shep-ai/cli/pull/70'
+prUrl: 'https://github.com/shep-ai/shep/pull/70'
 
 errors:
   current: null

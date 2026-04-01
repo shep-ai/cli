@@ -12,6 +12,7 @@ import {
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
   SendHorizontal,
@@ -54,8 +55,8 @@ const markdownComponents: Components = {
 
     return <CollapsibleCode language={lang}>{children}</CollapsibleCode>;
   },
-  ul: ({ children }) => <ul className="mb-2 list-disc pl-4 last:mb-0">{children}</ul>,
-  ol: ({ children }) => <ol className="mb-2 list-decimal pl-4 last:mb-0">{children}</ol>,
+  ul: ({ children }) => <ul className="mb-2 list-disc ps-4 last:mb-0">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-2 list-decimal ps-4 last:mb-0">{children}</ol>,
   li: ({ children }) => <li className="mb-0.5">{children}</li>,
   h1: ({ children }) => <h1 className="mb-1 text-base font-bold">{children}</h1>,
   h2: ({ children }) => <h2 className="mb-1 text-sm font-bold">{children}</h2>,
@@ -66,7 +67,7 @@ const markdownComponents: Components = {
     </a>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="border-muted-foreground/30 my-1 border-l-2 pl-3 italic opacity-80">
+    <blockquote className="border-muted-foreground/30 my-1 border-s-2 ps-3 italic opacity-80">
       {children}
     </blockquote>
   ),
@@ -76,7 +77,7 @@ const markdownComponents: Components = {
     </div>
   ),
   thead: ({ children }) => <thead className="bg-muted/50 border-b">{children}</thead>,
-  th: ({ children }) => <th className="px-2 py-1 text-left font-semibold">{children}</th>,
+  th: ({ children }) => <th className="px-2 py-1 text-start font-semibold">{children}</th>,
   td: ({ children }) => <td className="border-muted border-t px-2 py-1">{children}</td>,
   tr: ({ children }) => <tr>{children}</tr>,
   hr: () => <hr className="border-border/40 my-3 border-t" />,
@@ -196,6 +197,7 @@ const AssistantMessage: FC = () => {
 const CODE_COLLAPSED_HEIGHT = 200; // px
 
 function CollapsibleCode({ children, language }: { children: React.ReactNode; language?: string }) {
+  const { t } = useTranslation('web');
   const [expanded, setExpanded] = useState(false);
   const [needsCollapse, setNeedsCollapse] = useState(false);
   const ref = useRef<HTMLPreElement>(null);
@@ -235,7 +237,7 @@ function CollapsibleCode({ children, language }: { children: React.ReactNode; la
             className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-medium text-white/80 shadow-lg backdrop-blur-md transition-all hover:bg-white/20 hover:text-white"
           >
             <ChevronDown className="h-3 w-3" />
-            Show more
+            {t('chat.showMore')}
           </button>
         </div>
       ) : null}
@@ -247,7 +249,7 @@ function CollapsibleCode({ children, language }: { children: React.ReactNode; la
             className="inline-flex items-center gap-1 rounded-full px-3 py-0.5 text-[11px] text-white/50 transition-colors hover:text-white/80"
           >
             <ChevronUp className="h-3 w-3" />
-            Show less
+            {t('chat.showLess')}
           </button>
         </div>
       ) : null}
@@ -258,6 +260,7 @@ function CollapsibleCode({ children, language }: { children: React.ReactNode; la
 // ── HTML preview block with code/preview toggle ─────────────────────────
 
 function HtmlPreviewBlock({ code, language }: { code: string; language: string }) {
+  const { t } = useTranslation('web');
   const [showPreview, setShowPreview] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const [fullscreenCode, setFullscreenCode] = useState(false);
@@ -280,7 +283,7 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              Code
+              {t('chat.code')}
             </button>
             <button
               type="button"
@@ -292,7 +295,7 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              Preview
+              {t('chat.preview')}
             </button>
             <button
               type="button"
@@ -300,8 +303,8 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
                 setFullscreenCode(!showPreview);
                 setMaximized(true);
               }}
-              className="text-muted-foreground hover:text-foreground ml-1 rounded p-0.5 transition-colors"
-              title="Open fullscreen"
+              className="text-muted-foreground hover:text-foreground ms-1 rounded p-0.5 transition-colors"
+              title={t('chat.openFullscreen')}
             >
               <Maximize2 className="h-3 w-3" />
             </button>
@@ -313,7 +316,7 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
               srcDoc={code}
               sandbox="allow-scripts"
               className="h-full w-full border-0 bg-white"
-              title="HTML Preview"
+              title={t('chat.htmlPreview')}
             />
           ) : (
             <pre className="h-full overflow-auto p-3 font-mono text-xs leading-relaxed">
@@ -348,7 +351,7 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
                           : 'text-muted-foreground hover:text-foreground'
                       )}
                     >
-                      Preview
+                      {t('chat.preview')}
                     </button>
                     <button
                       type="button"
@@ -360,7 +363,7 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
                           : 'text-muted-foreground hover:text-foreground'
                       )}
                     >
-                      Code
+                      {t('chat.code')}
                     </button>
                   </div>
 
@@ -390,7 +393,7 @@ function HtmlPreviewBlock({ code, language }: { code: string; language: string }
                     srcDoc={code}
                     sandbox="allow-scripts"
                     className="flex-1 border-0 bg-white dark:bg-neutral-900"
-                    title="HTML Preview Fullscreen"
+                    title={t('chat.htmlPreviewFullscreen')}
                   />
                 )}
               </div>

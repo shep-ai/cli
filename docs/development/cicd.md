@@ -97,7 +97,7 @@ Runs after **all parallel jobs pass, including security scanners**. Uses [semant
 Images are published to GitHub Container Registry (ghcr.io):
 
 ```
-ghcr.io/shep-ai/cli
+ghcr.io/shep-ai/shep
 ```
 
 ### Tagging Strategy
@@ -111,14 +111,14 @@ ghcr.io/shep-ai/cli
 
 ```bash
 # Latest stable
-docker pull ghcr.io/shep-ai/cli:latest
-docker run ghcr.io/shep-ai/cli --version
+docker pull ghcr.io/shep-ai/shep:latest
+docker run ghcr.io/shep-ai/shep --version
 
 # Specific version
-docker pull ghcr.io/shep-ai/cli:v1.0.0
+docker pull ghcr.io/shep-ai/shep:v1.0.0
 
 # Specific commit (for testing)
-docker pull ghcr.io/shep-ai/cli:sha-abc123...
+docker pull ghcr.io/shep-ai/shep:sha-abc123...
 ```
 
 ### Image Details

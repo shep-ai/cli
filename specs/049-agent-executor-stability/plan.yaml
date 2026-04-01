@@ -18,7 +18,7 @@ technologies:
   - SQLite (AgentRun persistence)
   - Vitest (unit testing)
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/211
+  - https://github.com/shep-ai/shep/issues/211
 
 # Structured implementation phases
 phases:

@@ -46,7 +46,7 @@ content: |
   - [ ] Workflow runs shep feat new with a randomized prompt
   - [ ] Feature is created, implemented, pushed, PR opened, and merged by shep
   - [ ] Workflow polls shep feat show until completion or failure
-  - [ ] CI passes on the shep-ai/cli PR
+  - [ ] CI passes on the shep-ai/shep PR
 
   ## Affected Areas
 

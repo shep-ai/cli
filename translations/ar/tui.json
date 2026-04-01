@@ -1,0 +1,130 @@
+{
+  "prompts": {
+    "selectAgent": {
+      "message": "اختر وكيل البرمجة بالذكاء الاصطناعي",
+      "choices": {
+        "claudeCode": {
+          "name": "Claude Code",
+          "description": "واجهة سطر أوامر Claude Code من Anthropic"
+        },
+        "geminiCli": {
+          "name": "Gemini CLI",
+          "description": "واجهة سطر أوامر Gemini من Google"
+        },
+        "codexCli": {
+          "name": "Codex CLI",
+          "description": "وكيل Codex CLI من OpenAI للطرفية (نماذج GPT)"
+        },
+        "cursor": {
+          "name": "Cursor",
+          "description": "وكيل البرمجة بالذكاء الاصطناعي Cursor"
+        },
+        "devMock": {
+          "name": "Dev (Mock)",
+          "description": "محاكاة تطوير محلية — لا يتطلب ملف وكيل ثنائي"
+        },
+        "aider": {
+          "name": "Aider",
+          "disabled": "(قريبًا)"
+        },
+        "continue": {
+          "name": "Continue",
+          "disabled": "(قريبًا)"
+        }
+      }
+    },
+    "selectIde": {
+      "message": "اختر بيئة التطوير المفضلة"
+    },
+    "selectAuthMethod": {
+      "message": "اختر طريقة المصادقة",
+      "choices": {
+        "session": {
+          "name": "استخدام الجلسة الحالية",
+          "description": "استخدام مصادقة Claude Code المدمجة"
+        },
+        "token": {
+          "name": "استخدام رمز API",
+          "description": "تقديم مفتاح API من Anthropic"
+        }
+      }
+    },
+    "enterApiKey": "أدخل مفتاح API الخاص بك من Anthropic",
+    "prdReview": {
+      "reviewComplete": "اكتملت المراجعة{{changeLabel}}. ماذا تريد أن تفعل؟",
+      "changeLabel_one": " ({{count}} تغيير)",
+      "changeLabel_other": " ({{count}} تغييرات)",
+      "approveAndContinue": "الموافقة والمتابعة",
+      "approveDescription": "قبول المتطلبات والانتقال إلى البحث",
+      "rejectAndIterate": "الرفض وإعادة المحاولة",
+      "rejectDescription": "تقديم ملاحظات وإعادة تشغيل المتطلبات",
+      "feedbackPrompt": "ما الذي يحتاج إلى تغيير؟ (ملاحظات لإعادة المحاولة)",
+      "feedbackRequired": "الملاحظات مطلوبة للرفض"
+    },
+    "selectLanguage": {
+      "message": "اختر لغة العرض"
+    }
+  },
+  "wizards": {
+    "onboarding": {
+      "welcomeTitle": "مرحبًا بك في Shep AI CLI",
+      "welcomeSubtitle": "لنقم بإعداد بيئتك في 3 خطوات سريعة.",
+      "prerequisiteWarning": "متطلب أساسي: ",
+      "prerequisiteLabel": "GitHub CLI (gh)",
+      "prerequisiteDescription": "مطلوب لإمكانيات الإصلاح الذاتي الكاملة لـ CI/CD.",
+      "installFrom": "قم بتثبيته من: ",
+      "installUrl": "https://cli.github.com/",
+      "setupComplete": "اكتمل الإعداد! أنت جاهز لاستخدام Shep."
+    },
+    "agentConfig": {
+      "enterApiKey": "أدخل مفتاح API الخاص بك من Anthropic"
+    },
+    "githubImport": {
+      "methodMessage": "كيف تريد إضافة مستودع GitHub؟",
+      "pasteUrl": "لصق رابط GitHub",
+      "pasteUrlDescription": "أدخل رابط مستودع GitHub أو الاختصار owner/repo",
+      "browseRepos": "تصفح مستودعاتي",
+      "browseReposDescription": "البحث والاختيار من مستودعات GitHub الخاصة بك",
+      "enterUrl": "أدخل رابط مستودع GitHub أو owner/repo",
+      "urlRequired": "الرابط مطلوب",
+      "invalidUrlFormat": "تنسيق رابط GitHub غير صالح. استخدم https://github.com/owner/repo أو owner/repo",
+      "selectRepo": "اختر مستودعًا للاستيراد",
+      "noRepos": "لم يتم العثور على مستودعات. تأكد من وجود مستودعات على GitHub.",
+      "cloneDestination": "وجهة الاستنساخ (اتركها فارغة للافتراضي)"
+    },
+    "mergeReview": {
+      "message": "راجع الدمج. ماذا تريد أن تفعل؟",
+      "approveAndMerge": "الموافقة والدمج",
+      "approveDescription": "قبول التغييرات ودمج الفرع",
+      "reject": "رفض",
+      "rejectDescription": "تقديم ملاحظات — سيتم تكرار التنفيذ",
+      "rejectFeedback": "ما الذي يحتاج إلى تغيير قبل الدمج؟",
+      "approveComment": "أي تعليقات؟ (اختياري، اضغط Enter للتخطي)",
+      "feedbackRequired": "الملاحظات مطلوبة للرفض"
+    },
+    "planReview": {
+      "message": "راجع خطة التنفيذ. ماذا تريد أن تفعل؟",
+      "approveAndContinue": "الموافقة والمتابعة",
+      "approveDescription": "قبول الخطة والانتقال إلى التنفيذ",
+      "rejectAndIterate": "الرفض وإعادة المحاولة",
+      "rejectDescription": "تقديم ملاحظات وإعادة تشغيل التخطيط",
+      "rejectFeedback": "ما الذي يحتاج إلى تغيير في الخطة؟",
+      "approveComment": "أي تعليقات؟ (اختياري، اضغط Enter للتخطي)",
+      "feedbackRequired": "الملاحظات مطلوبة للرفض"
+    },
+    "workflowDefaults": {
+      "message": "اختر الإعدادات الافتراضية لسير العمل للميزات الجديدة",
+      "instructions": "(مسافة للتبديل، Enter للتأكيد)",
+      "allowPrd": "السماح بـ PRD",
+      "allowPrdDescription": "الموافقة التلقائية على مرحلة المتطلبات",
+      "allowPlan": "السماح بالخطة",
+      "allowPlanDescription": "الموافقة التلقائية على مرحلة التخطيط",
+      "allowMerge": "السماح بالدمج",
+      "allowMergeDescription": "الموافقة التلقائية والدمج التلقائي بعد التنفيذ",
+      "pushOnFinish": "الدفع عند الانتهاء",
+      "pushOnFinishDescription": "دفع الفرع إلى الخادم البعيد عند اكتمال التنفيذ",
+      "createPr": "إنشاء PR",
+      "createPrDescription": "فتح طلب سحب عند اكتمال التنفيذ"
+    }
+  }
+}

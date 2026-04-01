@@ -22,7 +22,7 @@ technologies:
   - tsyringe — DI wiring unchanged; getSupportedModels added to existing token
 
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/229
+  - https://github.com/shep-ai/shep/issues/229
   - https://ui.shadcn.com/docs/components/combobox
 
 decisions:

@@ -39,11 +39,12 @@ import {
 import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
 import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
 import { colors, fmt, messages } from '../ui/index.js';
+import { getCliI18n } from '../i18n.js';
 
 function parsePort(value: string): number {
   const port = parseInt(value, 10);
   if (isNaN(port) || port < 1024 || port > 65535) {
-    throw new InvalidArgumentError('Port must be an integer between 1024 and 65535');
+    throw new InvalidArgumentError(getCliI18n().t('cli:commands.ui.portValidation'));
   }
   return port;
 }
@@ -52,10 +53,11 @@ function parsePort(value: string): number {
  * Create the ui command
  */
 export function createUiCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('ui')
-    .description('Start the Shep web UI')
-    .option('-p, --port <number>', 'Port number (1024-65535)', parsePort)
-    .option('--no-open', 'Do not auto-open browser')
+    .description(t('cli:commands.ui.description'))
+    .option('-p, --port <number>', t('cli:commands.ui.portOption'), parsePort)
+    .option('--no-open', t('cli:commands.ui.noOpenOption'))
     .addHelpText(
       'after',
       `
@@ -75,8 +77,10 @@ Examples:
         setVersionEnvVars(versionService.getVersion());
 
         messages.newline();
-        console.log(fmt.heading('Shep Web UI'));
-        console.log(colors.muted(`Starting web server${dev ? ' (dev mode)' : ''}...`));
+        console.log(fmt.heading(t('cli:commands.ui.heading')));
+        console.log(
+          colors.muted(dev ? t('cli:commands.ui.startingDev') : t('cli:commands.ui.starting'))
+        );
         messages.newline();
 
         const service = container.resolve<IWebServerService>('IWebServerService');
@@ -106,8 +110,8 @@ Examples:
         getPrSyncWatcher().start();
 
         const url = `http://localhost:${port}`;
-        messages.success(`Server ready at ${fmt.code(url)}`);
-        messages.info('Press Ctrl+C to stop');
+        messages.success(t('cli:commands.ui.serverReady', { url: fmt.code(url) }));
+        messages.info(t('cli:commands.ui.pressCtrlC'));
         messages.newline();
 
         // Auto-open browser (unless --no-open)
@@ -123,7 +127,7 @@ Examples:
           if (isShuttingDown) return;
           isShuttingDown = true;
           messages.newline();
-          messages.info('Shutting down...');
+          messages.info(t('cli:commands.ui.shuttingDown'));
 
           // Force exit after 5s if graceful shutdown stalls
           const forceExit = setTimeout(() => process.exit(0), 5000);
@@ -139,7 +143,7 @@ Examples:
         process.on('SIGTERM', shutdown);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to start web UI', err);
+        messages.error(t('cli:commands.ui.failedToStart'), err);
         process.exitCode = 1;
       }
     });

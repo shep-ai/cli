@@ -21,7 +21,7 @@ status:
     - plan
     - phase-1
     - phase-2
-prUrl: https://github.com/shep-ai/cli/pull/59
+prUrl: https://github.com/shep-ai/shep/pull/59
 reviewLoop:
   iteration: 0
   maxIterations: 5

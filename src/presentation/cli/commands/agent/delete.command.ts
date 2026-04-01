@@ -12,12 +12,14 @@ import { container } from '@/infrastructure/di/container.js';
 import { DeleteAgentRunUseCase } from '@/application/use-cases/agents/delete-agent-run.use-case.js';
 import { colors, messages } from '../../ui/index.js';
 import { resolveAgentRun } from './resolve-run.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createDeleteCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('delete')
-    .description('Delete an agent run record')
-    .argument('<id>', 'Agent run ID (or prefix)')
-    .option('--force', 'Force delete even if running')
+    .description(t('cli:commands.agent.delete.description'))
+    .argument('<id>', t('cli:commands.agent.delete.idArgument'))
+    .option('--force', t('cli:commands.agent.delete.forceOption'))
     .action(async (id: string, opts: { force?: boolean }) => {
       try {
         const resolved = await resolveAgentRun(id);
@@ -40,14 +42,18 @@ export function createDeleteCommand(): Command {
         const result = await useCase.execute(resolved.run.id);
 
         if (result.deleted) {
-          messages.success(`Deleted ${colors.accent(resolved.run.id.substring(0, 8))}`);
+          messages.success(
+            t('cli:commands.agent.delete.deletedSuccess', {
+              id: colors.accent(resolved.run.id.substring(0, 8)),
+            })
+          );
         } else {
           messages.error(result.reason);
           process.exitCode = 1;
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to delete agent run', err);
+        messages.error(t('cli:commands.agent.delete.failedToDelete'), err);
         process.exitCode = 1;
       }
     });

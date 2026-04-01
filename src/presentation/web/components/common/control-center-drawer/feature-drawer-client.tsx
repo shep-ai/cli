@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -66,6 +67,7 @@ export function FeatureDrawerClient({
   interactiveAgentEnabled = true,
 }: FeatureDrawerClientProps) {
   const featureFlags = useFeatureFlags();
+  const { t } = useTranslation('web');
   const router = useRouter();
   const rejectSound = useSoundAction('reject');
 
@@ -616,7 +618,11 @@ export function FeatureDrawerClient({
                     <TooltipTrigger asChild>
                       <span>
                         <ActionButton
-                          label={isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                          label={
+                            isFeatureDeployActive
+                              ? t('featureDrawer.stopDevServer')
+                              : t('featureDrawer.startDevServer')
+                          }
                           onClick={isFeatureDeployActive ? deployAction.stop : deployAction.deploy}
                           loading={deployAction.deployLoading || deployAction.stopLoading}
                           error={!!deployAction.deployError}
@@ -628,7 +634,9 @@ export function FeatureDrawerClient({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {isFeatureDeployActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                      {isFeatureDeployActive
+                        ? t('featureDrawer.stopDevServer')
+                        : t('featureDrawer.startDevServer')}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -649,7 +657,7 @@ export function FeatureDrawerClient({
                 type="button"
                 onClick={handleCopyId}
                 className="text-muted-foreground hover:text-foreground inline-flex items-center rounded p-0.5 transition-colors"
-                aria-label="Copy feature ID"
+                aria-label={t('featureDrawer.copyFeatureId')}
                 data-testid="feature-drawer-copy-id"
               >
                 {idCopied ? (
@@ -668,7 +676,7 @@ export function FeatureDrawerClient({
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label="Unarchive feature"
+                          aria-label={t('featureDrawer.unarchiveFeature')}
                           disabled={isArchiving}
                           className="text-muted-foreground hover:text-primary"
                           data-testid="feature-drawer-unarchive"
@@ -681,7 +689,7 @@ export function FeatureDrawerClient({
                           )}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Unarchive feature</TooltipContent>
+                      <TooltipContent>{t('featureDrawer.unarchiveFeature')}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 ) : featureNode.state !== 'deleting' ? (
@@ -691,7 +699,7 @@ export function FeatureDrawerClient({
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label="Archive feature"
+                          aria-label={t('featureDrawer.archiveFeature')}
                           disabled={isArchiving}
                           className="text-muted-foreground hover:text-foreground"
                           data-testid="feature-drawer-archive"
@@ -704,14 +712,14 @@ export function FeatureDrawerClient({
                           )}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Archive feature</TooltipContent>
+                      <TooltipContent>{t('featureDrawer.archiveFeature')}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 ) : null}
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Delete feature"
+                  aria-label={t('featureDrawer.deleteFeature')}
                   disabled={isDeleting}
                   className="text-muted-foreground hover:text-destructive"
                   data-testid="feature-drawer-delete"

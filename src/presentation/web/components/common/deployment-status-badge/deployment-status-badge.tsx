@@ -22,13 +22,13 @@ export function DeploymentStatusBadge({ status, url, targetId }: DeploymentStatu
       return (
         <>
           <Badge className="border-transparent bg-blue-50 text-blue-700 hover:bg-blue-50">
-            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" />
             Starting...
             {showLogButton ? (
               <button
                 type="button"
                 aria-label="View server logs"
-                className="ml-1.5 inline-flex items-center rounded-sm p-0.5 hover:bg-blue-100"
+                className="ms-1.5 inline-flex items-center rounded-sm p-0.5 hover:bg-blue-100"
                 onClick={(e) => {
                   e.stopPropagation();
                   setLogViewerOpen(true);
@@ -51,7 +51,7 @@ export function DeploymentStatusBadge({ status, url, targetId }: DeploymentStatu
       return (
         <>
           <Badge className="border-transparent bg-green-50 text-green-700 hover:bg-green-50">
-            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-green-500" />
+            <span className="me-1 inline-block h-2 w-2 rounded-full bg-green-500" />
             {url ? (
               <a
                 href={url}
@@ -70,7 +70,7 @@ export function DeploymentStatusBadge({ status, url, targetId }: DeploymentStatu
               <button
                 type="button"
                 aria-label="View server logs"
-                className="ml-1.5 inline-flex items-center rounded-sm p-0.5 hover:bg-green-100"
+                className="ms-1.5 inline-flex items-center rounded-sm p-0.5 hover:bg-green-100"
                 onClick={(e) => {
                   e.stopPropagation();
                   setLogViewerOpen(true);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
   Check,
@@ -176,6 +177,7 @@ function formatRelativeTime(timestamp: string | number): string {
 }
 
 function FeatureInfo({ data }: { data: FeatureNodeData }) {
+  const { t } = useTranslation('web');
   const showSummary =
     Boolean(data.summary) && !(data.userQuery && data.summary?.trim() === data.userQuery.trim());
 
@@ -222,7 +224,7 @@ function FeatureInfo({ data }: { data: FeatureNodeData }) {
           </div>
         ) : null}
         {data.createdAt ? (
-          <DetailRow label="Created" value={formatRelativeTime(data.createdAt)} />
+          <DetailRow label={t('overviewTab.created')} value={formatRelativeTime(data.createdAt)} />
         ) : null}
       </div>
     </>
@@ -269,7 +271,7 @@ function FeaturePrInfo({
           <div data-testid="pr-merge-conflict" className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-medium">Merge Status</span>
             <Badge className="border-transparent bg-orange-50 text-orange-700 hover:bg-orange-50">
-              <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+              <AlertTriangle className="me-1 h-3.5 w-3.5" />
               Conflicts
             </Badge>
           </div>
@@ -320,6 +322,7 @@ function useElapsedTime(startedAt?: number): string | null {
 }
 
 function FeatureDetails({ data }: { data: FeatureNodeData }) {
+  const { t } = useTranslation('web');
   const isRunning = data.state === 'running' || data.state === 'action-required';
   const elapsedTime = useElapsedTime(isRunning ? data.startedAt : undefined);
   const hasAnyDetail =
@@ -344,12 +347,16 @@ function FeatureDetails({ data }: { data: FeatureNodeData }) {
           </div>
         ) : null}
         {data.agentType ? <AgentDetailRow agentType={data.agentType} /> : null}
-        {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
+        {data.runtime ? <DetailRow label={t('overviewTab.runtime')} value={data.runtime} /> : null}
         {!data.runtime && elapsedTime ? (
-          <DetailRow label="Running for" value={elapsedTime} />
+          <DetailRow label={t('overviewTab.runningFor')} value={elapsedTime} />
         ) : null}
-        {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
-        {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
+        {data.blockedBy ? (
+          <DetailRow label={t('overviewTab.blockedBy')} value={data.blockedBy} />
+        ) : null}
+        {data.errorMessage ? (
+          <DetailRow label={t('overviewTab.error')} value={data.errorMessage} />
+        ) : null}
       </div>
     </>
   );
@@ -386,6 +393,7 @@ function SettingBadge({ enabled, label }: { enabled: boolean; label: string }) {
 }
 
 function FeatureSettings({ data }: { data: FeatureNodeData }) {
+  const { t } = useTranslation('web');
   const hasSettings =
     data.approvalGates != null ||
     data.push != null ||
@@ -417,9 +425,12 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
               Auto-Approve
             </span>
             <div className="flex flex-wrap gap-1.5">
-              <SettingBadge enabled={data.approvalGates.allowPrd} label="PRD" />
-              <SettingBadge enabled={data.approvalGates.allowPlan} label="Plan" />
-              <SettingBadge enabled={data.approvalGates.allowMerge} label="Merge" />
+              <SettingBadge enabled={data.approvalGates.allowPrd} label={t('overviewTab.prd')} />
+              <SettingBadge enabled={data.approvalGates.allowPlan} label={t('overviewTab.plan')} />
+              <SettingBadge
+                enabled={data.approvalGates.allowMerge}
+                label={t('overviewTab.merge')}
+              />
             </div>
           </div>
         ) : null}
@@ -430,9 +441,9 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
               Evidence
             </span>
             <div className="flex flex-wrap gap-1.5">
-              <SettingBadge enabled={data.enableEvidence} label="Collect" />
+              <SettingBadge enabled={data.enableEvidence} label={t('overviewTab.collect')} />
               {data.commitEvidence != null ? (
-                <SettingBadge enabled={data.commitEvidence} label="Add to PR" />
+                <SettingBadge enabled={data.commitEvidence} label={t('overviewTab.addToPr')} />
               ) : null}
             </div>
           </div>
@@ -448,16 +459,20 @@ function FeatureSettings({ data }: { data: FeatureNodeData }) {
               Git
             </span>
             <div className="flex flex-wrap gap-1.5">
-              {data.push != null ? <SettingBadge enabled={data.push} label="Push" /> : null}
-              {data.openPr != null ? <SettingBadge enabled={data.openPr} label="PR" /> : null}
+              {data.push != null ? (
+                <SettingBadge enabled={data.push} label={t('overviewTab.push')} />
+              ) : null}
+              {data.openPr != null ? (
+                <SettingBadge enabled={data.openPr} label={t('overviewTab.pr')} />
+              ) : null}
               {data.ciWatchEnabled != null ? (
-                <SettingBadge enabled={data.ciWatchEnabled} label="Watch" />
+                <SettingBadge enabled={data.ciWatchEnabled} label={t('overviewTab.watch')} />
               ) : null}
               {data.commitSpecs != null ? (
-                <SettingBadge enabled={data.commitSpecs} label="Commit Specs" />
+                <SettingBadge enabled={data.commitSpecs} label={t('overviewTab.commitSpecs')} />
               ) : null}
               {data.forkAndPr != null ? (
-                <SettingBadge enabled={data.forkAndPr} label="Fork & PR" />
+                <SettingBadge enabled={data.forkAndPr} label={t('overviewTab.forkAndPr')} />
               ) : null}
             </div>
           </div>

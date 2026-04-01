@@ -382,6 +382,62 @@ describe('GitPrService — Rebase & Sync', () => {
   });
 
   // -----------------------------------------------------------------------
+  // stash
+  // -----------------------------------------------------------------------
+  describe('stash', () => {
+    it('should return true when changes are stashed', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'Saved working directory and index state WIP on feat/x: abc1234 msg\n',
+        stderr: '',
+      });
+
+      const result = await service.stash('/repo', 'auto-stash');
+
+      expect(result).toBe(true);
+      expect(mockExec).toHaveBeenCalledWith('git', ['stash', 'push', '-m', 'auto-stash'], {
+        cwd: '/repo',
+      });
+    });
+
+    it('should return false when no local changes to save', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'No local changes to save\n',
+        stderr: '',
+      });
+
+      const result = await service.stash('/repo');
+
+      expect(result).toBe(false);
+      expect(mockExec).toHaveBeenCalledWith('git', ['stash', 'push'], { cwd: '/repo' });
+    });
+
+    it('should throw GitPrError on failure', async () => {
+      vi.mocked(mockExec).mockRejectedValueOnce(new Error('git stash failed'));
+
+      await expect(service.stash('/repo')).rejects.toThrow(GitPrError);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // stashPop
+  // -----------------------------------------------------------------------
+  describe('stashPop', () => {
+    it('should call git stash pop', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({ stdout: '', stderr: '' });
+
+      await service.stashPop('/repo');
+
+      expect(mockExec).toHaveBeenCalledWith('git', ['stash', 'pop'], { cwd: '/repo' });
+    });
+
+    it('should throw GitPrError on failure', async () => {
+      vi.mocked(mockExec).mockRejectedValueOnce(new Error('git stash pop failed'));
+
+      await expect(service.stashPop('/repo')).rejects.toThrow(GitPrError);
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // parseGitError extensions (regression + new patterns)
   // -----------------------------------------------------------------------
   describe('parseGitError — rebase/sync error classification', () => {

@@ -1608,7 +1608,7 @@ class App {
         children: {
           'shep-ai-cli': {
             type: 'repo',
-            fullName: 'shep-ai/cli',
+            fullName: 'shep-ai/shep',
             path: '/Users/developer/workspaces/shep-ai-cli',
           },
           'platform-api': {

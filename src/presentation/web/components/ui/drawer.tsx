@@ -59,14 +59,7 @@ function DrawerContent({
         )}
         style={
           {
-            '--initial-transform':
-              direction === 'right'
-                ? 'calc(100% + 8px)'
-                : direction === 'left'
-                  ? 'calc(-100% - 8px)'
-                  : direction === 'top'
-                    ? 'calc(-100% - 8px)'
-                    : 'calc(100% + 8px)',
+            '--initial-transform': 'calc(100% + 8px)',
             // Override vaul's user-select:none on [data-vaul-drawer] so text is selectable
             userSelect: 'text',
             ...((props.style as React.CSSProperties) ?? {}),
@@ -76,7 +69,7 @@ function DrawerContent({
       >
         {children}
         {showCloseButton ? (
-          <DrawerPrimitive.Close className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
+          <DrawerPrimitive.Close className="ring-offset-background focus:ring-ring absolute end-4 top-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
             <XIcon className="size-4" />
             <span className="sr-only">Close</span>
           </DrawerPrimitive.Close>

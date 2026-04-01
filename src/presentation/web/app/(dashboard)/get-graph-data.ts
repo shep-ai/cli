@@ -9,7 +9,8 @@ import type { IAgentRunRepository } from '@shepai/core/application/ports/output/
 import type { IDeploymentService } from '@shepai/core/application/ports/output/services/deployment-service.interface';
 import type { Repository } from '@shepai/core/domain/generated/output';
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
-import { layoutWithDagre, CANVAS_LAYOUT_DEFAULTS } from '@/lib/layout-with-dagre';
+import { layoutWithDagre, getCanvasLayoutDefaults } from '@/lib/layout-with-dagre';
+import { getLanguagePreference } from '@/lib/language';
 import { buildGraphNodes } from '@/app/build-graph-nodes';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -212,5 +213,6 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
     }
   }
 
-  return layoutWithDagre(nodes, edges, CANVAS_LAYOUT_DEFAULTS);
+  const { dir } = getLanguagePreference();
+  return layoutWithDagre(nodes, edges, getCanvasLayoutDefaults(dir));
 }

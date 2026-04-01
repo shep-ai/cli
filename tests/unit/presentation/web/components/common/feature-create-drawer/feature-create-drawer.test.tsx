@@ -211,7 +211,7 @@ describe('FeatureCreateDrawer', () => {
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         push: false,
         openPr: false,
-        fast: false,
+        fast: true,
       });
       expect(payload).toHaveProperty('sessionId');
       expect(payload).not.toHaveProperty('name');
@@ -249,6 +249,8 @@ describe('FeatureCreateDrawer', () => {
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
+      // Turn off fast mode first so PRD/Plan switches are enabled
+      await user.click(screen.getByLabelText('Fast Mode'));
       await user.click(screen.getByLabelText('PRD'));
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
@@ -265,6 +267,8 @@ describe('FeatureCreateDrawer', () => {
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
+      // Turn off fast mode first so PRD/Plan switches are enabled
+      await user.click(screen.getByLabelText('Fast Mode'));
       await user.click(screen.getByLabelText('PRD'));
       await user.click(screen.getByLabelText('Plan'));
       await user.click(screen.getByLabelText('Merge'));
@@ -294,10 +298,19 @@ describe('FeatureCreateDrawer', () => {
   });
 
   describe('switch reset on close', () => {
-    it('resets all switches to unchecked after close and reopen', async () => {
+    it('resets all switches to defaults after close and reopen', async () => {
       const onClose = vi.fn();
       const onSubmit = vi.fn();
       const user = userEvent.setup();
+      const defaults: WorkflowDefaults = {
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        push: false,
+        openPr: false,
+        ciWatchEnabled: true,
+        enableEvidence: false,
+        commitEvidence: false,
+        fast: false,
+      };
       const { rerender } = render(
         <DrawerCloseGuardProvider>
           <FeatureCreateDrawer
@@ -305,6 +318,7 @@ describe('FeatureCreateDrawer', () => {
             onClose={onClose}
             onSubmit={onSubmit}
             repositoryPath="/repo"
+            workflowDefaults={defaults}
           />
         </DrawerCloseGuardProvider>
       );
@@ -324,6 +338,7 @@ describe('FeatureCreateDrawer', () => {
             onClose={onClose}
             onSubmit={onSubmit}
             repositoryPath="/repo"
+            workflowDefaults={defaults}
           />
         </DrawerCloseGuardProvider>
       );
@@ -387,7 +402,16 @@ describe('FeatureCreateDrawer', () => {
 
     it('clicking PRD switch toggles it on', async () => {
       const user = userEvent.setup();
-      renderDrawer();
+      const defaults: WorkflowDefaults = {
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        push: false,
+        openPr: false,
+        ciWatchEnabled: true,
+        enableEvidence: false,
+        commitEvidence: false,
+        fast: false,
+      };
+      renderDrawer({ workflowDefaults: defaults });
 
       const prdSwitch = screen.getByLabelText('PRD');
       expect(prdSwitch).not.toBeChecked();
@@ -506,8 +530,9 @@ describe('FeatureCreateDrawer', () => {
       // Check "Create PR" (which forces push=true)
       await user.click(screen.getByLabelText('PR'));
 
-      // Check "Fast Mode"
+      // Turn off fast mode so PRD/Plan switches can be toggled
       await user.click(screen.getByLabelText('Fast Mode'));
+      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
 
       // Select a parent feature
       await user.click(screen.getByTestId('parent-feature-combobox'));
@@ -523,7 +548,8 @@ describe('FeatureCreateDrawer', () => {
 
       // Assert all fields are reset to defaults (component is still mounted)
       expect(screen.getByPlaceholderText(descriptionPlaceholder)).toHaveValue('');
-      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
+      // Fast mode resets to default (checked)
+      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
       expect(screen.getByLabelText('PRD')).not.toBeChecked();
       expect(screen.getByLabelText('Plan')).not.toBeChecked();
       expect(screen.getByLabelText('Merge')).not.toBeChecked();
@@ -701,14 +727,51 @@ describe('FeatureCreateDrawer', () => {
       expect(screen.getByLabelText('Fast Mode')).toBeInTheDocument();
     });
 
-    it('fast mode is unchecked by default', () => {
+    it('fast mode is checked by default (no workflowDefaults)', () => {
       renderDrawer();
+      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
+    });
+
+    it('fast mode respects workflowDefaults.fast=true', () => {
+      const defaults: WorkflowDefaults = {
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        push: false,
+        openPr: false,
+        ciWatchEnabled: true,
+        enableEvidence: false,
+        commitEvidence: false,
+        fast: true,
+      };
+      renderDrawer({ workflowDefaults: defaults });
+      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
+    });
+
+    it('fast mode respects workflowDefaults.fast=false', () => {
+      const defaults: WorkflowDefaults = {
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        push: false,
+        openPr: false,
+        ciWatchEnabled: true,
+        enableEvidence: false,
+        commitEvidence: false,
+        fast: false,
+      };
+      renderDrawer({ workflowDefaults: defaults });
       expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
     });
 
     it('toggling fast mode checkbox updates form state', async () => {
       const user = userEvent.setup();
-      renderDrawer();
+      const defaults: WorkflowDefaults = {
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        push: false,
+        openPr: false,
+        ciWatchEnabled: true,
+        enableEvidence: false,
+        commitEvidence: false,
+        fast: false,
+      };
+      renderDrawer({ workflowDefaults: defaults });
 
       const checkbox = screen.getByLabelText('Fast Mode');
       expect(checkbox).not.toBeChecked();
@@ -722,7 +785,7 @@ describe('FeatureCreateDrawer', () => {
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Fix the typo');
-      await user.click(screen.getByLabelText('Fast Mode'));
+      // Fast mode is on by default, just submit
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
       expect(onSubmit).toHaveBeenCalledOnce();
@@ -735,6 +798,8 @@ describe('FeatureCreateDrawer', () => {
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Fix the typo');
+      // Toggle fast mode off (it's on by default)
+      await user.click(screen.getByLabelText('Fast Mode'));
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
       expect(onSubmit).toHaveBeenCalledOnce();
@@ -752,19 +817,20 @@ describe('FeatureCreateDrawer', () => {
       expect(screen.getByLabelText('Fast Mode')).toBeDisabled();
     });
 
-    it('fast mode resets to unchecked after submit', async () => {
+    it('fast mode resets to default after submit', async () => {
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My Feature');
+      // Toggle fast mode off then submit
       await user.click(screen.getByLabelText('Fast Mode'));
-      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
+      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
 
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
-      // After submit, form resets — fast mode should be unchecked
-      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
+      // After submit, form resets — fast mode should be back to default (checked)
+      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
     });
   });
 
@@ -1288,6 +1354,7 @@ describe('FeatureCreateDrawer', () => {
         ciWatchEnabled: true,
         enableEvidence: false,
         commitEvidence: false,
+        fast: true,
       };
       const { rerender } = render(
         <DrawerCloseGuardProvider>

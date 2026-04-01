@@ -20,6 +20,7 @@ import {
   initializeSettings,
 } from '@/infrastructure/services/settings.service.js';
 import { messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 interface WorkflowOptions {
   allowPrd?: true;
@@ -35,15 +36,15 @@ interface WorkflowOptions {
  */
 export function createWorkflowCommand(): Command {
   return new Command('workflow')
-    .description('Configure default workflow behavior for new features')
-    .option('--allow-prd', 'Auto-approve requirements phase')
-    .option('--allow-plan', 'Auto-approve planning phase')
-    .option('--allow-merge', 'Auto-approve and auto-merge after implementation')
-    .option('--allow-all', 'Enable all approval gates')
-    .option('--push', 'Push branch to remote on completion')
-    .option('--no-push', 'Do not push branch on completion')
-    .option('--pr', 'Open PR on completion')
-    .option('--no-pr', 'Do not open PR on completion')
+    .description(getCliI18n().t('cli:commands.settings.workflow.description'))
+    .option('--allow-prd', getCliI18n().t('cli:commands.settings.workflow.allowPrdOption'))
+    .option('--allow-plan', getCliI18n().t('cli:commands.settings.workflow.allowPlanOption'))
+    .option('--allow-merge', getCliI18n().t('cli:commands.settings.workflow.allowMergeOption'))
+    .option('--allow-all', getCliI18n().t('cli:commands.settings.workflow.allowAllOption'))
+    .option('--push', getCliI18n().t('cli:commands.settings.workflow.pushOption'))
+    .option('--no-push', getCliI18n().t('cli:commands.settings.workflow.noPushOption'))
+    .option('--pr', getCliI18n().t('cli:commands.settings.workflow.prOption'))
+    .option('--no-pr', getCliI18n().t('cli:commands.settings.workflow.noPrOption'))
     .addHelpText(
       'after',
       `
@@ -119,25 +120,27 @@ Examples:
         resetSettings();
         initializeSettings(updatedSettings);
 
+        const t = getCliI18n().t;
         const enabled = [
-          workflowDefaults.allowPrd && 'Allow PRD',
-          workflowDefaults.allowPlan && 'Allow Plan',
-          workflowDefaults.allowMerge && 'Allow Merge',
-          workflowDefaults.pushOnImplementationComplete && 'Push',
-          workflowDefaults.openPrOnImplementationComplete && 'PR',
+          workflowDefaults.allowPrd && t('cli:commands.settings.workflow.allowPrd'),
+          workflowDefaults.allowPlan && t('cli:commands.settings.workflow.allowPlan'),
+          workflowDefaults.allowMerge && t('cli:commands.settings.workflow.allowMerge'),
+          workflowDefaults.pushOnImplementationComplete && t('cli:commands.settings.workflow.push'),
+          workflowDefaults.openPrOnImplementationComplete && t('cli:commands.settings.workflow.pr'),
         ].filter(Boolean);
 
-        const summary = enabled.length > 0 ? enabled.join(', ') : 'none';
-        messages.success(`Workflow defaults updated: ${summary}`);
+        const summary =
+          enabled.length > 0 ? enabled.join(', ') : t('cli:commands.settings.workflow.summaryNone');
+        messages.success(t('cli:commands.settings.workflow.success', { summary }));
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
 
         if (err.message.includes('force closed') || err.message.includes('User force closed')) {
-          messages.info('Configuration cancelled.');
+          messages.info(getCliI18n().t('cli:commands.settings.workflow.cancelled'));
           return;
         }
 
-        messages.error('Failed to configure workflow defaults', err);
+        messages.error(getCliI18n().t('cli:commands.settings.workflow.failed'), err);
         process.exitCode = 1;
       }
     });

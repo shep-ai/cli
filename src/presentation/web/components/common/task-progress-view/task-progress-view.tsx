@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2,
   Circle,
@@ -62,10 +63,11 @@ const defaultTaskConfig = {
 };
 
 export function TaskProgressView({ tasks }: TaskProgressViewProps) {
+  const { t } = useTranslation('web');
   if (tasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-4">
-        <p className="text-muted-foreground text-sm">No tasks defined yet</p>
+        <p className="text-muted-foreground text-sm">{t('taskProgress.noTasksDefined')}</p>
       </div>
     );
   }
@@ -85,6 +87,7 @@ export function TaskProgressView({ tasks }: TaskProgressViewProps) {
 // ── Progress Summary ─────────────────────────────────────────────────
 
 function ProgressSummary({ tasks }: { tasks: PlanTaskData[] }) {
+  const { t } = useTranslation('web');
   const counts = useMemo(() => {
     const done = tasks.filter((t) => t.state === 'Done').length;
     const wip = tasks.filter((t) => t.state === 'Work in Progress').length;
@@ -114,23 +117,33 @@ function ProgressSummary({ tasks }: { tasks: PlanTaskData[] }) {
       </div>
       <div className="flex flex-wrap gap-3">
         {counts.done > 0 ? (
-          <StatChip icon={Check} label="Done" count={counts.done} className="text-emerald-600" />
+          <StatChip
+            icon={Check}
+            label={t('taskProgress.done')}
+            count={counts.done}
+            className="text-emerald-600"
+          />
         ) : null}
         {counts.wip > 0 ? (
           <StatChip
             icon={Loader2}
-            label="In Progress"
+            label={t('taskProgress.inProgress')}
             count={counts.wip}
             className="text-blue-600"
           />
         ) : null}
         {counts.review > 0 ? (
-          <StatChip icon={Eye} label="Review" count={counts.review} className="text-amber-600" />
+          <StatChip
+            icon={Eye}
+            label={t('taskProgress.review')}
+            count={counts.review}
+            className="text-amber-600"
+          />
         ) : null}
         {counts.todo > 0 ? (
           <StatChip
             icon={Circle}
-            label="Todo"
+            label={t('taskProgress.todo')}
             count={counts.todo}
             className="text-muted-foreground"
           />
@@ -180,7 +193,7 @@ function TaskCard({ task, index }: { task: PlanTaskData; index: number }) {
         onClick={handleToggle}
         disabled={!hasDetails}
         className={cn(
-          'flex w-full items-start gap-2 px-3 py-2.5 text-left',
+          'flex w-full items-start gap-2 px-3 py-2.5 text-start',
           hasDetails && 'hover:bg-muted/50 cursor-pointer transition-colors'
         )}
       >
@@ -248,7 +261,7 @@ function ActionItemRow({ item }: { item: ActionItemData }) {
         ) : null}
       </div>
       {totalCriteria > 0 ? (
-        <div className="ml-5.5 flex flex-col gap-1">
+        <div className="ms-5.5 flex flex-col gap-1">
           {item.acceptanceCriteria.map((ac, acIndex) => (
             <AcceptanceCriterionRow key={ac.description || `ac-${acIndex}`} criterion={ac} />
           ))}

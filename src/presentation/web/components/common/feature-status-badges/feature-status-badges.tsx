@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
@@ -13,6 +14,7 @@ export interface FeatureStatusBadgesProps {
 }
 
 export function FeatureStatusBadges({ counts, className }: FeatureStatusBadgesProps) {
+  const { t } = useTranslation('web');
   const visibleStatuses = featureStatusOrder.filter((s) => counts[s] > 0);
 
   if (visibleStatuses.length === 0) return null;
@@ -23,7 +25,7 @@ export function FeatureStatusBadges({ counts, className }: FeatureStatusBadgesPr
       className={cn('flex flex-col items-center gap-1.5 py-1', className)}
     >
       {visibleStatuses.map((status) => {
-        const { icon: Icon, iconClass, bgClass, label } = featureStatusConfig[status];
+        const { icon: Icon, iconClass, bgClass, labelKey } = featureStatusConfig[status];
         return (
           <Tooltip key={status}>
             <TooltipTrigger asChild>
@@ -39,7 +41,7 @@ export function FeatureStatusBadges({ counts, className }: FeatureStatusBadgesPr
               </div>
             </TooltipTrigger>
             <TooltipContent side="right">
-              {label}: {counts[status]}
+              {t(labelKey)}: {counts[status]}
             </TooltipContent>
           </Tooltip>
         );

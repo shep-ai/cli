@@ -53,7 +53,7 @@ function ActionSoundButton({ action }: { action: SoundAction }) {
       className="min-w-[160px] font-mono text-xs"
     >
       {action}
-      <span className="text-muted-foreground ml-1 text-[10px]">
+      <span className="text-muted-foreground ms-1 text-[10px]">
         ({entry.sound} @ {entry.volume})
       </span>
     </Button>

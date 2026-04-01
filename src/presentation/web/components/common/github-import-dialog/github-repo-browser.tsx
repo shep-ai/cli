@@ -85,7 +85,7 @@ export function GitHubRepoBrowser({
           placeholder="Search repositories..."
           value={search}
           onChange={(e) => handleSearchChange(e.target.value)}
-          className="pl-9"
+          className="ps-9"
           disabled={disabled}
           aria-label="Search repositories"
         />
@@ -119,7 +119,7 @@ export function GitHubRepoBrowser({
               type="button"
               role="option"
               aria-selected={false}
-              className="hover:bg-accent flex w-full items-start gap-2 border-b px-3 py-2.5 text-left last:border-b-0 disabled:opacity-50"
+              className="hover:bg-accent flex w-full items-start gap-2 border-b px-3 py-2.5 text-start last:border-b-0 disabled:opacity-50"
               onClick={() => onSelect(repo.nameWithOwner)}
               disabled={disabled}
             >
@@ -132,12 +132,12 @@ export function GitHubRepoBrowser({
                   >
                     {repo.isPrivate ? (
                       <>
-                        <Lock className="mr-1 h-3 w-3" />
+                        <Lock className="me-1 h-3 w-3" />
                         Private
                       </>
                     ) : (
                       <>
-                        <Globe className="mr-1 h-3 w-3" />
+                        <Globe className="me-1 h-3 w-3" />
                         Public
                       </>
                     )}

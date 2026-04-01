@@ -48,9 +48,10 @@ RUN pnpm install --frozen-lockfile
 # Copy TypeSpec files (needed for code generation during build)
 COPY tsp/ ./tsp/
 
-# Copy source code
+# Copy source code and translations
 COPY src/ ./src/
 COPY packages/ ./packages/
+COPY translations/ ./translations/
 
 # Build TypeScript to JavaScript (includes prebuild hook that runs pnpm generate)
 RUN pnpm run build
@@ -81,5 +82,5 @@ COPY package.json ./
 # Switch to non-root user
 USER shep
 
-# CLI entrypoint - allows: docker run ghcr.io/shep-ai/cli --version
+# CLI entrypoint - allows: docker run ghcr.io/shep-ai/shep --version
 ENTRYPOINT ["node", "dist/presentation/cli/index.js"]

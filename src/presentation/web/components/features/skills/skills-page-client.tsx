@@ -78,7 +78,7 @@ export function SkillsPageClient({ skills }: SkillsPageClientProps) {
           placeholder="Search skills..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
+          className="ps-9"
         />
       </div>
 

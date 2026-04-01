@@ -10,6 +10,7 @@ import {
   Bell,
   Flag,
   Database,
+  Globe,
   Minus,
   Plus,
   ExternalLink,
@@ -18,6 +19,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -29,9 +31,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { updateSettingsAction } from '@/app/actions/update-settings';
-import { type AgentType, EditorType, TerminalType } from '@shepai/core/domain/generated/output';
+import {
+  type AgentType,
+  EditorType,
+  Language,
+  TerminalType,
+} from '@shepai/core/domain/generated/output';
 import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
+import { LanguageSettingsSection } from '@/components/features/settings/language-settings-section';
 import { TimeoutSlider } from '@/components/features/settings/timeout-slider';
 import type {
   Settings,
@@ -56,15 +64,16 @@ const SHELL_OPTIONS = [
 ];
 
 const SECTIONS = [
-  { id: 'agent', label: 'Agent', icon: Bot },
-  { id: 'environment', label: 'Environment', icon: Terminal },
-  { id: 'workflow', label: 'Workflow', icon: GitBranch },
-  { id: 'ci', label: 'CI', icon: Activity },
-  { id: 'stage-timeouts', label: 'Timeouts', icon: Timer },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'feature-flags', label: 'Flags', icon: Flag },
-  { id: 'interactive-agent', label: 'Chat', icon: MessageSquare },
-  { id: 'database', label: 'Database', icon: Database },
+  { id: 'language', labelKey: 'settings.sections.language', icon: Globe },
+  { id: 'agent', labelKey: 'settings.sections.agent', icon: Bot },
+  { id: 'environment', labelKey: 'settings.sections.environment', icon: Terminal },
+  { id: 'workflow', labelKey: 'settings.sections.workflow', icon: GitBranch },
+  { id: 'ci', labelKey: 'settings.sections.ci', icon: Activity },
+  { id: 'stage-timeouts', labelKey: 'settings.sections.timeouts', icon: Timer },
+  { id: 'notifications', labelKey: 'settings.sections.notifications', icon: Bell },
+  { id: 'feature-flags', labelKey: 'settings.sections.flags', icon: Flag },
+  { id: 'interactive-agent', labelKey: 'settings.sections.chat', icon: MessageSquare },
+  { id: 'database', labelKey: 'settings.sections.database', icon: Database },
 ] as const;
 
 export interface SettingsPageClientProps {
@@ -75,6 +84,7 @@ export interface SettingsPageClientProps {
 }
 
 function useSaveIndicator() {
+  const { t } = useTranslation('web');
   const [isPending, startTransition] = useTransition();
   const [showSaving, setShowSaving] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
@@ -111,11 +121,11 @@ function useSaveIndicator() {
       startTransition(async () => {
         const result = await updateSettingsAction(payload);
         if (!result.success) {
-          toast.error(result.error ?? 'Failed to save settings');
+          toast.error(result.error ?? t('settings.failedToSave'));
         }
       });
     },
-    [startTransition]
+    [startTransition, t]
   );
 
   return { showSaving, showSaved, save };
@@ -239,6 +249,7 @@ function NumberStepper({
   step?: number;
   suffix?: string;
 }) {
+  const { t } = useTranslation('web');
   const numValue = value === '' ? undefined : parseInt(value, 10);
 
   const decrement = () => {
@@ -263,7 +274,7 @@ function NumberStepper({
           }}
           onMouseUp={onBlur}
           className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-7 cursor-pointer items-center justify-center border-r transition-colors"
-          aria-label="Decrease"
+          aria-label={t('common.decrease')}
         >
           <Minus className="h-3 w-3" />
         </button>
@@ -289,7 +300,7 @@ function NumberStepper({
           }}
           onMouseUp={onBlur}
           className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-7 cursor-pointer items-center justify-center border-l transition-colors"
-          aria-label="Increase"
+          aria-label={t('common.increase')}
         >
           <Plus className="h-3 w-3" />
         </button>
@@ -347,6 +358,7 @@ export function SettingsPageClient({
   dbFileSize,
   availableTerminals,
 }: SettingsPageClientProps) {
+  const { t } = useTranslation('web');
   const { showSaving, showSaved, save } = useSaveIndicator();
   const featureFlags = settings.featureFlags ?? {
     skills: false,
@@ -371,7 +383,13 @@ export function SettingsPageClient({
   // Filter to only show installed terminals
   const terminalOptions = availableTerminals
     ? availableTerminals.filter((t) => t.available)
-    : [{ id: TerminalType.System, name: 'System Terminal', available: true as const }];
+    : [
+        {
+          id: TerminalType.System,
+          name: t('settings.environment.systemTerminal'),
+          available: true as const,
+        },
+      ];
 
   // Workflow state
   const [openPr, setOpenPr] = useState(settings.workflow.openPrOnImplementationComplete);
@@ -385,6 +403,9 @@ export function SettingsPageClient({
   const [commitEvidence, setCommitEvidence] = useState(settings.workflow.commitEvidence);
   const [ciWatchEnabled, setCiWatchEnabled] = useState(settings.workflow.ciWatchEnabled !== false);
   const [hideCiStatus, setHideCiStatus] = useState(settings.workflow.hideCiStatus !== false);
+  const [defaultFastMode, setDefaultFastMode] = useState(
+    settings.workflow.defaultFastMode !== false
+  );
   const [ciMaxFix, setCiMaxFix] = useState(
     settings.workflow.ciMaxFixAttempts != null ? String(settings.workflow.ciMaxFixAttempts) : ''
   );
@@ -515,6 +536,7 @@ export function SettingsPageClient({
       commitEvidence?: boolean;
       ciWatchEnabled?: boolean;
       hideCiStatus?: boolean;
+      defaultFastMode?: boolean;
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
@@ -542,6 +564,7 @@ export function SettingsPageClient({
         commitEvidence: overrides.commitEvidence ?? commitEvidence,
         ciWatchEnabled: overrides.ciWatchEnabled ?? ciWatchEnabled,
         hideCiStatus: overrides.hideCiStatus ?? hideCiStatus,
+        defaultFastMode: overrides.defaultFastMode ?? defaultFastMode,
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
@@ -617,7 +640,7 @@ export function SettingsPageClient({
       <div className="bg-background/95 supports-backdrop-filter:bg-background/80 sticky top-0 z-10 grid grid-cols-1 gap-x-5 pt-6 pb-4 backdrop-blur lg:grid-cols-[1fr_280px]">
         <div className="flex items-center gap-2">
           <Settings2 className="text-muted-foreground h-4 w-4" />
-          <h1 className="text-sm font-bold tracking-tight">Settings</h1>
+          <h1 className="text-sm font-bold tracking-tight">{t('settings.title')}</h1>
           <span className="relative h-4 w-16">
             <span
               className={cn(
@@ -625,7 +648,7 @@ export function SettingsPageClient({
                 showSaving ? 'opacity-100' : 'opacity-0'
               )}
             >
-              Saving...
+              {t('settings.saving')}
             </span>
             <span
               className={cn(
@@ -634,7 +657,7 @@ export function SettingsPageClient({
               )}
             >
               <Check className="h-3 w-3" />
-              Saved
+              {t('settings.saved')}
             </span>
           </span>
           <nav className="ml-auto flex items-center gap-0.5">
@@ -654,7 +677,7 @@ export function SettingsPageClient({
                   )}
                 >
                   <SectionIcon className="h-3 w-3" />
-                  <span className="hidden sm:inline">{s.label}</span>
+                  <span className="hidden sm:inline">{t(s.labelKey)}</span>
                 </button>
               );
             })}
@@ -663,6 +686,16 @@ export function SettingsPageClient({
       </div>
 
       <div className="flex flex-col gap-3">
+        {/* ── Language ── */}
+        <div
+          id="section-language"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+        >
+          <LanguageSettingsSection
+            language={settings.user?.preferredLanguage ?? Language.English}
+          />
+        </div>
+
         {/* ── Agent ── */}
         <div
           id="section-agent"
@@ -670,13 +703,13 @@ export function SettingsPageClient({
         >
           <SettingsSection
             icon={Bot}
-            title="Agent"
-            description="AI coding agent and authentication"
+            title={t('settings.agent.sectionTitle')}
+            description={t('settings.agent.sectionDescription')}
             testId="agent-settings-section"
           >
             <SettingsRow
-              label="Agent & Model"
-              description="Provider and model for all operations"
+              label={t('settings.agent.agentAndModel')}
+              description={t('settings.agent.agentAndModelDescription')}
               htmlFor="agent-model-picker"
             >
               <AgentModelPicker
@@ -691,21 +724,20 @@ export function SettingsPageClient({
           <SectionHint
             links={[
               {
-                label: 'Agent system',
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/architecture/agent-system.md',
+                label: t('settings.agent.links.agentSystem'),
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/architecture/agent-system.md',
               },
               {
-                label: 'Adding agents',
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/development/adding-agents.md',
+                label: t('settings.agent.links.addingAgents'),
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/development/adding-agents.md',
               },
               {
-                label: 'Configuration guide',
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/guides/configuration.md',
+                label: t('settings.agent.links.configurationGuide'),
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/guides/configuration.md',
               },
             ]}
           >
-            Choose which AI coding agent powers your features. Each agent supports different models
-            and capabilities. Authentication is resolved automatically via your active session.
+            {t('settings.agent.hint')}
           </SectionHint>
         </div>
 
@@ -716,13 +748,13 @@ export function SettingsPageClient({
         >
           <SettingsSection
             icon={Terminal}
-            title="Environment"
-            description="Editor, shell, and terminal preferences"
+            title={t('settings.environment.sectionTitle')}
+            description={t('settings.environment.sectionDescription')}
             testId="environment-settings-section"
           >
             <SettingsRow
-              label="Default Editor"
-              description="Editor launched for file operations"
+              label={t('settings.environment.defaultEditor')}
+              description={t('settings.environment.defaultEditorDescription')}
               htmlFor="default-editor"
             >
               <Select
@@ -761,8 +793,8 @@ export function SettingsPageClient({
               </Select>
             </SettingsRow>
             <SettingsRow
-              label="Shell"
-              description="Default shell for generated scripts"
+              label={t('settings.environment.shell')}
+              description={t('settings.environment.shellDescription')}
               htmlFor="shell-preference"
             >
               <Select
@@ -795,8 +827,8 @@ export function SettingsPageClient({
               </Select>
             </SettingsRow>
             <SettingsRow
-              label="Terminal"
-              description="Terminal emulator for shell sessions"
+              label={t('settings.environment.terminal')}
+              description={t('settings.environment.terminalDescription')}
               htmlFor="terminal-preference"
             >
               <Select
@@ -832,13 +864,12 @@ export function SettingsPageClient({
           <SectionHint
             links={[
               {
-                label: 'Configuration guide',
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/guides/configuration.md',
+                label: t('settings.environment.links.configurationGuide'),
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/guides/configuration.md',
               },
             ]}
           >
-            Your preferred editor opens files for review. The shell setting controls generated
-            scripts. The terminal emulator is launched when opening shell sessions from the web UI.
+            {t('settings.environment.hint')}
           </SectionHint>
         </div>
 
@@ -849,14 +880,25 @@ export function SettingsPageClient({
         >
           <SettingsSection
             icon={GitBranch}
-            title="Workflow"
-            description="Automation behavior after implementation"
+            title={t('settings.workflow.title')}
+            description={t('settings.workflow.sectionDescription')}
             testId="workflow-settings-section"
           >
-            <SubsectionLabel>Approve</SubsectionLabel>
             <SwitchRow
-              label="Auto-approve PRD"
-              description="Skip manual review of requirements"
+              label={t('settings.workflow.defaultFastMode')}
+              description={t('settings.workflow.defaultFastModeDescription')}
+              id="default-fast-mode"
+              testId="switch-default-fast-mode"
+              checked={defaultFastMode}
+              onChange={(v) => {
+                setDefaultFastMode(v);
+                save(buildWorkflowPayload({ defaultFastMode: v }));
+              }}
+            />
+            <SubsectionLabel>{t('settings.workflow.subsections.approve')}</SubsectionLabel>
+            <SwitchRow
+              label={t('settings.workflow.autoApprovePrd')}
+              description={t('settings.workflow.autoApprovePrdDescription')}
               id="allow-prd"
               testId="switch-allow-prd"
               checked={allowPrd}
@@ -866,8 +908,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Auto-approve Plan"
-              description="Skip manual review of implementation plan"
+              label={t('settings.workflow.autoApprovePlan')}
+              description={t('settings.workflow.autoApprovePlanDescription')}
               id="allow-plan"
               testId="switch-allow-plan"
               checked={allowPlan}
@@ -877,8 +919,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Auto-approve Merge"
-              description="Merge without manual review"
+              label={t('settings.workflow.autoApproveMerge')}
+              description={t('settings.workflow.autoApproveMergeDescription')}
               id="allow-merge"
               testId="switch-allow-merge"
               checked={allowMerge}
@@ -887,10 +929,10 @@ export function SettingsPageClient({
                 save(buildWorkflowPayload({ allowMerge: v }));
               }}
             />
-            <SubsectionLabel>Evidence</SubsectionLabel>
+            <SubsectionLabel>{t('settings.workflow.subsections.evidence')}</SubsectionLabel>
             <SwitchRow
-              label="Collect evidence"
-              description="Capture screenshots and artifacts after implementation"
+              label={t('settings.workflow.collectEvidence')}
+              description={t('settings.workflow.collectEvidenceDescription')}
               id="enable-evidence"
               testId="switch-enable-evidence"
               checked={enableEvidence}
@@ -905,8 +947,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Add evidence to PR"
-              description="Include evidence in the pull request body"
+              label={t('settings.workflow.addEvidenceToPr')}
+              description={t('settings.workflow.addEvidenceToPrDescription')}
               id="commit-evidence"
               testId="switch-commit-evidence"
               checked={commitEvidence}
@@ -916,10 +958,10 @@ export function SettingsPageClient({
                 save(buildWorkflowPayload({ commitEvidence: v }));
               }}
             />
-            <SubsectionLabel>Git</SubsectionLabel>
+            <SubsectionLabel>{t('settings.workflow.subsections.git')}</SubsectionLabel>
             <SwitchRow
-              label="Push on complete"
-              description="Push to remote when implementation finishes"
+              label={t('settings.workflow.pushOnComplete')}
+              description={t('settings.workflow.pushOnCompleteDescription')}
               id="push-on-complete"
               testId="switch-push-on-complete"
               checked={pushOnComplete}
@@ -929,8 +971,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Open PR on complete"
-              description="Create a pull request when done"
+              label={t('settings.workflow.openPrOnComplete')}
+              description={t('settings.workflow.openPrOnCompleteDescription')}
               id="open-pr"
               testId="switch-open-pr"
               checked={openPr}
@@ -945,8 +987,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Watch CI after push"
-              description="Monitor CI and auto-fix failures. Disable to avoid rate limits."
+              label={t('settings.workflow.watchCiAfterPush')}
+              description={t('settings.workflow.watchCiAfterPushDescription')}
               id="ci-watch-enabled"
               testId="switch-ci-watch-enabled"
               checked={ciWatchEnabled}
@@ -959,17 +1001,16 @@ export function SettingsPageClient({
           <SectionHint
             links={[
               {
-                label: 'Approval gates',
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/016-hitl-approval-gates/spec.yaml',
+                label: t('settings.workflow.links.approvalGates'),
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/016-hitl-approval-gates/spec.yaml',
               },
               {
-                label: 'Push & PR flags',
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/037-feature-pr-push-flags/spec.yaml',
+                label: t('settings.workflow.links.pushAndPrFlags'),
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/037-feature-pr-push-flags/spec.yaml',
               },
             ]}
           >
-            Control how autonomous each feature run is. Auto-approve skips the human review pause at
-            each phase. Push and PR options control what happens after successful implementation.
+            {t('settings.workflow.hint')}
           </SectionHint>
         </div>
 
@@ -980,13 +1021,13 @@ export function SettingsPageClient({
         >
           <SettingsSection
             icon={Activity}
-            title="Continuous Integration"
-            description="Limits and timeouts for CI monitoring"
+            title={t('settings.ci.title')}
+            description={t('settings.ci.description')}
             testId="ci-settings-section"
           >
             <SettingsRow
-              label="Max fix attempts"
-              description="Agent retries on failing CI"
+              label={t('settings.ci.maxFixAttempts')}
+              description={t('settings.ci.maxFixAttemptsDescription')}
               htmlFor="ci-max-fix"
             >
               <NumberStepper
@@ -1003,8 +1044,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SettingsRow
-              label="Watch timeout"
-              description="Max wait for CI completion"
+              label={t('settings.ci.watchTimeout')}
+              description={t('settings.ci.watchTimeoutDescription')}
               htmlFor="ci-timeout"
             >
               <NumberStepper
@@ -1022,8 +1063,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SettingsRow
-              label="Max log size"
-              description="Truncate CI logs beyond this limit"
+              label={t('settings.ci.maxLogSize')}
+              description={t('settings.ci.maxLogSizeDescription')}
               htmlFor="ci-log-max"
             >
               <NumberStepper
@@ -1041,8 +1082,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SettingsRow
-              label="Poll interval"
-              description="How often to check GitHub for CI status updates"
+              label={t('settings.ci.pollInterval')}
+              description={t('settings.ci.pollIntervalDescription')}
               htmlFor="ci-poll-interval"
             >
               <NumberStepper
@@ -1061,8 +1102,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SwitchRow
-              label="Hide CI status"
-              description="Hide CI status badges from feature drawer and merge review"
+              label={t('settings.ci.hideCiStatus')}
+              description={t('settings.ci.hideCiStatusDescription')}
               id="hide-ci-status"
               testId="switch-hide-ci-status"
               checked={hideCiStatus}
@@ -1075,18 +1116,16 @@ export function SettingsPageClient({
           <SectionHint
             links={[
               {
-                label: 'CI/CD pipeline',
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/development/cicd.md',
+                label: t('settings.ci.links.cicdPipeline'),
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/development/cicd.md',
               },
               {
-                label: 'CI security gates',
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/003-cicd-security-gates/spec.md',
+                label: t('settings.ci.links.ciSecurityGates'),
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/003-cicd-security-gates/spec.md',
               },
             ]}
           >
-            When a feature completes, the agent can watch CI and auto-fix failures. These limits
-            prevent runaway retries and control how much log output is sent to the agent for
-            analysis.
+            {t('settings.ci.hint')}
           </SectionHint>
         </div>
 
@@ -1097,14 +1136,16 @@ export function SettingsPageClient({
         >
           <SettingsSection
             icon={Timer}
-            title="Stage Timeouts"
-            description="Maximum execution time per agent stage"
+            title={t('settings.stageTimeouts.title')}
+            description={t('settings.stageTimeouts.description')}
             testId="stage-timeouts-settings-section"
           >
-            <SubsectionLabel>Feature Agent</SubsectionLabel>
+            <SubsectionLabel>
+              {t('settings.stageTimeouts.subsections.featureAgent')}
+            </SubsectionLabel>
             <SettingsRow
-              label="Analyze"
-              description="Repository analysis timeout"
+              label={t('settings.stageTimeouts.analyze')}
+              description={t('settings.stageTimeouts.analyzeDescription')}
               htmlFor="timeout-analyze"
             >
               <TimeoutSlider
@@ -1120,8 +1161,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SettingsRow
-              label="Requirements"
-              description="Requirements gathering timeout"
+              label={t('settings.stageTimeouts.requirements')}
+              description={t('settings.stageTimeouts.requirementsDescription')}
               htmlFor="timeout-requirements"
             >
               <TimeoutSlider
@@ -1137,8 +1178,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SettingsRow
-              label="Research"
-              description="Technical research timeout"
+              label={t('settings.stageTimeouts.research')}
+              description={t('settings.stageTimeouts.researchDescription')}
               htmlFor="timeout-research"
             >
               <TimeoutSlider
@@ -1154,8 +1195,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SettingsRow
-              label="Plan"
-              description="Implementation planning timeout"
+              label={t('settings.stageTimeouts.plan')}
+              description={t('settings.stageTimeouts.planDescription')}
               htmlFor="timeout-plan"
             >
               <TimeoutSlider
@@ -1171,8 +1212,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SettingsRow
-              label="Implement"
-              description="Code implementation timeout"
+              label={t('settings.stageTimeouts.implement')}
+              description={t('settings.stageTimeouts.implementDescription')}
               htmlFor="timeout-implement"
             >
               <TimeoutSlider
@@ -1188,8 +1229,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SettingsRow
-              label="Merge"
-              description="PR creation and merge timeout"
+              label={t('settings.stageTimeouts.merge')}
+              description={t('settings.stageTimeouts.mergeDescription')}
               htmlFor="timeout-merge"
             >
               <TimeoutSlider
@@ -1204,10 +1245,12 @@ export function SettingsPageClient({
                 defaultSeconds={1800}
               />
             </SettingsRow>
-            <SubsectionLabel>Analyze Repository Agent</SubsectionLabel>
+            <SubsectionLabel>
+              {t('settings.stageTimeouts.subsections.analyzeRepoAgent')}
+            </SubsectionLabel>
             <SettingsRow
-              label="Analyze"
-              description="Repository analysis timeout"
+              label={t('settings.stageTimeouts.analyze')}
+              description={t('settings.stageTimeouts.analyzeDescription')}
               htmlFor="timeout-analyze-repo"
             >
               <TimeoutSlider
@@ -1223,12 +1266,7 @@ export function SettingsPageClient({
               />
             </SettingsRow>
           </SettingsSection>
-          <SectionHint>
-            Each agent has independently configurable stage timeouts. When a stage exceeds its
-            timeout, the agent is terminated. Longer timeouts are useful for complex
-            implementations. Feature agent defaults to 30 minutes per stage. Analyze repository
-            agent defaults to 10 minutes.
-          </SectionHint>
+          <SectionHint>{t('settings.stageTimeouts.hint')}</SectionHint>
         </div>
 
         {/* ── Notifications ── */}
@@ -1238,14 +1276,14 @@ export function SettingsPageClient({
         >
           <SettingsSection
             icon={Bell}
-            title="Notifications"
-            description="How and when you get notified"
+            title={t('settings.notifications.title')}
+            description={t('settings.notifications.sectionDescription')}
             testId="notification-settings-section"
           >
-            <SubsectionLabel>Channels</SubsectionLabel>
+            <SubsectionLabel>{t('settings.notifications.channels')}</SubsectionLabel>
             <SwitchRow
-              label="In-app"
-              description="Notifications inside the Shep UI"
+              label={t('settings.notifications.inAppLabel')}
+              description={t('settings.notifications.inAppDescription')}
               id="notif-in-app"
               testId="switch-in-app"
               checked={inApp}
@@ -1255,9 +1293,9 @@ export function SettingsPageClient({
               }}
             />
 
-            <SubsectionLabel>Agent Events</SubsectionLabel>
+            <SubsectionLabel>{t('settings.notifications.subsections.agentEvents')}</SubsectionLabel>
             <SwitchRow
-              label="Agent started"
+              label={t('settings.notifications.events.agentStarted')}
               id="notif-event-agentStarted"
               testId="switch-event-agentStarted"
               checked={events.agentStarted}
@@ -1268,7 +1306,7 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Phase completed"
+              label={t('settings.notifications.events.phaseCompleted')}
               id="notif-event-phaseCompleted"
               testId="switch-event-phaseCompleted"
               checked={events.phaseCompleted}
@@ -1279,7 +1317,7 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Waiting approval"
+              label={t('settings.notifications.events.waitingApproval')}
               id="notif-event-waitingApproval"
               testId="switch-event-waitingApproval"
               checked={events.waitingApproval}
@@ -1290,7 +1328,7 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Agent completed"
+              label={t('settings.notifications.events.agentCompleted')}
               id="notif-event-agentCompleted"
               testId="switch-event-agentCompleted"
               checked={events.agentCompleted}
@@ -1301,7 +1339,7 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Agent failed"
+              label={t('settings.notifications.events.agentFailed')}
               id="notif-event-agentFailed"
               testId="switch-event-agentFailed"
               checked={events.agentFailed}
@@ -1312,9 +1350,11 @@ export function SettingsPageClient({
               }}
             />
 
-            <SubsectionLabel>Pull Request Events</SubsectionLabel>
+            <SubsectionLabel>
+              {t('settings.notifications.subsections.pullRequestEvents')}
+            </SubsectionLabel>
             <SwitchRow
-              label="PR merged"
+              label={t('settings.notifications.events.prMerged')}
               id="notif-event-prMerged"
               testId="switch-event-prMerged"
               checked={events.prMerged}
@@ -1325,7 +1365,7 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="PR closed"
+              label={t('settings.notifications.events.prClosed')}
               id="notif-event-prClosed"
               testId="switch-event-prClosed"
               checked={events.prClosed}
@@ -1336,7 +1376,7 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="PR checks passed"
+              label={t('settings.notifications.events.prChecksPassed')}
               id="notif-event-prChecksPassed"
               testId="switch-event-prChecksPassed"
               checked={events.prChecksPassed}
@@ -1347,7 +1387,7 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="PR checks failed"
+              label={t('settings.notifications.events.prChecksFailed')}
               id="notif-event-prChecksFailed"
               testId="switch-event-prChecksFailed"
               checked={events.prChecksFailed}
@@ -1358,7 +1398,7 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="PR blocked"
+              label={t('settings.notifications.events.prBlocked')}
               id="notif-event-prBlocked"
               testId="switch-event-prBlocked"
               checked={events.prBlocked}
@@ -1369,7 +1409,7 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Merge review ready"
+              label={t('settings.notifications.events.mergeReviewReady')}
               id="notif-event-mergeReviewReady"
               testId="switch-event-mergeReviewReady"
               checked={events.mergeReviewReady}
@@ -1383,13 +1423,12 @@ export function SettingsPageClient({
           <SectionHint
             links={[
               {
-                label: 'Notification system',
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/021-agent-notifications/spec.yaml',
+                label: t('settings.notifications.links.notificationSystem'),
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/021-agent-notifications/spec.yaml',
               },
             ]}
           >
-            In-app toast notifications keep you in the loop. Fine-tune which agent lifecycle events
-            trigger a notification.
+            {t('settings.notifications.hint')}
           </SectionHint>
         </div>
 
@@ -1400,14 +1439,14 @@ export function SettingsPageClient({
         >
           <SettingsSection
             icon={Flag}
-            title="Feature Flags"
-            description="Enable or disable experimental features"
-            badge="Experimental"
+            title={t('settings.featureFlags.title')}
+            description={t('settings.featureFlags.sectionDescription')}
+            badge={t('settings.featureFlags.badge')}
             testId="feature-flags-settings-section"
           >
             <SwitchRow
-              label="Skills"
-              description="Enable the skills system for agent capabilities"
+              label={t('settings.featureFlags.skills')}
+              description={t('settings.featureFlags.skillsDescription')}
               id="flag-skills"
               testId="switch-flag-skills"
               checked={flags.skills}
@@ -1418,8 +1457,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Deployments"
-              description="Enable environment deployment workflows"
+              label={t('settings.featureFlags.deployments')}
+              description={t('settings.featureFlags.deploymentsDescription')}
               id="flag-envDeploy"
               testId="switch-flag-envDeploy"
               checked={flags.envDeploy}
@@ -1430,8 +1469,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Debug"
-              description="Show debug panels and verbose logging"
+              label={t('settings.featureFlags.debug')}
+              description={t('settings.featureFlags.debugDescription')}
               id="flag-debug"
               testId="switch-flag-debug"
               checked={flags.debug}
@@ -1442,8 +1481,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="GitHub Import"
-              description="Enable GitHub repository import in the web UI"
+              label={t('settings.featureFlags.githubImport')}
+              description={t('settings.featureFlags.githubImportDescription')}
               id="flag-githubImport"
               testId="switch-flag-githubImport"
               checked={flags.githubImport}
@@ -1454,8 +1493,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Adopt Branch"
-              description="Import existing branches as tracked features"
+              label={t('settings.featureFlags.adoptBranch')}
+              description={t('settings.featureFlags.adoptBranchDescription')}
               id="flag-adoptBranch"
               testId="switch-flag-adoptBranch"
               checked={flags.adoptBranch}
@@ -1466,8 +1505,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="Git Rebase & Sync"
-              description="Enable git rebase-on-main and sync-main operations"
+              label={t('settings.featureFlags.gitRebaseSync')}
+              description={t('settings.featureFlags.gitRebaseSyncDescription')}
               id="flag-gitRebaseSync"
               testId="switch-flag-gitRebaseSync"
               checked={flags.gitRebaseSync}
@@ -1478,8 +1517,8 @@ export function SettingsPageClient({
               }}
             />
             <SwitchRow
-              label="React File Manager"
-              description="Use the built-in React file manager instead of the native OS folder picker"
+              label={t('settings.featureFlags.reactFileManager')}
+              description={t('settings.featureFlags.reactFileManagerDescription')}
               id="flag-reactFileManager"
               testId="switch-flag-reactFileManager"
               checked={flags.reactFileManager}
@@ -1490,11 +1529,7 @@ export function SettingsPageClient({
               }}
             />
           </SettingsSection>
-          <SectionHint>
-            Experimental features that are still under development. Enable at your own risk — they
-            may change or be removed in future versions. Debug mode adds verbose logging useful for
-            troubleshooting.
-          </SectionHint>
+          <SectionHint>{t('settings.featureFlags.hint')}</SectionHint>
         </div>
 
         {/* ── Interactive Agent ── */}
@@ -1504,13 +1539,13 @@ export function SettingsPageClient({
         >
           <SettingsSection
             icon={MessageSquare}
-            title="Interactive Agent"
-            description="Chat tab settings for per-feature interactive agent sessions"
+            title={t('settings.interactiveAgent.title')}
+            description={t('settings.interactiveAgent.description')}
             testId="interactive-agent-settings-section"
           >
             <SwitchRow
-              label="Enable Chat tab"
-              description="Show the Chat tab on all feature detail pages"
+              label={t('settings.interactiveAgent.enableChatTab')}
+              description={t('settings.interactiveAgent.enableChatTabDescription')}
               id="interactive-agent-enabled"
               testId="switch-interactive-agent-enabled"
               checked={interactiveEnabled}
@@ -1526,8 +1561,8 @@ export function SettingsPageClient({
               }}
             />
             <SettingsRow
-              label="Auto-timeout"
-              description="Minutes of inactivity before the agent is stopped automatically (1–120)"
+              label={t('settings.interactiveAgent.autoTimeout')}
+              description={t('settings.interactiveAgent.autoTimeoutDescription')}
               htmlFor="interactive-agent-timeout"
             >
               <NumberStepper
@@ -1555,8 +1590,8 @@ export function SettingsPageClient({
               />
             </SettingsRow>
             <SettingsRow
-              label="Max concurrent sessions"
-              description="Maximum number of active interactive agent sessions at once (1–10)"
+              label={t('settings.interactiveAgent.maxConcurrentSessions')}
+              description={t('settings.interactiveAgent.maxConcurrentSessionsDescription')}
               htmlFor="interactive-agent-sessions"
             >
               <NumberStepper
@@ -1583,11 +1618,7 @@ export function SettingsPageClient({
               />
             </SettingsRow>
           </SettingsSection>
-          <SectionHint>
-            The Chat tab spawns a persistent agent process per feature. Auto-timeout stops idle
-            sessions automatically to conserve resources. The concurrent session cap prevents
-            runaway resource usage on developer machines.
-          </SectionHint>
+          <SectionHint>{t('settings.interactiveAgent.hint')}</SectionHint>
         </div>
 
         {/* ── Database ── */}
@@ -1597,11 +1628,14 @@ export function SettingsPageClient({
         >
           <SettingsSection
             icon={Database}
-            title="Database"
-            description="Local storage information"
+            title={t('settings.database.title')}
+            description={t('settings.database.sectionDescription')}
             testId="database-settings-section"
           >
-            <SettingsRow label="Location" description="Path to the local SQLite database">
+            <SettingsRow
+              label={t('settings.database.location')}
+              description={t('settings.database.locationDescription')}
+            >
               <span
                 className="text-muted-foreground max-w-50 truncate font-mono text-xs"
                 data-testid="shep-home-path"
@@ -1609,7 +1643,7 @@ export function SettingsPageClient({
                 {shepHome}
               </span>
             </SettingsRow>
-            <SettingsRow label="Size">
+            <SettingsRow label={t('settings.database.size')}>
               <span className="text-muted-foreground text-xs" data-testid="db-file-size">
                 {dbFileSize}
               </span>
@@ -1618,17 +1652,16 @@ export function SettingsPageClient({
           <SectionHint
             links={[
               {
-                label: 'Settings service',
-                href: 'https://github.com/shep-ai/cli/blob/main/docs/architecture/settings-service.md',
+                label: t('settings.database.links.settingsService'),
+                href: 'https://github.com/shep-ai/shep/blob/main/docs/architecture/settings-service.md',
               },
               {
-                label: 'Settings spec',
-                href: 'https://github.com/shep-ai/cli/blob/main/specs/005-global-settings-service/spec.md',
+                label: t('settings.database.links.settingsSpec'),
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/005-global-settings-service/spec.md',
               },
             ]}
           >
-            All settings are stored in a local SQLite database at ~/.shep/data. The database uses a
-            singleton record pattern with automatic migrations on startup.
+            {t('settings.database.hint')}
           </SectionHint>
         </div>
       </div>

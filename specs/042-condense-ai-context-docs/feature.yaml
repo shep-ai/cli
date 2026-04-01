@@ -4,7 +4,7 @@ feature:
   number: 42
   branch: feat/042-condense-ai-context-docs
   lifecycle: review
-  prUrl: https://github.com/shep-ai/cli/pull/129
+  prUrl: https://github.com/shep-ai/shep/pull/129
   createdAt: '2026-02-24T21:31:48Z'
 status:
   phase: in-review

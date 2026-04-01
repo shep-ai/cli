@@ -18,16 +18,17 @@ import {
 import { agentConfigWizard } from '../../../tui/wizards/agent-config.wizard.js';
 import { resetSettings, initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 /**
  * Create the agent configuration command
  */
 export function createAgentCommand(): Command {
   return new Command('agent')
-    .description('Configure AI coding agent')
-    .option('--agent <type>', 'Agent type (e.g., claude-code)')
-    .option('--auth <method>', 'Auth method (session or token)')
-    .option('--token <key>', 'API token for token-based auth')
+    .description(getCliI18n().t('cli:commands.settings.agent.description'))
+    .option('--agent <type>', getCliI18n().t('cli:commands.settings.agent.agentOption'))
+    .option('--auth <method>', getCliI18n().t('cli:commands.settings.agent.authOption'))
+    .option('--token <key>', getCliI18n().t('cli:commands.settings.agent.tokenOption'))
     .addHelpText(
       'after',
       `
@@ -45,7 +46,7 @@ Examples:
         if (isNonInteractive) {
           // Non-interactive: require --auth when --agent is provided (dev type defaults to session)
           if (!options.auth && options.agent !== 'dev') {
-            messages.error('--auth is required when using --agent flag');
+            messages.error(getCliI18n().t('cli:commands.settings.agent.authRequired'));
             process.exitCode = 1;
             return;
           }
@@ -72,17 +73,22 @@ Examples:
         resetSettings();
         initializeSettings(updatedSettings);
 
-        messages.success(`Agent configured: ${input.type} (${input.authMethod})`);
+        messages.success(
+          getCliI18n().t('cli:commands.settings.agent.success', {
+            type: input.type,
+            authMethod: input.authMethod,
+          })
+        );
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
 
         // Handle user cancellation (Ctrl+C) gracefully
         if (err.message.includes('force closed') || err.message.includes('User force closed')) {
-          messages.info('Configuration cancelled.');
+          messages.info(getCliI18n().t('cli:commands.settings.agent.cancelled'));
           return;
         }
 
-        messages.error('Failed to configure agent', err);
+        messages.error(getCliI18n().t('cli:commands.settings.agent.failed'), err);
         process.exitCode = 1;
       }
     });

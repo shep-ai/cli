@@ -12,12 +12,14 @@ import { container } from '@/infrastructure/di/container.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
 import { messages } from '../ui/index.js';
 import { stopDaemon } from './daemon/stop-daemon.js';
+import { getCliI18n } from '../i18n.js';
 
 /**
  * Create the stop command.
  */
 export function createStopCommand(): Command {
-  return new Command('stop').description('Stop the running Shep web UI daemon').action(async () => {
+  const t = getCliI18n().t;
+  return new Command('stop').description(t('cli:commands.stop.description')).action(async () => {
     const daemonService = container.resolve<IDaemonService>('IDaemonService');
 
     const state = await daemonService.read();
@@ -25,7 +27,7 @@ export function createStopCommand(): Command {
     // Print a user-facing message when no daemon state is recorded at all.
     // The alive-but-stale case (state exists, PID dead) is handled silently by stopDaemon.
     if (!state) {
-      messages.info('No Shep daemon is running.');
+      messages.info(t('cli:commands.stop.noDaemonRunning'));
     }
 
     await stopDaemon(daemonService);

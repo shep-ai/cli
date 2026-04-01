@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, Terminal, ArrowDown, Code, FileText } from 'lucide-react';
 import { EventLogViewer } from './event-log-viewer';
 
@@ -13,6 +14,7 @@ export interface LogTabProps {
 type ViewMode = 'structured' | 'raw';
 
 export function LogTab({ content, isConnected, error }: LogTabProps) {
+  const { t } = useTranslation('web');
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('structured');
@@ -51,7 +53,7 @@ export function LogTab({ content, isConnected, error }: LogTabProps) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 p-8">
         <Terminal className="text-muted-foreground h-8 w-8" />
-        <p className="text-muted-foreground text-sm">No log output yet</p>
+        <p className="text-muted-foreground text-sm">{t('logTab.noLogOutput')}</p>
         {isConnected ? (
           <p className="text-muted-foreground text-xs">Waiting for log data...</p>
         ) : null}
@@ -80,7 +82,7 @@ export function LogTab({ content, isConnected, error }: LogTabProps) {
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
-            title="Structured view"
+            title={t('logTab.structuredView')}
           >
             <FileText className="h-3.5 w-3.5" />
           </button>
@@ -92,7 +94,7 @@ export function LogTab({ content, isConnected, error }: LogTabProps) {
                 ? 'bg-muted text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
-            title="Raw view"
+            title={t('logTab.rawView')}
           >
             <Code className="h-3.5 w-3.5" />
           </button>
@@ -101,7 +103,7 @@ export function LogTab({ content, isConnected, error }: LogTabProps) {
             <button
               type="button"
               onClick={jumpToBottom}
-              className="text-muted-foreground hover:text-foreground ml-1 flex items-center gap-1 text-xs"
+              className="text-muted-foreground hover:text-foreground ms-1 flex items-center gap-1 text-xs"
             >
               <ArrowDown className="h-3 w-3" />
               Jump to bottom

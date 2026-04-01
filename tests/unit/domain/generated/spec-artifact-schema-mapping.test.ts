@@ -297,7 +297,7 @@ describe('feature.yaml → FeatureStatus mapping', () => {
           completedBy: 'feature-agent',
         },
       ],
-      prUrl: 'https://github.com/shep-ai/cli/pull/65',
+      prUrl: 'https://github.com/shep-ai/shep/pull/65',
       errors: {
         current: undefined,
         history: [],

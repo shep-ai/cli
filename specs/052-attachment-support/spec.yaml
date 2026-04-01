@@ -32,7 +32,7 @@ technologies:
   - Playwright (E2E tests for full drag-drop and CLI flow)
 
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/223
+  - https://github.com/shep-ai/shep/issues/223
 
 openQuestions:
   - question: 'How should image files be provided to agent prompts?'
@@ -160,7 +160,7 @@ content: |
 
   The platform has no way for users to provide files (screenshots, design docs, existing code,
   images) alongside their feature requests. Agents only receive text prompts today. Referenced
-  in https://github.com/shep-ai/cli/issues/223, the community requests:
+  in https://github.com/shep-ai/shep/issues/223, the community requests:
 
   1. **Web UI**: Drag-and-drop files and Ctrl+V (clipboard paste) of images into the prompt
      input area. Files are uploaded to `.shep/attachments/<feature-slug>/` and referenced as

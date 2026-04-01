@@ -2,6 +2,7 @@
 
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { InteractiveMessageRole } from '@shepai/core/domain/generated/output';
 
@@ -22,8 +23,8 @@ const markdownComponents: Components = {
       {children}
     </pre>
   ),
-  ul: ({ children }) => <ul className="mb-2 list-disc pl-4 last:mb-0">{children}</ul>,
-  ol: ({ children }) => <ol className="mb-2 list-decimal pl-4 last:mb-0">{children}</ol>,
+  ul: ({ children }) => <ul className="mb-2 list-disc ps-4 last:mb-0">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-2 list-decimal ps-4 last:mb-0">{children}</ol>,
   li: ({ children }) => <li className="mb-0.5">{children}</li>,
   h1: ({ children }) => <h1 className="mb-1 text-base font-bold">{children}</h1>,
   h2: ({ children }) => <h2 className="mb-1 text-sm font-bold">{children}</h2>,
@@ -34,7 +35,7 @@ const markdownComponents: Components = {
     </a>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="border-muted-foreground/30 my-1 border-l-2 pl-3 italic opacity-80">
+    <blockquote className="border-muted-foreground/30 my-1 border-s-2 ps-3 italic opacity-80">
       {children}
     </blockquote>
   ),
@@ -75,13 +76,14 @@ export function ChatMessageBubble({
   streaming = false,
   className,
 }: ChatMessageBubbleProps) {
+  const { t } = useTranslation('web');
   const isUser = role === InteractiveMessageRole.user;
   const timeStr = timestamp ? formatTime(timestamp) : null;
 
   return (
     <div
       className={cn('flex w-full flex-col', isUser ? 'items-end' : 'items-start', className)}
-      aria-label={isUser ? 'Your message' : 'Agent message'}
+      aria-label={isUser ? t('chat.yourMessage') : t('chat.agentMessage')}
     >
       <div
         className={cn(
@@ -98,8 +100,8 @@ export function ChatMessageBubble({
         )}
         {streaming && !isUser ? (
           <span
-            aria-label="Agent is typing"
-            className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-current align-middle opacity-75"
+            aria-label={t('chat.agentIsTyping')}
+            className="ms-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-current align-middle opacity-75"
           />
         ) : null}
       </div>

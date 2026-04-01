@@ -35,6 +35,7 @@
 import "../../common/base.tsp";
 import "../../common/enums/agent-config.tsp";
 import "../../common/enums/editor.tsp";
+import "../../common/enums/language.tsp";
 import "../../common/enums/notification.tsp";
 import "../../common/enums/terminal.tsp";
 
@@ -105,6 +106,14 @@ model UserProfile {
    */
   @doc("GitHub username (optional, for PR attribution)")
   githubUsername?: string;
+
+  /**
+   * Preferred UI language for internationalization.
+   * Controls which language Shep uses for all user-facing strings
+   * across CLI, TUI, and Web UI. Defaults to English.
+   */
+  @doc("Preferred UI language (default: English)")
+  preferredLanguage?: Language;
 }
 
 /**
@@ -337,6 +346,15 @@ model WorkflowConfig {
    */
   @doc("Hide CI status badges from UI (default: true)")
   hideCiStatus?: boolean;
+
+  /**
+   * Whether new features default to fast mode (skip SDLC phases, implement directly).
+   * When true, `shep feat new` and the web UI create drawer will default to fast mode
+   * unless explicitly overridden with --no-fast.
+   * Per-feature override: `feat new --fast` or `feat new --no-fast`
+   */
+  @doc("Default new features to fast mode (default: true)")
+  defaultFastMode: boolean = true;
 }
 
 @doc("AI coding agent configuration")

@@ -4,7 +4,7 @@ import { PR_BRANDING, applyPrBranding } from '@/infrastructure/services/git/pr-b
 describe('PR_BRANDING', () => {
   it('should contain the Shep branding text', () => {
     expect(PR_BRANDING).toContain('Shep');
-    expect(PR_BRANDING).toContain('https://github.com/shep-ai/cli');
+    expect(PR_BRANDING).toContain('https://github.com/shep-ai/shep');
   });
 });
 

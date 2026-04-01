@@ -84,24 +84,32 @@ export class RebaseFeatureOnMainUseCase {
       const cwd = await this.resolveCwd(feature.repositoryPath, feature.branch);
       const defaultBranch = await this.gitPrService.getDefaultBranch(feature.repositoryPath);
 
-      // Auto-sync main before rebasing (per spec decision)
-      await this.gitPrService.syncMain(cwd, defaultBranch);
+      // Stash uncommitted changes if present (smart rebase)
+      const didStash = await this.gitPrService.stash(cwd, 'shep-rebase: auto-stash before rebase');
 
-      // Attempt rebase
       try {
-        await this.gitPrService.rebaseOnMain(cwd, feature.branch, defaultBranch);
-      } catch (error) {
-        if (error instanceof GitPrError && error.code === GitPrErrorCode.REBASE_CONFLICT) {
-          // Delegate to agent-powered conflict resolution
-          await this.conflictResolutionService.resolve(cwd, feature.branch, defaultBranch);
-          // Conflict resolution succeeded — complete timing as success
-          await this.completeTiming(agentRunId, phaseTimingId, startMs, 'success');
-          return;
+        // Auto-sync main before rebasing (per spec decision)
+        await this.gitPrService.syncMain(cwd, defaultBranch);
+
+        // Attempt rebase
+        try {
+          await this.gitPrService.rebaseOnMain(cwd, feature.branch, defaultBranch);
+        } catch (error) {
+          if (error instanceof GitPrError && error.code === GitPrErrorCode.REBASE_CONFLICT) {
+            // Delegate to agent-powered conflict resolution
+            await this.conflictResolutionService.resolve(cwd, feature.branch, defaultBranch);
+          } else {
+            throw error;
+          }
         }
-        throw error;
+      } finally {
+        // Restore stashed changes after rebase (whether it succeeded or failed)
+        if (didStash) {
+          await this.gitPrService.stashPop(cwd);
+        }
       }
 
-      // Rebase succeeded without conflicts
+      // Rebase succeeded (possibly with resolved conflicts)
       await this.completeTiming(agentRunId, phaseTimingId, startMs, 'success');
     } catch (error) {
       // Record failure in timing

@@ -16,6 +16,7 @@ import { Command } from 'commander';
 import { container } from '@/infrastructure/di/container.js';
 import { RunAgentUseCase } from '@/application/use-cases/agents/run-agent.use-case.js';
 import { colors, symbols, fmt, messages } from '../ui/index.js';
+import { getCliI18n } from '../i18n.js';
 
 /**
  * Creates a terminal spinner that shows progress while awaiting an async operation.
@@ -51,21 +52,30 @@ interface RunOptions {
  * Create the run command
  */
 export function createRunCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('run')
-    .description('Run an AI agent workflow')
-    .argument('<agent-name>', 'Name of the agent to run (e.g., analyze-repository)')
-    .option('-p, --prompt <prompt>', 'Prompt to send to the agent', 'Analyze this repository')
-    .option('-r, --repo <path>', 'Repository path (defaults to current directory)')
-    .option('-s, --stream', 'Stream output in real-time')
+    .description(t('cli:commands.run.description'))
+    .argument('<agent-name>', t('cli:commands.run.agentArgument'))
+    .option(
+      '-p, --prompt <prompt>',
+      t('cli:commands.run.promptOption'),
+      t('cli:commands.run.promptDefault')
+    )
+    .option('-r, --repo <path>', t('cli:commands.run.repoOption'))
+    .option('-s, --stream', t('cli:commands.run.streamOption'))
     .action(async (agentName: string, options: RunOptions) => {
       try {
         const useCase = container.resolve(RunAgentUseCase);
         const repoPath = options.repo ?? process.cwd();
 
         messages.newline();
-        console.log(`${fmt.heading('Running agent:')} ${colors.accent(agentName)}`);
-        console.log(colors.muted(`  Repository: ${repoPath}`));
-        console.log(colors.muted(`  Prompt: ${options.prompt}`));
+        console.log(
+          `${fmt.heading(t('cli:commands.run.runningAgent'))} ${colors.accent(agentName)}`
+        );
+        console.log(colors.muted(`  ${t('cli:commands.run.repositoryLabel', { path: repoPath })}`));
+        console.log(
+          colors.muted(`  ${t('cli:commands.run.promptLabel', { prompt: options.prompt })}`)
+        );
         messages.newline();
 
         if (options.stream) {
@@ -77,7 +87,7 @@ export function createRunCommand(): Command {
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to run agent', err);
+        messages.error(t('cli:commands.run.failedToRun'), err);
         process.exitCode = 1;
       }
     });
@@ -90,6 +100,7 @@ async function runStreaming(
   prompt: string,
   repoPath: string
 ): Promise<void> {
+  const t = getCliI18n().t;
   let hasResult = false;
 
   for await (const event of useCase.executeStream({
@@ -102,9 +113,9 @@ async function runStreaming(
     } else if (event.type === 'result') {
       hasResult = true;
       messages.newline();
-      messages.success(`Agent ${agentName} completed`);
+      messages.success(t('cli:commands.run.agentCompleted', { name: agentName }));
       messages.newline();
-      console.log(fmt.heading('Result:'));
+      console.log(fmt.heading(t('cli:commands.run.resultHeading')));
       messages.newline();
       console.log(event.content);
     } else if (event.type === 'error') {
@@ -114,7 +125,7 @@ async function runStreaming(
   }
 
   if (!hasResult) {
-    messages.success(`Agent ${agentName} completed`);
+    messages.success(t('cli:commands.run.agentCompleted', { name: agentName }));
   }
 }
 
@@ -125,7 +136,8 @@ async function runBlocking(
   prompt: string,
   repoPath: string
 ): Promise<void> {
-  const spinner = createSpinner(`Agent ${agentName} is working...`);
+  const t = getCliI18n().t;
+  const spinner = createSpinner(t('cli:commands.run.agentWorking', { name: agentName }));
   spinner.start();
 
   let run;
@@ -140,13 +152,13 @@ async function runBlocking(
   }
 
   if (run.status === 'completed') {
-    messages.success(`Agent ${agentName} completed`);
+    messages.success(t('cli:commands.run.agentCompleted', { name: agentName }));
     messages.newline();
-    console.log(fmt.heading('Result:'));
+    console.log(fmt.heading(t('cli:commands.run.resultHeading')));
     messages.newline();
-    console.log(run.result ?? 'No output');
+    console.log(run.result ?? t('cli:commands.run.noOutput'));
   } else if (run.status === 'failed') {
-    messages.error('Agent execution failed', new Error(run.error ?? 'Unknown error'));
+    messages.error(t('cli:commands.run.agentFailed'), new Error(run.error ?? 'Unknown error'));
     process.exitCode = 1;
   }
 }

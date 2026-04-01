@@ -1,11 +1,11 @@
 name: pr-sync-rate-limit
 number: 64
 branch: feat/064-pr-sync-rate-limit
-oneLiner: https://github.com/shep-ai/cli/issues/325
+oneLiner: https://github.com/shep-ai/shep/issues/325
 userQuery: |
-  https://github.com/shep-ai/cli/issues/325
+  https://github.com/shep-ai/shep/issues/325
 summary: |
-  https://github.com/shep-ai/cli/issues/325
+  https://github.com/shep-ai/shep/issues/325
 phase: Analysis
 sizeEstimate: M
 relatedFeatures: []
@@ -15,7 +15,7 @@ openQuestions: []
 content: |
   ## Problem Statement
 
-  https://github.com/shep-ai/cli/issues/325
+  https://github.com/shep-ai/shep/issues/325
 
   ## Success Criteria
 

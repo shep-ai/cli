@@ -126,7 +126,7 @@ export default function VersionPageClient({ versionInfo, systemInfo }: VersionPa
             <Link href="/">Back to Home</Link>
           </Button>
           <Button asChild>
-            <a href="https://github.com/shep-ai/cli" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/shep-ai/shep" target="_blank" rel="noopener noreferrer">
               View on GitHub
             </a>
           </Button>

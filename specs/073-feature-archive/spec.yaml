@@ -17,7 +17,7 @@ technologies:
   - "Storybook (component stories)"
 relatedLinks:
   - title: "GitHub Issue #435 - Add archive option for features"
-    url: "https://github.com/shep-ai/cli/issues/435"
+    url: "https://github.com/shep-ai/shep/issues/435"
 openQuestions:
   - question: "Which lifecycle states should be eligible for archiving?"
     resolved: true

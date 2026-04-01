@@ -5,6 +5,7 @@
  * action after reviewing open questions.
  */
 
+import { getTuiI18n } from '../i18n.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
 export type ReviewAction = 'approve' | 'reject';
@@ -13,21 +14,22 @@ export type ReviewAction = 'approve' | 'reject';
  * Creates the @inquirer/select configuration for the review action prompt.
  */
 export function createReviewActionConfig(changeCount: number) {
+  const t = getTuiI18n().t;
   const changeLabel =
-    changeCount > 0 ? ` (${changeCount} change${changeCount !== 1 ? 's' : ''})` : '';
+    changeCount > 0 ? t('tui:prompts.prdReview.changeLabel', { count: changeCount }) : '';
 
   return {
-    message: `Review complete${changeLabel}. What would you like to do?`,
+    message: t('tui:prompts.prdReview.reviewComplete', { changeLabel }),
     choices: [
       {
-        name: 'Approve and continue',
+        name: t('tui:prompts.prdReview.approveAndContinue'),
         value: 'approve' as ReviewAction,
-        description: 'Accept the requirements and proceed to research',
+        description: t('tui:prompts.prdReview.approveDescription'),
       },
       {
-        name: 'Reject and iterate',
+        name: t('tui:prompts.prdReview.rejectAndIterate'),
         value: 'reject' as ReviewAction,
-        description: 'Provide feedback and re-run requirements',
+        description: t('tui:prompts.prdReview.rejectDescription'),
       },
     ],
     theme: shepTheme,

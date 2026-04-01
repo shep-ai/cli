@@ -25,7 +25,7 @@ technologies:
 
 relatedLinks:
   - title: "GitHub Issue #435 - Add archive option for features"
-    url: "https://github.com/shep-ai/cli/issues/435"
+    url: "https://github.com/shep-ai/shep/issues/435"
   - title: "TypeSpec enum documentation"
     url: "https://typespec.io/docs/language-basics/enums"
 

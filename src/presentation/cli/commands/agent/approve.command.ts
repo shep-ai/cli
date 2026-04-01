@@ -12,11 +12,13 @@ import { container } from '@/infrastructure/di/container.js';
 import { ApproveAgentRunUseCase } from '@/application/use-cases/agents/approve-agent-run.use-case.js';
 import { colors, messages } from '../../ui/index.js';
 import { resolveAgentRun } from './resolve-run.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createApproveCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('approve')
-    .description('Approve a paused agent run and resume execution')
-    .argument('<id>', 'Agent run ID (or prefix)')
+    .description(t('cli:commands.agent.approve.description'))
+    .argument('<id>', t('cli:commands.agent.approve.idArgument'))
     .action(async (id: string) => {
       try {
         const resolved = await resolveAgentRun(id);
@@ -31,7 +33,10 @@ export function createApproveCommand(): Command {
 
         if (result.approved) {
           messages.success(
-            `Approved ${colors.accent(resolved.run.id.substring(0, 8))}: ${result.reason}`
+            t('cli:commands.agent.approve.approvedSuccess', {
+              id: colors.accent(resolved.run.id.substring(0, 8)),
+              reason: result.reason,
+            })
           );
         } else {
           messages.error(result.reason);
@@ -39,7 +44,7 @@ export function createApproveCommand(): Command {
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to approve agent run', err);
+        messages.error(t('cli:commands.agent.approve.failedToApprove'), err);
         process.exitCode = 1;
       }
     });

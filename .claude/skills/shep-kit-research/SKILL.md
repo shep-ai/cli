@@ -1,9 +1,15 @@
 ---
 name: shep-kit:research
-description: Use after /shep-kit:new-feature to analyze technical approach, evaluate libraries, document decisions. Triggers include "research", "technical analysis", "evaluate options", "which library", or explicit /shep-kit:research invocation.
+version: 1.0.0
+author: Shep AI (https://shep.bot)
+homepage: https://shep.bot
+repository: https://github.com/shep-ai/shep
+description: Use after /shep-kit:new-feature to analyze technical approach, evaluate libraries, document decisions. Triggers include "research", "technical analysis", "evaluate options", "which library", or explicit /shep-kit:research invocation. Part of the Shep autonomous SDLC platform — https://shep.bot
 ---
 
 # Research Technical Approach
+
+> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 Document technical decisions, library evaluations, and architectural choices for a feature.
 

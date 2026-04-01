@@ -16,7 +16,13 @@ import { createInMemoryDatabase, tableExists } from '../../../helpers/database.h
 import { runSQLiteMigrations } from '@/infrastructure/persistence/sqlite/migrations.js';
 import { SQLiteSettingsRepository } from '@/infrastructure/repositories/sqlite-settings.repository.js';
 import type { Settings } from '@/domain/generated/output.js';
-import { AgentType, AgentAuthMethod, EditorType, TerminalType } from '@/domain/generated/output.js';
+import {
+  AgentType,
+  AgentAuthMethod,
+  EditorType,
+  Language,
+  TerminalType,
+} from '@/domain/generated/output.js';
 
 describe('SQLiteSettingsRepository', () => {
   let db: Database.Database;
@@ -77,6 +83,7 @@ describe('SQLiteSettingsRepository', () => {
       enableEvidence: false,
       commitEvidence: false,
       ciWatchEnabled: true,
+      defaultFastMode: true,
     },
     onboardingComplete: false,
   });
@@ -278,6 +285,7 @@ describe('SQLiteSettingsRepository', () => {
         name: 'Test User',
         email: 'test@example.com',
         githubUsername: 'testuser',
+        preferredLanguage: 'en',
       });
     });
 
@@ -291,7 +299,7 @@ describe('SQLiteSettingsRepository', () => {
       const loaded = await repository.load();
 
       // Assert
-      expect(loaded?.user).toEqual({});
+      expect(loaded?.user).toEqual({ preferredLanguage: 'en' });
     });
 
     it('should correctly map environment configuration from database', async () => {
@@ -423,7 +431,12 @@ describe('SQLiteSettingsRepository', () => {
 
       // Assert
       const loaded = await repository.load();
-      expect(loaded?.user).toEqual(settings.user);
+      expect(loaded?.user).toEqual({
+        name: 'New Name',
+        email: 'newemail@example.com',
+        githubUsername: 'newusername',
+        preferredLanguage: 'en',
+      });
     });
 
     it('should allow clearing optional user fields', async () => {
@@ -439,7 +452,7 @@ describe('SQLiteSettingsRepository', () => {
 
       // Assert
       const loaded = await repository.load();
-      expect(loaded?.user).toEqual({});
+      expect(loaded?.user).toEqual({ preferredLanguage: 'en' });
     });
 
     it('should update environment configuration', async () => {
@@ -682,6 +695,57 @@ describe('SQLiteSettingsRepository', () => {
       const columns = db.pragma('table_info(settings)') as { name: string }[];
       const alreadyExists = columns.some((c: { name: string }) => c.name === 'model_default');
       expect(alreadyExists).toBe(true);
+    });
+  });
+
+  describe('language preference', () => {
+    it('should initialize settings with preferredLanguage "fr" and load it back', async () => {
+      const settings = createTestSettings();
+      settings.user.preferredLanguage = Language.French;
+      await repository.initialize(settings);
+
+      const loaded = await repository.load();
+      expect(loaded?.user.preferredLanguage).toBe('fr');
+    });
+
+    it('should default preferredLanguage to "en" when not specified', async () => {
+      const settings = createTestSettings();
+      await repository.initialize(settings);
+
+      const loaded = await repository.load();
+      expect(loaded?.user.preferredLanguage).toBe('en');
+    });
+
+    it('should update preferredLanguage from "en" to "de"', async () => {
+      const settings = createTestSettings();
+      await repository.initialize(settings);
+
+      settings.user.preferredLanguage = Language.German;
+      settings.updatedAt = new Date('2026-01-02T00:00:00Z');
+      await repository.update(settings);
+
+      const loaded = await repository.load();
+      expect(loaded?.user.preferredLanguage).toBe('de');
+    });
+
+    it('should persist RTL language "ar" correctly', async () => {
+      const settings = createTestSettings();
+      settings.user.preferredLanguage = Language.Arabic;
+      await repository.initialize(settings);
+
+      const loaded = await repository.load();
+      expect(loaded?.user.preferredLanguage).toBe('ar');
+    });
+
+    it('should store user_preferred_language as TEXT in database', async () => {
+      const settings = createTestSettings();
+      settings.user.preferredLanguage = Language.Hebrew;
+      await repository.initialize(settings);
+
+      const row = db
+        .prepare('SELECT user_preferred_language FROM settings WHERE id = ?')
+        .get('singleton') as { user_preferred_language: string };
+      expect(row.user_preferred_language).toBe('he');
     });
   });
 

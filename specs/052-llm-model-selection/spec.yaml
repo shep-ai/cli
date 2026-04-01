@@ -5,7 +5,7 @@ oneLiner: >-
   Consolidate per-phase model config into a unified model setting with
   agent-advertised model lists and CLI override support
 userQuery: |
-  Lets implement that https://github.com/shep-ai/cli/issues/229
+  Lets implement that https://github.com/shep-ai/shep/issues/229
 summary: >
   The current ModelConfiguration stores a separate model string per SDLC phase
   (analyze, requirements, plan, implement), making it rigid and hard to manage.
@@ -26,7 +26,7 @@ technologies:
   - React / Next.js — web UI settings component
   - tsyringe — dependency injection wiring
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/229
+  - https://github.com/shep-ai/shep/issues/229
 openQuestions:
   - question: >-
       Should ModelConfiguration be kept as a named TypeSpec model or should

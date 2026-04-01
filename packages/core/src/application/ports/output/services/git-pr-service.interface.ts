@@ -452,6 +452,26 @@ export interface IGitPrService {
   rebaseAbort(cwd: string): Promise<void>;
 
   /**
+   * Stash uncommitted changes in the working directory.
+   * Runs `git stash push -m <message>`.
+   *
+   * @param cwd - Working directory path
+   * @param message - Optional stash message
+   * @returns True if changes were stashed, false if working directory was clean
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  stash(cwd: string, message?: string): Promise<boolean>;
+
+  /**
+   * Pop the most recent stash entry.
+   * Runs `git stash pop`.
+   *
+   * @param cwd - Working directory path
+   * @throws GitPrError with GIT_ERROR code on failure (including stash pop conflicts)
+   */
+  stashPop(cwd: string): Promise<void>;
+
+  /**
    * Get the sync status (ahead/behind counts) between a feature branch
    * and a base branch's remote-tracking ref.
    *

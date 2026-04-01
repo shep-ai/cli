@@ -10,11 +10,12 @@
 
 import { Command, InvalidArgumentError } from 'commander';
 import { startDaemon } from './daemon/start-daemon.js';
+import { getCliI18n } from '../i18n.js';
 
 function parsePort(value: string): number {
   const port = parseInt(value, 10);
   if (isNaN(port) || port < 1024 || port > 65535) {
-    throw new InvalidArgumentError('Port must be an integer between 1024 and 65535');
+    throw new InvalidArgumentError(getCliI18n().t('cli:commands.start.portValidation'));
   }
   return port;
 }
@@ -23,9 +24,10 @@ function parsePort(value: string): number {
  * Create the start command.
  */
 export function createStartCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('start')
-    .description('Start the Shep web UI as a background daemon')
-    .option('-p, --port <number>', 'Port number (1024-65535)', parsePort)
+    .description(t('cli:commands.start.description'))
+    .option('-p, --port <number>', t('cli:commands.start.portOption'), parsePort)
     .addHelpText(
       'after',
       `

@@ -80,7 +80,7 @@ describe('FeaturesCanvas', () => {
       id: 'repo-1',
       type: 'repositoryNode',
       position: { x: 0, y: 0 },
-      data: { name: 'shep-ai/cli', onAdd: mockOnAdd, showHandles: true },
+      data: { name: 'shep-ai/shep', onAdd: mockOnAdd, showHandles: true },
     };
     render(
       <FeaturesCanvas

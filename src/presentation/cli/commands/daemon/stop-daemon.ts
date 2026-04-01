@@ -22,6 +22,7 @@
 import { treeKill } from '@/infrastructure/services/process/tree-kill.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
 import { messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 const POLL_INTERVAL_MS = 200;
 const MAX_WAIT_MS = 5000;
@@ -68,7 +69,8 @@ export async function stopDaemon(daemonService: IDaemonService): Promise<void> {
   }
 
   try {
-    messages.info(`Stopping Shep daemon (PID ${pid})...`);
+    const t = getCliI18n().t;
+    messages.info(t('cli:ui.daemon.stoppingDaemon', { pid }));
 
     // Send SIGTERM to process tree — request graceful shutdown
     treeKill(pid, 'SIGTERM');
@@ -78,7 +80,7 @@ export async function stopDaemon(daemonService: IDaemonService): Promise<void> {
 
     if (!died) {
       // Graceful shutdown timed out — force kill process tree
-      messages.info('Daemon did not stop gracefully, sending SIGKILL...');
+      messages.info(t('cli:ui.daemon.sigkillFallback'));
       try {
         treeKill(pid, 'SIGKILL');
       } catch {
@@ -86,7 +88,7 @@ export async function stopDaemon(daemonService: IDaemonService): Promise<void> {
       }
     }
 
-    messages.success('Shep daemon stopped.');
+    messages.success(t('cli:ui.daemon.daemonStopped'));
   } finally {
     // Always clean up daemon.json regardless of termination path
     await daemonService.delete();

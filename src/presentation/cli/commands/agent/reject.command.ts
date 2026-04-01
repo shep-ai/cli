@@ -12,12 +12,14 @@ import { container } from '@/infrastructure/di/container.js';
 import { RejectAgentRunUseCase } from '@/application/use-cases/agents/reject-agent-run.use-case.js';
 import { colors, messages } from '../../ui/index.js';
 import { resolveAgentRun } from './resolve-run.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createRejectCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('reject')
-    .description('Reject a paused agent run and cancel it')
-    .argument('<id>', 'Agent run ID (or prefix)')
-    .option('-r, --reason <text>', 'Reason for rejection')
+    .description(t('cli:commands.agent.reject.description'))
+    .argument('<id>', t('cli:commands.agent.reject.idArgument'))
+    .option('-r, --reason <text>', t('cli:commands.agent.reject.reasonOption'))
     .action(async (id: string, opts: { reason?: string }) => {
       try {
         const resolved = await resolveAgentRun(id);
@@ -32,7 +34,10 @@ export function createRejectCommand(): Command {
 
         if (result.rejected) {
           messages.success(
-            `Rejected ${colors.accent(resolved.run.id.substring(0, 8))}: ${result.reason}`
+            t('cli:commands.agent.reject.rejectedSuccess', {
+              id: colors.accent(resolved.run.id.substring(0, 8)),
+              reason: result.reason,
+            })
           );
         } else {
           messages.error(result.reason);
@@ -40,7 +45,7 @@ export function createRejectCommand(): Command {
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to reject agent run', err);
+        messages.error(t('cli:commands.agent.reject.failedToReject'), err);
         process.exitCode = 1;
       }
     });
