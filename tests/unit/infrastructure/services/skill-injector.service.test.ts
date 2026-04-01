@@ -89,8 +89,8 @@ describe('SkillInjectorService', () => {
       const result = await service.inject(worktreePath, config, repoRoot);
 
       expect(mockCp).toHaveBeenCalledWith(
-        expect.stringContaining('architecture-reviewer'),
-        expect.stringContaining('.claude/skills/architecture-reviewer'),
+        expect.stringMatching(/architecture-reviewer/),
+        expect.stringMatching(/\.claude[/\\]skills[/\\]architecture-reviewer/),
         { recursive: true }
       );
       expect(result.injected).toContain('architecture-reviewer');
@@ -145,9 +145,9 @@ describe('SkillInjectorService', () => {
 
       // Source should be resolved against repoRoot
       const cpCall = mockCp.mock.calls[0];
-      expect(cpCall[0]).toMatch(/^\/repo\/root/);
+      expect(cpCall[0]).toMatch(/^[/\\]repo[/\\]root/);
       // Destination should be in worktree
-      expect(cpCall[1]).toMatch(/^\/worktree\/project/);
+      expect(cpCall[1]).toMatch(/^[/\\]worktree[/\\]project/);
     });
 
     it('should add failed skill to result.failed when fs.cp throws', async () => {
