@@ -1,21 +1,42 @@
-CLI --inject-skills / --no-inject-skills Flag Verification
-================================================================
-Date: 2026-04-01T17:49:20Z
-File: src/presentation/cli/commands/feat/new.command.ts
+CLI --inject-skills / --no-inject-skills Flag Evidence
+======================================================
+Captured: 2026-04-01T14:56:40Z
 
-Source code inspection confirms correct Commander.js registration:
+1. Commander.js option registration (new.command.ts, lines 108-109):
+---
+    .option('--no-fast', t('cli:commands.feat.new.noFastOption'))
+    .option('--model <model>', t('cli:commands.feat.new.modelOption'))
+    .option('--no-rebase', t('cli:commands.feat.new.noRebaseOption'))
+    .option('--inject-skills', t('cli:commands.feat.new.injectSkillsOption'))
+    .option('--no-inject-skills', t('cli:commands.feat.new.noInjectSkillsOption'))
+    .option('--attach <path>', t('cli:commands.feat.new.attachOption'), collect, [])
+    .action(async (description: string, options: NewOptions) => {
+      try {
+        // First-run onboarding gate — only for interactive terminals
+        if (process.stdin.isTTY) {
+          const { isComplete } = await new CheckOnboardingStatusUseCase().execute();
 
-Line 43 — NewOptions interface extension:
+2. NewOptions interface (new.command.ts, line 43):
+---
+  allowMerge?: boolean;
+  allowAll?: boolean;
+  parent?: string;
+  fast?: boolean;
+  pending?: boolean;
+  model?: string;
+  attach?: string[];
+  rebase?: boolean;
   injectSkills?: boolean;
+}
 
-Lines 108-109 — Commander.js option registration:
-  .option('--inject-skills', t('cli:commands.feat.new.injectSkillsOption'))
-  .option('--no-inject-skills', t('cli:commands.feat.new.noInjectSkillsOption'))
+/** Commander collect pattern for repeatable options. */
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
 
-Line 180 — Conditional passthrough to CreateFeatureInput:
-  ...(options.injectSkills !== undefined && { injectSkills: options.injectSkills }),
 
-Behavior:
-  --inject-skills     → options.injectSkills = true  → CreateFeatureInput.injectSkills = true
-  --no-inject-skills  → options.injectSkills = false → CreateFeatureInput.injectSkills = false
-  (neither flag)      → options.injectSkills = undefined → field omitted, falls through to settings
+3. Passthrough to CreateFeatureInput (new.command.ts, line ~180):
+---
+43:  injectSkills?: boolean;
+108:    .option('--inject-skills', t('cli:commands.feat.new.injectSkillsOption'))
+180:            ...(options.injectSkills !== undefined && { injectSkills: options.injectSkills }),

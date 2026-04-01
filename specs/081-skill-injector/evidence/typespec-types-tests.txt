@@ -1,26 +1,19 @@
-TypeSpec Generated Types Tests — 8/8 passing
-================================================================
-Run: npx vitest run --project node tests/unit/domain/generated/skill-injection-types.test.ts --reporter=verbose
-Date: 2026-04-01T17:48:41Z
-vitest v4.0.18 — project: node
 
-SkillSourceType enum
-  ✓ should have Local variant with value "local" (1ms)
-  ✓ should have Remote variant with value "remote" (0ms)
-  ✓ should only have two variants (1ms)
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-skill-injector
 
-SkillSource type
-  ✓ should accept a valid local skill source (0ms)
-  ✓ should accept a valid remote skill source with remoteSkillName (0ms)
+ ✓  node  tests/unit/domain/generated/skill-injection-types.test.ts > SkillSourceType enum > should have Local variant with value "local" 0ms
+ ✓  node  tests/unit/domain/generated/skill-injection-types.test.ts > SkillSourceType enum > should have Remote variant with value "remote" 0ms
+ ✓  node  tests/unit/domain/generated/skill-injection-types.test.ts > SkillSourceType enum > should only have two variants 0ms
+ ✓  node  tests/unit/domain/generated/skill-injection-types.test.ts > SkillSource type > should accept a valid local skill source 0ms
+ ✓  node  tests/unit/domain/generated/skill-injection-types.test.ts > SkillSource type > should accept a valid remote skill source with remoteSkillName 0ms
+ ✓  node  tests/unit/domain/generated/skill-injection-types.test.ts > SkillInjectionConfig type > should accept a config with enabled false and empty skills 0ms
+ ✓  node  tests/unit/domain/generated/skill-injection-types.test.ts > SkillInjectionConfig type > should accept a config with skills list 0ms
+ ✓  node  tests/unit/domain/generated/skill-injection-types.test.ts > WorkflowConfig.skillInjection > should accept skillInjection as an optional field 0ms
 
-SkillInjectionConfig type
-  ✓ should accept a config with enabled false and empty skills (0ms)
-  ✓ should accept a config with skills list (0ms)
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  17:56:27
+   Duration  100ms (transform 30ms, setup 24ms, import 17ms, tests 2ms, environment 0ms)
 
-WorkflowConfig.skillInjection
-  ✓ should accept skillInjection as an optional field (0ms)
 
-Test Files  1 passed (1)
-     Tests  8 passed (8)
-  Start at  17:48:41
-  Duration  290ms (transform 114ms, setup 88ms, import 62ms, tests 3ms)
+Captured: 2026-04-01T14:56:26Z

@@ -1,30 +1,46 @@
-Settings Defaults Factory — SkillInjectionConfig Tests — 35/35 passing (includes 6 skill injection tests)
-================================================================
-Run: npx vitest run --project node tests/unit/domain/factories/settings-defaults.factory.test.ts --reporter=verbose
-Date: 2026-04-01T17:51:42Z
-vitest v4.0.18 — project: node
 
-[... 29 existing settings default tests: structure, model, user, environment, system, agent,
- notifications, feature flags, workflow ...]
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-skill-injector
 
-createDefaultSettings > SkillInjectionConfig defaults
-  ✓ should have skillInjection defined on workflow (0ms)
-  ✓ should have skillInjection.enabled set to false (0ms)
-  ✓ should have 7 default local skills (0ms)
-  ✓ should have all skills with type local (0ms)
-  ✓ should have each skill with a valid source path (0ms)
-  ✓ should include the expected skill names (0ms)
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > return type and structure > should return an object with all required fields 2ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > return type and structure > should return a Settings type that matches generated types 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > return type and structure > should generate unique IDs for each call 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > return type and structure > should set createdAt and updatedAt timestamps 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > ModelConfiguration defaults > should set default model field to "claude-sonnet-4-6" 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > ModelConfiguration defaults > should match TypeSpec model defaults 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > UserProfile defaults > should set all user fields to undefined (optional fields) 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > UserProfile defaults > should return empty UserProfile object 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > EnvironmentConfig defaults > should set defaultEditor to "vscode" 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > EnvironmentConfig defaults > should set shellPreference to "bash" 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > EnvironmentConfig defaults > should set defaultCloneDirectory to homedir/repos 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > EnvironmentConfig defaults > should match TypeSpec model defaults 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > SystemConfig defaults > should set autoUpdate to true 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > SystemConfig defaults > should set logLevel to "info" 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > SystemConfig defaults > should match TypeSpec model defaults 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > AgentConfig defaults > should have agent field defined 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > AgentConfig defaults > should set agent type to claude-code 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > AgentConfig defaults > should set agent authMethod to session 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > AgentConfig defaults > should have token as undefined 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > AgentConfig defaults > should match TypeSpec model defaults 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > NotificationPreferences defaults > should have notifications field defined 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > NotificationPreferences defaults > should have all notification channels enabled (opt-out) 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > NotificationPreferences defaults > should have all notification event types enabled 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > NotificationPreferences defaults > should match TypeSpec model defaults 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > FeatureFlags defaults > should have featureFlags field defined 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > FeatureFlags defaults > should default feature flags with envDeploy enabled 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > WorkflowConfig defaults > should default workflow.defaultFastMode to true 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > WorkflowConfig defaults > should include all workflow defaults 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > SkillInjectionConfig defaults > should have skillInjection defined on workflow 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > SkillInjectionConfig defaults > should have skillInjection.enabled set to false 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > SkillInjectionConfig defaults > should have 7 default local skills 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > SkillInjectionConfig defaults > should have all skills with type local 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > SkillInjectionConfig defaults > should have each skill with a valid source path 0ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > SkillInjectionConfig defaults > should include the expected skill names 1ms
+ ✓  node  tests/unit/domain/factories/settings-defaults.factory.test.ts > createDefaultSettings > complete default object > should return complete Settings object matching all TypeSpec defaults 0ms
 
-createDefaultSettings > complete default object
-  ✓ should return complete Settings object matching all TypeSpec defaults (0ms)
+ Test Files  1 passed (1)
+      Tests  35 passed (35)
+   Start at  17:56:30
+   Duration  164ms (transform 76ms, setup 48ms, import 50ms, tests 7ms, environment 0ms)
 
-Test Files  1 passed (1)
-     Tests  35 passed (35)
-  Start at  17:51:42
-  Duration  118ms (transform 38ms, setup 25ms, import 26ms, tests 5ms)
 
-Evidence for task-12: The createDefaultSettings() factory correctly populates
-workflow.skillInjection with enabled=false and 7 curated local skills
-(architecture-reviewer, cross-validate-artifacts, mermaid-diagrams, react-flow,
-shadcn-ui, tsp-model, vercel-react-best-practices). This is a pure domain/factory
-task with no UI component — test output serves as complete evidence.
+Captured: 2026-04-01T14:56:30Z

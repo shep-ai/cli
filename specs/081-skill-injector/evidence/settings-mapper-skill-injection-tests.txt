@@ -1,33 +1,84 @@
-Settings Mapper Tests — 73/73 passing (includes 14 skill injection tests)
-================================================================
-Run: npx vitest run --project node tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts --reporter=verbose
-Date: 2026-04-01T17:48:44Z
-vitest v4.0.18 — project: node
 
-[... 59 existing mapper tests passing: notification preferences, onboarding, terminal,
- stage timeouts, hideCiStatus, preferredLanguage, defaultFastMode ...]
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-skill-injector
 
-Settings Mapper > toDatabase() - skill injection
-  ✓ should map skillInjection.enabled=true to skill_injection_enabled=1 (0ms)
-  ✓ should map skillInjection.enabled=false to skill_injection_enabled=0 (0ms)
-  ✓ should map undefined skillInjection to skill_injection_enabled=0 (0ms)
-  ✓ should serialize skills array to JSON string (0ms)
-  ✓ should map empty skills array to null (0ms)
-  ✓ should map undefined skillInjection to null skills (0ms)
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - notification preferences > should map notifications.inApp.enabled=true to notif_in_app_enabled=1 1ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - notification preferences > should map notifications.inApp.enabled=false to notif_in_app_enabled=0 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - notification preferences > should map all three channel enabled flags 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - notification preferences > should map all event type flags 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - notification preferences > should reconstruct notifications.inApp.enabled=true from notif_in_app_enabled=1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - notification preferences > should reconstruct notifications.desktop.enabled=true from notif_desktop_enabled=1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - notification preferences > should reconstruct all channel configs from columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - notification preferences > should reconstruct all event type configs from columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - notification preferences > should preserve all notification values through toDatabase → fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - notification preferences > should preserve default notification values through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - preserves existing field mappings > should still map all pre-existing fields correctly 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - preserves existing field mappings > should still reconstruct all pre-existing fields correctly 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - onboarding fields > should map onboardingComplete:true to onboarding_complete:1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - onboarding fields > should map onboardingComplete:false to onboarding_complete:0 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - onboarding fields > should map approvalGateDefaults fields to integer columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - onboarding fields > should map onboarding_complete:1 to onboardingComplete:true 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - onboarding fields > should map onboarding_complete:0 to onboardingComplete:false 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - onboarding fields > should reconstruct approvalGateDefaults from columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - onboarding fields > should preserve onboardingComplete and approvalGateDefaults through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - terminal preference > should map terminalPreference to env_terminal_preference 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - terminal preference > should default to system terminal 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - terminal preference > should reconstruct terminalPreference from env_terminal_preference 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - terminal preference > should default to system when column is null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - terminal preference > should preserve terminalPreference through toDatabase → fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - per-stage timeouts > should map stageTimeouts to individual stage_timeout columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - per-stage timeouts > should map undefined stageTimeouts to nulls 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - per-stage timeouts > should map analyzeRepoTimeouts to analyze_repo_timeout_analyze_ms 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - per-stage timeouts > should map undefined analyzeRepoTimeouts to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - per-stage timeouts > should reconstruct stageTimeouts from individual columns 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - per-stage timeouts > should omit stageTimeouts when all columns are null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - per-stage timeouts > should reconstruct analyzeRepoTimeouts from column 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - per-stage timeouts > should omit analyzeRepoTimeouts when column is null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - per-stage timeouts > should preserve stageTimeouts through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - per-stage timeouts > should preserve undefined stageTimeouts through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - per-stage timeouts > should preserve analyzeRepoTimeouts through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - hideCiStatus > should map workflow.hideCiStatus=true to hide_ci_status=1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - hideCiStatus > should map workflow.hideCiStatus=false to hide_ci_status=0 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - hideCiStatus > should map workflow.hideCiStatus=undefined to hide_ci_status=1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - hideCiStatus > should map hide_ci_status=1 to workflow.hideCiStatus=true 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - hideCiStatus > should map hide_ci_status=0 to workflow.hideCiStatus=false 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - hideCiStatus > should preserve hideCiStatus=true through toDatabase → fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - hideCiStatus > should preserve hideCiStatus=false through toDatabase → fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - hideCiStatus > should preserve hideCiStatus=undefined through toDatabase → fromDatabase as true 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - preferredLanguage > should map user.preferredLanguage "ru" to user_preferred_language "ru" 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - preferredLanguage > should map user.preferredLanguage "ar" to user_preferred_language "ar" 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - preferredLanguage > should default to "en" when preferredLanguage is undefined 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - preferredLanguage > should reconstruct user.preferredLanguage "ar" from user_preferred_language "ar" 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - preferredLanguage > should reconstruct user.preferredLanguage "he" from user_preferred_language "he" 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - preferredLanguage > should default to "en" when user_preferred_language is null/undefined 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - preferredLanguage > should preserve preferredLanguage through toDatabase → fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - preferredLanguage > should preserve default "en" preferredLanguage through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - preferredLanguage > should preserve all 8 language values through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - defaultFastMode > should map workflow.defaultFastMode=true to default_fast_mode=1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - defaultFastMode > should map workflow.defaultFastMode=false to default_fast_mode=0 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - defaultFastMode > should map default_fast_mode=1 to workflow.defaultFastMode=true 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - defaultFastMode > should map default_fast_mode=0 to workflow.defaultFastMode=false 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - defaultFastMode > should default to true when column is null (migration backward compat) 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - defaultFastMode > should preserve defaultFastMode=true through toDatabase → fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - defaultFastMode > should preserve defaultFastMode=false through toDatabase → fromDatabase 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - skill injection > should map skillInjection.enabled=true to skill_injection_enabled=1 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - skill injection > should map skillInjection.enabled=false to skill_injection_enabled=0 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - skill injection > should map undefined skillInjection to skill_injection_enabled=0 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - skill injection > should serialize skills array to JSON string 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - skill injection > should map empty skills array to null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > toDatabase() - skill injection > should map undefined skillInjection to null skills 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - skill injection > should reconstruct skillInjection from enabled=1 and valid JSON 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - skill injection > should reconstruct skillInjection with enabled=false when flag is 0 but skills exist 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - skill injection > should omit skillInjection when both columns are default/null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - skill injection > should reconstruct skillInjection with empty skills when enabled=1 but skills is null 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > fromDatabase() - skill injection > should deserialize remote skills with remoteSkillName 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - skill injection > should preserve skillInjection with local and remote skills through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - skill injection > should preserve disabled skillInjection with skills through round-trip 0ms
+ ✓  node  tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts > Settings Mapper > round-trip - skill injection > should preserve undefined skillInjection through round-trip 0ms
 
-Settings Mapper > fromDatabase() - skill injection
-  ✓ should reconstruct skillInjection from enabled=1 and valid JSON (1ms)
-  ✓ should reconstruct skillInjection with enabled=false when flag is 0 but skills exist (0ms)
-  ✓ should omit skillInjection when both columns are default/null (0ms)
-  ✓ should reconstruct skillInjection with empty skills when enabled=1 but skills is null (0ms)
-  ✓ should deserialize remote skills with remoteSkillName (0ms)
+ Test Files  1 passed (1)
+      Tests  73 passed (73)
+   Start at  17:56:27
+   Duration  130ms (transform 49ms, setup 23ms, import 41ms, tests 7ms, environment 0ms)
 
-Settings Mapper > round-trip - skill injection
-  ✓ should preserve skillInjection with local and remote skills through round-trip (1ms)
-  ✓ should preserve disabled skillInjection with skills through round-trip (0ms)
-  ✓ should preserve undefined skillInjection through round-trip (0ms)
 
-Test Files  1 passed (1)
-     Tests  73 passed (73)
-  Start at  17:48:44
-  Duration  572ms (transform 279ms, setup 105ms, import 248ms, tests 25ms)
+Captured: 2026-04-01T14:56:27Z
