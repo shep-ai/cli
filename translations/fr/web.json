@@ -67,6 +67,8 @@
       "title": "Workflow",
       "description": "Configurez le comportement des PR, les portes d'approbation et les paramètres CI",
       "sectionDescription": "Comportement d'automatisation après l'implémentation",
+      "defaultFastMode": "Mode rapide par défaut",
+      "defaultFastModeDescription": "Ignorer les phases SDLC et implémenter directement depuis le prompt",
       "subsections": {
         "approve": "Approuver",
         "evidence": "Preuves",

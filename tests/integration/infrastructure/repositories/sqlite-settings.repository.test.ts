@@ -83,6 +83,7 @@ describe('SQLiteSettingsRepository', () => {
       enableEvidence: false,
       commitEvidence: false,
       ciWatchEnabled: true,
+      defaultFastMode: true,
     },
     onboardingComplete: false,
   });

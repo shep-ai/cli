@@ -346,6 +346,15 @@ model WorkflowConfig {
    */
   @doc("Hide CI status badges from UI (default: true)")
   hideCiStatus?: boolean;
+
+  /**
+   * Whether new features default to fast mode (skip SDLC phases, implement directly).
+   * When true, `shep feat new` and the web UI create drawer will default to fast mode
+   * unless explicitly overridden with --no-fast.
+   * Per-feature override: `feat new --fast` or `feat new --no-fast`
+   */
+  @doc("Default new features to fast mode (default: true)")
+  defaultFastMode: boolean = true;
 }
 
 @doc("AI coding agent configuration")

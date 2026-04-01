@@ -107,6 +107,7 @@ export interface SettingsRow {
   workflow_enable_evidence: number;
   workflow_commit_evidence: number;
   hide_ci_status: number;
+  default_fast_mode: number;
 
   // FeatureFlags (featureFlags.*)
   feature_flag_skills: number;
@@ -205,6 +206,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     workflow_enable_evidence: settings.workflow.enableEvidence ? 1 : 0,
     workflow_commit_evidence: settings.workflow.commitEvidence ? 1 : 0,
     hide_ci_status: settings.workflow.hideCiStatus !== false ? 1 : 0,
+    default_fast_mode: settings.workflow.defaultFastMode !== false ? 1 : 0,
 
     // Onboarding (boolean → INTEGER)
     onboarding_complete: settings.onboardingComplete ? 1 : 0,
@@ -356,6 +358,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       enableEvidence: row.workflow_enable_evidence === 1,
       commitEvidence: row.workflow_commit_evidence === 1,
       hideCiStatus: row.hide_ci_status === 1,
+      defaultFastMode: (row.default_fast_mode ?? 1) !== 0,
     },
 
     // FeatureFlags (INTEGER 0/1 → boolean)

@@ -67,6 +67,8 @@
       "title": "Flujo de trabajo",
       "description": "Configura el comportamiento de PR, puertas de aprobación y configuración de CI",
       "sectionDescription": "Comportamiento de automatización después de la implementación",
+      "defaultFastMode": "Modo rápido por defecto",
+      "defaultFastModeDescription": "Omitir fases SDLC e implementar directamente desde el prompt",
       "subsections": {
         "approve": "Aprobar",
         "evidence": "Evidencia",
