@@ -23,7 +23,7 @@ technologies:
   - Playwright (E2E test for web drag-drop to create to agent prompt flow)
 
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/223
+  - https://github.com/shep-ai/shep/issues/223
 
 phases:
   - id: phase-0

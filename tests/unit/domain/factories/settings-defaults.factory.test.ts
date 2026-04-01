@@ -323,6 +323,30 @@ describe('createDefaultSettings', () => {
     });
   });
 
+  describe('WorkflowConfig defaults', () => {
+    it('should default workflow.defaultFastMode to true', () => {
+      const settings = createDefaultSettings();
+      expect(settings.workflow.defaultFastMode).toBe(true);
+    });
+
+    it('should include all workflow defaults', () => {
+      const settings = createDefaultSettings();
+      expect(settings.workflow).toEqual({
+        openPrOnImplementationComplete: false,
+        approvalGateDefaults: {
+          allowPrd: false,
+          allowPlan: false,
+          allowMerge: false,
+          pushOnImplementationComplete: false,
+        },
+        ciWatchEnabled: true,
+        enableEvidence: false,
+        commitEvidence: false,
+        defaultFastMode: true,
+      });
+    });
+  });
+
   describe('complete default object', () => {
     it('should return complete Settings object matching all TypeSpec defaults', () => {
       // Act

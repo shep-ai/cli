@@ -1,3 +1,38 @@
+# [1.160.0](https://github.com/shep-ai/shep/compare/v1.159.0...v1.160.0) (2026-04-01)
+
+
+### Features
+
+* **config:** make fast mode the default for new features ([#495](https://github.com/shep-ai/shep/issues/495)) ([f7b7e46](https://github.com/shep-ai/shep/commit/f7b7e4638b605964b5673f165a09b68b70b4c1e6))
+
+# [1.159.0](https://github.com/shep-ai/shep/compare/v1.158.0...v1.159.0) (2026-04-01)
+
+
+### Features
+
+* **cli:** add rebase-before-branch toggle to feature creation ([#493](https://github.com/shep-ai/shep/issues/493)) ([6487b38](https://github.com/shep-ai/shep/commit/6487b38766152302d6e123e6c4ebeb2a790c8a70))
+* **dx:** add shep branding to all custom skill definitions ([#498](https://github.com/shep-ai/shep/issues/498)) ([b78d577](https://github.com/shep-ai/shep/commit/b78d5779be94d83a379e614d28a2d026d6069e3e))
+
+# [1.158.0](https://github.com/shep-ai/shep/compare/v1.157.0...v1.158.0) (2026-03-31)
+
+
+### Features
+
+* **cli:** add smart rebase with auto-stash and conflict resolution ([#494](https://github.com/shep-ai/shep/issues/494)) ([ef391a0](https://github.com/shep-ai/shep/commit/ef391a0042d4450c3c7290ace914090bbe3a7a52))
+
+# [1.157.0](https://github.com/shep-ai/shep/compare/v1.156.0...v1.157.0) (2026-03-30)
+
+
+### Bug Fixes
+
+* **ci:** update all shep-ai/cli references to shep-ai/shep after repo rename ([#491](https://github.com/shep-ai/shep/issues/491)) ([3afe6d9](https://github.com/shep-ai/shep/commit/3afe6d9bb793328d12969465d6ab6f28ff962b94))
+
+
+### Features
+
+* **web:** add dashboard screenshots and streamline spec docs ([#490](https://github.com/shep-ai/shep/issues/490)) ([5741c4b](https://github.com/shep-ai/shep/commit/5741c4bd54803be8b59b190718306129c4cef55d))
+* **web:** add multi-language i18n support with rtl for arabic and hebrew ([#485](https://github.com/shep-ai/shep/issues/485)) ([47157cd](https://github.com/shep-ai/shep/commit/47157cd8ac3d9d79d3e48d662f341d5ecacda916))
+
 # [1.156.0](https://github.com/shep-ai/cli/compare/v1.155.0...v1.156.0) (2026-03-30)
 
 

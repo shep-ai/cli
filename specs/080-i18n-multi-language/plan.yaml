@@ -1,0 +1,322 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "i18n-multi-language"
+summary: >
+  Implement multi-language i18n support across CLI, TUI, and Web UI using i18next as the
+  universal translation framework. A new Language TypeSpec enum and Settings.user.preferredLanguage
+  field anchor the domain model. Translation files are organized in a shared translations/
+  directory with four namespaces (common, cli, tui, web). The Web UI gains RTL support for
+  Arabic and Hebrew via CSS logical properties and lazy-loaded Noto Sans fonts. Implementation
+  proceeds in five phases: domain foundation, i18n framework setup, string extraction per layer,
+  RTL support, and cross-cutting integration testing.
+
+relatedFeatures: []
+technologies:
+  - "TypeSpec (Language enum and Settings.user.preferredLanguage field)"
+  - "i18next (universal i18n framework for CLI, TUI, and Web)"
+  - "react-i18next (React/Next.js integration for Web UI)"
+  - "Tailwind CSS v4 (logical properties for RTL support)"
+  - "Radix UI v1.4.3 (built-in RTL support via dir attribute)"
+  - "Next.js 16 App Router (root layout lang/dir attributes)"
+  - "SQLite / better-sqlite3 (persist language preference)"
+  - "Umzug v3 (database migration 049 for new column)"
+  - "Google Noto Sans Arabic / Noto Sans Hebrew (lazy-loaded multilingual fonts)"
+
+relatedLinks:
+  - title: "i18next documentation"
+    url: "https://www.i18next.com/"
+  - title: "react-i18next documentation"
+    url: "https://react.i18next.com/"
+  - title: "Tailwind CSS RTL support"
+    url: "https://tailwindcss.com/docs/hover-focus-and-other-states#rtl-support"
+  - title: "MDN CSS Logical Properties"
+    url: "https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_logical_properties_and_values"
+
+phases:
+  - id: "phase-1"
+    name: "Domain Foundation"
+    description: >
+      Establish the domain model and persistence layer for language preference. This phase
+      creates the Language TypeSpec enum, extends UserProfile with preferredLanguage, runs
+      TypeSpec compilation, adds database migration 049, and updates the settings mapper and
+      repository. All subsequent phases depend on this foundation being solid.
+    parallel: false
+
+  - id: "phase-2"
+    name: "i18n Framework Setup"
+    description: >
+      Install i18next and react-i18next, create the shared translation directory structure,
+      author English translation files for all four namespaces, and build initialization
+      modules for each presentation layer. This phase produces the scaffolding that string
+      extraction in Phase 3 plugs into.
+    parallel: false
+
+  - id: "phase-3"
+    name: "String Extraction and Integration"
+    description: >
+      Extract all ~600 hardcoded English strings across CLI (51 files), TUI (11 files), and
+      Web UI (45+ files) to translation keys. Add the language settings section to the Web UI
+      settings page with a language selector dropdown and Storybook stories. Add a language
+      option to the CLI settings command. This is the largest phase by volume.
+    parallel: false
+
+  - id: "phase-4"
+    name: "RTL Support and Multilingual Fonts"
+    description: >
+      Implement right-to-left layout support for Arabic and Hebrew in the Web UI. Replace
+      physical CSS directional properties with logical properties, set dynamic lang and dir
+      attributes on the root HTML element, lazy-load Noto Sans Arabic and Noto Sans Hebrew
+      fonts, and verify Radix UI components render correctly in RTL mode.
+    parallel: false
+
+  - id: "phase-5"
+    name: "Non-English Translations and Final Validation"
+    description: >
+      Generate AI-powered translations for all 7 non-English languages across all four
+      namespaces. Run comprehensive cross-layer integration tests verifying language switching,
+      translation completeness, RTL rendering, and fallback behavior. Fix any remaining issues.
+    parallel: false
+
+filesToCreate:
+  # TypeSpec
+  - "tsp/common/enums/language.tsp"
+
+  # Database migration
+  - "packages/core/src/infrastructure/persistence/sqlite/migrations/049-add-language-preference.ts"
+
+  # i18n initialization modules
+  - "src/presentation/cli/i18n.ts"
+  - "src/presentation/tui/i18n.ts"
+  - "src/presentation/web/lib/i18n.ts"
+
+  # English translation files (source of truth)
+  - "translations/en/common.json"
+  - "translations/en/cli.json"
+  - "translations/en/tui.json"
+  - "translations/en/web.json"
+
+  # Non-English translation files (AI-generated)
+  - "translations/ru/common.json"
+  - "translations/ru/cli.json"
+  - "translations/ru/tui.json"
+  - "translations/ru/web.json"
+  - "translations/pt/common.json"
+  - "translations/pt/cli.json"
+  - "translations/pt/tui.json"
+  - "translations/pt/web.json"
+  - "translations/es/common.json"
+  - "translations/es/cli.json"
+  - "translations/es/tui.json"
+  - "translations/es/web.json"
+  - "translations/ar/common.json"
+  - "translations/ar/cli.json"
+  - "translations/ar/tui.json"
+  - "translations/ar/web.json"
+  - "translations/he/common.json"
+  - "translations/he/cli.json"
+  - "translations/he/tui.json"
+  - "translations/he/web.json"
+  - "translations/fr/common.json"
+  - "translations/fr/cli.json"
+  - "translations/fr/tui.json"
+  - "translations/fr/web.json"
+  - "translations/de/common.json"
+  - "translations/de/cli.json"
+  - "translations/de/tui.json"
+  - "translations/de/web.json"
+
+  # Web UI language settings component + stories
+  - "src/presentation/web/components/features/settings/language-settings-section.tsx"
+  - "src/presentation/web/components/features/settings/language-settings-section.stories.tsx"
+
+  # Web UI i18n provider component
+  - "src/presentation/web/components/providers/i18n-provider.tsx"
+
+  # Test files
+  - "packages/core/src/infrastructure/persistence/sqlite/mappers/__tests__/settings.mapper.language.test.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/migrations/__tests__/049-add-language-preference.test.ts"
+  - "src/presentation/cli/__tests__/i18n.test.ts"
+  - "src/presentation/web/__tests__/i18n.test.ts"
+
+filesToModify:
+  # TypeSpec
+  - "tsp/common/enums/index.tsp"
+  - "tsp/domain/entities/settings.tsp"
+
+  # Generated output (via tsp:compile)
+  - "packages/core/src/domain/generated/output.ts"
+
+  # Settings mapper and repository
+  - "packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts"
+  - "packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts"
+
+  # CLI command files (string extraction)
+  - "src/presentation/cli/commands/settings/show.command.ts"
+  - "src/presentation/cli/commands/settings/init.command.ts"
+  - "src/presentation/cli/commands/settings/agent.command.ts"
+  - "src/presentation/cli/commands/settings/ide.command.ts"
+  - "src/presentation/cli/commands/settings/model.command.ts"
+  - "src/presentation/cli/commands/settings/workflow.command.ts"
+  - "src/presentation/cli/ui/messages.ts"
+
+  # TUI prompt files (string extraction)
+  - "src/presentation/tui/prompts/agent-select.prompt.ts"
+  - "src/presentation/tui/prompts/ide-select.prompt.ts"
+  - "src/presentation/tui/prompts/auth-method.prompt.ts"
+  - "src/presentation/tui/wizards/onboarding.wizard.ts"
+
+  # Web UI root layout and providers
+  - "src/presentation/web/app/layout.tsx"
+  - "src/presentation/web/app/globals.css"
+
+  # Web UI settings page
+  - "src/presentation/web/components/features/settings/settings-page-client.tsx"
+
+  # Web UI components (string extraction and RTL)
+  - "src/presentation/web/components/features/settings/agent-settings-section.tsx"
+  - "src/presentation/web/components/features/settings/environment-settings-section.tsx"
+  - "src/presentation/web/components/features/settings/database-settings-section.tsx"
+  - "src/presentation/web/components/features/settings/feature-flags-settings-section.tsx"
+  - "src/presentation/web/components/features/settings/notification-settings-section.tsx"
+  - "src/presentation/web/components/features/settings/workflow-settings-section.tsx"
+
+  # Package dependencies
+  - "package.json"
+  - "pnpm-lock.yaml"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The i18n system follows Clean Architecture boundaries precisely:
+
+  **Domain layer** — Contains only the Language enum and Settings.user.preferredLanguage field.
+  No i18n library imports, no translation logic. The domain defines *what* languages exist and
+  *where* the preference is stored; it knows nothing about how translations work.
+
+  **Application layer** — Untouched. The existing UpdateSettingsUseCase already handles arbitrary
+  Settings field updates via its generic update path. No new use cases needed for language changes.
+
+  **Infrastructure layer** — Migration 049 adds the `user_preferred_language` TEXT column to the
+  settings table with DEFAULT 'en'. The settings mapper adds bidirectional conversion for the new
+  field. The repository's INSERT/UPDATE statements include the new column.
+
+  **Presentation layer** — Each presentation layer (CLI, TUI, Web) owns its own i18n initialization
+  module. All three share a common i18next core and load from the same `translations/` directory.
+  Translation is a UI concern — it lives entirely in the presentation layer.
+
+  ### Translation File Architecture
+
+  ```
+  translations/
+  ├── en/
+  │   ├── common.json    # Shared strings: errors, confirmations, labels
+  │   ├── cli.json       # CLI-specific: command descriptions, help text
+  │   ├── tui.json       # TUI-specific: prompt messages, choice labels
+  │   └── web.json       # Web UI-specific: component text, headings, tooltips
+  ├── ru/
+  │   ├── common.json
+  │   ├── cli.json
+  │   ├── tui.json
+  │   └── web.json
+  ├── ... (pt, es, ar, he, fr, de)
+  ```
+
+  **Key convention:** Keys use dot-separated hierarchical naming (i18next standard):
+  - `cli.commands.init.description` maps to nested JSON in cli.json under `commands.init.description`
+  - `common.errors.notFound` maps to nested JSON in common.json under `errors.notFound`
+  - `web.settings.language.label` maps to nested JSON in web.json under `settings.language.label`
+
+  ### i18n Initialization Flow
+
+  **CLI/TUI:** On startup, the CLI bootstrap reads `Settings.user.preferredLanguage` from the
+  database (via the existing settings service), then calls the presentation-layer i18n init
+  module which configures i18next with the correct locale and loads the relevant namespace files.
+
+  **Web UI:** The root `layout.tsx` (server component) fetches settings synchronously via
+  better-sqlite3, extracts the language preference, and passes it to a client-side I18nProvider
+  component. The provider initializes react-i18next with the correct locale. The HTML `lang` and
+  `dir` attributes are set server-side to prevent any flash of wrong language/direction.
+
+  ### RTL Strategy
+
+  RTL is implemented via CSS logical properties — the modern, automatic approach:
+  - `margin-left` becomes `margin-inline-start`
+  - `padding-right` becomes `padding-inline-end`
+  - `text-align: left` becomes `text-align: start`
+
+  Tailwind v4 supports logical properties natively. The root `<html>` element gets
+  `dir="rtl"` for Arabic and Hebrew, `dir="ltr"` for all other languages. Radix UI
+  components inherit `dir` from the root element and render correctly in both directions.
+
+  Noto Sans Arabic and Noto Sans Hebrew fonts are lazy-loaded only when the user selects
+  those languages, avoiding any bundle size impact for the majority of LTR users.
+
+  ## Key Design Decisions
+
+  ### 1. Shared i18next core across all layers (decision-002)
+  react-i18next was chosen over next-intl because it shares the same i18next core used by
+  CLI and TUI. This means one set of translation files, one namespace convention, and one
+  API pattern. next-intl would have required a second parallel i18n system.
+
+  ### 2. UserProfile.preferredLanguage placement (decision-001)
+  Language preference is placed in the UserProfile nested object alongside name, email, and
+  githubUsername. This follows the established nesting pattern for user-specific settings and
+  maps cleanly to a `user_preferred_language` column in the flattened database schema.
+
+  ### 3. Shared directory with layer namespaces (decision-003)
+  A single `translations/` directory at the project root with per-language subdirectories
+  and per-layer namespace files. Common strings (errors, labels) go in `common.json` and are
+  shared across layers. Layer-specific strings go in `cli.json`, `tui.json`, or `web.json`.
+
+  ### 4. CSS logical properties for RTL (decision-006)
+  Logical properties work automatically for both LTR and RTL without conditional logic.
+  This is less error-prone than Tailwind `rtl:` variant modifiers which require explicit
+  RTL handling for every directional style.
+
+  ### 5. Server-side language detection (decision-008)
+  Root layout fetches language from settings on the server and sets HTML `lang`/`dir`
+  attributes during SSR. This prevents any flash of wrong language or direction — the page
+  renders correctly from the first frame.
+
+  ### 6. Lazy font loading (decision-007)
+  Arabic and Hebrew fonts are loaded only when the user switches to those languages.
+  This avoids penalizing the ~95% of users who use LTR languages with an extra 100-200KB
+  in the initial bundle.
+
+  ## Implementation Strategy
+
+  The five phases are ordered by dependency:
+
+  **Phase 1 (Domain Foundation)** must come first because all other phases depend on the
+  Language enum existing in TypeSpec and the database being able to persist language preference.
+  This phase is small (S) and well-defined.
+
+  **Phase 2 (i18n Framework Setup)** installs the libraries and creates the translation
+  infrastructure. It depends on Phase 1 for the Language type but is otherwise independent.
+  The English translation files authored here become the source of truth for all other languages.
+
+  **Phase 3 (String Extraction)** is the largest phase (L). It depends on Phase 2 for the
+  i18n infrastructure to exist. The work is parallelizable across layers (CLI, TUI, Web) but
+  must be done carefully to avoid merge conflicts. The language settings UI is also built here.
+
+  **Phase 4 (RTL Support)** depends on Phase 3 for the Web UI to be using i18n. RTL changes
+  affect CSS and layout, which are easier to validate after string extraction is complete.
+
+  **Phase 5 (Translations and Validation)** comes last because it needs all English keys
+  finalized before generating translations for 7 other languages. Integration testing validates
+  the entire system end-to-end.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Volume: ~600 strings across 107+ files creates risk of missed strings | Systematic file-by-file extraction with grep verification. Run a post-extraction script to detect remaining hardcoded strings. |
+  | Translation key conflicts between namespaces | Namespace prefixing convention (cli.*, tui.*, web.*) eliminates conflicts. Common keys live only in common namespace. |
+  | RTL layout breaks in complex components (React Flow canvas, modals) | RTL testing with visual regression. Canvas and absolutely-positioned elements may need explicit RTL exceptions. |
+  | i18next initialization race condition on Web UI | Server-side language detection in layout.tsx eliminates client-side race. Provider wraps entire app before any component renders. |
+  | Database migration backwards compatibility | Migration adds column with DEFAULT 'en'. Existing installations get English by default, no data loss. Mapper handles missing column gracefully via nullish coalescing. |
+  | Bundle size increase from translation files | Lazy-load non-active language files. Only load needed namespaces per layer. Fonts lazy-loaded on demand. |
+  | TypeSpec compilation breaking existing types | Run tsp:compile immediately after TypeSpec changes and verify output.ts diff. New Language enum and optional field should be additive-only. |

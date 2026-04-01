@@ -1,0 +1,856 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "i18n-multi-language"
+summary: >
+  28 tasks across 5 phases covering domain model, i18n framework setup, string extraction
+  across CLI/TUI/Web, RTL support, and multi-language translation generation with final validation.
+
+relatedFeatures: []
+technologies:
+  - "TypeSpec"
+  - "i18next"
+  - "react-i18next"
+  - "Tailwind CSS v4"
+  - "SQLite / better-sqlite3"
+  - "Umzug v3"
+relatedLinks:
+  - title: "i18next documentation"
+    url: "https://www.i18next.com/"
+  - title: "react-i18next documentation"
+    url: "https://react.i18next.com/"
+
+tasks:
+  # ═══════════════════════════════════════════════════════════════════
+  # PHASE 1: Domain Foundation
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Create Language TypeSpec enum"
+    description: >
+      Define the Language enum in tsp/common/enums/language.tsp with 8 values
+      (en, ru, pt, es, ar, he, fr, de). Add import to index.tsp. Run tsp:compile
+      to regenerate output.ts.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "Language enum defined in tsp/common/enums/language.tsp with @doc decorators"
+      - "8 enum values: English (en), Russian (ru), Portuguese (pt), Spanish (es), Arabic (ar), Hebrew (he), French (fr), German (de)"
+      - "Enum imported in tsp/common/enums/index.tsp"
+      - "pnpm tsp:compile succeeds and output.ts contains Language type"
+    tdd:
+      red:
+        - "Write test asserting Language enum exists in output.ts with all 8 values"
+        - "Write test asserting Language.English equals 'en', Language.Arabic equals 'ar', etc."
+      green:
+        - "Create tsp/common/enums/language.tsp with @doc decorated enum"
+        - "Add import to tsp/common/enums/index.tsp"
+        - "Run pnpm tsp:compile to regenerate output.ts"
+      refactor:
+        - "Verify enum follows PascalCase name / lowercase value convention matching EditorType pattern"
+    estimatedEffort: "30min"
+
+  - id: "task-2"
+    phaseId: "phase-1"
+    title: "Add preferredLanguage to UserProfile in TypeSpec"
+    description: >
+      Extend the UserProfile model in tsp/domain/entities/settings.tsp with an optional
+      preferredLanguage field of type Language, defaulting to Language.English. Import the
+      Language enum. Run tsp:compile to regenerate output.ts.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "UserProfile model has preferredLanguage?: Language field with @doc decorator"
+      - "Default value is Language.English"
+      - "pnpm tsp:compile succeeds and Settings type in output.ts includes user.preferredLanguage"
+    tdd:
+      red:
+        - "Write test asserting Settings type has user.preferredLanguage of type Language"
+        - "Write test asserting default value resolves to 'en'"
+      green:
+        - "Add import for Language enum to settings.tsp"
+        - "Add preferredLanguage field to UserProfile model with default"
+        - "Run pnpm tsp:compile"
+      refactor:
+        - "Verify field documentation is clear and consistent with other UserProfile fields"
+    estimatedEffort: "20min"
+
+  - id: "task-3"
+    phaseId: "phase-1"
+    title: "Create database migration 049 for language preference column"
+    description: >
+      Create migration 049-add-language-preference.ts that adds user_preferred_language TEXT
+      column with DEFAULT 'en' to the settings table. Follow the idempotent pattern from
+      migration 048 (check if column exists before ALTER TABLE).
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "Migration file exists at packages/core/src/infrastructure/persistence/sqlite/migrations/049-add-language-preference.ts"
+      - "Migration adds user_preferred_language TEXT column with DEFAULT 'en'"
+      - "Migration is idempotent (checks column existence before ALTER TABLE)"
+      - "Existing settings rows get 'en' as default value"
+    tdd:
+      red:
+        - "Write test that creates a settings table without the column, runs migration, and asserts column exists with default 'en'"
+        - "Write test that running migration twice does not throw (idempotent)"
+      green:
+        - "Create migration file following 048 pattern: pragma check, conditional ALTER TABLE"
+        - "Column type TEXT NOT NULL DEFAULT 'en'"
+      refactor:
+        - "Ensure down() function is consistent with project convention (void db)"
+    estimatedEffort: "30min"
+
+  - id: "task-4"
+    phaseId: "phase-1"
+    title: "Update settings mapper for preferredLanguage"
+    description: >
+      Add user_preferred_language to SettingsRow interface. Update toDatabase() to map
+      settings.user.preferredLanguage to user_preferred_language column. Update fromDatabase()
+      to map column value back to domain field. Use nullish coalescing to default to 'en'
+      for backward compatibility with pre-migration rows.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "SettingsRow interface has user_preferred_language: string field"
+      - "toDatabase() maps settings.user.preferredLanguage to user_preferred_language (default 'en')"
+      - "fromDatabase() maps user_preferred_language back to user.preferredLanguage (default 'en')"
+      - "Round-trip test passes: toDatabase(fromDatabase(row)) preserves language value"
+    tdd:
+      red:
+        - "Write test: toDatabase() with preferredLanguage 'ru' produces row with user_preferred_language 'ru'"
+        - "Write test: fromDatabase() with user_preferred_language 'ar' produces settings with user.preferredLanguage 'ar'"
+        - "Write test: fromDatabase() with missing/null user_preferred_language defaults to 'en'"
+        - "Write test: round-trip preserves language value"
+      green:
+        - "Add user_preferred_language to SettingsRow interface"
+        - "Add mapping in toDatabase(): user_preferred_language: settings.user.preferredLanguage ?? 'en'"
+        - "Add mapping in fromDatabase(): preferredLanguage: (row.user_preferred_language ?? 'en') as Language"
+        - "Import Language type from output.ts"
+      refactor:
+        - "Verify import of Language type follows existing import pattern for AgentType, EditorType"
+    estimatedEffort: "30min"
+
+  - id: "task-5"
+    phaseId: "phase-1"
+    title: "Update SQLite settings repository for language column"
+    description: >
+      Add user_preferred_language to both INSERT and UPDATE SQL statements in
+      sqlite-settings.repository.ts. The column must appear in the column list and
+      corresponding @parameter placeholder in both statements.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "INSERT statement includes user_preferred_language column and @user_preferred_language parameter"
+      - "UPDATE statement includes user_preferred_language = @user_preferred_language"
+      - "Integration test: initialize() with language 'fr', load() returns 'fr'"
+      - "Integration test: update() changes language from 'en' to 'de', load() returns 'de'"
+    tdd:
+      red:
+        - "Write integration test: initialize settings with preferredLanguage 'fr', load settings, assert user.preferredLanguage is 'fr'"
+        - "Write integration test: update settings changing preferredLanguage to 'de', load, assert 'de'"
+      green:
+        - "Add user_preferred_language to INSERT column list and VALUES list"
+        - "Add user_preferred_language = @user_preferred_language to UPDATE SET clause"
+      refactor:
+        - "Verify column placement is consistent with other user_* columns in SQL statements"
+    estimatedEffort: "20min"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # PHASE 2: i18n Framework Setup
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-6"
+    phaseId: "phase-2"
+    title: "Install i18next and react-i18next dependencies"
+    description: >
+      Add i18next and react-i18next as production dependencies. These are the core
+      i18n libraries shared across all presentation layers.
+    state: "Todo"
+    dependencies:
+      - "task-5"
+    acceptanceCriteria:
+      - "i18next is listed in package.json dependencies"
+      - "react-i18next is listed in package.json dependencies"
+      - "pnpm install succeeds"
+      - "pnpm build succeeds with new dependencies"
+    tdd: null
+    estimatedEffort: "10min"
+
+  - id: "task-7"
+    phaseId: "phase-2"
+    title: "Create English translation files for all namespaces"
+    description: >
+      Create the translations/ directory structure and English (en) translation files
+      for all four namespaces: common.json, cli.json, tui.json, web.json. Start with
+      placeholder structure that will be populated during string extraction in Phase 3.
+      Include enough keys to validate the framework.
+    state: "Todo"
+    dependencies:
+      - "task-6"
+    acceptanceCriteria:
+      - "translations/en/common.json exists with initial shared keys (errors, labels, confirmations)"
+      - "translations/en/cli.json exists with initial CLI keys (commands, help text)"
+      - "translations/en/tui.json exists with initial TUI keys (prompts, choices)"
+      - "translations/en/web.json exists with initial Web UI keys (settings, navigation)"
+      - "All JSON files are valid and parse without errors"
+      - "Keys follow dot-separated hierarchical naming convention"
+    tdd:
+      red:
+        - "Write test that loads each JSON file and asserts it parses as valid JSON"
+        - "Write test that common.json contains at least errors and labels top-level groups"
+      green:
+        - "Create translations/en/ directory"
+        - "Create common.json with shared error messages, confirmation labels, generic UI text"
+        - "Create cli.json with command descriptions and help text structure"
+        - "Create tui.json with prompt message structure"
+        - "Create web.json with settings page text, navigation labels"
+      refactor:
+        - "Ensure key naming is consistent across namespaces"
+        - "Verify no duplicate keys between common and layer-specific namespaces"
+    estimatedEffort: "2h"
+
+  - id: "task-8"
+    phaseId: "phase-2"
+    title: "Create CLI i18n initialization module"
+    description: >
+      Create src/presentation/cli/i18n.ts that initializes i18next for the CLI layer.
+      The module loads common and cli namespaces, sets language from Settings preference,
+      and falls back to English for missing translations.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "src/presentation/cli/i18n.ts exports an initI18n(language: string) async function"
+      - "i18next configured with common and cli namespaces"
+      - "Fallback language is English (en)"
+      - "Translation files loaded from translations/{locale}/ directory"
+      - "i18next instance is usable after initialization via t() function"
+    tdd:
+      red:
+        - "Write test: initI18n('en') initializes successfully, t('common.errors.notFound') returns English string"
+        - "Write test: t() for missing key falls back to English"
+        - "Write test: initI18n('ru') loads Russian translations when available"
+      green:
+        - "Create i18n.ts with i18next.init() configuration"
+        - "Configure backend to load JSON files from translations/ directory"
+        - "Set fallbackLng to 'en'"
+        - "Load common and cli namespaces"
+      refactor:
+        - "Extract shared i18n config (fallback, namespace list) to avoid duplication with TUI init"
+    estimatedEffort: "1h"
+
+  - id: "task-9"
+    phaseId: "phase-2"
+    title: "Create TUI i18n initialization module"
+    description: >
+      Create src/presentation/tui/i18n.ts that initializes i18next for the TUI layer.
+      Shares the same i18next core and config pattern as the CLI module but loads common
+      and tui namespaces.
+    state: "Todo"
+    dependencies:
+      - "task-8"
+    acceptanceCriteria:
+      - "src/presentation/tui/i18n.ts exports an initI18n(language: string) async function"
+      - "i18next configured with common and tui namespaces"
+      - "Fallback language is English (en)"
+      - "Uses same i18next instance or shared config as CLI"
+    tdd:
+      red:
+        - "Write test: initI18n('en') initializes successfully for TUI"
+        - "Write test: t('tui.prompts.selectAgent') returns expected TUI string"
+      green:
+        - "Create i18n.ts with i18next.init() for TUI namespaces"
+        - "Reuse shared config pattern from CLI module"
+      refactor:
+        - "Extract common initialization logic into shared helper if not already done in task-8"
+    estimatedEffort: "30min"
+
+  - id: "task-10"
+    phaseId: "phase-2"
+    title: "Create Web UI i18n initialization and provider"
+    description: >
+      Create src/presentation/web/lib/i18n.ts for i18next configuration and
+      src/presentation/web/components/providers/i18n-provider.tsx as a client-side
+      React provider wrapping react-i18next's I18nextProvider. The provider receives
+      the initial language from the server-side layout.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "src/presentation/web/lib/i18n.ts exports i18next instance configured for Web UI"
+      - "i18next configured with common and web namespaces"
+      - "I18nProvider client component wraps children with I18nextProvider"
+      - "I18nProvider accepts initialLanguage prop and sets it on i18next"
+      - "Fallback language is English (en)"
+    tdd:
+      red:
+        - "Write test: i18n module initializes with language 'en'"
+        - "Write test: I18nProvider renders children and provides translation context"
+        - "Write test: useTranslation() returns expected translations inside provider"
+      green:
+        - "Create i18n.ts with i18next + react-i18next init for web namespaces"
+        - "Create I18nProvider as 'use client' component wrapping I18nextProvider"
+        - "Accept initialLanguage prop and call i18n.changeLanguage()"
+      refactor:
+        - "Ensure i18n instance is created once (module-level singleton for client side)"
+    estimatedEffort: "1h"
+
+  - id: "task-11"
+    phaseId: "phase-2"
+    title: "Wire I18nProvider into Web UI root layout"
+    description: >
+      Update src/presentation/web/app/layout.tsx to fetch language preference from
+      settings server-side, pass it to I18nProvider, and set lang/dir attributes on
+      the root HTML element dynamically.
+    state: "Todo"
+    dependencies:
+      - "task-10"
+    acceptanceCriteria:
+      - "layout.tsx fetches language from settings (sync better-sqlite3 call)"
+      - "HTML lang attribute set to fetched language code"
+      - "HTML dir attribute set to 'rtl' for 'ar' and 'he', 'ltr' otherwise"
+      - "I18nProvider wraps QueryProvider with initialLanguage prop"
+      - "No flash of wrong language on initial page load"
+    tdd:
+      red:
+        - "Write test: layout renders with lang='en' and dir='ltr' when settings.user.preferredLanguage is 'en'"
+        - "Write test: layout renders with lang='ar' and dir='rtl' when settings.user.preferredLanguage is 'ar'"
+      green:
+        - "Import getSettings or equivalent server-side settings accessor"
+        - "Extract language from settings with fallback to 'en'"
+        - "Set html lang={language} dir={['ar','he'].includes(language) ? 'rtl' : 'ltr'}"
+        - "Wrap children with I18nProvider initialLanguage={language}"
+      refactor:
+        - "Extract RTL language check to a utility function (isRtlLanguage)"
+    estimatedEffort: "1h"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # PHASE 3: String Extraction and Integration
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-12"
+    phaseId: "phase-3"
+    title: "Extract CLI settings command strings to translation keys"
+    description: >
+      Extract all hardcoded English strings from the CLI settings commands
+      (show, init, agent, ide, model, workflow) to translation keys in cli.json.
+      Initialize i18n in the CLI bootstrap before commands execute. Each command
+      file uses t() from the initialized i18next instance.
+    state: "Todo"
+    dependencies:
+      - "task-8"
+    acceptanceCriteria:
+      - "All 6 settings command files use t() for user-facing strings"
+      - "cli.json contains all extracted keys under commands.settings namespace"
+      - "CLI bootstrap initializes i18n before command routing"
+      - "Settings show command displays language preference"
+    tdd:
+      red:
+        - "Write test: CLI settings show command output includes language preference"
+        - "Write test: settings command descriptions come from translation keys"
+      green:
+        - "Add i18n initialization to CLI bootstrap entry point"
+        - "Extract strings from each settings command to cli.json keys"
+        - "Replace hardcoded strings with t() calls"
+        - "Add language display to settings show command"
+      refactor:
+        - "Verify no hardcoded English strings remain in settings command files"
+    estimatedEffort: "2h"
+
+  - id: "task-13"
+    phaseId: "phase-3"
+    title: "Add language command to CLI settings"
+    description: >
+      Add language selection capability to the CLI settings command set. Users can
+      change their language preference via the existing settings command structure.
+      This could be a new settings subcommand or integrated into settings show.
+    state: "Todo"
+    dependencies:
+      - "task-12"
+    acceptanceCriteria:
+      - "CLI provides a way to view and change language preference via settings"
+      - "Language selector shows all 8 languages with their native names"
+      - "Selection persists to database via UpdateSettingsUseCase"
+      - "UI refreshes to new language after selection"
+    tdd:
+      red:
+        - "Write test: language command presents 8 language choices"
+        - "Write test: selecting a language updates settings.user.preferredLanguage"
+      green:
+        - "Create language settings command following agent/ide/model command patterns"
+        - "Use TUI prompt for language selection with native language names"
+        - "Persist selection via updateSettingsAction"
+      refactor:
+        - "Ensure language display names are themselves translatable"
+    estimatedEffort: "1h"
+
+  - id: "task-14"
+    phaseId: "phase-3"
+    title: "Extract remaining CLI command strings to translation keys"
+    description: >
+      Extract hardcoded English strings from all remaining CLI commands beyond settings:
+      agent commands (7 files), feat commands (11 files), repo commands (3 files),
+      session commands (2 files), daemon, install, ui, tools, and other top-level commands.
+    state: "Todo"
+    dependencies:
+      - "task-12"
+    acceptanceCriteria:
+      - "All ~45 remaining CLI command files use t() for user-facing strings"
+      - "cli.json contains all extracted keys organized by command group"
+      - "Command .description() strings use translation keys"
+      - "All messages.success/error/info calls receive translated strings"
+    tdd:
+      red:
+        - "Write test: feat new command description comes from translation key"
+        - "Write test: agent ls command output uses translated headers"
+      green:
+        - "Extract strings file-by-file, grouping keys by command namespace"
+        - "Replace hardcoded strings with t() calls"
+        - "Update cli.json with all new keys"
+      refactor:
+        - "Group related keys under consistent namespace hierarchy"
+        - "Extract any repeated patterns into shared key references"
+    estimatedEffort: "4h"
+
+  - id: "task-15"
+    phaseId: "phase-3"
+    title: "Extract CLI UI module strings to translation keys"
+    description: >
+      Extract hardcoded English strings from src/presentation/cli/ui/messages.ts and
+      other UI utility files (colors.ts, symbols.ts, formatters). The messages module
+      functions (success, error, info, etc.) should receive translated text from callers.
+    state: "Todo"
+    dependencies:
+      - "task-14"
+    acceptanceCriteria:
+      - "messages.ts functions receive pre-translated text (no internal hardcoded strings)"
+      - "Any format strings or templates in UI modules use translation interpolation"
+      - "common.json updated with any shared UI text"
+    tdd:
+      red:
+        - "Write test: messages.success() renders translated success text"
+        - "Write test: error formatting uses translated template"
+      green:
+        - "Audit messages.ts for hardcoded strings"
+        - "Move any internal strings to common.json or cli.json"
+        - "Ensure callers pass translated text to message functions"
+      refactor:
+        - "Verify messages module remains presentation-agnostic (no i18n import needed if callers pass translated text)"
+    estimatedEffort: "1h"
+
+  - id: "task-16"
+    phaseId: "phase-3"
+    title: "Extract TUI prompt and wizard strings to translation keys"
+    description: >
+      Extract all hardcoded English strings from TUI prompts (agent-select, ide-select,
+      auth-method, prd-review) and wizards (onboarding, agent-config, github-import,
+      merge-review, plan-review, prd-review) to translation keys in tui.json.
+      Initialize i18n in TUI bootstrap.
+    state: "Todo"
+    dependencies:
+      - "task-9"
+    acceptanceCriteria:
+      - "All ~11 TUI prompt/wizard files use t() for user-facing strings"
+      - "tui.json contains all extracted keys organized by prompt/wizard name"
+      - "Prompt message, choice.name, choice.description all use translation keys"
+      - "TUI initializes i18n before any prompt renders"
+    tdd:
+      red:
+        - "Write test: agent-select prompt message comes from translation key"
+        - "Write test: onboarding wizard step titles use translated strings"
+        - "Write test: choice descriptions in IDE select use translated text"
+      green:
+        - "Add i18n initialization to TUI entry point"
+        - "Extract strings from each prompt and wizard file"
+        - "Replace hardcoded strings with t() calls"
+        - "Populate tui.json with all extracted keys"
+      refactor:
+        - "Verify choice arrays are constructed with t() calls at render time (not module-level constants)"
+    estimatedEffort: "2h"
+
+  - id: "task-17"
+    phaseId: "phase-3"
+    title: "Create language settings section Web UI component"
+    description: >
+      Create language-settings-section.tsx following the pattern of environment-settings-section.tsx.
+      Shows a dropdown with all 8 languages displayed in their native names. Persists selection
+      via updateSettingsAction. Create colocated Storybook stories.
+    state: "Todo"
+    dependencies:
+      - "task-11"
+    acceptanceCriteria:
+      - "LanguageSettingsSection component renders a Card with language dropdown"
+      - "Dropdown shows 8 languages with native names (English, Русский, Português, Español, العربية, עברית, Français, Deutsch)"
+      - "Selection triggers updateSettingsAction with user.preferredLanguage"
+      - "Shows saving/saved indicator following environment-settings-section pattern"
+      - "Storybook stories exist with Default and each language selected variants"
+      - "Component uses useTranslation() for its own labels"
+    tdd:
+      red:
+        - "Write test: component renders with all 8 language options"
+        - "Write test: selecting a language calls updateSettingsAction with correct payload"
+        - "Write test: component displays current language from props"
+      green:
+        - "Create language-settings-section.tsx following environment-settings-section.tsx pattern"
+        - "Define LANGUAGE_OPTIONS constant with Language enum values and native display names"
+        - "Wire save function to updateSettingsAction({ user: { preferredLanguage } })"
+        - "Create .stories.tsx with Default and RTL language selected stories"
+      refactor:
+        - "Ensure component follows existing settings section patterns exactly"
+    estimatedEffort: "1.5h"
+
+  - id: "task-18"
+    phaseId: "phase-3"
+    title: "Wire language settings section into settings page"
+    description: >
+      Add LanguageSettingsSection to settings-page-client.tsx. Pass the current
+      language preference from settings to the component. Position it logically
+      in the settings page layout (near user profile or environment section).
+    state: "Todo"
+    dependencies:
+      - "task-17"
+    acceptanceCriteria:
+      - "LanguageSettingsSection appears on the settings page"
+      - "Current language preference is passed from settings data"
+      - "Language change updates the page without full reload"
+      - "Section is positioned consistently with other settings sections"
+    tdd:
+      red:
+        - "Write test: settings page renders language section"
+        - "Write test: language section receives current preference from settings"
+      green:
+        - "Import LanguageSettingsSection in settings-page-client.tsx"
+        - "Pass settings.user.preferredLanguage as prop"
+        - "Position in settings page layout"
+      refactor:
+        - "Verify settings page section ordering is logical"
+    estimatedEffort: "30min"
+
+  - id: "task-19"
+    phaseId: "phase-3"
+    title: "Extract Web UI settings component strings to translation keys"
+    description: >
+      Extract hardcoded English strings from all Web UI settings section components:
+      agent, environment, database, feature-flags, notification, workflow settings sections.
+      Replace with useTranslation() hook and t() calls.
+    state: "Todo"
+    dependencies:
+      - "task-11"
+    acceptanceCriteria:
+      - "All 6 existing settings section components use useTranslation() for visible text"
+      - "CardTitle, CardDescription, Label, toast messages all use t() calls"
+      - "web.json updated with all settings section translation keys"
+      - "Storybook stories still render correctly"
+    tdd:
+      red:
+        - "Write test: environment settings section renders translated title via useTranslation mock"
+        - "Write test: agent settings section labels use translation keys"
+      green:
+        - "Add useTranslation() hook to each settings section component"
+        - "Replace hardcoded strings with t() calls (e.g., t('web.settings.environment.title'))"
+        - "Update web.json with extracted keys"
+      refactor:
+        - "Verify consistent key naming across all settings sections"
+    estimatedEffort: "3h"
+
+  - id: "task-20"
+    phaseId: "phase-3"
+    title: "Extract remaining Web UI component strings to translation keys"
+    description: >
+      Extract hardcoded English strings from all remaining Web UI components:
+      navigation, layouts, feature pages, dialogs, toasts, and shared UI components.
+      This covers the ~35+ files beyond settings sections.
+    state: "Todo"
+    dependencies:
+      - "task-19"
+    acceptanceCriteria:
+      - "All Web UI components with user-facing text use useTranslation()"
+      - "web.json and common.json contain all extracted keys"
+      - "Navigation labels, page titles, button text, dialog content all use t() calls"
+      - "Toast messages use translated text"
+      - "aria-labels and accessibility text use translated strings"
+    tdd:
+      red:
+        - "Write test: navigation component renders translated labels"
+        - "Write test: feature page headings use translation keys"
+      green:
+        - "Systematically extract strings from each component directory"
+        - "Add useTranslation() hook and t() calls"
+        - "Populate web.json and common.json with all keys"
+      refactor:
+        - "Run grep for remaining quoted English strings in JSX to catch missed extractions"
+    estimatedEffort: "5h"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # PHASE 4: RTL Support and Multilingual Fonts
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-21"
+    phaseId: "phase-4"
+    title: "Replace physical CSS properties with logical properties in globals.css"
+    description: >
+      Audit src/presentation/web/app/globals.css for physical directional properties
+      (margin-left, padding-right, text-align: left/right, left, right) and replace
+      with CSS logical property equivalents (margin-inline-start, padding-inline-end,
+      text-align: start/end, inset-inline-start/end).
+    state: "Todo"
+    dependencies:
+      - "task-20"
+    acceptanceCriteria:
+      - "No physical directional CSS properties remain in globals.css"
+      - "All directional properties use logical equivalents"
+      - "LTR layout renders identically to before the change"
+    tdd:
+      red:
+        - "Write test: globals.css does not contain margin-left, margin-right, padding-left, padding-right, text-align: left, text-align: right"
+      green:
+        - "Replace each physical property with its logical equivalent"
+        - "Update any custom CSS that uses left/right positioning"
+      refactor:
+        - "Verify no visual regression in LTR mode"
+    estimatedEffort: "1h"
+
+  - id: "task-22"
+    phaseId: "phase-4"
+    title: "Replace physical Tailwind classes with logical property equivalents"
+    description: >
+      Audit all Web UI component files for Tailwind classes with physical directional
+      values (ml-, mr-, pl-, pr-, left-, right-, text-left, text-right) and replace
+      with logical property equivalents (ms-, me-, ps-, pe-, start-, end-, text-start,
+      text-end). Tailwind v4 supports logical properties natively.
+    state: "Todo"
+    dependencies:
+      - "task-21"
+    acceptanceCriteria:
+      - "No Tailwind classes with physical directional values remain in RTL-affected components"
+      - "All directional utilities use logical equivalents"
+      - "LTR layout renders identically to before"
+      - "RTL layout mirrors correctly when dir='rtl' is set"
+    tdd:
+      red:
+        - "Write test: grep for ml-, mr-, pl-, pr- classes in component files returns zero matches"
+        - "Write test: RTL rendering of navigation component mirrors layout"
+      green:
+        - "Systematically replace physical classes in each component file"
+        - "Use ms- (margin-inline-start), me- (margin-inline-end), ps-, pe- equivalents"
+        - "Replace text-left/text-right with text-start/text-end"
+      refactor:
+        - "Verify React Flow canvas and absolute-positioned elements still work (may need exceptions)"
+    estimatedEffort: "3h"
+
+  - id: "task-23"
+    phaseId: "phase-4"
+    title: "Lazy-load Noto Sans Arabic and Noto Sans Hebrew fonts"
+    description: >
+      Configure lazy font loading for Arabic and Hebrew languages. When the user
+      switches to Arabic or Hebrew, dynamically load Noto Sans Arabic or Noto Sans
+      Hebrew from Google Fonts (via next/font/google or dynamic import). Fonts should
+      be cached after first load.
+    state: "Todo"
+    dependencies:
+      - "task-11"
+    acceptanceCriteria:
+      - "Arabic text renders with Noto Sans Arabic font when language is 'ar'"
+      - "Hebrew text renders with Noto Sans Hebrew font when language is 'he'"
+      - "Fonts are NOT included in the initial bundle for LTR languages"
+      - "Fonts are cached after first load (no re-download on subsequent visits)"
+      - "No FOUT for LTR languages"
+    tdd:
+      red:
+        - "Write test: no Arabic/Hebrew font loaded when language is 'en'"
+        - "Write test: Arabic font class applied to body when language is 'ar'"
+        - "Write test: Hebrew font class applied to body when language is 'he'"
+      green:
+        - "Create font loading utility that conditionally imports Noto Sans Arabic/Hebrew"
+        - "Apply font-family via CSS class on language change"
+        - "Integrate with I18nProvider or layout.tsx language switching"
+      refactor:
+        - "Ensure font loading does not block initial render"
+    estimatedEffort: "1.5h"
+
+  - id: "task-24"
+    phaseId: "phase-4"
+    title: "Verify Radix UI components in RTL mode"
+    description: >
+      Test all Radix UI components (Select, Dialog, DropdownMenu, Tabs, etc.) in RTL
+      mode to verify they render correctly. Radix UI supports RTL via the dir attribute
+      on the root element. Fix any components that do not mirror correctly.
+    state: "Todo"
+    dependencies:
+      - "task-22"
+    acceptanceCriteria:
+      - "Select dropdown opens and aligns correctly in RTL"
+      - "Dialog/Sheet components position correctly in RTL"
+      - "Tab navigation follows RTL reading order"
+      - "DropdownMenu items align correctly in RTL"
+      - "All Radix components inherit dir from root HTML element"
+    tdd:
+      red:
+        - "Write test: Select component in RTL context renders dropdown aligned to inline-end"
+        - "Write test: Dialog close button positions correctly in RTL"
+      green:
+        - "Set dir='rtl' on test wrapper elements"
+        - "Verify each Radix component type renders correctly"
+        - "Fix any components that need explicit dir propagation"
+      refactor:
+        - "Document any Radix components that require special RTL handling"
+    estimatedEffort: "2h"
+
+  # ═══════════════════════════════════════════════════════════════════
+  # PHASE 5: Non-English Translations and Final Validation
+  # ═══════════════════════════════════════════════════════════════════
+
+  - id: "task-25"
+    phaseId: "phase-5"
+    title: "Generate AI translations for all 7 non-English languages"
+    description: >
+      Use LLM to translate all English translation files (common.json, cli.json, tui.json,
+      web.json) into 7 languages: Russian (ru), Portuguese (pt), Spanish (es), Arabic (ar),
+      Hebrew (he), French (fr), German (de). Each language gets its own directory under
+      translations/ with all 4 namespace files.
+    state: "Todo"
+    dependencies:
+      - "task-20"
+    acceptanceCriteria:
+      - "translations/{locale}/ directories exist for all 7 non-English languages"
+      - "Each language directory contains common.json, cli.json, tui.json, web.json"
+      - "All translation files have the same key structure as English files"
+      - "No missing keys compared to English files"
+      - "All JSON files parse without errors"
+      - "Arabic and Hebrew translations use proper RTL text"
+    tdd:
+      red:
+        - "Write test: every non-English language has all 4 namespace files"
+        - "Write test: key count in each non-English file matches English file"
+        - "Write test: no keys present in English but missing in other languages"
+      green:
+        - "Generate translations using LLM for each language"
+        - "Create directory structure translations/{locale}/"
+        - "Validate JSON structure matches English source files"
+      refactor:
+        - "Review technical terms (git, CLI, API) are not translated where they should remain in English"
+    estimatedEffort: "3h"
+
+  - id: "task-26"
+    phaseId: "phase-5"
+    title: "Write translation completeness validation tests"
+    description: >
+      Create automated tests that verify translation file completeness and consistency
+      across all languages and namespaces. These tests run in CI to prevent regressions
+      when new keys are added to English files.
+    state: "Todo"
+    dependencies:
+      - "task-25"
+    acceptanceCriteria:
+      - "Test verifies all 8 languages have all 4 namespace files"
+      - "Test verifies key parity between English and each non-English language"
+      - "Test verifies no empty string values in any translation file"
+      - "Test verifies all JSON files are valid"
+      - "Tests run as part of pnpm test:unit"
+    tdd:
+      red:
+        - "Write test: enumerate all translation files and verify complete coverage"
+        - "Write test: deep-compare key trees between English and each language"
+        - "Write test: no empty string values in any file"
+      green:
+        - "Implement recursive key extraction from nested JSON"
+        - "Compare key sets between English source and each target language"
+        - "Report specific missing keys for easy debugging"
+      refactor:
+        - "Ensure test output is clear about which language and key is missing"
+    estimatedEffort: "1h"
+
+  - id: "task-27"
+    phaseId: "phase-5"
+    title: "Write language switching integration tests"
+    description: >
+      Create integration tests that verify the full language switching flow:
+      changing language in settings, i18n re-initialization, and UI updates.
+      Cover CLI, TUI, and Web UI switching scenarios.
+    state: "Todo"
+    dependencies:
+      - "task-25"
+    acceptanceCriteria:
+      - "Test: changing language in settings persists to database"
+      - "Test: CLI output changes language after settings change"
+      - "Test: Web UI re-renders all visible strings on language change"
+      - "Test: RTL direction is applied when switching to Arabic or Hebrew"
+      - "Test: fallback to English works when a key is missing in target language"
+    tdd:
+      red:
+        - "Write integration test: settings update with language 'fr' persists and loads correctly"
+        - "Write integration test: Web UI renders French strings after language change"
+        - "Write integration test: switching to Arabic sets dir='rtl' on HTML element"
+        - "Write integration test: missing key in Russian falls back to English"
+      green:
+        - "Implement test fixtures with settings database"
+        - "Test each presentation layer's language switching flow"
+        - "Verify RTL attribute changes"
+      refactor:
+        - "Extract common test setup into shared fixtures"
+    estimatedEffort: "2h"
+
+  - id: "task-28"
+    phaseId: "phase-5"
+    title: "Run full test suite and fix regressions"
+    description: >
+      Run pnpm test, pnpm validate, and pnpm build:release to verify all existing
+      tests pass with i18n changes. Fix any regressions introduced by string extraction,
+      RTL changes, or dependency additions. This is the final validation gate.
+    state: "Todo"
+    dependencies:
+      - "task-26"
+      - "task-27"
+    acceptanceCriteria:
+      - "pnpm test passes with zero failures"
+      - "pnpm validate passes (lint + format + typecheck + tsp)"
+      - "pnpm build:release succeeds"
+      - "No regressions in existing functionality"
+      - "All new tests pass"
+    tdd:
+      red:
+        - "Run full test suite and capture any failures"
+      green:
+        - "Fix each failing test by correcting the i18n integration"
+        - "Update test assertions that expect hardcoded English strings to use translation mocking"
+      refactor:
+        - "Verify test mocking patterns are consistent across all test files"
+    estimatedEffort: "2h"
+
+totalEstimate: "42h"
+openQuestions: []
+
+content: |
+  ## Summary
+
+  This task breakdown covers 28 tasks across 5 phases to implement multi-language i18n support.
+
+  **Phase 1 (Domain Foundation, 5 tasks, ~2.5h)** establishes the Language TypeSpec enum,
+  extends UserProfile with preferredLanguage, creates database migration 049, and updates
+  the settings mapper and repository. This is the foundation all other phases build on.
+
+  **Phase 2 (i18n Framework Setup, 6 tasks, ~5.5h)** installs i18next/react-i18next, creates
+  the English translation file structure, builds initialization modules for CLI, TUI, and Web,
+  and wires the I18nProvider into the Web UI root layout with server-side language detection.
+
+  **Phase 3 (String Extraction, 9 tasks, ~20h)** is the largest phase. It systematically
+  extracts ~600 hardcoded English strings across all three presentation layers to translation
+  keys. It also creates the language settings section in the Web UI with Storybook stories
+  and adds a language option to the CLI settings command.
+
+  **Phase 4 (RTL Support, 4 tasks, ~7.5h)** implements right-to-left layout support by
+  replacing physical CSS properties with logical properties, lazy-loading Arabic and Hebrew
+  fonts, and verifying Radix UI components work correctly in RTL mode.
+
+  **Phase 5 (Translations and Validation, 4 tasks, ~8h)** generates AI-powered translations
+  for 7 non-English languages, writes translation completeness tests, creates language switching
+  integration tests, and runs the full test suite to catch regressions.
+
+  The dependency chain ensures each phase builds on the previous one's output. Within phases,
+  tasks are ordered so that foundational work (enum definition, migration, framework setup)
+  precedes the work that depends on it (string extraction, RTL styling, translation generation).

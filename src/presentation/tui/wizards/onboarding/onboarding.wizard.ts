@@ -11,6 +11,7 @@ import pc from 'picocolors';
 import { container } from '@/infrastructure/di/container.js';
 import { CompleteOnboardingUseCase } from '@/application/use-cases/settings/complete-onboarding.use-case.js';
 import { resetSettings, initializeSettings } from '@/infrastructure/services/settings.service.js';
+import { getTuiI18n } from '../../i18n.js';
 import { runAgentStep } from './steps/agent.step.js';
 import { runIdeStep } from './steps/ide.step.js';
 import { runWorkflowDefaultsStep } from './steps/workflow-defaults.step.js';
@@ -21,16 +22,20 @@ import type { WorkflowDefaultsResult } from './types.js';
  * Display the welcome banner before the first wizard step.
  */
 function showWelcomeBanner(): void {
+  const t = getTuiI18n().t;
   console.log();
-  console.log(pc.cyan(pc.bold('  Welcome to Shep AI CLI')));
-  console.log(pc.dim("  Let's set up your environment in 3 quick steps."));
+  console.log(pc.cyan(pc.bold(`  ${t('tui:wizards.onboarding.welcomeTitle')}`)));
+  console.log(pc.dim(`  ${t('tui:wizards.onboarding.welcomeSubtitle')}`));
   console.log();
   console.log(
-    pc.yellow('  ⚠ Prerequisite: ') +
-      pc.bold('GitHub CLI (gh)') +
-      pc.dim(' is required for full CI/CD self-healing capabilities.')
+    pc.yellow(`  \u26a0 ${t('tui:wizards.onboarding.prerequisiteWarning')}`) +
+      pc.bold(t('tui:wizards.onboarding.prerequisiteLabel')) +
+      pc.dim(` ${t('tui:wizards.onboarding.prerequisiteDescription')}`)
   );
-  console.log(pc.dim('  Install it from: ') + pc.underline('https://cli.github.com/'));
+  console.log(
+    pc.dim(`  ${t('tui:wizards.onboarding.installFrom')}`) +
+      pc.underline(t('tui:wizards.onboarding.installUrl'))
+  );
   console.log();
 }
 
@@ -74,7 +79,7 @@ export async function onboardingWizard(
     initializeSettings(updatedSettings);
 
     console.log();
-    console.log(pc.green("  ✓ Setup complete! You're ready to use Shep."));
+    console.log(pc.green(`  \u2713 ${getTuiI18n().t('tui:wizards.onboarding.setupComplete')}`));
     console.log();
   } catch (error: unknown) {
     // Handle Ctrl+C gracefully (ExitPromptError from @inquirer/prompts)

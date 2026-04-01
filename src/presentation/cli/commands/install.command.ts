@@ -16,6 +16,7 @@ import { ValidateToolAvailabilityUseCase } from '@/application/use-cases/tools/v
 import { InstallToolUseCase } from '@/application/use-cases/tools/install-tool.use-case.js';
 import { TOOL_METADATA } from '@/infrastructure/services/tool-installer/tool-metadata.js';
 import { messages, fmt, colors } from '../ui/index.js';
+import { getCliI18n } from '../i18n.js';
 
 interface InstallOptions {
   how?: boolean;
@@ -34,16 +35,24 @@ function printToolsList(): void {
 }
 
 export function createInstallCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('install')
-    .description('Install a development tool')
-    .argument('[tool]', `Tool to install (${Object.keys(TOOL_METADATA).sort().join(', ')})`)
-    .option('--how', 'Show installation instructions without executing')
+    .description(t('cli:commands.install.description'))
+    .argument(
+      '[tool]',
+      t('cli:commands.install.toolArgument', {
+        tools: Object.keys(TOOL_METADATA).sort().join(', '),
+      })
+    )
+    .option('--how', t('cli:commands.install.howOption'))
     .action(async (tool: string | undefined, options: InstallOptions) => {
       try {
         // No tool specified — show available tools
         if (!tool) {
           console.log();
-          console.log(`Run ${fmt.code('shep install <tool>')} with one of these options:`);
+          console.log(
+            t('cli:commands.install.runWithTool', { command: fmt.code('shep install <tool>') })
+          );
           console.log();
           printToolsList();
           return;
@@ -53,7 +62,7 @@ export function createInstallCommand(): Command {
         const metadata = TOOL_METADATA[tool];
         if (!metadata) {
           console.log();
-          console.log(`Hmm, I don't recognize '${tool}'. Did you mean one of these?`);
+          console.log(t('cli:commands.install.unrecognizedTool', { tool }));
           console.log();
           printToolsList();
           process.exitCode = 1;
@@ -71,13 +80,13 @@ export function createInstallCommand(): Command {
         const status = await validateUseCase.execute(tool);
 
         if (status.status === 'available') {
-          messages.success(`${tool} is already installed`);
+          messages.success(t('cli:commands.install.alreadyInstalled', { tool }));
           return;
         }
 
         // Tools that don't support auto-install — show instructions instead
         if (metadata.autoInstall === false) {
-          messages.warning(`${tool} does not support automated installation`);
+          messages.warning(t('cli:commands.install.noAutoInstall', { tool }));
           printInstallInstructions(metadata);
           return;
         }
@@ -87,17 +96,20 @@ export function createInstallCommand(): Command {
         const result = await installUseCase.execute(tool, (data) => process.stdout.write(data));
 
         if (result.status === 'available') {
-          messages.success(`${tool} installed successfully`);
+          messages.success(t('cli:commands.install.installSuccess', { tool }));
         } else {
           messages.error(
-            `Failed to install ${tool}: ${result.errorMessage ?? 'Unknown error'}`,
+            t('cli:commands.install.installFailed', {
+              tool,
+              error: result.errorMessage ?? 'Unknown error',
+            }),
             new Error(result.errorMessage ?? 'Installation failed')
           );
           process.exitCode = 1;
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error(`Failed to install ${tool}`, err);
+        messages.error(t('cli:commands.install.failedToInstall', { tool }), err);
         process.exitCode = 1;
       }
     });
@@ -107,13 +119,14 @@ export function createInstallCommand(): Command {
  * Print installation instructions for a tool
  */
 function printInstallInstructions(metadata: (typeof TOOL_METADATA)[keyof typeof TOOL_METADATA]) {
+  const t = getCliI18n().t;
   console.log();
-  console.log(fmt.heading(`Installation Instructions for ${metadata.name}`));
+  console.log(fmt.heading(t('cli:commands.install.instructionsHeading', { name: metadata.name })));
   console.log();
-  console.log(`${fmt.label('Name:')} ${metadata.name}`);
-  console.log(`${fmt.label('Summary:')} ${metadata.summary}`);
-  console.log(`${fmt.label('Description:')} ${metadata.description}`);
-  console.log(`${fmt.label('Tags:')} ${metadata.tags.join(', ')}`);
+  console.log(`${fmt.label(t('cli:commands.install.nameLabel'))} ${metadata.name}`);
+  console.log(`${fmt.label(t('cli:commands.install.summaryLabel'))} ${metadata.summary}`);
+  console.log(`${fmt.label(t('cli:commands.install.descriptionLabel'))} ${metadata.description}`);
+  console.log(`${fmt.label(t('cli:commands.install.tagsLabel'))} ${metadata.tags.join(', ')}`);
   console.log();
 
   const binaryDisplay =
@@ -122,31 +135,33 @@ function printInstallInstructions(metadata: (typeof TOOL_METADATA)[keyof typeof 
       : Object.entries(metadata.binary)
           .map(([platform, bin]) => `${bin} (${platform})`)
           .join(', ');
-  console.log(`${fmt.label('Binary:')} ${binaryDisplay}`);
-  console.log(`${fmt.label('Package Manager:')} ${metadata.packageManager}`);
+  console.log(`${fmt.label(t('cli:commands.install.binaryLabel'))} ${binaryDisplay}`);
+  console.log(
+    `${fmt.label(t('cli:commands.install.packageManagerLabel'))} ${metadata.packageManager}`
+  );
   console.log();
 
   // Print platform-specific commands
-  console.log(fmt.heading('Installation Commands'));
+  console.log(fmt.heading(t('cli:commands.install.installCommandsHeading')));
   for (const [platform, command] of Object.entries(metadata.commands)) {
     console.log(`${colors.muted(`[${platform}]`)} ${command}`);
   }
   console.log();
 
   // Print verify command
-  console.log(fmt.heading('Verify Installation'));
+  console.log(fmt.heading(t('cli:commands.install.verifyHeading')));
   console.log(`${colors.muted('$')} ${metadata.verifyCommand}`);
   console.log();
 
   // Print open directory command if available
   if (metadata.openDirectory) {
-    console.log(fmt.heading('Open Directory'));
+    console.log(fmt.heading(t('cli:commands.install.openDirHeading')));
     console.log(`${colors.muted('$')} ${metadata.openDirectory}`);
     console.log();
   }
 
   // Print documentation link
-  console.log(fmt.heading('Documentation'));
+  console.log(fmt.heading(t('cli:commands.install.docsHeading')));
   console.log(`${colors.muted('→')} ${metadata.documentationUrl}`);
   console.log();
 }

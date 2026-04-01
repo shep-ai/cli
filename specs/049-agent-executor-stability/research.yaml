@@ -21,7 +21,7 @@ technologies:
   - Vitest (unit testing)
 
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/211
+  - https://github.com/shep-ai/shep/issues/211
 
 # Structured technology decisions
 decisions:

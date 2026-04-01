@@ -16,7 +16,7 @@ status:
   lastUpdated: '2026-02-08T20:30:00Z'
   lastUpdatedBy: 'shep-kit:commit-pr'
 
-prUrl: 'https://github.com/shep-ai/cli/pull/33'
+prUrl: 'https://github.com/shep-ai/shep/pull/33'
 
 validation:
   lastRun: null

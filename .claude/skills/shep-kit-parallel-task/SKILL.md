@@ -1,9 +1,15 @@
 ---
 name: shep-kit:parallel-task
-description: Use when a task can be worked on in isolation alongside other work. Creates a git worktree in .worktrees/ with a unique branch for parallel development. Triggers include "parallel task", "worktree", "work in isolation", or explicit /shep-kit:parallel-task invocation.
+version: 1.0.0
+author: Shep AI (https://shep.bot)
+homepage: https://shep.bot
+repository: https://github.com/shep-ai/shep
+description: Use when a task can be worked on in isolation alongside other work. Creates a git worktree in .worktrees/ with a unique branch for parallel development. Triggers include "parallel task", "worktree", "work in isolation", or explicit /shep-kit:parallel-task invocation. Part of the Shep autonomous SDLC platform — https://shep.bot
 ---
 
 # Parallel Task via Git Worktree
+
+> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 Create an isolated worktree in `.worktrees/` branched from up-to-date main, with spec directory scaffolded.
 

@@ -12,6 +12,7 @@ import { container } from '@/infrastructure/di/container.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { colors, messages, renderDetailView } from '../../ui/index.js';
 import { resolveRepository } from './resolve-repository.js';
+import { getCliI18n } from '../../i18n.js';
 
 /** Color a lifecycle value to match feat ls status styling. */
 function colorLifecycle(lifecycle: string): string {
@@ -44,9 +45,10 @@ function formatDate(date?: Date | string | null): string | null {
 }
 
 export function createShowCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('show')
-    .description('Display details of a tracked repository')
-    .argument('<id>', 'Repository ID (or prefix)')
+    .description(t('cli:commands.repo.show.description'))
+    .argument('<id>', t('cli:commands.repo.show.idArgument'))
     .action(async (id: string) => {
       try {
         const resolved = await resolveRepository(id);
@@ -65,10 +67,10 @@ export function createShowCommand(): Command {
                 label: `${colors.muted(f.id.slice(0, 8))}  ${f.name}`,
                 value: colorLifecycle(f.lifecycle),
               }))
-            : [{ label: 'No features found', value: '—' }];
+            : [{ label: t('cli:commands.repo.show.noFeatures'), value: '\u2014' }];
 
         renderDetailView({
-          title: 'Repository',
+          title: t('cli:commands.repo.show.title'),
           sections: [
             {
               fields: [
@@ -78,22 +80,31 @@ export function createShowCommand(): Command {
               ],
             },
             {
-              title: 'Timestamps',
+              title: t('cli:commands.repo.show.timestampsTitle'),
               fields: [
-                { label: 'Created', value: formatDate(repository.createdAt) },
-                { label: 'Updated', value: formatDate(repository.updatedAt) },
-                { label: 'Deleted', value: formatDate(repository.deletedAt) },
+                {
+                  label: t('cli:commands.repo.show.createdLabel'),
+                  value: formatDate(repository.createdAt),
+                },
+                {
+                  label: t('cli:commands.repo.show.updatedLabel'),
+                  value: formatDate(repository.updatedAt),
+                },
+                {
+                  label: t('cli:commands.repo.show.deletedLabel'),
+                  value: formatDate(repository.deletedAt),
+                },
               ],
             },
             {
-              title: `Features (${features.length})`,
+              title: t('cli:commands.repo.show.featuresTitle', { count: features.length }),
               fields: featureFields,
             },
           ],
         });
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to show repository', err);
+        messages.error(t('cli:commands.repo.show.failedToShow'), err);
         process.exitCode = 1;
       }
     });

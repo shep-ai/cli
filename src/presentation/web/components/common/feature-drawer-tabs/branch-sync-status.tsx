@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CheckCircle2, GitMerge, RefreshCw } from 'lucide-react';
 import { CometSpinner } from '@/components/ui/comet-spinner';
 import { ActionButton } from '@/components/common/action-button';
@@ -25,6 +26,7 @@ export function BranchSyncStatus({
   rebaseLoading,
   rebaseError,
 }: BranchSyncStatusProps) {
+  const { t } = useTranslation('web');
   const isRebasing = rebaseLoading;
   const isBehind = syncStatus != null && syncStatus.behind > 0;
   const isUpToDate = syncStatus?.behind === 0;
@@ -71,7 +73,7 @@ export function BranchSyncStatus({
                     {baseBranch}
                   </code>
                   {syncStatus.ahead > 0 ? (
-                    <span className="text-muted-foreground ml-1">· {syncStatus.ahead} ahead</span>
+                    <span className="text-muted-foreground ms-1">· {syncStatus.ahead} ahead</span>
                   ) : null}
                 </span>
               </>
@@ -84,7 +86,7 @@ export function BranchSyncStatus({
                     {baseBranch}
                   </code>
                   {syncStatus.ahead > 0 ? (
-                    <span className="text-muted-foreground ml-1">· {syncStatus.ahead} ahead</span>
+                    <span className="text-muted-foreground ms-1">· {syncStatus.ahead} ahead</span>
                   ) : null}
                 </span>
               </>
@@ -98,7 +100,7 @@ export function BranchSyncStatus({
               onClick={onRefreshSync}
               disabled={syncLoading}
               className="text-muted-foreground hover:text-foreground inline-flex items-center rounded p-1 transition-colors disabled:opacity-50"
-              aria-label="Refresh sync status"
+              aria-label={t('branchSyncStatus.refreshSyncStatus')}
             >
               <RefreshCw className={`h-3.5 w-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -108,7 +110,7 @@ export function BranchSyncStatus({
         {/* Rebase button — shown when behind */}
         {isBehind && !isRebasing ? (
           <ActionButton
-            label="Rebase on Main"
+            label={t('branchSyncStatus.rebaseOnMain')}
             onClick={onRebaseOnMain}
             loading={false}
             error={!!rebaseError}

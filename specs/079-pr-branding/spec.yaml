@@ -9,12 +9,12 @@ oneLiner: >
   instead of the default claude code branding
 userQuery: >
   When shep creates Pull request, the pull request should be signed with
-  `Built with Shep [Shep Bot](https://github.com/shep-ai/cli)`
+  `Built with Shep [Shep Bot](https://github.com/shep-ai/shep)`
   and never with:
   `Generated with [Claude Code](https://claude.com/claude-code)`
 summary: >
   When shep creates Pull request, the pull request should be signed with
-  `Built with Shep [Shep Bot](https://github.com/shep-ai/cli)`
+  `Built with Shep [Shep Bot](https://github.com/shep-ai/shep)`
   and never with:
   `Generated with [Claude Code](https://claude.com/claude-code)`
 phase: Analysis
@@ -39,7 +39,7 @@ content: |
   ## Problem Statement
 
   When shep creates a Pull Request, it should be signed with
-  `Built with Shep [Shep Bot](https://github.com/shep-ai/cli)`
+  `Built with Shep [Shep Bot](https://github.com/shep-ai/shep)`
   and never with:
   `Generated with [Claude Code](https://claude.com/claude-code)`
 

@@ -25,8 +25,8 @@ technologies:
   - Vitest + React Testing Library — unit tests
   - Storybook — component stories
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/213
-  - https://github.com/shep-ai/cli/issues/208
+  - https://github.com/shep-ai/shep/issues/213
+  - https://github.com/shep-ai/shep/issues/208
 openQuestions:
   - question: Should viewport be persisted per-user or per-browser?
     resolved: true
@@ -598,7 +598,7 @@ content: >
   _Requirements complete — proceed with research phase_
 rejectionFeedback:
   - iteration: 1
-    message: https://github.com/shep-ai/cli/issues/213 is not resolved.
+    message: https://github.com/shep-ai/shep/issues/213 is not resolved.
     phase: merge
     timestamp: '2026-03-08T11:15:29.916Z'
   - iteration: 2

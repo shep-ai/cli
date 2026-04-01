@@ -6,7 +6,7 @@ feature:
   lifecycle: 'review'
   createdAt: '2026-02-23T17:43:24Z'
 
-prUrl: 'https://github.com/shep-ai/cli/pull/101'
+prUrl: 'https://github.com/shep-ai/shep/pull/101'
 
 status:
   phase: 'in-review'

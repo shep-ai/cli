@@ -39,7 +39,7 @@ checkpoints:
   - phase: pr-created
     completedAt: '2026-02-23T00:00:00.000Z'
     completedBy: shep-kit:commit-pr
-prUrl: https://github.com/shep-ai/cli/pull/109
+prUrl: https://github.com/shep-ai/shep/pull/109
 errors:
   current: null
   history: []

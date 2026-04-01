@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, X, Bot, GripVertical, Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,7 @@ function persistState(pos: Position | null, size: Size | null) {
 }
 
 export function GlobalChatPopup() {
+  const { t } = useTranslation('web');
   const [isOpen, setIsOpen] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -287,7 +289,7 @@ export function GlobalChatPopup() {
             isMaximized
               ? 'bg-background fixed inset-0 z-[60] flex flex-col overflow-hidden dark:bg-neutral-900'
               : cn(
-                  !pos && 'fixed right-8 bottom-24',
+                  !pos && 'fixed end-8 bottom-24',
                   'z-[60] flex flex-col overflow-hidden rounded-lg',
                   'border-border/60 border dark:border-white/10',
                   'bg-background dark:bg-neutral-900',
@@ -307,7 +309,7 @@ export function GlobalChatPopup() {
           {!isMaximized ? (
             <div
               onMouseDown={onResizeStart}
-              className="absolute top-0 right-0 z-10 h-4 w-4 cursor-ne-resize"
+              className="absolute end-0 top-0 z-10 h-4 w-4 cursor-ne-resize"
             />
           ) : null}
 
@@ -332,7 +334,7 @@ export function GlobalChatPopup() {
                 global
               </span>
             </div>
-            <div className="relative ml-auto flex items-center gap-0.5">
+            <div className="relative ms-auto flex items-center gap-0.5">
               <button
                 type="button"
                 onClick={toggleMaximize}
@@ -390,14 +392,14 @@ export function GlobalChatPopup() {
                 document.addEventListener('mousemove', onMove);
                 document.addEventListener('mouseup', onUp);
               }}
-              className="absolute right-0 bottom-0 z-10 h-4 w-4 cursor-se-resize"
+              className="absolute end-0 bottom-0 z-10 h-4 w-4 cursor-se-resize"
             />
           ) : null}
         </div>
       ) : null}
 
-      {/* Chat FAB — right corner, hidden when maximized */}
-      <div className={cn('group/fab fixed right-8 bottom-6 z-30', isMaximized && 'hidden')}>
+      {/* Chat FAB — end corner (right in LTR, left in RTL), hidden when maximized */}
+      <div className={cn('group/fab fixed end-8 bottom-6 z-30', isMaximized && 'hidden')}>
         <Button
           size="icon"
           onClick={toggle}
@@ -421,12 +423,14 @@ export function GlobalChatPopup() {
               isOpen ? 'scale-100 rotate-0 opacity-100' : 'scale-0 -rotate-90 opacity-0'
             )}
           />
-          {!isOpen && <ChatDotIndicator status={globalChatTurnStatus} className="top-0 right-0" />}
+          {!isOpen && <ChatDotIndicator status={globalChatTurnStatus} className="end-0 top-0" />}
         </Button>
         {/* Tooltip — slides up on hover */}
         <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 translate-y-1 opacity-0 transition-all duration-200 group-hover/fab:translate-y-0 group-hover/fab:opacity-100">
           <div className="bg-foreground rounded-lg px-3 py-1.5 text-center shadow-lg">
-            <p className="text-background text-xs font-medium whitespace-nowrap">Shep Chat</p>
+            <p className="text-background text-xs font-medium whitespace-nowrap">
+              {t('chat.shepChat')}
+            </p>
             <p className="text-background/50 mt-0.5 flex items-center justify-center gap-1 text-[10px]">
               <kbd className="bg-background/15 rounded px-1 py-px font-mono">⌘</kbd>
               <kbd className="bg-background/15 rounded px-1 py-px font-mono">⇧</kbd>

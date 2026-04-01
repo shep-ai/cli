@@ -1,0 +1,55 @@
+{
+  "errors": {
+    "notFound": "Introuvable",
+    "unauthorized": "Non autorisé",
+    "forbidden": "Interdit",
+    "internal": "Erreur interne",
+    "unknown": "Une erreur inconnue s'est produite",
+    "failedToLoad": "Échec du chargement de {{resource}}",
+    "failedToSave": "Échec de l'enregistrement de {{resource}}"
+  },
+  "labels": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "yes": "Oui",
+    "no": "Non",
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+    "loading": "Chargement...",
+    "saving": "Enregistrement...",
+    "saved": "Enregistré",
+    "none": "Aucun",
+    "default": "Par défaut",
+    "custom": "Personnalisé"
+  },
+  "status": {
+    "success": "Succès",
+    "error": "Erreur",
+    "warning": "Avertissement",
+    "info": "Info",
+    "pending": "En attente",
+    "inProgress": "En cours",
+    "completed": "Terminé",
+    "failed": "Échoué"
+  },
+  "confirmation": {
+    "areYouSure": "Êtes-vous sûr ?",
+    "cannotBeUndone": "Cette action est irréversible."
+  },
+  "language": {
+    "en": "Anglais",
+    "ru": "Russe",
+    "pt": "Portugais",
+    "es": "Espagnol",
+    "ar": "Arabe",
+    "he": "Hébreu",
+    "fr": "Français",
+    "de": "Allemand"
+  }
+}

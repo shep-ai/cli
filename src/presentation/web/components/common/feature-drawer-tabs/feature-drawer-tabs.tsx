@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePathname } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
@@ -417,7 +418,7 @@ export function FeatureDrawerTabs({
         {/* Integrated header: title + inline tabs + actions */}
         <div className="shrink-0 px-4 pt-4 pb-3" data-testid="feature-drawer-header">
           {/* Row 1: Feature name (left) + tab triggers (right) */}
-          <div className="flex items-baseline gap-4 pr-6">
+          <div className="flex items-baseline gap-4 pe-6">
             {featureName ? (
               <h2 className="text-foreground min-w-0 shrink truncate text-base font-semibold tracking-tight">
                 {featureName}
@@ -600,11 +601,12 @@ function DrawerActionBarForTech({
   chatInput?: string;
   onChatInputChange?: (value: string) => void;
 }) {
+  const { t } = useTranslation('web');
   return (
     <DrawerActionBar
       onReject={onReject}
       onApprove={onApprove}
-      approveLabel="Approve Plan"
+      approveLabel={t('featureDrawer.approvePlan')}
       revisionPlaceholder="Ask AI to revise the plan..."
       isProcessing={isProcessing}
       isRejecting={isRejecting}

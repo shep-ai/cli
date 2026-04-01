@@ -14,7 +14,7 @@ technologies:
   - Vitest
   - tsyringe
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/211
+  - https://github.com/shep-ai/shep/issues/211
 
 # Structured task list
 tasks:

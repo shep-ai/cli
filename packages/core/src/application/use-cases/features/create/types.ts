@@ -36,6 +36,8 @@ export interface CreateFeatureInput {
   sessionId?: string;
   /** Absolute file paths to attach (CLI --attach flow). */
   attachmentPaths?: string[];
+  /** Sync the default branch from remote before creating the feature branch (default: true). */
+  rebaseBeforeBranch?: boolean;
 }
 
 export interface CreateFeatureResult {

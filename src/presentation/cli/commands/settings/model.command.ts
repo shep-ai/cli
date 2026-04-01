@@ -21,13 +21,14 @@ import {
   initializeSettings,
 } from '@/infrastructure/services/settings.service.js';
 import { messages } from '../../ui/index.js';
+import { getCliI18n } from '../../i18n.js';
 
 /**
  * Create the model configuration command.
  */
 export function createModelCommand(): Command {
   return new Command('model')
-    .description('Configure the default LLM model for agent runs')
+    .description(getCliI18n().t('cli:commands.settings.model.description'))
     .addHelpText(
       'after',
       `
@@ -42,16 +43,14 @@ Examples:
         const supportedModels = factory.getSupportedModels(agentType);
 
         if (supportedModels.length === 0) {
-          messages.info(
-            `No models available for agent "${agentType}". Configure a different agent with: shep settings agent`
-          );
+          messages.info(getCliI18n().t('cli:commands.settings.model.noModels', { agentType }));
           return;
         }
 
         const currentModel = settings.models.default;
 
         const selectedModel = await select<string>({
-          message: 'Select default LLM model',
+          message: getCliI18n().t('cli:commands.settings.model.selectPrompt'),
           choices: supportedModels.map((m) => ({ name: m, value: m })),
           default: currentModel,
         });
@@ -65,16 +64,18 @@ Examples:
         resetSettings();
         initializeSettings(updatedSettings);
 
-        messages.success(`Model configured: ${selectedModel}`);
+        messages.success(
+          getCliI18n().t('cli:commands.settings.model.success', { model: selectedModel })
+        );
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
 
         if (err.message.includes('force closed') || err.message.includes('User force closed')) {
-          messages.info('Configuration cancelled.');
+          messages.info(getCliI18n().t('cli:commands.settings.model.cancelled'));
           return;
         }
 
-        messages.error('Failed to configure model', err);
+        messages.error(getCliI18n().t('cli:commands.settings.model.failed'), err);
         process.exitCode = 1;
       }
     });

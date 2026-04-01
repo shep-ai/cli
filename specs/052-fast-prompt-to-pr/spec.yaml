@@ -5,7 +5,7 @@ oneLiner: >-
   Add a "fast mode" that takes a user prompt and produces a PR without running
   multi-step SDLC agents
 userQuery: |
-  Support https://github.com/shep-ai/cli/issues/197
+  Support https://github.com/shep-ai/shep/issues/197
 summary: >
   Add a fast execution mode to the feature-agent graph and CLI/Web UI that
   bypasses the multi-step SDLC pipeline (analyze → requirements → research →
@@ -24,7 +24,7 @@ technologies:
   - React
   - Next.js
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/197
+  - https://github.com/shep-ai/shep/issues/197
 openQuestions:
   - question: >-
       Should fast mode still create a Feature entity and git worktree, or bypass
@@ -161,7 +161,7 @@ content: >
   the README" or "add a loading spinner to the dashboard."
 
 
-  Issue: https://github.com/shep-ai/cli/issues/197
+  Issue: https://github.com/shep-ai/shep/issues/197
 
 
   ## Success Criteria

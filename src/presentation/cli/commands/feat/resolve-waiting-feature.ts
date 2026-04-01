@@ -10,6 +10,7 @@ import type { Feature, AgentRun } from '@/domain/generated/output.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import { getCliI18n } from '../../i18n.js';
 
 export interface ResolveWaitingFeatureOptions {
   featureId?: string;
@@ -47,20 +48,24 @@ async function resolveExplicit(
   featureRepo: IFeatureRepository,
   runRepo: IAgentRunRepository
 ): Promise<ResolvedWaitingFeature> {
+  const t = getCliI18n().t;
   const feature =
     (await featureRepo.findById(featureId)) ?? (await featureRepo.findByIdPrefix(featureId));
   if (!feature) {
-    throw new Error(`Feature not found: "${featureId}"`);
+    throw new Error(t('cli:commands.feat.resolveWaiting.featureNotFound', { id: featureId }));
   }
 
   if (!feature.agentRunId) {
-    throw new Error(`Feature "${feature.name}" has no agent run`);
+    throw new Error(t('cli:commands.feat.resolveWaiting.noAgentRun', { name: feature.name }));
   }
 
   const run = await runRepo.findById(feature.agentRunId);
   if (!run || run.status !== AgentRunStatus.waitingApproval) {
     throw new Error(
-      `Feature "${feature.name}" is not waiting for approval (status: ${run?.status ?? 'unknown'})`
+      t('cli:commands.feat.resolveWaiting.notWaitingForApproval', {
+        name: feature.name,
+        status: run?.status ?? 'unknown',
+      })
     );
   }
 
@@ -85,12 +90,16 @@ async function resolveAuto(
   }
 
   if (waiting.length === 0) {
-    throw new Error('No features waiting for approval in this repository');
+    const t = getCliI18n().t;
+    throw new Error(t('cli:commands.feat.resolveWaiting.noFeaturesWaiting'));
   }
 
   if (waiting.length > 1) {
+    const t = getCliI18n().t;
     const names = waiting.map((w) => `  - ${w.feature.name} (${w.feature.id.slice(0, 8)})`);
-    throw new Error(`Multiple features waiting for approval. Specify one:\n${names.join('\n')}`);
+    throw new Error(
+      `${t('cli:commands.feat.resolveWaiting.multipleFeaturesWaiting')}\n${names.join('\n')}`
+    );
   }
 
   return waiting[0];

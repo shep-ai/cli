@@ -18,7 +18,7 @@ This project adheres to a Code of Conduct. By participating, you are expected to
 
 ```bash
 # Clone the repository
-git clone https://github.com/shep-ai/cli.git
+git clone https://github.com/shep-ai/shep.git
 cd cli
 
 # Install dependencies
@@ -262,7 +262,7 @@ Commits with types `docs`, `style`, `refactor`, `test`, `build`, `ci`, `chore` d
 
 ## Questions?
 
-- Open a [Discussion](https://github.com/shep-ai/cli/discussions) for questions
+- Open a [Discussion](https://github.com/shep-ai/shep/discussions) for questions
 - Join our community channels (links TBD)
 
 ---

@@ -119,7 +119,7 @@ export function ModelPicker({
             <span className="truncate">
               {loading ? 'Loading models…' : saving ? 'Saving…' : (value ?? 'Select model…')}
             </span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
@@ -148,7 +148,7 @@ export function ModelPicker({
                     >
                       <Check
                         className={cn(
-                          'mr-2 h-4 w-4',
+                          'me-2 h-4 w-4',
                           model === value ? 'opacity-100' : 'opacity-0'
                         )}
                       />

@@ -1,11 +1,11 @@
 name: mr-review-notification
 number: 64
 branch: feat/064-mr-review-notification
-oneLiner: https://github.com/shep-ai/cli/issues/324
+oneLiner: https://github.com/shep-ai/shep/issues/324
 userQuery: |
-  https://github.com/shep-ai/cli/issues/324
+  https://github.com/shep-ai/shep/issues/324
 summary: |
-  https://github.com/shep-ai/cli/issues/324
+  https://github.com/shep-ai/shep/issues/324
 phase: Analysis
 sizeEstimate: M
 relatedFeatures: []
@@ -15,7 +15,7 @@ openQuestions: []
 content: |
   ## Problem Statement
 
-  https://github.com/shep-ai/cli/issues/324
+  https://github.com/shep-ai/shep/issues/324
 
   ## Success Criteria
 

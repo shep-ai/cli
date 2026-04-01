@@ -69,7 +69,7 @@ const mockRepoNode: RepositoryNodeType = {
   type: 'repositoryNode',
   position: { x: 0, y: 0 },
   data: {
-    name: 'shep-ai/cli',
+    name: 'shep-ai/shep',
     repositoryPath: '/home/user/my-repo',
   },
 };
@@ -765,7 +765,7 @@ describe('useControlCenterState', () => {
       id: 'repo-1',
       type: 'repositoryNode',
       position: { x: 0, y: 0 },
-      data: { name: 'shep-ai/cli', repositoryPath: '/home/user/my-repo' },
+      data: { name: 'shep-ai/shep', repositoryPath: '/home/user/my-repo' },
     };
 
     const edgeRepoToFeat1: Edge = {
@@ -909,7 +909,7 @@ describe('useControlCenterState', () => {
         id: 'repo-1',
         type: 'repositoryNode',
         position: { x: 0, y: 100 },
-        data: { name: 'shep-ai/cli', repositoryPath: '/home/user/my-repo' },
+        data: { name: 'shep-ai/shep', repositoryPath: '/home/user/my-repo' },
       };
 
       const chainFeat1: FeatureNodeType = {

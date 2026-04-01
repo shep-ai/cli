@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import type { Viewport } from '@xyflow/react';
 import { Eye, EyeOff, ZoomIn, ZoomOut, Maximize, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 export interface CanvasToolbarProps {
@@ -17,6 +18,7 @@ export function CanvasToolbar({
   onToggleArchived,
   onResetViewport,
 }: CanvasToolbarProps) {
+  const { t } = useTranslation('web');
   const { zoomIn, zoomOut, fitView, setViewport } = useReactFlow();
 
   const handleZoomIn = useCallback(() => {
@@ -43,9 +45,9 @@ export function CanvasToolbar({
       {/* View controls */}
       <ToolbarButton
         onClick={onToggleArchived}
-        title={showArchived ? 'Hide archived' : 'Show archived'}
+        title={showArchived ? t('canvas.hideArchived') : t('canvas.showArchived')}
         active={showArchived}
-        label={showArchived ? 'Hide Archived' : 'Show Archived'}
+        label={showArchived ? t('canvas.hideArchivedLabel') : t('canvas.showArchivedLabel')}
       >
         {showArchived ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
       </ToolbarButton>
@@ -53,17 +55,17 @@ export function CanvasToolbar({
       <div className="bg-border mx-1 h-5 w-px" />
 
       {/* Zoom controls */}
-      <ToolbarButton onClick={handleZoomOut} title="Zoom out">
+      <ToolbarButton onClick={handleZoomOut} title={t('canvas.zoomOut')}>
         <ZoomOut className="h-4 w-4" />
       </ToolbarButton>
-      <ToolbarButton onClick={handleZoomIn} title="Zoom in">
+      <ToolbarButton onClick={handleZoomIn} title={t('canvas.zoomIn')}>
         <ZoomIn className="h-4 w-4" />
       </ToolbarButton>
-      <ToolbarButton onClick={handleFitView} title="Fit view">
+      <ToolbarButton onClick={handleFitView} title={t('canvas.fitView')}>
         <Maximize className="h-4 w-4" />
       </ToolbarButton>
       {onResetViewport ? (
-        <ToolbarButton onClick={handleReset} title="Reset view">
+        <ToolbarButton onClick={handleReset} title={t('canvas.resetView')}>
           <RotateCcw className="h-4 w-4" />
         </ToolbarButton>
       ) : null}

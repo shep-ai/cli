@@ -1,0 +1,55 @@
+{
+  "errors": {
+    "notFound": "Not found",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "internal": "Internal error",
+    "unknown": "An unknown error occurred",
+    "failedToLoad": "Failed to load {{resource}}",
+    "failedToSave": "Failed to save {{resource}}"
+  },
+  "labels": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "yes": "Yes",
+    "no": "No",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "none": "None",
+    "default": "Default",
+    "custom": "Custom"
+  },
+  "status": {
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info",
+    "pending": "Pending",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "confirmation": {
+    "areYouSure": "Are you sure?",
+    "cannotBeUndone": "This action cannot be undone."
+  },
+  "language": {
+    "en": "English",
+    "ru": "Russian",
+    "pt": "Portuguese",
+    "es": "Spanish",
+    "ar": "Arabic",
+    "he": "Hebrew",
+    "fr": "French",
+    "de": "German"
+  }
+}

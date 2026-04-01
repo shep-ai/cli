@@ -3,7 +3,7 @@ feature:
   name: post-feature-cleanup
   number: 47
   branch: feat/047-post-feature-cleanup
-  prUrl: https://github.com/shep-ai/cli/pull/167
+  prUrl: https://github.com/shep-ai/shep/pull/167
   lifecycle: complete
   createdAt: '2026-02-26T17:58:07Z'
   mergedAt: '2026-03-09T15:20:00.000Z'

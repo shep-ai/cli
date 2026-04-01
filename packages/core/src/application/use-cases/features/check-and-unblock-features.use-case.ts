@@ -62,7 +62,18 @@ export class CheckAndUnblockFeaturesUseCase {
           child.agentRunId,
           child.repositoryPath,
           child.specPath,
-          child.worktreePath
+          child.worktreePath,
+          {
+            approvalGates: child.approvalGates,
+            push: child.push,
+            openPr: child.openPr,
+            forkAndPr: child.forkAndPr,
+            commitSpecs: child.commitSpecs,
+            ciWatchEnabled: child.ciWatchEnabled,
+            enableEvidence: child.enableEvidence,
+            commitEvidence: child.commitEvidence,
+            ...(child.fast ? { fast: true } : {}),
+          }
         );
       }
     }

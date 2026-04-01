@@ -6,6 +6,7 @@
  */
 
 import { AgentAuthMethod } from '@/domain/generated/output.js';
+import { getTuiI18n } from '../i18n.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
 /**
@@ -15,20 +16,21 @@ import { shepTheme } from '../themes/shep.theme.js';
  * or token-based auth (providing an API key).
  */
 export function createAuthMethodConfig() {
+  const t = getTuiI18n().t;
   return {
-    message: 'Select authentication method',
+    message: t('tui:prompts.selectAuthMethod.message'),
     choices: [
       {
-        name: 'Use existing session',
+        name: t('tui:prompts.selectAuthMethod.choices.session.name'),
         value: AgentAuthMethod.Session,
-        description: 'Use Claude Code built-in authentication',
+        description: t('tui:prompts.selectAuthMethod.choices.session.description'),
       },
       {
-        name: 'Use API token',
+        name: t('tui:prompts.selectAuthMethod.choices.token.name'),
         value: AgentAuthMethod.Token,
-        description: 'Provide an Anthropic API key',
+        description: t('tui:prompts.selectAuthMethod.choices.token.description'),
       },
     ],
     theme: shepTheme,
-  } as const;
+  };
 }

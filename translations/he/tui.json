@@ -1,0 +1,130 @@
+{
+  "prompts": {
+    "selectAgent": {
+      "message": "בחר את סוכן הקידוד שלך",
+      "choices": {
+        "claudeCode": {
+          "name": "Claude Code",
+          "description": "Claude Code CLI של Anthropic"
+        },
+        "geminiCli": {
+          "name": "Gemini CLI",
+          "description": "Gemini CLI של Google"
+        },
+        "codexCli": {
+          "name": "Codex CLI",
+          "description": "סוכן טרמינל Codex CLI של OpenAI (מודלי GPT)"
+        },
+        "cursor": {
+          "name": "Cursor",
+          "description": "סוכן קידוד Cursor AI"
+        },
+        "devMock": {
+          "name": "Dev (Mock)",
+          "description": "מוק פיתוח מקומי — לא נדרש קובץ סוכן"
+        },
+        "aider": {
+          "name": "Aider",
+          "disabled": "(בקרוב)"
+        },
+        "continue": {
+          "name": "Continue",
+          "disabled": "(בקרוב)"
+        }
+      }
+    },
+    "selectIde": {
+      "message": "בחר את סביבת הפיתוח המועדפת"
+    },
+    "selectAuthMethod": {
+      "message": "בחר שיטת אימות",
+      "choices": {
+        "session": {
+          "name": "השתמש בסשן קיים",
+          "description": "השתמש באימות המובנה של Claude Code"
+        },
+        "token": {
+          "name": "השתמש באסימון API",
+          "description": "ספק מפתח API של Anthropic"
+        }
+      }
+    },
+    "enterApiKey": "הזן את מפתח ה-API של Anthropic",
+    "prdReview": {
+      "reviewComplete": "הסקירה הושלמה{{changeLabel}}. מה תרצה לעשות?",
+      "changeLabel_one": " (שינוי {{count}})",
+      "changeLabel_other": " ({{count}} שינויים)",
+      "approveAndContinue": "אשר והמשך",
+      "approveDescription": "קבל את הדרישות והמשך למחקר",
+      "rejectAndIterate": "דחה וחזור",
+      "rejectDescription": "ספק משוב והרץ מחדש את הדרישות",
+      "feedbackPrompt": "מה צריך לשנות? (משוב לחזרה)",
+      "feedbackRequired": "נדרש משוב לדחייה"
+    },
+    "selectLanguage": {
+      "message": "בחר שפת תצוגה"
+    }
+  },
+  "wizards": {
+    "onboarding": {
+      "welcomeTitle": "ברוכים הבאים ל-Shep AI CLI",
+      "welcomeSubtitle": "בואו נגדיר את הסביבה שלכם ב-3 צעדים מהירים.",
+      "prerequisiteWarning": "דרישת קדם: ",
+      "prerequisiteLabel": "GitHub CLI (gh)",
+      "prerequisiteDescription": "נדרש ליכולות ריפוי עצמי מלאות של CI/CD.",
+      "installFrom": "התקן מ: ",
+      "installUrl": "https://cli.github.com/",
+      "setupComplete": "ההגדרה הושלמה! אתה מוכן להשתמש ב-Shep."
+    },
+    "agentConfig": {
+      "enterApiKey": "הזן את מפתח ה-API של Anthropic"
+    },
+    "githubImport": {
+      "methodMessage": "כיצד תרצה להוסיף מאגר GitHub?",
+      "pasteUrl": "הדבק כתובת URL של GitHub",
+      "pasteUrlDescription": "הזן כתובת URL של מאגר GitHub או קיצור owner/repo",
+      "browseRepos": "עיין במאגרים שלי",
+      "browseReposDescription": "חפש ובחר מתוך מאגרי ה-GitHub שלך",
+      "enterUrl": "הזן כתובת URL של מאגר GitHub או owner/repo",
+      "urlRequired": "נדרשת כתובת URL",
+      "invalidUrlFormat": "פורמט כתובת URL לא חוקי של GitHub. השתמש ב-https://github.com/owner/repo או owner/repo",
+      "selectRepo": "בחר מאגר לייבוא",
+      "noRepos": "לא נמצאו מאגרים. ודא שיש לך מאגרים ב-GitHub.",
+      "cloneDestination": "יעד שיבוט (השאר ריק לברירת מחדל)"
+    },
+    "mergeReview": {
+      "message": "סקור את המיזוג. מה תרצה לעשות?",
+      "approveAndMerge": "אשר ומזג",
+      "approveDescription": "קבל את השינויים ומזג את הענף",
+      "reject": "דחה",
+      "rejectDescription": "ספק משוב — המימוש יעבור חזרה",
+      "rejectFeedback": "מה צריך לשנות לפני המיזוג?",
+      "approveComment": "הערות? (אופציונלי, לחץ Enter לדילוג)",
+      "feedbackRequired": "נדרש משוב לדחייה"
+    },
+    "planReview": {
+      "message": "סקור את תוכנית המימוש. מה תרצה לעשות?",
+      "approveAndContinue": "אשר והמשך",
+      "approveDescription": "קבל את התוכנית והמשך למימוש",
+      "rejectAndIterate": "דחה וחזור",
+      "rejectDescription": "ספק משוב והרץ מחדש את התכנון",
+      "rejectFeedback": "מה צריך לשנות בתוכנית?",
+      "approveComment": "הערות? (אופציונלי, לחץ Enter לדילוג)",
+      "feedbackRequired": "נדרש משוב לדחייה"
+    },
+    "workflowDefaults": {
+      "message": "בחר ברירות מחדל לתהליך עבודה עבור פיצ'רים חדשים",
+      "instructions": "(רווח לשינוי, Enter לאישור)",
+      "allowPrd": "אשר PRD",
+      "allowPrdDescription": "אשר אוטומטית את שלב הדרישות",
+      "allowPlan": "אשר תוכנית",
+      "allowPlanDescription": "אשר אוטומטית את שלב התכנון",
+      "allowMerge": "אשר מיזוג",
+      "allowMergeDescription": "אשר ומזג אוטומטית לאחר מימוש",
+      "pushOnFinish": "דחוף בסיום",
+      "pushOnFinishDescription": "דחוף ענף לשרת כאשר המימוש מסתיים",
+      "createPr": "צור PR",
+      "createPrDescription": "פתח בקשת משיכה כאשר המימוש מסתיים"
+    }
+  }
+}

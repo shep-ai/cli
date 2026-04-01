@@ -1,11 +1,11 @@
 name: activity-tab-refresh
 number: 60
 branch: feat/060-activity-tab-refresh
-oneLiner: https://github.com/shep-ai/cli/issues/294
+oneLiner: https://github.com/shep-ai/shep/issues/294
 userQuery: |
-  https://github.com/shep-ai/cli/issues/294
+  https://github.com/shep-ai/shep/issues/294
 summary: |
-  https://github.com/shep-ai/cli/issues/294
+  https://github.com/shep-ai/shep/issues/294
 phase: Analysis
 sizeEstimate: M
 relatedFeatures: []
@@ -15,7 +15,7 @@ openQuestions: []
 content: |
   ## Problem Statement
 
-  https://github.com/shep-ai/cli/issues/294
+  https://github.com/shep-ai/shep/issues/294
 
   ## Success Criteria
 

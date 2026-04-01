@@ -22,12 +22,14 @@ import {
 } from '@/application/ports/output/services/github-repository-service.interface.js';
 import { messages } from '../../ui/index.js';
 import { githubImportWizard } from '../../../tui/wizards/github-import.wizard.js';
+import { getCliI18n } from '../../i18n.js';
 
 export function createAddCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('add')
-    .description('Import a GitHub repository (clone and register)')
-    .option('--url <url>', 'GitHub repository URL or owner/repo shorthand')
-    .option('--dest <path>', 'Override clone destination directory')
+    .description(t('cli:commands.repo.add.description'))
+    .option('--url <url>', t('cli:commands.repo.add.urlOption'))
+    .option('--dest <path>', t('cli:commands.repo.add.destOption'))
     .action(async (options: { url?: string; dest?: string }) => {
       try {
         const importUseCase = container.resolve(ImportGitHubRepositoryUseCase);
@@ -60,24 +62,22 @@ export function createAddCommand(): Command {
           defaultCloneDir,
         });
 
-        messages.success(`Repository imported: ${repository.name}`);
-        messages.info(`Path: ${repository.path}`);
+        messages.success(t('cli:commands.repo.add.importSuccess', { name: repository.name }));
+        messages.info(t('cli:commands.repo.add.pathInfo', { path: repository.path }));
       } catch (error) {
         if (error instanceof GitHubAuthError) {
-          messages.error('GitHub CLI is not authenticated. Run `gh auth login` to sign in.');
+          messages.error(t('cli:commands.repo.add.authError'));
           process.exitCode = 1;
           return;
         }
         if (error instanceof GitHubUrlParseError) {
-          messages.error(`Invalid GitHub URL: ${error.message}`);
-          messages.info(
-            'Supported formats: https://github.com/owner/repo, git@github.com:owner/repo.git, or owner/repo'
-          );
+          messages.error(t('cli:commands.repo.add.invalidUrl', { error: error.message }));
+          messages.info(t('cli:commands.repo.add.supportedFormats'));
           process.exitCode = 1;
           return;
         }
         if (error instanceof GitHubCloneError) {
-          messages.error(`Clone failed: ${error.message}`);
+          messages.error(t('cli:commands.repo.add.cloneFailed', { error: error.message }));
           process.exitCode = 1;
           return;
         }
@@ -93,7 +93,7 @@ export function createAddCommand(): Command {
         }
 
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to import repository', err);
+        messages.error(t('cli:commands.repo.add.failedToImport'), err);
         process.exitCode = 1;
       }
     });

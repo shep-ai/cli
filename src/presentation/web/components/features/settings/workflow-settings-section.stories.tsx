@@ -26,6 +26,7 @@ export const Default: Story = {
       ciWatchEnabled: true,
       enableEvidence: false,
       commitEvidence: false,
+      defaultFastMode: true,
     },
   },
 };
@@ -57,6 +58,7 @@ export const AllEnabled: Story = {
       ciWatchEnabled: true,
       enableEvidence: true,
       commitEvidence: true,
+      defaultFastMode: true,
     },
   },
 };
@@ -88,6 +90,7 @@ export const WithCiSettings: Story = {
       ciWatchEnabled: true,
       enableEvidence: false,
       commitEvidence: false,
+      defaultFastMode: true,
     },
   },
 };

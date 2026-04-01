@@ -19,7 +19,7 @@ export function FeatureStatusGroup({ label, count, children }: FeatureStatusGrou
         {label}
         <span
           aria-label={`${count} items`}
-          className="bg-sidebar-accent text-sidebar-accent-foreground ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[0.6rem] font-medium tabular-nums"
+          className="bg-sidebar-accent text-sidebar-accent-foreground ms-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[0.6rem] font-medium tabular-nums"
           role="img"
         >
           {count}

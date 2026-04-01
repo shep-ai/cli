@@ -33,7 +33,7 @@ tasks:
   blocked: []
   failed: []
 
-prUrl: 'https://github.com/shep-ai/cli/pull/46'
+prUrl: 'https://github.com/shep-ai/shep/pull/46'
 
 checkpoints:
   - phase: 'feature-created'

@@ -16,7 +16,13 @@ import {
   type SettingsRow,
 } from '@/infrastructure/persistence/sqlite/mappers/settings.mapper.js';
 import type { Settings } from '@/domain/generated/output.js';
-import { AgentType, AgentAuthMethod, EditorType, TerminalType } from '@/domain/generated/output.js';
+import {
+  AgentType,
+  AgentAuthMethod,
+  EditorType,
+  Language,
+  TerminalType,
+} from '@/domain/generated/output.js';
 
 /**
  * Creates a complete test Settings object with all fields populated,
@@ -77,6 +83,7 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
       enableEvidence: false,
       commitEvidence: false,
       ciWatchEnabled: true,
+      defaultFastMode: true,
     },
     onboardingComplete: false,
     ...overrides,
@@ -100,6 +107,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     user_name: 'Test User',
     user_email: 'test@example.com',
     user_github_username: 'testuser',
+    user_preferred_language: 'en',
     env_default_editor: 'vscode',
     env_shell_preference: 'zsh',
     env_terminal_preference: 'system',
@@ -126,6 +134,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     workflow_enable_evidence: 0,
     workflow_commit_evidence: 0,
     hide_ci_status: 1,
+    default_fast_mode: 1,
     ci_watch_enabled: 1,
     ci_max_fix_attempts: null,
     ci_watch_timeout_ms: null,
@@ -746,6 +755,177 @@ describe('Settings Mapper', () => {
       const row = toDatabase(original);
       const restored = fromDatabase(row);
       expect(restored.workflow.hideCiStatus).toBe(true);
+    });
+  });
+
+  describe('toDatabase() - preferredLanguage', () => {
+    it('should map user.preferredLanguage "ru" to user_preferred_language "ru"', () => {
+      const settings = createTestSettings({
+        user: {
+          name: 'Test User',
+          email: 'test@example.com',
+          githubUsername: 'testuser',
+          preferredLanguage: Language.Russian,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.user_preferred_language).toBe('ru');
+    });
+
+    it('should map user.preferredLanguage "ar" to user_preferred_language "ar"', () => {
+      const settings = createTestSettings({
+        user: {
+          name: 'Test User',
+          preferredLanguage: Language.Arabic,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.user_preferred_language).toBe('ar');
+    });
+
+    it('should default to "en" when preferredLanguage is undefined', () => {
+      const settings = createTestSettings({
+        user: {
+          name: 'Test User',
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.user_preferred_language).toBe('en');
+    });
+  });
+
+  describe('fromDatabase() - preferredLanguage', () => {
+    it('should reconstruct user.preferredLanguage "ar" from user_preferred_language "ar"', () => {
+      const row = createTestRow({ user_preferred_language: 'ar' });
+      const settings = fromDatabase(row);
+      expect(settings.user.preferredLanguage).toBe('ar');
+    });
+
+    it('should reconstruct user.preferredLanguage "he" from user_preferred_language "he"', () => {
+      const row = createTestRow({ user_preferred_language: 'he' });
+      const settings = fromDatabase(row);
+      expect(settings.user.preferredLanguage).toBe('he');
+    });
+
+    it('should default to "en" when user_preferred_language is null/undefined', () => {
+      const row = createTestRow({ user_preferred_language: undefined as any });
+      const settings = fromDatabase(row);
+      expect(settings.user.preferredLanguage).toBe('en');
+    });
+  });
+
+  describe('round-trip - preferredLanguage', () => {
+    it('should preserve preferredLanguage through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        user: {
+          name: 'Test User',
+          email: 'test@example.com',
+          githubUsername: 'testuser',
+          preferredLanguage: Language.French,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.user.preferredLanguage).toBe(Language.French);
+    });
+
+    it('should preserve default "en" preferredLanguage through round-trip', () => {
+      const original = createTestSettings();
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.user.preferredLanguage).toBe('en');
+    });
+
+    it('should preserve all 8 language values through round-trip', () => {
+      const languages = [
+        Language.English,
+        Language.Russian,
+        Language.Portuguese,
+        Language.Spanish,
+        Language.Arabic,
+        Language.Hebrew,
+        Language.French,
+        Language.German,
+      ];
+
+      for (const lang of languages) {
+        const original = createTestSettings({
+          user: { preferredLanguage: lang },
+        });
+        const row = toDatabase(original);
+        const restored = fromDatabase(row);
+        expect(restored.user.preferredLanguage).toBe(lang);
+      }
+    });
+  });
+
+  describe('toDatabase() - defaultFastMode', () => {
+    it('should map workflow.defaultFastMode=true to default_fast_mode=1', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          defaultFastMode: true,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.default_fast_mode).toBe(1);
+    });
+
+    it('should map workflow.defaultFastMode=false to default_fast_mode=0', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          defaultFastMode: false,
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.default_fast_mode).toBe(0);
+    });
+  });
+
+  describe('fromDatabase() - defaultFastMode', () => {
+    it('should map default_fast_mode=1 to workflow.defaultFastMode=true', () => {
+      const row = createTestRow({ default_fast_mode: 1 });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.defaultFastMode).toBe(true);
+    });
+
+    it('should map default_fast_mode=0 to workflow.defaultFastMode=false', () => {
+      const row = createTestRow({ default_fast_mode: 0 });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.defaultFastMode).toBe(false);
+    });
+
+    it('should default to true when column is null (migration backward compat)', () => {
+      const row = createTestRow({ default_fast_mode: undefined as any });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.defaultFastMode).toBe(true);
+    });
+  });
+
+  describe('round-trip - defaultFastMode', () => {
+    it('should preserve defaultFastMode=true through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          defaultFastMode: true,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.defaultFastMode).toBe(true);
+    });
+
+    it('should preserve defaultFastMode=false through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          defaultFastMode: false,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.defaultFastMode).toBe(false);
     });
   });
 });

@@ -1,13 +1,13 @@
 {
   "name": "@shepai/cli",
-  "version": "1.156.0",
+  "version": "1.160.0",
   "description": "Autonomous AI Native SDLC Platform - Automate the development cycle from idea to deploy",
   "type": "module",
   "license": "MIT",
   "author": "Shep AI",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shep-ai/cli.git"
+    "url": "https://github.com/shep-ai/shep.git"
   },
   "keywords": [
     "ai",
@@ -46,7 +46,7 @@
     "dev:storybook": "storybook dev -p 6006",
     "generate": "pnpm tsp:codegen",
     "tsp:codegen": "tsp compile tsp/ --emit @typespec-tools/emitter-typescript && prettier --write packages/core/src/domain/generated/",
-    "build:cli": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && shx mkdir -p dist/packages/core/src/infrastructure/services/tool-installer && shx rm -rf dist/packages/core/src/infrastructure/services/tool-installer/tools && shx cp -r packages/core/src/infrastructure/services/tool-installer/tools dist/packages/core/src/infrastructure/services/tool-installer/tools",
+    "build:cli": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && shx mkdir -p dist/packages/core/src/infrastructure/services/tool-installer && shx rm -rf dist/packages/core/src/infrastructure/services/tool-installer/tools && shx cp -r packages/core/src/infrastructure/services/tool-installer/tools dist/packages/core/src/infrastructure/services/tool-installer/tools && shx rm -rf dist/translations && shx cp -r translations dist/translations",
     "build": "pnpm build:cli",
     "build:release": "pnpm generate && pnpm build:cli && pnpm build:web:prod",
     "build:web:prod": "pnpm build:web && shx rm -rf web && shx mkdir -p web && shx cp -r src/presentation/web/.next web/.next && shx rm -rf web/.next/dev web/.next/cache web/.next/standalone web/.next/trace web/.next/trace-build web/.next/turbopack web/.next/diagnostics web/.next/types web/.next/*.nft.json && shx cp -r src/presentation/web/public web/public && shx cp src/presentation/web/package.json web/ && node -e \"require('fs').writeFileSync('web/next.config.mjs','const c={typedRoutes:true,distDir:\\\".next\\\",output:\\\"standalone\\\",serverExternalPackages:[\\\"tsyringe\\\",\\\"reflect-metadata\\\",\\\"better-sqlite3\\\",\\\"node:os\\\",\\\"node:child_process\\\",\\\"node:fs\\\"]};export default c;\\n')\"",
@@ -185,6 +185,7 @@
     "better-sqlite3": "^12.6.2",
     "cli-table3": "^0.6.5",
     "commander": "^14.0.3",
+    "i18next": "^26.0.1",
     "js-yaml": "^4.1.1",
     "minimatch": "^7.x",
     "next": "16.1.6",
@@ -192,6 +193,7 @@
     "picocolors": "^1.1.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-i18next": "^17.0.1",
     "reflect-metadata": "^0.2.2",
     "tree-kill": "^1.2.2",
     "tsyringe": "^4.10.0",

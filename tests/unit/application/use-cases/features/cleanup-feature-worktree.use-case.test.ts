@@ -108,6 +108,8 @@ describe('CleanupFeatureWorktreeUseCase', () => {
       rebaseContinue: vi.fn().mockResolvedValue(undefined),
       rebaseAbort: vi.fn().mockResolvedValue(undefined),
       getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
+      stash: vi.fn().mockResolvedValue(false),
+      stashPop: vi.fn().mockResolvedValue(undefined),
     };
 
     useCase = new CleanupFeatureWorktreeUseCase(

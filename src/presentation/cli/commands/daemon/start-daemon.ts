@@ -26,6 +26,7 @@ import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.s
 import { getDaemonLogPath } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 import { fmt, messages, spinner } from '../../ui/index.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
+import { getCliI18n } from '../../i18n.js';
 
 /** How long to wait (ms) after spawn to verify the child is still alive. */
 const SPAWN_SETTLE_MS = 500;
@@ -44,6 +45,7 @@ export interface StartDaemonOptions {
  * Idempotent: if a daemon is already running, prints the existing URL and returns.
  */
 export async function startDaemon(opts: StartDaemonOptions = {}): Promise<void> {
+  const t = getCliI18n().t;
   const daemonService = container.resolve<IDaemonService>('IDaemonService');
 
   // Check for an already-running daemon
@@ -51,7 +53,7 @@ export async function startDaemon(opts: StartDaemonOptions = {}): Promise<void> 
   if (existing && daemonService.isAlive(existing.pid)) {
     const url = `http://localhost:${existing.port}`;
     messages.newline();
-    messages.info(`Shep is already running at ${fmt.code(url)}`);
+    messages.info(t('cli:ui.daemon.alreadyRunning', { url: fmt.code(url) }));
     messages.newline();
     return;
   }
@@ -97,8 +99,8 @@ export async function startDaemon(opts: StartDaemonOptions = {}): Promise<void> 
     // Child exited during the settle window — startup failed.
     closeSync(logFd);
     messages.newline();
-    messages.error(`Daemon failed to start (exit code ${exitCode ?? 'unknown'}).`);
-    messages.info(`Check logs: ${fmt.code(logPath)}`);
+    messages.error(t('cli:ui.daemon.daemonFailed', { code: exitCode ?? 'unknown' }));
+    messages.info(t('cli:ui.daemon.checkLogs', { path: fmt.code(logPath) }));
     messages.newline();
     // Clean up stale daemon.json if it exists
     await daemonService.delete();
@@ -118,21 +120,23 @@ export async function startDaemon(opts: StartDaemonOptions = {}): Promise<void> 
 
   const url = `http://localhost:${port}`;
   messages.newline();
-  console.log(fmt.heading('Shep Web UI'));
+  console.log(fmt.heading(t('cli:ui.daemon.heading')));
   messages.newline();
 
   // Poll until the server responds, with a spinner on stderr.
   // Skip readiness check in E2E / CI environments where the daemon child
   // cannot actually start a Next.js server within the test's time window.
   if (process.env.SHEP_SKIP_READINESS_CHECK) {
-    messages.success(`Daemon spawned at ${fmt.code(url)}`);
+    messages.success(t('cli:ui.daemon.daemonSpawned', { url: fmt.code(url) }));
   } else {
-    const ready = await spinner('Starting server', () => waitForServer(url, READY_TIMEOUT_MS));
+    const ready = await spinner(t('cli:ui.daemon.startingServer'), () =>
+      waitForServer(url, READY_TIMEOUT_MS)
+    );
 
     if (ready) {
-      messages.success(`Server ready at ${fmt.code(url)}`);
+      messages.success(t('cli:ui.daemon.serverReady', { url: fmt.code(url) }));
     } else {
-      messages.warning(`Server may still be starting at ${fmt.code(url)}`);
+      messages.warning(t('cli:ui.daemon.serverMayBeStarting', { url: fmt.code(url) }));
     }
   }
   messages.newline();

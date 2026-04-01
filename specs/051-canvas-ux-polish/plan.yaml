@@ -20,8 +20,8 @@ technologies:
   - 'Vitest + React Testing Library — unit tests'
   - 'Storybook — component stories'
 relatedLinks:
-  - 'https://github.com/shep-ai/cli/issues/213'
-  - 'https://github.com/shep-ai/cli/issues/208'
+  - 'https://github.com/shep-ai/shep/issues/213'
+  - 'https://github.com/shep-ai/shep/issues/208'
 
 # Structured implementation phases
 phases:

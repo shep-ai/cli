@@ -15,6 +15,7 @@ import { resolveAgentRun } from './resolve-run.js';
 import { container } from '@/infrastructure/di/container.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
+import { getCliI18n } from '../../i18n.js';
 
 function isProcessAlive(pid: number): boolean {
   try {
@@ -26,9 +27,10 @@ function isProcessAlive(pid: number): boolean {
 }
 
 export function createShowCommand(): Command {
+  const t = getCliI18n().t;
   return new Command('show')
-    .description('Display details of an agent run')
-    .argument('<id>', 'Agent run ID (or prefix)')
+    .description(t('cli:commands.agent.show.description'))
+    .argument('<id>', t('cli:commands.agent.show.idArgument'))
     .action(async (id: string) => {
       try {
         const resolved = await resolveAgentRun(id);
@@ -84,7 +86,7 @@ export function createShowCommand(): Command {
         }
 
         renderDetailView({
-          title: 'Agent Run',
+          title: t('cli:commands.agent.show.title'),
           sections: [
             {
               fields: [
@@ -98,14 +100,14 @@ export function createShowCommand(): Command {
               ],
             },
             {
-              title: 'Paths',
+              title: t('cli:commands.agent.show.pathsTitle'),
               fields: [
                 { label: 'Worktree', value: worktreePath },
                 { label: 'Spec Dir', value: specPath },
               ],
             },
             {
-              title: 'Timing',
+              title: t('cli:commands.agent.show.timingTitle'),
               fields: [
                 { label: 'Started', value: formatDate(agentRun.startedAt) },
                 { label: 'Completed', value: formatDate(agentRun.completedAt) },
@@ -121,7 +123,7 @@ export function createShowCommand(): Command {
         });
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to show agent run', err);
+        messages.error(t('cli:commands.agent.show.failedToShow'), err);
         process.exitCode = 1;
       }
     });

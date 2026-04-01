@@ -23,7 +23,7 @@ technologies:
   - shadcn/ui (CheckboxGroupItem)
   - Storybook
 relatedLinks:
-  - https://github.com/shep-ai/cli/issues/197
+  - https://github.com/shep-ai/shep/issues/197
 
 # Structured implementation phases
 phases:

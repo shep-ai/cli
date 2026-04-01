@@ -33,7 +33,7 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-23T00:00:00Z'
     completedBy: retroactive-spec
-prUrl: https://github.com/shep-ai/cli/pull/111
+prUrl: https://github.com/shep-ai/shep/pull/111
 errors:
   current: null
   history: []

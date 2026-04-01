@@ -46,16 +46,16 @@ export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
   maintain: 'COMPLETED',
 };
 
-/** Left border color for each lifecycle phase. */
+/** Inline-start border color for each lifecycle phase. */
 export const lifecycleBorderColors: Record<FeatureLifecyclePhase, string> = {
-  pending: 'border-l-slate-400',
-  requirements: 'border-l-violet-500',
-  research: 'border-l-cyan-500',
-  implementation: 'border-l-blue-500',
-  review: 'border-l-amber-500',
-  awaitingUpstream: 'border-l-amber-500',
-  deploy: 'border-l-emerald-500',
-  maintain: 'border-l-gray-400',
+  pending: 'border-s-slate-400',
+  requirements: 'border-s-violet-500',
+  research: 'border-s-cyan-500',
+  implementation: 'border-s-blue-500',
+  review: 'border-s-amber-500',
+  awaitingUpstream: 'border-s-amber-500',
+  deploy: 'border-s-emerald-500',
+  maintain: 'border-s-gray-400',
 };
 
 /** Accent bar background color for each lifecycle phase. */
@@ -154,11 +154,11 @@ export const lifecyclePhaseBadge: Record<
   },
 };
 
-/** State-based left border overrides (takes precedence over lifecycle). */
+/** State-based inline-start border overrides (takes precedence over lifecycle). */
 export const stateBorderColors: Partial<Record<FeatureNodeState, string>> = {
-  blocked: 'border-l-gray-400',
-  error: 'border-l-red-500',
-  deleting: 'border-l-gray-300',
+  blocked: 'border-s-gray-400',
+  error: 'border-s-red-500',
+  deleting: 'border-s-gray-300',
 };
 
 /** State-based accent bar overrides (takes precedence over lifecycle). */
@@ -297,7 +297,7 @@ export interface FeatureNodeStateConfig {
 export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateConfig> = {
   creating: {
     icon: Loader2,
-    borderClass: 'border-l-blue-500',
+    borderClass: 'border-s-blue-500',
     labelClass: 'text-blue-500',
     progressClass: 'bg-blue-500',
     badgeClass: 'text-blue-700',
@@ -307,7 +307,7 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
   },
   running: {
     icon: Loader2,
-    borderClass: 'border-l-blue-500',
+    borderClass: 'border-s-blue-500',
     labelClass: 'text-blue-500',
     progressClass: 'bg-blue-500',
     badgeClass: 'text-blue-700',
@@ -317,7 +317,7 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
   },
   'action-required': {
     icon: CircleAlert,
-    borderClass: 'border-l-amber-500',
+    borderClass: 'border-s-amber-500',
     labelClass: 'text-amber-500',
     progressClass: 'bg-amber-500',
     badgeClass: 'text-amber-700',
@@ -327,7 +327,7 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
   },
   done: {
     icon: CircleCheck,
-    borderClass: 'border-l-emerald-500',
+    borderClass: 'border-s-emerald-500',
     labelClass: 'text-emerald-500',
     progressClass: 'bg-emerald-500',
     badgeClass: 'text-emerald-700',
@@ -337,7 +337,7 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
   },
   blocked: {
     icon: Ban,
-    borderClass: 'border-l-gray-400',
+    borderClass: 'border-s-gray-400',
     labelClass: 'text-gray-400',
     progressClass: 'bg-gray-400',
     badgeClass: 'text-gray-600',
@@ -347,7 +347,7 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
   },
   pending: {
     icon: Clock,
-    borderClass: 'border-l-slate-400',
+    borderClass: 'border-s-slate-400',
     labelClass: 'text-slate-400',
     progressClass: 'bg-slate-400',
     badgeClass: 'text-slate-600',
@@ -357,7 +357,7 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
   },
   error: {
     icon: CircleX,
-    borderClass: 'border-l-red-500',
+    borderClass: 'border-s-red-500',
     labelClass: 'text-red-500',
     progressClass: 'bg-red-500',
     badgeClass: 'text-red-700',
@@ -367,7 +367,7 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
   },
   deleting: {
     icon: Trash2,
-    borderClass: 'border-l-gray-400',
+    borderClass: 'border-s-gray-400',
     labelClass: 'text-gray-400',
     progressClass: 'bg-gray-400',
     badgeClass: 'text-gray-600',
@@ -377,7 +377,7 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
   },
   archived: {
     icon: Archive,
-    borderClass: 'border-l-gray-500',
+    borderClass: 'border-s-gray-500',
     labelClass: 'text-gray-500',
     progressClass: 'bg-gray-500',
     badgeClass: 'text-gray-600',

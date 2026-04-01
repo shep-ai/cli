@@ -17,6 +17,7 @@ import {
 } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { messages } from '../ui/index.js';
+import { getCliI18n } from '../i18n.js';
 
 export interface LogViewerOptions {
   /** Absolute path to the log file */
@@ -69,14 +70,16 @@ export async function viewLog(opts: LogViewerOptions): Promise<boolean> {
   const { logPath, follow, lines: requestedLines, label } = opts;
 
   if (!existsSync(logPath)) {
-    messages.error(`No log file found for ${label}`);
-    messages.info(`Expected: ${logPath}`);
+    const t = getCliI18n().t;
+    messages.error(t('cli:ui.logViewer.noLogFile', { label }));
+    messages.info(t('cli:ui.logViewer.expectedAt', { path: logPath }));
     return false;
   }
 
   const stat = statSync(logPath);
   if (stat.size === 0) {
-    messages.info(`Log file is empty for ${label}`);
+    const t = getCliI18n().t;
+    messages.info(t('cli:ui.logViewer.logEmpty', { label }));
     if (!follow) return false;
     // In follow mode, continue — the file will grow
   }

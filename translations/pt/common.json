@@ -1,0 +1,55 @@
+{
+  "errors": {
+    "notFound": "Não encontrado",
+    "unauthorized": "Não autorizado",
+    "forbidden": "Proibido",
+    "internal": "Erro interno",
+    "unknown": "Ocorreu um erro desconhecido",
+    "failedToLoad": "Falha ao carregar {{resource}}",
+    "failedToSave": "Falha ao salvar {{resource}}"
+  },
+  "labels": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "close": "Fechar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "yes": "Sim",
+    "no": "Não",
+    "enabled": "Ativado",
+    "disabled": "Desativado",
+    "loading": "Carregando...",
+    "saving": "Salvando...",
+    "saved": "Salvo",
+    "none": "Nenhum",
+    "default": "Padrão",
+    "custom": "Personalizado"
+  },
+  "status": {
+    "success": "Sucesso",
+    "error": "Erro",
+    "warning": "Aviso",
+    "info": "Informação",
+    "pending": "Pendente",
+    "inProgress": "Em Andamento",
+    "completed": "Concluído",
+    "failed": "Falhou"
+  },
+  "confirmation": {
+    "areYouSure": "Tem certeza?",
+    "cannotBeUndone": "Esta ação não pode ser desfeita."
+  },
+  "language": {
+    "en": "Inglês",
+    "ru": "Russo",
+    "pt": "Português",
+    "es": "Espanhol",
+    "ar": "Árabe",
+    "he": "Hebraico",
+    "fr": "Francês",
+    "de": "Alemão"
+  }
+}
