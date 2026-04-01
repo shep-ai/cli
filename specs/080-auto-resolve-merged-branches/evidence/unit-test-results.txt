@@ -1,24 +1,24 @@
 
  RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-auto-resolve-merged-branches
 
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should return zero resolved when no features are in Review 1ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should return zero resolved when features list is empty 0ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should resolve a feature when its PR is merged (by PR number) 1ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should resolve a feature when its branch matches a merged PR (no PR data) 1ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should resolve a feature via local merge verification when no PR match 0ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should not resolve a feature when PR is still Open 0ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should skip features without repositoryPath 0ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should handle repos without a remote gracefully 0ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should handle listPrStatuses failure by falling back to local check 0ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should handle verifyMerge failure gracefully 0ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should batch features by repository for efficient PR status queries 0ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should not resolve a feature already transitioned to Maintain by another process 0ms
- ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should mark agent run as completed when resolving a feature 1ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should return zero resolved when no features are in Review 12ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should return zero resolved when features list is empty 3ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should resolve a feature when its PR is merged (by PR number) 6ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should resolve a feature when its branch matches a merged PR (no PR data) 3ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should resolve a feature via local merge verification when no PR match 2ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should not resolve a feature when PR is still Open 3ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should skip features without repositoryPath 6ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should handle repos without a remote gracefully 1ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should handle listPrStatuses failure by falling back to local check 2ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should handle verifyMerge failure gracefully 4ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should batch features by repository for efficient PR status queries 2ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should not resolve a feature already transitioned to Maintain by another process 1ms
+ ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should mark agent run as completed when resolving a feature 4ms
  ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should not fail if agent run update fails 0ms
  ✓  node  tests/unit/application/use-cases/features/auto-resolve-merged-branches.use-case.test.ts > AutoResolveMergedBranchesUseCase > should handle hasRemote throwing an error 0ms
 
  Test Files  1 passed (1)
       Tests  15 passed (15)
-   Start at  14:09:07
-   Duration  141ms (transform 43ms, setup 0ms, import 66ms, tests 7ms, environment 0ms)
+   Start at  14:12:36
+   Duration  215ms (transform 63ms, setup 0ms, import 93ms, tests 52ms, environment 0ms)
 
