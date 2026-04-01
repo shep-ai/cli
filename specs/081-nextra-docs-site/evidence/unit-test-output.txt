@@ -1,0 +1,20 @@
+       [33m[2m✓[22m[39m fast mode resets to default after submit [33m 558[2mms[22m[39m
+       [33m[2m✓[22m[39m submits the form when Ctrl+Enter is pressed in the textarea [33m 694[2mms[22m[39m
+       [33m[2m✓[22m[39m submits the form when Meta+Enter is pressed in the textarea [33m 686[2mms[22m[39m
+       [33m[2m✓[22m[39m does not submit on plain Enter (without modifier) [33m 633[2mms[22m[39m
+       [33m[2m✓[22m[39m includes sessionId in submitted payload [33m 709[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is disabled when no repo selected and repositoryPath is empty [33m 420[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repo is selected via combobox [33m 1203[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repositoryPath is provided (canvas flow) [33m 1500[2mms[22m[39m
+       [33m[2m✓[22m[39m handleSubmit includes selectedRepoPath in payload [33m 1168[2mms[22m[39m
+       [33m[2m✓[22m[39m filters repositories by path when typing in search input [33m 318[2mms[22m[39m
+       [33m[2m✓[22m[39m shows empty state message when no repos match search [33m 500[2mms[22m[39m
+       [33m[2m✓[22m[39m shows check icon for selected repository [33m 608[2mms[22m[39m
+       [33m[2m✓[22m[39m clicking "Add new repository..." opens folder picker and adds repo [33m 358[2mms[22m[39m
+       [33m[2m✓[22m[39m can submit feature after adding new repo via combobox [33m 454[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m372 passed[39m[22m[90m (372)[39m
+[2m      Tests [22m [1m[32m5267 passed[39m[22m[90m (5267)[39m
+[2m   Start at [22m 16:03:05
+[2m   Duration [22m 51.75s[2m (transform 20.31s, setup 60.84s, import 83.04s, tests 144.90s, environment 112.91s)[22m
+
