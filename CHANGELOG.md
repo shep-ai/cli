@@ -1,3 +1,10 @@
+# [1.162.0](https://github.com/shep-ai/shep/compare/v1.161.0...v1.162.0) (2026-04-01)
+
+
+### Features
+
+* **web:** show repo group in sidebar for single-repo scenarios ([#504](https://github.com/shep-ai/shep/issues/504)) ([0302385](https://github.com/shep-ai/shep/commit/03023854595084068fcb9b1308e12daaf370599d))
+
 # [1.161.0](https://github.com/shep-ai/shep/compare/v1.160.0...v1.161.0) (2026-04-01)
 
 
