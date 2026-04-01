@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GitHubRepoBrowser } from '@/components/common/github-import-dialog/github-repo-browser';
 import type { GitHubRepo } from '@shepai/core/application/ports/output/services/github-repository-service.interface';
+import type { GitHubOrganization } from '@shepai/core/application/ports/output/services/github-repository-service.interface';
 
 const mockRepos: GitHubRepo[] = [
   {
@@ -21,6 +22,11 @@ const mockRepos: GitHubRepo[] = [
   },
 ];
 
+const mockOrgs: GitHubOrganization[] = [
+  { login: 'my-org', description: 'My organization' },
+  { login: 'another-org', description: '' },
+];
+
 describe('GitHubRepoBrowser', () => {
   const defaultProps = {
     onSelect: vi.fn(),
@@ -32,13 +38,15 @@ describe('GitHubRepoBrowser', () => {
 
   it('renders loading skeleton initially', () => {
     const fetchRepos = vi.fn().mockReturnValue(new Promise(vi.fn())); // never resolves
-    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} />);
+    const fetchOrgs = vi.fn().mockResolvedValue({ orgs: [] });
+    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
     expect(screen.getByTestId('repo-browser-loading')).toBeInTheDocument();
   });
 
   it('displays repo list after fetch', async () => {
     const fetchRepos = vi.fn().mockResolvedValue({ repos: mockRepos });
-    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} />);
+    const fetchOrgs = vi.fn().mockResolvedValue({ orgs: [] });
+    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
 
     await waitFor(() => {
       expect(screen.getByText('octocat/my-project')).toBeInTheDocument();
@@ -51,7 +59,8 @@ describe('GitHubRepoBrowser', () => {
 
   it('shows public and private badges', async () => {
     const fetchRepos = vi.fn().mockResolvedValue({ repos: mockRepos });
-    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} />);
+    const fetchOrgs = vi.fn().mockResolvedValue({ orgs: [] });
+    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
 
     await waitFor(() => {
       expect(screen.getByText('Public')).toBeInTheDocument();
@@ -63,7 +72,8 @@ describe('GitHubRepoBrowser', () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     const fetchRepos = vi.fn().mockResolvedValue({ repos: mockRepos });
-    render(<GitHubRepoBrowser onSelect={onSelect} fetchRepos={fetchRepos} />);
+    const fetchOrgs = vi.fn().mockResolvedValue({ orgs: [] });
+    render(<GitHubRepoBrowser onSelect={onSelect} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
 
     await waitFor(() => {
       expect(screen.getByText('octocat/my-project')).toBeInTheDocument();
@@ -76,7 +86,8 @@ describe('GitHubRepoBrowser', () => {
   it('filters repos via search input', async () => {
     const user = userEvent.setup();
     const fetchRepos = vi.fn().mockResolvedValue({ repos: mockRepos });
-    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} />);
+    const fetchOrgs = vi.fn().mockResolvedValue({ orgs: [] });
+    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
 
     await waitFor(() => {
       expect(screen.getByText('octocat/my-project')).toBeInTheDocument();
@@ -93,7 +104,8 @@ describe('GitHubRepoBrowser', () => {
 
   it('shows error state on fetch failure', async () => {
     const fetchRepos = vi.fn().mockResolvedValue({ error: 'Auth failed' });
-    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} />);
+    const fetchOrgs = vi.fn().mockResolvedValue({ orgs: [] });
+    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('repo-browser-error')).toBeInTheDocument();
@@ -103,7 +115,8 @@ describe('GitHubRepoBrowser', () => {
 
   it('shows empty state when no repos match', async () => {
     const fetchRepos = vi.fn().mockResolvedValue({ repos: [] });
-    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} />);
+    const fetchOrgs = vi.fn().mockResolvedValue({ orgs: [] });
+    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('repo-browser-empty')).toBeInTheDocument();
@@ -113,11 +126,68 @@ describe('GitHubRepoBrowser', () => {
 
   it('shows error state when fetch throws', async () => {
     const fetchRepos = vi.fn().mockRejectedValue(new Error('Network error'));
-    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} />);
+    const fetchOrgs = vi.fn().mockResolvedValue({ orgs: [] });
+    render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('repo-browser-error')).toBeInTheDocument();
     });
     expect(screen.getByText('Failed to fetch repositories')).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Multi-org support
+  // -------------------------------------------------------------------------
+
+  describe('organization selector', () => {
+    it('shows org selector when orgs are available', async () => {
+      const fetchRepos = vi.fn().mockResolvedValue({ repos: mockRepos });
+      const fetchOrgs = vi.fn().mockResolvedValue({ orgs: mockOrgs });
+      render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('octocat/my-project')).toBeInTheDocument();
+      });
+
+      // The select trigger should be present
+      expect(screen.getByLabelText('Select owner')).toBeInTheDocument();
+    });
+
+    it('does not show org selector when no orgs exist', async () => {
+      const fetchRepos = vi.fn().mockResolvedValue({ repos: mockRepos });
+      const fetchOrgs = vi.fn().mockResolvedValue({ orgs: [] });
+      render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('octocat/my-project')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText('Select owner')).not.toBeInTheDocument();
+    });
+
+    it('does not show org selector when org fetch fails', async () => {
+      const fetchRepos = vi.fn().mockResolvedValue({ repos: mockRepos });
+      const fetchOrgs = vi.fn().mockRejectedValue(new Error('Org fetch failed'));
+      render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('octocat/my-project')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByLabelText('Select owner')).not.toBeInTheDocument();
+    });
+
+    it('displays the default personal repos option in the select trigger', async () => {
+      const fetchRepos = vi.fn().mockResolvedValue({ repos: mockRepos });
+      const fetchOrgs = vi.fn().mockResolvedValue({ orgs: mockOrgs });
+      render(<GitHubRepoBrowser {...defaultProps} fetchRepos={fetchRepos} fetchOrgs={fetchOrgs} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('octocat/my-project')).toBeInTheDocument();
+      });
+
+      // The select trigger should show the default "My repositories" text
+      expect(screen.getByText('My repositories')).toBeInTheDocument();
+    });
   });
 });

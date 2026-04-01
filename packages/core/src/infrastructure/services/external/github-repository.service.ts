@@ -13,6 +13,7 @@ import type { ExecFunction } from '../git/worktree.service.js';
 import type {
   IGitHubRepositoryService,
   GitHubRepo,
+  GitHubOrganization,
   ListUserRepositoriesOptions,
   CloneOptions,
   ParsedGitHubUrl,
@@ -75,6 +76,7 @@ export class GitHubRepositoryService implements IGitHubRepositoryService {
     const args = [
       'repo',
       'list',
+      ...(options?.owner ? [options.owner] : []),
       '--json',
       'name,nameWithOwner,description,isPrivate,pushedAt',
       '--limit',
@@ -103,6 +105,33 @@ export class GitHubRepositoryService implements IGitHubRepositoryService {
 
       throw new GitHubRepoListError(
         `Failed to list GitHub repositories: ${cause?.message ?? String(error)}`,
+        cause
+      );
+    }
+  }
+
+  async listOrganizations(): Promise<GitHubOrganization[]> {
+    try {
+      const { stdout } = await this.execFile('gh', [
+        'api',
+        '/user/orgs',
+        '--jq',
+        '[.[] | {login: .login, description: (.description // "")}]',
+      ]);
+      return JSON.parse(stdout) as GitHubOrganization[];
+    } catch (error) {
+      const cause = error instanceof Error ? error : undefined;
+      const errnoCode = (error as NodeJS.ErrnoException)?.code;
+
+      if (errnoCode === 'ENOENT') {
+        throw new GitHubRepoListError(
+          'GitHub CLI (gh) is not installed. Install it from https://cli.github.com/',
+          cause
+        );
+      }
+
+      throw new GitHubRepoListError(
+        `Failed to list GitHub organizations: ${cause?.message ?? String(error)}`,
         cause
       );
     }

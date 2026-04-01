@@ -98,6 +98,18 @@ export interface ListUserRepositoriesOptions {
   limit?: number;
   /** Filter repos by name substring */
   search?: string;
+  /** Owner (user or organization) to list repos for. Omit for the authenticated user's repos. */
+  owner?: string;
+}
+
+/**
+ * A GitHub organization the authenticated user belongs to.
+ */
+export interface GitHubOrganization {
+  /** Organization login handle (e.g. "my-org") */
+  login: string;
+  /** Organization description (may be empty string) */
+  description: string;
 }
 
 /**
@@ -154,11 +166,21 @@ export interface IGitHubRepositoryService {
   /**
    * List the authenticated user's GitHub repositories.
    *
+   * When `options.owner` is provided, lists repositories for that user or organization instead.
+   *
    * @param options - Optional filtering and pagination
    * @returns Array of GitHub repositories sorted by most recently pushed
    * @throws {GitHubRepoListError} if the list operation fails
    */
   listUserRepositories(options?: ListUserRepositoriesOptions): Promise<GitHubRepo[]>;
+
+  /**
+   * List organizations the authenticated user belongs to.
+   *
+   * @returns Array of GitHub organizations
+   * @throws {GitHubRepoListError} if the list operation fails
+   */
+  listOrganizations(): Promise<GitHubOrganization[]>;
 
   /**
    * Parse a GitHub URL or shorthand into its owner/repo components.

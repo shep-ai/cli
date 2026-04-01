@@ -151,6 +151,76 @@ describe('GitHubRepositoryService', () => {
       await expect(service.listUserRepositories()).rejects.toThrow(GitHubRepoListError);
       await expect(service.listUserRepositories()).rejects.toThrow('not installed');
     });
+
+    it('should pass owner as positional arg when provided', async () => {
+      mockExecFile.mockResolvedValue({ stdout: '[]', stderr: '' });
+
+      await service.listUserRepositories({ owner: 'my-org' });
+
+      const args = mockExecFile.mock.calls[0][1] as string[];
+      expect(args[0]).toBe('repo');
+      expect(args[1]).toBe('list');
+      expect(args[2]).toBe('my-org');
+    });
+
+    it('should not include owner arg when owner is undefined', async () => {
+      mockExecFile.mockResolvedValue({ stdout: '[]', stderr: '' });
+
+      await service.listUserRepositories();
+
+      const args = mockExecFile.mock.calls[0][1] as string[];
+      expect(args[0]).toBe('repo');
+      expect(args[1]).toBe('list');
+      expect(args[2]).toBe('--json');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // listOrganizations
+  // -------------------------------------------------------------------------
+
+  describe('listOrganizations()', () => {
+    const sampleOrgs = [
+      { login: 'org-a', description: 'Organization A' },
+      { login: 'org-b', description: '' },
+    ];
+
+    it('should parse JSON output from gh api /user/orgs', async () => {
+      mockExecFile.mockResolvedValue({ stdout: JSON.stringify(sampleOrgs), stderr: '' });
+
+      const result = await service.listOrganizations();
+
+      expect(result).toEqual(sampleOrgs);
+      expect(mockExecFile).toHaveBeenCalledWith('gh', [
+        'api',
+        '/user/orgs',
+        '--jq',
+        '[.[] | {login: .login, description: (.description // "")}]',
+      ]);
+    });
+
+    it('should return empty array when user has no orgs', async () => {
+      mockExecFile.mockResolvedValue({ stdout: '[]', stderr: '' });
+
+      const result = await service.listOrganizations();
+
+      expect(result).toEqual([]);
+    });
+
+    it('should throw GitHubRepoListError on failure', async () => {
+      mockExecFile.mockRejectedValue(new Error('network error'));
+
+      await expect(service.listOrganizations()).rejects.toThrow(GitHubRepoListError);
+    });
+
+    it('should throw GitHubRepoListError when gh is not installed', async () => {
+      const err = new Error('spawn gh ENOENT') as NodeJS.ErrnoException;
+      err.code = 'ENOENT';
+      mockExecFile.mockRejectedValue(err);
+
+      await expect(service.listOrganizations()).rejects.toThrow(GitHubRepoListError);
+      await expect(service.listOrganizations()).rejects.toThrow('not installed');
+    });
   });
 
   // -------------------------------------------------------------------------
