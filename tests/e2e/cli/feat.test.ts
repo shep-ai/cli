@@ -125,7 +125,7 @@ describe('CLI: feat', () => {
       expect(existsSync(worktreePath)).toBe(true);
     }, 60_000);
 
-    it('should initialize spec directory with YAML files inside the worktree', () => {
+    it('should initialize spec directory with fast-mode YAML files by default', () => {
       const runner = createCliRunner({
         env: { SHEP_HOME: shepHome },
         timeout: 30000,
@@ -139,6 +139,30 @@ describe('CLI: feat', () => {
         .slice(0, 16);
       const worktreePath = join(shepHome, 'repos', repoHash, 'wt', 'feat-spec-init-check');
       const specDir = join(worktreePath, 'specs', '001-spec-init-check');
+
+      expect(existsSync(specDir)).toBe(true);
+
+      // Fast mode is the default — only feature.yaml and spec.yaml are created
+      const files = readdirSync(specDir);
+      expect(files).toContain('spec.yaml');
+      expect(files).toContain('feature.yaml');
+      expect(files).toHaveLength(2);
+    }, 60_000);
+
+    it('should initialize spec directory with all YAML files when --no-fast is used', () => {
+      const runner = createCliRunner({
+        env: { SHEP_HOME: shepHome },
+        timeout: 30000,
+      });
+
+      runner.runOrThrow(`feat new "Full spec check" --no-fast --repo ${tempRepo}`);
+
+      const repoHash = createHash('sha256')
+        .update(tempRepo.replace(/\\/g, '/'))
+        .digest('hex')
+        .slice(0, 16);
+      const worktreePath = join(shepHome, 'repos', repoHash, 'wt', 'feat-full-spec-check');
+      const specDir = join(worktreePath, 'specs', '001-full-spec-check');
 
       expect(existsSync(specDir)).toBe(true);
 
