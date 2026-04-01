@@ -33,6 +33,9 @@ properties:
   interactiveAgent:
     $ref: InteractiveAgentConfig.yaml
     description: Interactive agent chat configuration (optional, defaults applied at runtime)
+  fabLayout:
+    $ref: FabLayoutConfig.yaml
+    description: FAB layout configuration (optional, defaults applied at runtime)
 required:
   - models
   - user
