@@ -1,0 +1,238 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: skill-injector
+number: 81
+branch: "feat/081-skill-injector"
+oneLiner: "Inject curated agent skills into worktrees during feature creation, with idempotency and commit prevention"
+summary: >
+  Add a skill injection system that copies curated Claude Code skills into
+  feature worktrees during CreateFeatureUseCase execution. Skills are sourced
+  from a configurable registry of local paths and remote packages (via npx
+  skills add). The injector skips skills already present, ensures injected
+  files are never committed via .gitignore management, and is opt-out by
+  default (controlled via a new Settings field).
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - "033-global-skills-page"
+  - "080-skill-branding-injection"
+
+technologies:
+  - "TypeScript"
+  - "TypeSpec"
+  - "tsyringe (dependency injection)"
+  - "SQLite (settings persistence)"
+  - "Node.js child_process (npx skills add)"
+  - "Node.js fs/promises (file copy, .gitignore management)"
+
+relatedLinks:
+  - title: "Claude Code Skills Documentation"
+    url: "https://code.claude.com/docs/en/setup"
+  - title: "npx skills add pattern (Medium article)"
+    url: "https://medium.com/@unicodeveloper/10-must-have-skills-for-claude-and-any-coding-agent-in-2026-b5451b013051"
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When a new feature is created in Shep, the spawned agent operates inside a
+  git worktree that starts as a clean branch off main. The agent has access to
+  whatever skills are already committed in `.claude/skills/`, but there is no
+  mechanism to automatically inject additional curated skills that would
+  enhance agent effectiveness for the specific feature being developed.
+
+  Currently, skills like `architecture-reviewer`, `mermaid-diagrams`,
+  `react-flow`, `shadcn-ui`, `tsp-model`, and `vercel-react-best-practices`
+  exist in the repository as committed files. However, there are external
+  skills (e.g., Anthropic's `frontend-design`) that must be fetched at
+  runtime, and the full set of desired skills may vary per-project.
+
+  This feature adds a **skill injector** that runs as part of feature
+  creation, copying/installing skills into the worktree's `.claude/skills/`
+  directory while ensuring:
+  1. **Idempotency** - skills already present are never re-injected
+  2. **No commit pollution** - injected skills are added to `.gitignore`
+  3. **Opt-in by default** - disabled unless the user enables it in Settings
+  4. **Configurability** - the curated skill list is stored in Settings
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository follows Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`) - TypeSpec-generated types in
+    `generated/output.ts`, value objects, factories, lifecycle gates
+  - **Application** (`packages/core/src/application/`) - Use cases and port
+    interfaces. Feature creation lives in `use-cases/features/create/`
+  - **Infrastructure** (`packages/core/src/infrastructure/`) - Service
+    implementations, SQLite persistence, DI container, agent executors
+  - **Presentation** (`src/presentation/`) - CLI (Commander.js), TUI
+    (Inquirer), Web (Next.js + React Flow)
+
+  Key directories relevant to this feature:
+  - `packages/core/src/application/use-cases/features/create/` - CreateFeatureUseCase
+  - `packages/core/src/application/ports/output/services/` - Port interfaces
+  - `packages/core/src/infrastructure/services/` - Service implementations
+  - `packages/core/src/infrastructure/di/container.ts` - DI registrations
+  - `tsp/domain/entities/settings.tsp` - Settings TypeSpec definition
+  - `.claude/skills/` - Existing skill definitions (committed to repo)
+
+  ### Architecture Patterns
+
+  **Dependency Injection:** tsyringe IoC container. All services injected via
+  `@inject('IPortName')`. New services must define a port interface in
+  `application/ports/output/` and register in `infrastructure/di/container.ts`.
+
+  **Two-Phase Feature Creation:** `CreateFeatureUseCase` has two phases:
+  1. `createRecord()` - fast DB writes (Feature + AgentRun records)
+  2. `initializeAndSpawn()` - slow async work: AI metadata, worktree creation,
+     spec initialization, agent spawn
+
+  Skill injection fits naturally into Phase 2, **after** spec initialization
+  and **before** agent spawn, since the worktree exists at that point and the
+  agent will immediately benefit from injected skills.
+
+  **Settings Pattern:** Singleton `Settings` entity defined in TypeSpec,
+  persisted in SQLite, cached in-memory via `getSettings()`. New settings
+  fields require: TypeSpec change, TSP compile, migration, mapper update,
+  defaults factory update. Feature flags follow the `FeatureFlags` model
+  pattern (boolean fields with defaults).
+
+  **Spec Initializer Pattern:** `ISpecInitializerService` port with
+  `SpecInitializerService` implementation. This is the closest analogy for
+  the skill injector - a port interface + service that operates on the
+  worktree filesystem during feature creation.
+
+  ### Relevant Technologies
+
+  - **TypeSpec** - Domain model definitions (Settings entity needs new fields)
+  - **tsyringe** - DI framework for service registration
+  - **SQLite** - Settings persistence (new columns for skill injection config)
+  - **Node.js fs/promises** - File operations for skill copying
+  - **Node.js child_process** - Executing `npx skills add` for remote skills
+  - **Commander.js** - CLI flag for `--inject-skills` / `--no-inject-skills`
+
+  ## Feature Design
+
+  ### Skill Sources (Two Types)
+
+  **Local skills** (already in the repo's `.claude/skills/`):
+  1. `architecture-reviewer`
+  2. `cross-validate-artifacts`
+  3. `mermaid-diagrams`
+  4. `react-flow`
+  5. `shadcn-ui`
+  6. `tsp-model`
+  7. `vercel-react-best-practices`
+
+  **Remote skills** (fetched via `npx skills add`):
+  8. `anthropics/claude-code` skill `frontend-design`
+
+  ### Injection Mechanism
+
+  For **local skills**: Copy the skill directory from the source repo's
+  `.claude/skills/<name>/` into the worktree's `.claude/skills/<name>/`.
+  Since worktrees share the same git directory, files committed in main
+  are already visible. However, the worktree may be on a branch that
+  diverged before certain skills were added, so explicit copy ensures
+  the latest versions are always present.
+
+  For **remote skills**: Execute `npx skills add <repo-url> --skill <name>`
+  with cwd set to the worktree path. This installs the skill files into
+  the worktree's `.claude/skills/` directory.
+
+  ### Idempotency
+
+  Before injecting each skill, check if `.claude/skills/<name>/SKILL.md`
+  already exists in the worktree. If it does, skip that skill entirely.
+
+  ### Commit Prevention
+
+  After injection, ensure all injected skill paths are listed in the
+  worktree's `.gitignore`. For each injected skill, add a line like
+  `.claude/skills/<name>/` to `.gitignore` if not already present.
+  This prevents `git add .` or `git add -A` from staging injected files.
+
+  Skills that were ALREADY committed to the repo (i.e., tracked in git)
+  will NOT be re-added to .gitignore since they are already part of the
+  codebase. Only freshly injected/copied skills get the .gitignore entry.
+
+  ### Settings Integration
+
+  Add a new `skillInjection` configuration block to the Settings entity:
+
+  ```
+  skillInjection?: SkillInjectionConfig {
+    enabled: boolean = false           // opt-out by default
+    skills: SkillSource[]              // curated skill registry
+  }
+  ```
+
+  Where `SkillSource` captures:
+  - `name`: skill directory name (e.g., \"architecture-reviewer\")
+  - `type`: \"local\" or \"remote\"
+  - `source`: path for local, repo URL for remote
+  - `remoteSkillName`: skill name within the remote repo (for remote type)
+
+  Default skills list populated in `createDefaultSettings()`.
+
+  ## Success Criteria
+
+  - [ ] Skill injection runs during feature creation (Phase 2 of CreateFeatureUseCase)
+  - [ ] Local skills are copied into the worktree's .claude/skills/
+  - [ ] Remote skills are installed via npx skills add
+  - [ ] Already-present skills are skipped (idempotent)
+  - [ ] Injected skill paths are added to worktree .gitignore
+  - [ ] Feature is opt-out by default (disabled unless settings.skillInjection.enabled = true)
+  - [ ] Settings UI/CLI allows enabling/disabling skill injection
+  - [ ] Settings UI/CLI allows customizing the skill list
+  - [ ] Injected skills are never committed (verified by .gitignore entries)
+  - [ ] Cross-platform: works on Windows, macOS, and Linux
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/settings.tsp` | High | New SkillInjectionConfig and SkillSource models added to Settings |
+  | `packages/core/src/domain/generated/output.ts` | High | Regenerated from TypeSpec (new types) |
+  | `packages/core/src/domain/factories/settings-defaults.factory.ts` | Medium | Default skill list populated here |
+  | `packages/core/src/application/ports/output/services/` | High | New ISkillInjectorService port interface |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | High | Calls skill injector in initializeAndSpawn() |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | Low | Optional injectSkills flag on CreateFeatureInput |
+  | `packages/core/src/infrastructure/services/` | High | New SkillInjectorService implementation |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register ISkillInjectorService binding |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations/` | Medium | New migration for skill_injection columns |
+  | `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts` | Medium | Map new Settings fields to/from SQLite |
+  | `src/presentation/cli/commands/feat/new.command.ts` | Low | --inject-skills / --no-inject-skills flag |
+  | `.gitignore` | None | Not modified globally; .gitignore changes are per-worktree |
+
+  ## Dependencies
+
+  - **TypeSpec compiler** (`pnpm tsp:compile`) - Required to regenerate domain types
+  - **npx skills add** - Third-party CLI tool for remote skill installation (must be available at runtime)
+  - **Settings migration system** - Existing SQLite migration pattern for adding new columns
+  - **CreateFeatureUseCase** - Integration point for injection logic
+  - **SpecInitializerService** - Pattern reference for filesystem service design
+
+  ## Size Estimate
+
+  **M** - This feature requires changes across multiple architecture layers
+  (TypeSpec, domain, application port, infrastructure service, DI, migration,
+  mapper, use case integration, CLI flag) but each individual change is
+  well-scoped. The core logic (copy files, run npx, update .gitignore) is
+  straightforward. The main complexity is ensuring proper Clean Architecture
+  layering, cross-platform path handling, and comprehensive test coverage
+  for idempotency and .gitignore management.
+
+  Estimated effort: 2-3 days including TDD cycles.
+
+  ---
+
+  _Generated by feature agent — proceed with research_
