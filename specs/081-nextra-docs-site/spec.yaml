@@ -4,14 +4,11 @@
 name: nextra-docs-site
 number: 081
 branch: feat/081-nextra-docs-site
-oneLiner: Update the github page and documnation to use:
-https://nextra.site/
+oneLiner: "Update the github page and documentation to use nextra"
 userQuery: >
-  Update the github page and documnation to use:
-https://nextra.site/
+  Update the github page and documentation to use https://nextra.site/
 summary: >
-  Update the github page and documnation to use:
-https://nextra.site/
+  Update the github page and documentation to use https://nextra.site/
 phase: Analysis
 sizeEstimate: M
 
@@ -33,8 +30,7 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  Update the github page and documnation to use:
-https://nextra.site/
+  Update the github page and documentation to use https://nextra.site/
 
   ## Success Criteria
 
