@@ -1,0 +1,20 @@
+Unit Test Results — pnpm test:unit
+===================================
+Date: 2026-04-01
+
+Test Files:  374 passed (374)
+Tests:       5291 passed (5291)
+Duration:    144.97s
+
+Feature-relevant test files (all passing):
+- tests/unit/application/use-cases/repositories/list-github-organizations.use-case.test.ts
+- tests/unit/infrastructure/services/external/github-repository.service.test.ts
+- tests/unit/presentation/web/app/actions/list-github-organizations.test.ts
+- tests/unit/presentation/web/components/common/github-import-dialog/github-repo-browser.test.tsx
+- tests/unit/presentation/tui/wizards/github-import.wizard.test.ts
+- tests/unit/presentation/cli/commands/repo/add.command.test.ts
+- tests/unit/application/ports/output/services/github-repository-service.interface.test.ts
+- tests/unit/application/use-cases/repositories/list-github-repositories.use-case.test.ts
+- tests/unit/application/use-cases/repositories/import-github-repository.use-case.test.ts
+
+All 5291 tests passed with 0 failures.
