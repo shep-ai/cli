@@ -1,50 +1,50 @@
-       [33m[2m✓[22m[39m clicking All button selects all when some are selected [33m 650[2mms[22m[39m
-       [33m[2m✓[22m[39m clicking All button deselects all when all are selected [33m 590[2mms[22m[39m
-       [33m[2m✓[22m[39m submits correct approvalGates after All toggle [33m 1831[2mms[22m[39m
-       [33m[2m✓[22m[39m calls onClose when close (X) button is clicked [33m 444[2mms[22m[39m
-       [33m[2m✓[22m[39m clears all form fields after submit without unmounting [33m 3797[2mms[22m[39m
-       [33m[2m✓[22m[39m clears form data on submit so next open starts fresh [33m 1705[2mms[22m[39m
-       [33m[2m✓[22m[39m calls pickFiles and displays attachment chip [33m 623[2mms[22m[39m
-       [33m[2m✓[22m[39m displays file size [33m 510[2mms[22m[39m
-       [33m[2m✓[22m[39m supports multiple file selections across multiple picks [33m 792[2mms[22m[39m
-       [33m[2m✓[22m[39m removes attachment when remove button is clicked [33m 939[2mms[22m[39m
-       [33m[2m✓[22m[39m shows multiple attachment chips [33m 717[2mms[22m[39m
-       [33m[2m✓[22m[39m does not add files when user cancels the picker [33m 405[2mms[22m[39m
-       [33m[2m✓[22m[39m does not add duplicate files when the same file is picked again [33m 829[2mms[22m[39m
-       [33m[2m✓[22m[39m handles pickFiles error gracefully [33m 525[2mms[22m[39m
-       [33m[2m✓[22m[39m plays create sound on form submit [33m 1704[2mms[22m[39m
-       [33m[2m✓[22m[39m toggling fast mode checkbox updates form state [33m 562[2mms[22m[39m
-       [33m[2m✓[22m[39m submitting with fast mode on includes fast=true in payload [33m 2153[2mms[22m[39m
-       [33m[2m✓[22m[39m submitting with fast mode off includes fast=false in payload [33m 1945[2mms[22m[39m
-       [33m[2m✓[22m[39m fast mode checkbox has accessible label [33m 376[2mms[22m[39m
-       [33m[2m✓[22m[39m fast mode resets to default after submit [33m 1682[2mms[22m[39m
-       [33m[2m✓[22m[39m submits the form when Ctrl+Enter is pressed in the textarea [33m 1768[2mms[22m[39m
-       [33m[2m✓[22m[39m submits the form when Meta+Enter is pressed in the textarea [33m 1734[2mms[22m[39m
-       [33m[2m✓[22m[39m does not submit when description is empty and Ctrl+Enter is pressed [33m 393[2mms[22m[39m
-       [33m[2m✓[22m[39m does not submit on plain Enter (without modifier) [33m 1621[2mms[22m[39m
-       [33m[2m✓[22m[39m shows attachment chip after dropping a valid file [33m 490[2mms[22m[39m
-       [33m[2m✓[22m[39m shows inline error for files exceeding 10 MB without calling upload API [33m 472[2mms[22m[39m
-       [33m[2m✓[22m[39m shows inline error for disallowed file extensions [33m 328[2mms[22m[39m
-       [33m[2m✓[22m[39m applies drag-over class on dragenter and removes it on dragleave [33m 345[2mms[22m[39m
-       [33m[2m✓[22m[39m shows attachment chip after pasting an image from clipboard [33m 482[2mms[22m[39m
-       [33m[2m✓[22m[39m includes sessionId in the upload request [33m 405[2mms[22m[39m
-       [33m[2m✓[22m[39m includes sessionId in submitted payload [33m 1443[2mms[22m[39m
-       [33m[2m✓[22m[39m submit button is disabled when no repo selected and repositoryPath is empty [33m 885[2mms[22m[39m
-       [33m[2m✓[22m[39m submit button is enabled when repo is selected via combobox [33m 607[2mms[22m[39m
-       [33m[2m✓[22m[39m submit button is enabled when repositoryPath is provided (canvas flow) [33m 507[2mms[22m[39m
-       [33m[2m✓[22m[39m handleSubmit includes selectedRepoPath in payload [33m 766[2mms[22m[39m
-       [33m[2m✓[22m[39m shows empty state message when no repos match search [33m 350[2mms[22m[39m
-       [33m[2m✓[22m[39m shows check icon for selected repository [33m 412[2mms[22m[39m
-       [33m[2m✓[22m[39m clicking "Add new repository..." opens folder picker and adds repo [33m 348[2mms[22m[39m
-       [33m[2m✓[22m[39m does nothing when folder picker is cancelled [33m 304[2mms[22m[39m
-       [33m[2m✓[22m[39m can submit feature after adding new repo via combobox [33m 1056[2mms[22m[39m
-       [33m[2m✓[22m[39m resets forkAndPr state to false when canPushDirectly changes from false to true [33m 808[2mms[22m[39m
-       [33m[2m✓[22m[39m reverts commitSpecs to default (true) when canPushDirectly becomes true [33m 413[2mms[22m[39m
-       [33m[2m✓[22m[39m calls getViewerPermission on repo change and updates toggle visibility [33m 835[2mms[22m[39m
-       [33m[2m✓[22m[39m excludes forkAndPr from submission payload when canPush is true [33m 963[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/list-github-repositories.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-workflow-defaults.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/get-feature-plan.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/update-settings.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/control-center-drawer/drawer-view.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-deployment-logs.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/reject-feature.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/features/delete-feature.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/compose-user-input.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/import-github-repository.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/features/control-center/derive-state.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/format-duration.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/pick-folder.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/compare-versions.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx [2m([22m[2m91 tests[22m[2m)[22m[33m 24102[2mms[22m[39m
+       [33m[2m✓[22m[39m renders the drawer header when open [33m 304[2mms[22m[39m
+       [33m[2m✓[22m[39m accepts text in the description field [33m 579[2mms[22m[39m
+       [33m[2m✓[22m[39m enables submit button when description has content [33m 450[2mms[22m[39m
+       [33m[2m✓[22m[39m calls onSubmit with payload containing description (no name field) [33m 631[2mms[22m[39m
+       [33m[2m✓[22m[39m includes attachments array with file objects [33m 530[2mms[22m[39m
+       [33m[2m✓[22m[39m sends approvalGates with only PRD checked [33m 800[2mms[22m[39m
+       [33m[2m✓[22m[39m sends all-true approvalGates when all checkboxes are checked [33m 836[2mms[22m[39m
+       [33m[2m✓[22m[39m sends all-false approvalGates when no checkboxes are checked [33m 450[2mms[22m[39m
+       [33m[2m✓[22m[39m submits correct approvalGates after All toggle [33m 606[2mms[22m[39m
+       [33m[2m✓[22m[39m clears all form fields after submit without unmounting [33m 1343[2mms[22m[39m
+       [33m[2m✓[22m[39m clears form data on submit so next open starts fresh [33m 691[2mms[22m[39m
+       [33m[2m✓[22m[39m removes attachment when remove button is clicked [33m 344[2mms[22m[39m
+       [33m[2m✓[22m[39m shows multiple attachment chips [33m 312[2mms[22m[39m
+       [33m[2m✓[22m[39m plays create sound on form submit [33m 375[2mms[22m[39m
+       [33m[2m✓[22m[39m submitting with fast mode on includes fast=true in payload [33m 564[2mms[22m[39m
+       [33m[2m✓[22m[39m submitting with fast mode off includes fast=false in payload [33m 477[2mms[22m[39m
+       [33m[2m✓[22m[39m fast mode resets to default after submit [33m 552[2mms[22m[39m
+       [33m[2m✓[22m[39m submits the form when Ctrl+Enter is pressed in the textarea [33m 491[2mms[22m[39m
+       [33m[2m✓[22m[39m submits the form when Meta+Enter is pressed in the textarea [33m 342[2mms[22m[39m
+       [33m[2m✓[22m[39m does not submit on plain Enter (without modifier) [33m 518[2mms[22m[39m
+       [33m[2m✓[22m[39m includes sessionId in submitted payload [33m 648[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is disabled when no repo selected and repositoryPath is empty [33m 466[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repo is selected via combobox [33m 453[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repositoryPath is provided (canvas flow) [33m 580[2mms[22m[39m
+       [33m[2m✓[22m[39m handleSubmit includes selectedRepoPath in payload [33m 702[2mms[22m[39m
+       [33m[2m✓[22m[39m shows empty state message when no repos match search [33m 356[2mms[22m[39m
+       [33m[2m✓[22m[39m can submit feature after adding new repo via combobox [33m 948[2mms[22m[39m
+       [33m[2m✓[22m[39m resets forkAndPr state to false when canPushDirectly changes from false to true [33m 610[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m372 passed[39m[22m[90m (372)[39m
 [2m      Tests [22m [1m[32m5275 passed[39m[22m[90m (5275)[39m
-[2m   Start at [22m 17:34:02
-[2m   Duration [22m 78.86s[2m (transform 11.48s, setup 90.14s, import 80.89s, tests 192.14s, environment 200.52s)[22m
+[2m   Start at [22m 17:49:27
+[2m   Duration [22m 35.56s[2m (transform 13.86s, setup 41.72s, import 59.77s, tests 91.60s, environment 73.68s)[22m
 
