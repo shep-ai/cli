@@ -1,0 +1,211 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "skill-injector"
+summary: >
+  Implementation plan for the skill injector feature. The system injects curated agent skills
+  into worktrees during feature creation using a port/adapter pattern with DI. Five phases:
+  (1) TypeSpec domain modeling and code generation, (2) port interface and result types,
+  (3) infrastructure service with local copy, remote npx, idempotency, and .gitignore management,
+  (4) settings persistence (migration, mapper, defaults), and (5) integration into
+  CreateFeatureUseCase plus CLI flag wiring. All phases follow TDD cycles with the existing
+  Clean Architecture conventions.
+
+relatedFeatures:
+  - "033-global-skills-page"
+  - "080-skill-branding-injection"
+
+technologies:
+  - "TypeScript"
+  - "TypeSpec"
+  - "tsyringe (dependency injection)"
+  - "Node.js fs/promises (fs.cp recursive copy)"
+  - "Node.js child_process.execFile (via DI ExecFunction)"
+  - "SQLite (better-sqlite3)"
+  - "umzug (migration framework)"
+  - "Commander.js (CLI flags)"
+
+relatedLinks:
+  - title: "Node.js fs.cp documentation"
+    url: "https://nodejs.org/api/fs.html#fspromisescpsrc-dest-options"
+  - title: "Claude Code Skills Documentation"
+    url: "https://code.claude.com/docs/en/setup"
+
+phases:
+  - id: "phase-1"
+    name: "Domain Modeling (TypeSpec)"
+    description: >
+      Define SkillInjectionConfig, SkillSource, and SkillSourceType models in settings.tsp,
+      add the optional skillInjection field to WorkflowConfig, and regenerate domain types.
+      This must come first because all subsequent layers depend on the generated TypeScript types.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Application Layer (Port Interface & Types)"
+    description: >
+      Create the ISkillInjectorService port interface with inject() method signature and
+      SkillInjectionResult type. Extend CreateFeatureInput with the optional injectSkills field.
+      Export the new port from the services barrel. This establishes the contract that both the
+      infrastructure service and the use case depend on.
+    parallel: false
+
+  - id: "phase-3"
+    name: "Infrastructure Service (SkillInjectorService)"
+    description: >
+      Implement the core skill injection logic: local skill copying via fs.cp, remote skill
+      installation via npx with 30s timeout, SKILL.md idempotency checks, .gitignore management
+      with git ls-files tracking detection, and directory bootstrapping. Register in DI container.
+      This is the largest phase with the most testable behavior.
+    parallel: false
+
+  - id: "phase-4"
+    name: "Settings Persistence (Migration, Mapper, Defaults)"
+    description: >
+      Add SQLite migration 050 for skill_injection_enabled and skill_injection_skills columns.
+      Update the settings mapper (SettingsRow, toDatabase, fromDatabase) to handle the new fields.
+      Populate createDefaultSettings() with the curated local skill list (enabled: false).
+    parallel: false
+
+  - id: "phase-5"
+    name: "Use Case Integration & CLI Wiring"
+    description: >
+      Wire ISkillInjectorService into CreateFeatureUseCase via constructor injection. Add the
+      guarded injection call in initializeAndSpawn() after spec initialization. Add
+      --inject-skills / --no-inject-skills CLI flags to feat new command with settings fallback.
+      Write integration tests verifying the end-to-end flow.
+    parallel: false
+
+filesToCreate:
+  - "packages/core/src/application/ports/output/services/skill-injector.interface.ts"
+  - "packages/core/src/infrastructure/services/skill-injector.service.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/migrations/050-add-skill-injection-config.ts"
+  - "packages/core/src/infrastructure/services/__tests__/skill-injector.service.test.ts"
+  - "packages/core/src/application/use-cases/features/create/__tests__/create-feature-skill-injection.test.ts"
+
+filesToModify:
+  - "tsp/domain/entities/settings.tsp"
+  - "packages/core/src/domain/generated/output.ts"
+  - "packages/core/src/domain/factories/settings-defaults.factory.ts"
+  - "packages/core/src/application/ports/output/services/index.ts"
+  - "packages/core/src/application/use-cases/features/create/types.ts"
+  - "packages/core/src/application/use-cases/features/create/create-feature.use-case.ts"
+  - "packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts"
+  - "packages/core/src/infrastructure/di/container.ts"
+  - "src/presentation/cli/commands/feat/new.command.ts"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The skill injector follows the established Clean Architecture port/adapter pattern used by
+  every service in the codebase. The flow is:
+
+  ```
+  CLI (--inject-skills flag)
+    → CreateFeatureUseCase (calls ISkillInjectorService port)
+      → SkillInjectorService (infrastructure implementation)
+        → fs.cp (local skills) / ExecFunction npx (remote skills)
+        → git ls-files (tracking detection)
+        → .gitignore append (commit prevention)
+  ```
+
+  The injector integrates into `CreateFeatureUseCase.initializeAndSpawn()` at a specific point:
+  after `specInitializer.initialize()` completes (line 271-277) and after attachment processing
+  (line 279-304), but before the feature record update (line 306-317) and agent spawn (line 319-371).
+  This position ensures the worktree exists and specs are initialized before skills are copied,
+  and that injection failures (caught and logged) never block the agent spawn.
+
+  ### Integration Guard Pattern
+
+  ```typescript
+  const shouldInject = input.injectSkills ?? settings.workflow.skillInjection?.enabled ?? false;
+  if (shouldInject && settings.workflow.skillInjection?.skills?.length) {
+    try {
+      const result = await this.skillInjector.inject(worktreePath, settings.workflow.skillInjection);
+      // Log injected count at info level, failures at warn level
+    } catch {
+      // Log warning and continue — NFR-3 error isolation
+    }
+  }
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. SkillInjectionConfig under WorkflowConfig
+
+  The research resolved this in favor of WorkflowConfig (`settings.workflow.skillInjection`)
+  rather than top-level on Settings. Skill injection is a step in the feature creation workflow,
+  sitting alongside ciWatchEnabled, approvalGateDefaults, and enableEvidence. All FR references
+  in the spec consistently use `settings.workflow.skillInjection`. Note: the spec's open question
+  #2 has a mismatch between the selected option ("Top-level") and the rationale/answer
+  ("WorkflowConfig is the right home"). The research resolves this in favor of WorkflowConfig,
+  which is architecturally consistent with the codebase.
+
+  ### 2. JSON Column for Skill List Storage
+
+  The skills array is always read/written as a whole unit and is small (< 20 items). A JSON TEXT
+  column avoids separate table complexity while the settings mapper handles serialization via
+  JSON.parse/JSON.stringify. Two columns: `skill_injection_enabled` (INTEGER DEFAULT 0) and
+  `skill_injection_skills` (TEXT, nullable JSON).
+
+  ### 3. Hybrid DI Pattern (ExecFunction injected, fs/promises imported)
+
+  Following exact codebase conventions: ExecFunction is constructor-injected via tsyringe
+  (WorktreeService, GitPrService pattern), while filesystem operations use direct fs/promises
+  imports (SpecInitializerService, ToolInstallerService pattern). This hybrid approach ensures
+  consistency and testability.
+
+  ### 4. SKILL.md as Idempotency Marker
+
+  All 19 existing skills contain SKILL.md with frontmatter metadata. Checking for
+  `<worktreePath>/.claude/skills/<name>/SKILL.md` existence is the canonical, reliable way
+  to detect whether a skill is already present. No version comparison in v1.
+
+  ### 5. AbortController for npx Timeout
+
+  Node.js execFile accepts AbortSignal via options.signal. Using `AbortController` with
+  `setTimeout(30000)` provides clean timeout handling that automatically kills the child
+  process. This is the idiomatic Node.js approach.
+
+  ### 6. Error Isolation (NFR-3)
+
+  The entire injection call is wrapped in try/catch in the use case. Individual skill failures
+  are captured in the SkillInjectionResult.failed array. The injector never throws for individual
+  skill failures — only for catastrophic errors (e.g., worktree path doesn't exist). Even then,
+  the use case catches and logs.
+
+  ## Implementation Strategy
+
+  The five phases are ordered by dependency:
+
+  1. **TypeSpec first** — All layers depend on generated domain types. Without SkillInjectionConfig,
+     SkillSource, and SkillSourceType in the generated output, no other code compiles.
+
+  2. **Port interface second** — The ISkillInjectorService contract must exist before both the
+     infrastructure implementation (phase 3) and the use case integration (phase 5) can be written.
+
+  3. **Infrastructure service third** — The core logic is the largest and most testable unit.
+     Building it before settings persistence means we can test with hardcoded configs before
+     wiring up SQLite. This phase has the most TDD cycles.
+
+  4. **Settings persistence fourth** — Migration, mapper, and defaults factory changes are
+     mechanical and follow well-established patterns. Doing this after the service means the
+     domain types are available and the service is proven to work.
+
+  5. **Integration last** — Wiring the service into CreateFeatureUseCase and the CLI command
+     requires all prior phases to be complete. This phase also includes the integration test
+     that verifies the full flow.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compilation breaks existing types | Run `pnpm tsp:compile` immediately after editing settings.tsp; verify no regressions in generated output.ts |
+  | Migration collides with concurrent feature branches | Using 050 prefix; guard with pragma table_info to skip if columns already exist |
+  | npx skills add not available on all platforms | ExecFunction DI with Windows shell:true handling; 30s timeout with graceful degradation |
+  | .gitignore entries accumulate on repeated runs | Idempotency check: only append if pattern not already present in .gitignore |
+  | fs.cp not available (Node < 16.7) | Project requires Node 20+; fs.cp is stable. Verified via package.json engines |
+  | CreateFeatureUseCase constructor grows too large | Already has 11 injected dependencies; adding one more is acceptable for this pattern |
+  | Settings mapper becomes fragile with more columns | Follow exact existing patterns; mapper tests catch serialization issues |
+  | Shell injection via malicious skill source values | ExecFunction uses execFile (not exec); validate source strings before passing to npx |

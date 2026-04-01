@@ -1,0 +1,36 @@
+feature:
+  id: "081-skill-injector"
+  name: "skill-injector"
+  number: 81
+  branch: "feat/081-skill-injector"
+  lifecycle: "plan"
+  createdAt: "2026-04-01T13:04:58Z"
+status:
+  phase: "plan"
+  progress:
+    completed: 0
+    total: 14
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2026-04-01T13:04:58Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "analyze"
+    - "requirements"
+    - "research"
+    - "plan"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-04-01T13:04:58Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []
