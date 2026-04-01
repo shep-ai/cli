@@ -23,8 +23,15 @@ import type {
   WorkflowConfig,
   ApprovalGateDefaults,
   FeatureFlags,
+  SkillInjectionConfig,
 } from '../generated/output';
-import { AgentType, AgentAuthMethod, EditorType, TerminalType } from '../generated/output';
+import {
+  AgentType,
+  AgentAuthMethod,
+  EditorType,
+  SkillSourceType,
+  TerminalType,
+} from '../generated/output';
 
 /**
  * Default AI model for all SDLC agents.
@@ -141,6 +148,35 @@ export function createDefaultSettings(): Settings {
     pushOnImplementationComplete: false,
   };
 
+  const skillInjection: SkillInjectionConfig = {
+    enabled: false,
+    skills: [
+      {
+        name: 'architecture-reviewer',
+        type: SkillSourceType.Local,
+        source: '.claude/skills/architecture-reviewer',
+      },
+      {
+        name: 'cross-validate-artifacts',
+        type: SkillSourceType.Local,
+        source: '.claude/skills/cross-validate-artifacts',
+      },
+      {
+        name: 'mermaid-diagrams',
+        type: SkillSourceType.Local,
+        source: '.claude/skills/mermaid-diagrams',
+      },
+      { name: 'react-flow', type: SkillSourceType.Local, source: '.claude/skills/react-flow' },
+      { name: 'shadcn-ui', type: SkillSourceType.Local, source: '.claude/skills/shadcn-ui' },
+      { name: 'tsp-model', type: SkillSourceType.Local, source: '.claude/skills/tsp-model' },
+      {
+        name: 'vercel-react-best-practices',
+        type: SkillSourceType.Local,
+        source: '.claude/skills/vercel-react-best-practices',
+      },
+    ],
+  };
+
   const workflow: WorkflowConfig = {
     openPrOnImplementationComplete: false,
     approvalGateDefaults,
@@ -149,6 +185,7 @@ export function createDefaultSettings(): Settings {
     commitEvidence: false,
     defaultFastMode: true,
     autoArchiveDelayMinutes: 10,
+    skillInjection,
   };
 
   const featureFlags: FeatureFlags = {

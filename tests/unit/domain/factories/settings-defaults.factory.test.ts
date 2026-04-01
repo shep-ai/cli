@@ -18,7 +18,7 @@ import type {
   EnvironmentConfig,
   SystemConfig,
 } from '@/domain/generated/output.js';
-import { AgentType, AgentAuthMethod } from '@/domain/generated/output.js';
+import { AgentType, AgentAuthMethod, SkillSourceType } from '@/domain/generated/output.js';
 
 describe('createDefaultSettings', () => {
   describe('return type and structure', () => {
@@ -345,7 +345,84 @@ describe('createDefaultSettings', () => {
         commitEvidence: false,
         defaultFastMode: true,
         autoArchiveDelayMinutes: 10,
+        skillInjection: {
+          enabled: false,
+          skills: [
+            {
+              name: 'architecture-reviewer',
+              type: SkillSourceType.Local,
+              source: '.claude/skills/architecture-reviewer',
+            },
+            {
+              name: 'cross-validate-artifacts',
+              type: SkillSourceType.Local,
+              source: '.claude/skills/cross-validate-artifacts',
+            },
+            {
+              name: 'mermaid-diagrams',
+              type: SkillSourceType.Local,
+              source: '.claude/skills/mermaid-diagrams',
+            },
+            {
+              name: 'react-flow',
+              type: SkillSourceType.Local,
+              source: '.claude/skills/react-flow',
+            },
+            { name: 'shadcn-ui', type: SkillSourceType.Local, source: '.claude/skills/shadcn-ui' },
+            { name: 'tsp-model', type: SkillSourceType.Local, source: '.claude/skills/tsp-model' },
+            {
+              name: 'vercel-react-best-practices',
+              type: SkillSourceType.Local,
+              source: '.claude/skills/vercel-react-best-practices',
+            },
+          ],
+        },
       });
+    });
+  });
+
+  describe('SkillInjectionConfig defaults', () => {
+    it('should have skillInjection defined on workflow', () => {
+      const settings = createDefaultSettings();
+      expect(settings.workflow.skillInjection).toBeDefined();
+    });
+
+    it('should have skillInjection.enabled set to false', () => {
+      const settings = createDefaultSettings();
+      expect(settings.workflow.skillInjection!.enabled).toBe(false);
+    });
+
+    it('should have 7 default local skills', () => {
+      const settings = createDefaultSettings();
+      expect(settings.workflow.skillInjection!.skills).toHaveLength(7);
+    });
+
+    it('should have all skills with type local', () => {
+      const settings = createDefaultSettings();
+      for (const skill of settings.workflow.skillInjection!.skills) {
+        expect(skill.type).toBe(SkillSourceType.Local);
+      }
+    });
+
+    it('should have each skill with a valid source path', () => {
+      const settings = createDefaultSettings();
+      for (const skill of settings.workflow.skillInjection!.skills) {
+        expect(skill.source).toBe(`.claude/skills/${skill.name}`);
+      }
+    });
+
+    it('should include the expected skill names', () => {
+      const settings = createDefaultSettings();
+      const names = settings.workflow.skillInjection!.skills.map((s) => s.name);
+      expect(names).toEqual([
+        'architecture-reviewer',
+        'cross-validate-artifacts',
+        'mermaid-diagrams',
+        'react-flow',
+        'shadcn-ui',
+        'tsp-model',
+        'vercel-react-best-practices',
+      ]);
     });
   });
 
