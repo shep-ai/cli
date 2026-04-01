@@ -206,6 +206,8 @@
         "noFastOption": "Выполнить все фазы SDLC (анализ → требования → план → реализация)",
         "modelOption": "Идентификатор модели LLM для этого запуска (например, claude-opus-4-6)",
         "noRebaseOption": "Skip syncing main from remote before creating the feature branch",
+        "injectSkillsOption": "Inject curated skills into the worktree",
+        "noInjectSkillsOption": "Skip skill injection for this invocation",
         "attachOption": "Прикрепить файл (можно повторять)",
         "parentNotFound": "Родительская функция не найдена: {{id}}",
         "attachmentNotFound": "Вложение не найдено: {{path}}",

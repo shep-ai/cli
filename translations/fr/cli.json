@@ -206,6 +206,8 @@
         "noFastOption": "Exécuter toutes les phases SDLC (analyser → exigences → plan → implémenter)",
         "modelOption": "Identifiant du modèle LLM pour cette exécution (par ex. claude-opus-4-6)",
         "noRebaseOption": "Skip syncing main from remote before creating the feature branch",
+        "injectSkillsOption": "Inject curated skills into the worktree",
+        "noInjectSkillsOption": "Skip skill injection for this invocation",
         "attachOption": "Joindre un fichier (répétable)",
         "parentNotFound": "Fonctionnalité parente introuvable : {{id}}",
         "attachmentNotFound": "Pièce jointe introuvable : {{path}}",

@@ -32,6 +32,7 @@ import type { ISpecInitializerService } from '../../../ports/output/services/spe
 import type { IRepositoryRepository } from '../../../ports/output/repositories/repository-repository.interface.js';
 import type { IGitPrService } from '../../../ports/output/services/git-pr-service.interface.js';
 import type { IAgentValidator } from '../../../ports/output/agents/agent-validator.interface.js';
+import type { ISkillInjectorService } from '../../../ports/output/services/skill-injector.interface.js';
 import { getSettings } from '../../../../infrastructure/services/settings.service.js';
 import { POST_IMPLEMENTATION } from '../../../../domain/lifecycle-gates.js';
 import { AttachmentStorageService } from '../../../../infrastructure/services/attachment-storage.service.js';
@@ -63,7 +64,9 @@ export class CreateFeatureUseCase {
     @inject(AttachmentStorageService)
     private readonly attachmentStorage: AttachmentStorageService,
     @inject('IAgentValidator')
-    private readonly agentValidator: IAgentValidator
+    private readonly agentValidator: IAgentValidator,
+    @inject('ISkillInjectorService')
+    private readonly skillInjector: ISkillInjectorService
   ) {}
 
   /**
@@ -303,6 +306,21 @@ export class CreateFeatureUseCase {
       }
     }
 
+    // Inject curated skills into the worktree (opt-in, guarded by settings or CLI flag)
+    const settings = getSettings();
+    const shouldInject = input.injectSkills ?? settings.workflow.skillInjection?.enabled ?? false;
+    if (shouldInject && settings.workflow.skillInjection?.skills?.length) {
+      try {
+        await this.skillInjector.inject(
+          worktreePath,
+          settings.workflow.skillInjection,
+          effectiveRepoPath
+        );
+      } catch {
+        // Skill injection failure must not block feature creation (NFR-3)
+      }
+    }
+
     // Update feature record with refined metadata, branch, specPath, and attachments
     const updatedFeature: Feature = {
       ...feature,
@@ -322,7 +340,6 @@ export class CreateFeatureUseCase {
       // a background worker — prevents the feature from getting stuck
       // with a silent failure in the detached worker process.
       // Skip validation when using mock executor (E2E tests, CI without real agents).
-      const settings = getSettings();
       const effectiveAgentType = (input.agentType as AgentType) ?? settings.agent.type;
       const isMockExecutor = process.env.SHEP_MOCK_EXECUTOR === '1';
       const validation = isMockExecutor

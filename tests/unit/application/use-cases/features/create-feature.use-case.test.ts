@@ -11,10 +11,15 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@/infrastructure/services/settings.service.js', () => ({
-  getSettings: vi.fn().mockReturnValue({
+const { mockGetSettings } = vi.hoisted(() => ({
+  mockGetSettings: vi.fn().mockReturnValue({
     agent: { type: 'claude-code' },
+    workflow: {},
   }),
+}));
+
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  getSettings: (...args: unknown[]) => mockGetSettings(...args),
 }));
 
 import { CreateFeatureUseCase } from '@/application/use-cases/features/create/create-feature.use-case.js';
@@ -26,7 +31,8 @@ import type { ISpecInitializerService } from '@/application/ports/output/service
 import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IAgentValidator } from '@/application/ports/output/agents/agent-validator.interface.js';
-import { SdlcLifecycle } from '@/domain/generated/output.js';
+import type { ISkillInjectorService } from '@/application/ports/output/services/skill-injector.interface.js';
+import { SdlcLifecycle, SkillSourceType } from '@/domain/generated/output.js';
 import type { Feature } from '@/domain/generated/output.js';
 import type { MetadataGenerator } from '@/application/use-cases/features/create/metadata-generator.js';
 import type { SlugResolver } from '@/application/use-cases/features/create/slug-resolver.js';
@@ -88,6 +94,7 @@ describe('CreateFeatureUseCase', () => {
   let mockRepositoryRepo: IRepositoryRepository;
   let mockGitPrService: IGitPrService;
   let mockAgentValidator: IAgentValidator;
+  let mockSkillInjector: ISkillInjectorService;
 
   const baseInput: CreateFeatureInput = {
     userInput: 'Add authentication',
@@ -193,6 +200,15 @@ describe('CreateFeatureUseCase', () => {
       isAvailable: vi.fn().mockResolvedValue({ available: true, version: '1.0.0' }),
     };
 
+    mockSkillInjector = {
+      inject: vi.fn().mockResolvedValue({ injected: [], skipped: [], failed: [] }),
+    };
+
+    mockGetSettings.mockReturnValue({
+      agent: { type: 'claude-code' },
+      workflow: {},
+    });
+
     useCase = new CreateFeatureUseCase(
       mockFeatureRepo,
       mockWorktreeService,
@@ -204,7 +220,8 @@ describe('CreateFeatureUseCase', () => {
       mockRepositoryRepo,
       mockGitPrService,
       mockAttachmentStorage as any,
-      mockAgentValidator
+      mockAgentValidator,
+      mockSkillInjector
     );
   });
 
@@ -827,6 +844,157 @@ describe('CreateFeatureUseCase', () => {
       );
 
       expect(mockAgentValidator.isAvailable).toHaveBeenCalledWith('gemini-cli');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Skill injection integration (task-13)
+  // -------------------------------------------------------------------------
+
+  describe('skill injection', () => {
+    const skillInjectionConfig = {
+      enabled: true,
+      skills: [
+        {
+          name: 'architecture-reviewer',
+          type: SkillSourceType.Local,
+          source: '.claude/skills/architecture-reviewer',
+        },
+      ],
+    };
+
+    it('should call skillInjector.inject() when injectSkills is true', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { skillInjection: skillInjectionConfig },
+      });
+
+      await useCase.execute({ ...baseInput, injectSkills: true });
+
+      expect(mockSkillInjector.inject).toHaveBeenCalledOnce();
+      expect(mockSkillInjector.inject).toHaveBeenCalledWith(
+        '/worktrees/test-feature',
+        skillInjectionConfig,
+        '/repo'
+      );
+    });
+
+    it('should NOT call inject() when injectSkills is false', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { skillInjection: skillInjectionConfig },
+      });
+
+      await useCase.execute({ ...baseInput, injectSkills: false });
+
+      expect(mockSkillInjector.inject).not.toHaveBeenCalled();
+    });
+
+    it('should NOT call inject() when skills list is empty', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { skillInjection: { enabled: true, skills: [] } },
+      });
+
+      await useCase.execute({ ...baseInput, injectSkills: true });
+
+      expect(mockSkillInjector.inject).not.toHaveBeenCalled();
+    });
+
+    it('should NOT call inject() when skillInjection config is undefined', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: {},
+      });
+
+      await useCase.execute({ ...baseInput, injectSkills: true });
+
+      expect(mockSkillInjector.inject).not.toHaveBeenCalled();
+    });
+
+    it('should use settings.workflow.skillInjection.enabled when injectSkills is undefined', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { skillInjection: skillInjectionConfig },
+      });
+
+      await useCase.execute(baseInput);
+
+      expect(mockSkillInjector.inject).toHaveBeenCalledOnce();
+    });
+
+    it('should NOT inject when settings.enabled is false and injectSkills is undefined', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { skillInjection: { ...skillInjectionConfig, enabled: false } },
+      });
+
+      await useCase.execute(baseInput);
+
+      expect(mockSkillInjector.inject).not.toHaveBeenCalled();
+    });
+
+    it('should override settings.enabled=false when injectSkills=true', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { skillInjection: { ...skillInjectionConfig, enabled: false } },
+      });
+
+      await useCase.execute({ ...baseInput, injectSkills: true });
+
+      expect(mockSkillInjector.inject).toHaveBeenCalledOnce();
+    });
+
+    it('should override settings.enabled=true when injectSkills=false', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { skillInjection: skillInjectionConfig },
+      });
+
+      await useCase.execute({ ...baseInput, injectSkills: false });
+
+      expect(mockSkillInjector.inject).not.toHaveBeenCalled();
+    });
+
+    it('should continue with agent spawn when inject() throws', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { skillInjection: skillInjectionConfig },
+      });
+      (mockSkillInjector.inject as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('injection failed')
+      );
+
+      const result = await useCase.execute({ ...baseInput, injectSkills: true });
+
+      expect(result.feature).toBeDefined();
+      expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
+    });
+
+    it('should still complete feature creation when inject() throws', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { skillInjection: skillInjectionConfig },
+      });
+      (mockSkillInjector.inject as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('injection failed')
+      );
+
+      const result = await useCase.execute({ ...baseInput, injectSkills: true });
+
+      expect(mockFeatureRepo.update).toHaveBeenCalled();
+      expect(result.feature.name).toBe('Test Feature');
+    });
+
+    it('should default injectSkills to false when both input and settings are undefined', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: {},
+      });
+
+      await useCase.execute(baseInput);
+
+      expect(mockSkillInjector.inject).not.toHaveBeenCalled();
     });
   });
 });
