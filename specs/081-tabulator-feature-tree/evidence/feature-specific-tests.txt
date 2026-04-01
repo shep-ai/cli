@@ -1,23 +1,36 @@
- RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-tabulator-feature-tree
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts > buildTreeData > returns flat list when no items have parentId 1ms
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts > buildTreeData > nests child under parent when parentId matches 0ms
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts > buildTreeData > supports multi-level nesting 0ms
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts > buildTreeData > treats orphaned children as roots when parent is missing 0ms
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts > buildTreeData > returns empty array for empty input 0ms
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts > buildTreeData > handles multiple children under one parent 0ms
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts > buildTreeData > handles mixed roots and children 0ms
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/feature-tree-table.test.tsx > FeatureTreeTable > renders the container element with data-testid 157ms
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/feature-tree-table.test.tsx > FeatureTreeTable > applies custom className 16ms
- ✓  web  tests/unit/presentation/web/components/features/feature-tree-table/feature-tree-table.test.tsx > FeatureTreeTable > renders without errors when data is empty 15ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Control Center nav item in header 449ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Tools nav item in header 175ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Features label in content 210ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > groups features by status into Action Needed, In Progress, and Done sections 165ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > fires onFeatureClick with featureId when a feature is clicked 882ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Settings nav item in header linking to /settings 141ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > shows repo group even when there is only one repository 193ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > shows repo groups when there are multiple repositories 217ms
- Test Files  3 passed (3)
-      Tests  18 passed (18)
-   Start at  17:32:03
-   Duration  5.80s (transform 676ms, setup 1.74s, import 1.39s, tests 2.63s, environment 4.97s)
+Feature: Tabulator Feature Tree — Feature-Specific Tests
+Test Runner: vitest v4.0.18
+Date: 2026-04-01T17:38:02Z
+
+=== Feature-Specific Test Results (18/18 passing) ===
+
+RUN v4.0.18
+
+--- buildTreeData (7 tests) ---
+✓ build-tree-data.test.ts > buildTreeData > returns flat list when no items have parentId 2ms
+✓ build-tree-data.test.ts > buildTreeData > nests child under parent when parentId matches 1ms
+✓ build-tree-data.test.ts > buildTreeData > supports multi-level nesting 0ms
+✓ build-tree-data.test.ts > buildTreeData > treats orphaned children as roots when parent is missing 1ms
+✓ build-tree-data.test.ts > buildTreeData > returns empty array for empty input 0ms
+✓ build-tree-data.test.ts > buildTreeData > handles multiple children under one parent 0ms
+✓ build-tree-data.test.ts > buildTreeData > handles mixed roots and children 0ms
+
+--- FeatureTreeTable component (3 tests) ---
+✓ feature-tree-table.test.tsx > FeatureTreeTable > renders the container element with data-testid 36ms
+✓ feature-tree-table.test.tsx > FeatureTreeTable > applies custom className 18ms
+✓ feature-tree-table.test.tsx > FeatureTreeTable > renders without errors when data is empty 9ms
+
+--- AppSidebar (8 tests) ---
+✓ app-sidebar.test.tsx > AppSidebar > renders Control Center nav item in header 135ms
+✓ app-sidebar.test.tsx > AppSidebar > renders Tools nav item in header 46ms
+✓ app-sidebar.test.tsx > AppSidebar > renders Features label in content 67ms
+✓ app-sidebar.test.tsx > AppSidebar > groups features by status into Action Needed, In Progress, and Done sections 92ms
+✓ app-sidebar.test.tsx > AppSidebar > fires onFeatureClick with featureId when a feature is clicked 340ms
+✓ app-sidebar.test.tsx > AppSidebar > renders Settings nav item in header linking to /settings 54ms
+✓ app-sidebar.test.tsx > AppSidebar > shows repo group even when there is only one repository 89ms
+✓ app-sidebar.test.tsx > AppSidebar > shows repo groups when there are multiple repositories 51ms
+
+Test Files  3 passed (3)
+     Tests  18 passed (18)
+  Start at  17:38:02
+  Duration  3.45s (transform 495ms, setup 1.11s, import 889ms, tests 945ms, environment 3.77s)

@@ -1,18 +1,18 @@
 Feature: Tabulator Feature Tree Table
 Test Runner: vitest v4.0.18
-Date: 2026-04-01T17:31:49Z
+Date: 2026-04-01T17:37:19Z
 
 === Full Unit Test Suite Results ===
 
 Test Files: 374 passed (374)
 Tests:      5277 passed (5277)
-Start at:   17:31:49
-Duration:   119.03s (transform 19.42s, setup 152.41s, import 121.80s, tests 267.80s, environment 305.26s)
+Start at:   17:37:19
+Duration:   59.89s (transform 23.19s, setup 61.55s, import 116.77s, tests 165.74s, environment 117.65s)
 
 Zero failures — no regressions from the tabulator feature tree implementation.
 
 === Feature-specific test files included ===
 
-tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts
-tests/unit/presentation/web/components/features/feature-tree-table/feature-tree-table.test.tsx
-tests/unit/presentation/web/layouts/app-sidebar.test.tsx
+tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts (7 tests)
+tests/unit/presentation/web/components/features/feature-tree-table/feature-tree-table.test.tsx (3 tests)
+tests/unit/presentation/web/layouts/app-sidebar.test.tsx (8 tests)
