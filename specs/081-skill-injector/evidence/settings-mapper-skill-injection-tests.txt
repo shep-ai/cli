@@ -1,29 +1,33 @@
-Settings Mapper — Skill Injection Tests — 14/14 passing (73 total mapper tests passing)
+Settings Mapper Tests — 73/73 passing (includes 14 skill injection tests)
 ================================================================
-vitest v4.0.18 — project: node
 Run: npx vitest run --project node tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts --reporter=verbose
+Date: 2026-04-01T17:48:44Z
+vitest v4.0.18 — project: node
+
+[... 59 existing mapper tests passing: notification preferences, onboarding, terminal,
+ stage timeouts, hideCiStatus, preferredLanguage, defaultFastMode ...]
 
 Settings Mapper > toDatabase() - skill injection
-  ✓ should map skillInjection.enabled=true to skill_injection_enabled=1
-  ✓ should map skillInjection.enabled=false to skill_injection_enabled=0
-  ✓ should map undefined skillInjection to skill_injection_enabled=0
-  ✓ should serialize skills array to JSON string
-  ✓ should map empty skills array to null
-  ✓ should map undefined skillInjection to null skills
+  ✓ should map skillInjection.enabled=true to skill_injection_enabled=1 (0ms)
+  ✓ should map skillInjection.enabled=false to skill_injection_enabled=0 (0ms)
+  ✓ should map undefined skillInjection to skill_injection_enabled=0 (0ms)
+  ✓ should serialize skills array to JSON string (0ms)
+  ✓ should map empty skills array to null (0ms)
+  ✓ should map undefined skillInjection to null skills (0ms)
 
 Settings Mapper > fromDatabase() - skill injection
-  ✓ should reconstruct skillInjection from enabled=1 and valid JSON
-  ✓ should reconstruct skillInjection with enabled=false when flag is 0 but skills exist
-  ✓ should omit skillInjection when both columns are default/null
-  ✓ should reconstruct skillInjection with empty skills when enabled=1 but skills is null
-  ✓ should deserialize remote skills with remoteSkillName
+  ✓ should reconstruct skillInjection from enabled=1 and valid JSON (1ms)
+  ✓ should reconstruct skillInjection with enabled=false when flag is 0 but skills exist (0ms)
+  ✓ should omit skillInjection when both columns are default/null (0ms)
+  ✓ should reconstruct skillInjection with empty skills when enabled=1 but skills is null (0ms)
+  ✓ should deserialize remote skills with remoteSkillName (0ms)
 
 Settings Mapper > round-trip - skill injection
-  ✓ should preserve skillInjection with local and remote skills through round-trip
-  ✓ should preserve disabled skillInjection with skills through round-trip
-  ✓ should preserve undefined skillInjection through round-trip
+  ✓ should preserve skillInjection with local and remote skills through round-trip (1ms)
+  ✓ should preserve disabled skillInjection with skills through round-trip (0ms)
+  ✓ should preserve undefined skillInjection through round-trip (0ms)
 
 Test Files  1 passed (1)
      Tests  73 passed (73)
-  Start at  17:43:26
-  Duration  126ms
+  Start at  17:48:44
+  Duration  572ms (transform 279ms, setup 105ms, import 248ms, tests 25ms)

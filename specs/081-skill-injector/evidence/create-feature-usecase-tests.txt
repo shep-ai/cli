@@ -1,92 +1,94 @@
 CreateFeatureUseCase Tests — 57/57 passing (includes 11 skill injection tests)
 ================================================================
-vitest v4.0.18 — project: node
 Run: npx vitest run --project node tests/unit/application/use-cases/features/create-feature.use-case.test.ts --reporter=verbose
+Date: 2026-04-01T17:48:49Z
+vitest v4.0.18 — project: node
 
 CreateFeatureUseCase > without parentId (baseline)
-  ✓ should create a feature and spawn the agent
-  ✓ should persist the feature with no parentId
-  ✓ should accept parentId in the input without TypeScript errors
+  ✓ should create a feature and spawn the agent (5ms)
+  ✓ should persist the feature with no parentId (1ms)
+
+CreateFeatureUseCase > should accept parentId in the input without TypeScript errors (3ms)
 
 CreateFeatureUseCase > with parentId — parent validation
-  ✓ should throw when parentId references a non-existent feature
+  ✓ should throw when parentId references a non-existent feature (2ms)
 
 CreateFeatureUseCase > with parentId — gate logic (child lifecycle)
-  ✓ should create child in Blocked state when parent lifecycle is Blocked
-  ✓ should create child in Blocked state when parent lifecycle is Started
-  ✓ should create child in Blocked state when parent lifecycle is Planning (< Implementation)
-  ✓ should create child in Started state when parent lifecycle is Implementation
-  ✓ should create child in Started state when parent lifecycle is Review
-  ✓ should create child in Started state when parent lifecycle is Maintain
+  ✓ should create child in Blocked state when parent lifecycle is Blocked (1ms)
+  ✓ should create child in Blocked state when parent lifecycle is Started (0ms)
+  ✓ should create child in Blocked state when parent lifecycle is Planning (< Implementation) (0ms)
+  ✓ should create child in Started state when parent lifecycle is Implementation (3ms)
+  ✓ should create child in Started state when parent lifecycle is Review (2ms)
+  ✓ should create child in Started state when parent lifecycle is Maintain (1ms)
 
 CreateFeatureUseCase > with parentId — persistence
-  ✓ should persist parentId on the created feature
+  ✓ should persist parentId on the created feature (0ms)
 
 CreateFeatureUseCase > with parentId — repositoryPath resolution
-  ✓ should use parent repositoryPath instead of input repositoryPath
-  ✓ should use input repositoryPath when no parentId is given
+  ✓ should use parent repositoryPath instead of input repositoryPath (1ms)
+  ✓ should use input repositoryPath when no parentId is given (2ms)
 
 CreateFeatureUseCase > cycle detection
-  ✓ should reject a self-reference (A → A)
-  ✓ should reject a two-node cycle (A.parentId → B, B.parentId → A)
-  ✓ should reject a deep cycle (A → B → C → D → A)
-  ✓ should allow a valid deep chain without cycles (A → B → C)
+  ✓ should reject a self-reference (A -> A) (3ms)
+  ✓ should reject a two-node cycle (A.parentId -> B, B.parentId -> A) (1ms)
+  ✓ should reject a deep cycle (A -> B -> C -> D -> A) (1ms)
+  ✓ should allow a valid deep chain without cycles (A -> B -> C) (1ms)
 
 CreateFeatureUseCase > repository creation guard
-  ✓ throws if repositoryRepo.create() returns falsy
+  ✓ throws if repositoryRepo.create() returns falsy (1ms)
 
 CreateFeatureUseCase > fast mode
-  ✓ should set lifecycle to Implementation when fast=true
-  ✓ should set lifecycle to Requirements when fast=false
-  ✓ should set lifecycle to Requirements when fast is undefined
-  ✓ should pass fast flag to specInitializer.initialize() as mode
-  ✓ should not pass mode to specInitializer.initialize() when fast is false
-  ✓ should pass fast=true to agentProcess.spawn() options
-  ✓ should not include fast in spawn options when fast is false
-  ✓ should still set lifecycle to Blocked for child feature with fast=true when parent is Blocked
+  ✓ should set lifecycle to Implementation when fast=true (0ms)
+  ✓ should set lifecycle to Requirements when fast=false (0ms)
+  ✓ should set lifecycle to Requirements when fast is undefined (0ms)
+  ✓ should pass fast flag to specInitializer.initialize() as mode (0ms)
+  ✓ should not pass mode to specInitializer.initialize() when fast is false (0ms)
+  ✓ should pass fast=true to agentProcess.spawn() options (3ms)
+  ✓ should not include fast in spawn options when fast is false (1ms)
+  ✓ should still set lifecycle to Blocked for child feature with fast=true when parent is Blocked (1ms)
 
 CreateFeatureUseCase > pending flag
-  ✓ should accept pending field in CreateFeatureInput without TypeScript errors
-  ✓ should create feature in Pending lifecycle when pending=true
-  ✓ should not spawn agent when pending=true
-  ✓ should create feature in Pending lifecycle when pending=true and parentId is set
-  ✓ should create feature in Pending lifecycle when pending=true, parentId set, and parent in POST_IMPLEMENTATION
-  ✓ should preserve existing behavior when pending is false
-  ✓ should preserve existing behavior when pending is undefined
-  ✓ should set fast feature to Pending lifecycle when pending=true and fast=true
+  ✓ should accept pending field in CreateFeatureInput without TypeScript errors (1ms)
+  ✓ should create feature in Pending lifecycle when pending=true (4ms)
+  ✓ should not spawn agent when pending=true (7ms)
+  ✓ should create feature in Pending lifecycle when pending=true and parentId is set (0ms)
+  ✓ should create feature in Pending lifecycle when pending=true, parentId set, and parent in POST_IMPLEMENTATION (0ms)
+  ✓ should preserve existing behavior when pending is false (0ms)
+  ✓ should preserve existing behavior when pending is undefined (1ms)
+  ✓ should set fast feature to Pending lifecycle when pending=true and fast=true (4ms)
 
 CreateFeatureUseCase > model field wiring
-  ✓ should pass model to spawn when input.model is provided
-  ✓ should not set model on spawn options when input.model is absent
-  ✓ should accept model field in CreateFeatureInput without TypeScript errors
+  ✓ should pass model to spawn when input.model is provided (0ms)
+  ✓ should not set model on spawn options when input.model is absent (5ms)
+  ✓ should accept model field in CreateFeatureInput without TypeScript errors (1ms)
 
 CreateFeatureUseCase > rebaseBeforeBranch
-  ✓ should sync main before creating worktree by default
-  ✓ should sync main when rebaseBeforeBranch is explicitly true
-  ✓ should skip sync when rebaseBeforeBranch is false
-  ✓ should still create worktree when syncMain fails
-  ✓ should accept rebaseBeforeBranch field in CreateFeatureInput
+  ✓ should sync main before creating worktree by default (1ms)
+  ✓ should sync main when rebaseBeforeBranch is explicitly true (1ms)
+  ✓ should skip sync when rebaseBeforeBranch is false (1ms)
+  ✓ should still create worktree when syncMain fails (1ms)
+  ✓ should accept rebaseBeforeBranch field in CreateFeatureInput (1ms)
 
 CreateFeatureUseCase > agent validation before spawn
-  ✓ should throw with meaningful error when agent is not available
-  ✓ should mark agent run as failed when agent is not available
-  ✓ should spawn agent when validation passes
-  ✓ should validate the input agentType when provided
+  ✓ should throw with meaningful error when agent is not available (1ms)
+  ✓ should mark agent run as failed when agent is not available (2ms)
+  ✓ should spawn agent when validation passes (1ms)
+  ✓ should validate the input agentType when provided (4ms)
 
 CreateFeatureUseCase > skill injection
-  ✓ should call skillInjector.inject() when injectSkills is true
-  ✓ should NOT call inject() when injectSkills is false
-  ✓ should NOT call inject() when skills list is empty
-  ✓ should NOT call inject() when skillInjection config is undefined
-  ✓ should use settings.workflow.skillInjection.enabled when injectSkills is undefined
-  ✓ should NOT inject when settings.enabled is false and injectSkills is undefined
-  ✓ should override settings.enabled=false when injectSkills=true
-  ✓ should override settings.enabled=true when injectSkills=false
-  ✓ should continue with agent spawn when inject() throws
-  ✓ should still complete feature creation when inject() throws
-  ✓ should default injectSkills to false when both input and settings are undefined
+  ✓ should call skillInjector.inject() when injectSkills is true (1ms)
+  ✓ should NOT call inject() when injectSkills is false (1ms)
+  ✓ should NOT call inject() when skills list is empty (1ms)
+  ✓ should NOT call inject() when skillInjection config is undefined (0ms)
+  ✓ should use settings.workflow.skillInjection.enabled when injectSkills is undefined (1ms)
+  ✓ should NOT inject when settings.enabled is false and injectSkills is undefined (1ms)
+  ✓ should override settings.enabled=false when injectSkills=true (1ms)
+  ✓ should override settings.enabled=true when injectSkills=false (1ms)
+  ✓ should continue with agent spawn when inject() throws (1ms)
+  ✓ should still complete feature creation when inject() throws (1ms)
+  ✓ should default injectSkills to false when both input and settings are undefined (1ms)
 
 Test Files  1 passed (1)
      Tests  57 passed (57)
-  Start at  17:44:25
-  Duration  180ms
+  Start at  17:48:49
+  Duration  716ms (transform 391ms, setup 71ms, import 388ms, tests 81ms)

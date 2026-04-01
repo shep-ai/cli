@@ -1,42 +1,43 @@
 SkillInjectorService Unit Tests — 21/21 passing
 ================================================================
-vitest v4.0.18 — project: node
 Run: npx vitest run --project node tests/unit/infrastructure/services/skill-injector.service.test.ts --reporter=verbose
+Date: 2026-04-01T17:48:38Z
+vitest v4.0.18 — project: node
 
 SkillInjectorService > local skill injection
-  ✓ should deep-copy a local skill to worktree .claude/skills/<name>/
-  ✓ should create .claude/skills/ directory if missing
-  ✓ should resolve source paths against repo root, not worktree
-  ✓ should add failed skill to result.failed when fs.cp throws
-  ✓ should return empty result for empty skills array
+  ✓ should deep-copy a local skill to worktree .claude/skills/<name>/ (4ms)
+  ✓ should create .claude/skills/ directory if missing (2ms)
+  ✓ should resolve source paths against repo root, not worktree (0ms)
+  ✓ should add failed skill to result.failed when fs.cp throws (1ms)
+  ✓ should return empty result for empty skills array (0ms)
 
 SkillInjectorService > idempotency check
-  ✓ should skip skill when SKILL.md exists in target directory
-  ✓ should produce identical results when inject() is called twice
+  ✓ should skip skill when SKILL.md exists in target directory (0ms)
+  ✓ should produce identical results when inject() is called twice (0ms)
 
 SkillInjectorService > remote skill injection
-  ✓ should call ExecFunction with correct npx arguments for remote skill
-  ✓ should add remote skill to failed array when execution throws
-  ✓ should add remote skill to failed array on timeout (AbortError)
+  ✓ should call ExecFunction with correct npx arguments for remote skill (1ms)
+  ✓ should add remote skill to failed array when execution throws (0ms)
+  ✓ should add remote skill to failed array on timeout (AbortError) (0ms)
 
 SkillInjectorService > .gitignore management
-  ✓ should append injected untracked skill to .gitignore
-  ✓ should NOT add tracked skill to .gitignore
-  ✓ should not create duplicate .gitignore entries on repeated runs
-  ✓ should create .gitignore when absent
+  ✓ should append injected untracked skill to .gitignore (0ms)
+  ✓ should NOT add tracked skill to .gitignore (0ms)
+  ✓ should not create duplicate .gitignore entries on repeated runs (0ms)
+  ✓ should create .gitignore when absent (0ms)
 
 SkillInjectorService > input validation
-  ✓ should reject source with shell metacharacters (semicolon)
-  ✓ should reject skill name with path traversal (..)
-  ✓ should reject skill name starting with /
-  ✓ should throw for non-existent worktree path
-  ✓ should reject source with pipe character
-  ✓ should reject skill name with backslash
+  ✓ should reject source with shell metacharacters (semicolon) (0ms)
+  ✓ should reject skill name with path traversal (..) (0ms)
+  ✓ should reject skill name starting with / (0ms)
+  ✓ should throw for non-existent worktree path (0ms)
+  ✓ should reject source with pipe character (0ms)
+  ✓ should reject skill name with backslash (0ms)
 
 SkillInjectorService > multiple skills
-  ✓ should process multiple skills and aggregate results
+  ✓ should process multiple skills and aggregate results (0ms)
 
 Test Files  1 passed (1)
      Tests  21 passed (21)
-  Start at  17:43:53
-  Duration  155ms
+  Start at  17:48:38
+  Duration  524ms (transform 235ms, setup 70ms, import 304ms, tests 12ms)

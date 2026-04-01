@@ -1,6 +1,7 @@
 TypeSpec Compilation — Success
 ================================================================
 Run: pnpm tsp:compile
+Date: 2026-04-01T17:49:10Z
 
 > @shepai/cli@1.161.0 tsp:compile
 > tsp compile tsp/
@@ -8,3 +9,6 @@ Run: pnpm tsp:compile
 TypeSpec compiler v0.60.1
 
 Compilation completed successfully.
+
+Confirms SkillInjectionConfig, SkillSource, and SkillSourceType models
+are valid TypeSpec definitions and generate correct TypeScript types.

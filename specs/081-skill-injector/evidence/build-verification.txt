@@ -1,6 +1,7 @@
 Build Verification — Success
 ================================================================
 Run: pnpm build
+Date: 2026-04-01T17:49:15Z
 
 > @shepai/cli@1.161.0 build
 > pnpm build:cli
@@ -8,4 +9,7 @@ Run: pnpm build
 > @shepai/cli@1.161.0 build:cli
 > tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && shx mkdir -p dist/packages/core/src/infrastructure/services/tool-installer && shx rm -rf dist/packages/core/src/infrastructure/services/tool-installer/tools && shx cp -r packages/core/src/infrastructure/services/tool-installer/tools dist/packages/core/src/infrastructure/services/tool-installer/tools && shx rm -rf dist/translations && shx cp -r translations dist/translations
 
-Build completed successfully — zero TypeScript compilation errors.
+Exit code: 0
+No TypeScript compilation errors.
+All new skill injector code (port interface, service, DI registration,
+settings mapper, use case integration, CLI flags) compiles cleanly.

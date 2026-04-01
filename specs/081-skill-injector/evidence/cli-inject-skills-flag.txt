@@ -1,15 +1,21 @@
 CLI --inject-skills / --no-inject-skills Flag Verification
 ================================================================
+Date: 2026-04-01T17:49:20Z
+File: src/presentation/cli/commands/feat/new.command.ts
 
-Source: src/presentation/cli/commands/feat/new.command.ts
+Source code inspection confirms correct Commander.js registration:
 
-Line 43:   injectSkills?: boolean;                    (NewOptions interface)
-Line 108:  .option('--inject-skills', ...)             (Commander.js option)
-Line 109:  .option('--no-inject-skills', ...)          (Commander.js negation option)
-Line 180:  ...(options.injectSkills !== undefined && { injectSkills: options.injectSkills }),
+Line 43 — NewOptions interface extension:
+  injectSkills?: boolean;
 
-The --inject-skills and --no-inject-skills flags follow the established Commander.js
-negation pattern (same as --fast/--no-fast, --pr/--no-pr). When provided:
-  - --inject-skills → injectSkills: true passed to CreateFeatureInput
-  - --no-inject-skills → injectSkills: false passed to CreateFeatureInput
-  - Neither → injectSkills undefined (falls through to settings default)
+Lines 108-109 — Commander.js option registration:
+  .option('--inject-skills', t('cli:commands.feat.new.injectSkillsOption'))
+  .option('--no-inject-skills', t('cli:commands.feat.new.noInjectSkillsOption'))
+
+Line 180 — Conditional passthrough to CreateFeatureInput:
+  ...(options.injectSkills !== undefined && { injectSkills: options.injectSkills }),
+
+Behavior:
+  --inject-skills     → options.injectSkills = true  → CreateFeatureInput.injectSkills = true
+  --no-inject-skills  → options.injectSkills = false → CreateFeatureInput.injectSkills = false
+  (neither flag)      → options.injectSkills = undefined → field omitted, falls through to settings
