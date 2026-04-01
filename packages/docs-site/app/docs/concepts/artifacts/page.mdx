@@ -223,7 +223,7 @@ export enum ArtifactState {
 
 **Template:**
 
-```markdown
+````markdown
 # Technical Plan: [Feature Name]
 
 ## Architecture Overview
@@ -245,14 +245,18 @@ export enum ArtifactState {
 ## API Contracts
 
 ### Endpoint 1
+
 ```text
 POST /api/v1/resource
 Request: { "..." }
 Response: { "..." }
 ```
+````
 
 ## Data Models
+
 ### Model A
+
 ```typescript
 interface ModelA {
   field1: string;
@@ -270,7 +274,7 @@ interface ModelA {
 1. Step 1
 2. Step 2
 
-```
+````
 
 ## File Storage
 
@@ -284,7 +288,7 @@ Artifacts are stored in the Shep data directory:
         ├── rfc.md
         ├── design.md
         └── tech-plan.md
-```
+````
 
 ## Generation Process
 
