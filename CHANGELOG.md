@@ -1,3 +1,10 @@
+# [1.160.0](https://github.com/shep-ai/shep/compare/v1.159.0...v1.160.0) (2026-04-01)
+
+
+### Features
+
+* **config:** make fast mode the default for new features ([#495](https://github.com/shep-ai/shep/issues/495)) ([f7b7e46](https://github.com/shep-ai/shep/commit/f7b7e4638b605964b5673f165a09b68b70b4c1e6))
+
 # [1.159.0](https://github.com/shep-ai/shep/compare/v1.158.0...v1.159.0) (2026-04-01)
 
 
