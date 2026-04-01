@@ -1,67 +1,56 @@
-
-> @shepai/docs-site@0.0.0 build /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site
-> next build
-
-⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
- We detected multiple lockfiles and selected the directory of /Users/arielshadkhan/pnpm-lock.yaml as the root directory.
- To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
-   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
- Detected additional lockfiles: 
-   * /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/pnpm-lock.yaml
-
 ▲ Next.js 16.1.6 (Turbopack)
 - Experiments (use with caution):
   · optimizePackageImports
 
   Creating an optimized production build ...
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/concepts/feature-model/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/web-ui/components/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/repository-pattern/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/guides/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/cli/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/cli/commands/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/cicd/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/guides/configuration/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/cli/design-system/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/concepts/artifacts/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/implementation-guide/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/web-ui/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/spec-driven-workflow/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/building/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/adding-agents/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/tdd-guide/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/settings-service/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/testing/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/guides/langgraph-agents/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/getting-started/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/typespec-guide/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/api/agent-interfaces/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/agent-system/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/concepts/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/guides/cli-commands/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/web-ui/design-system/page.mdx
 - [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/web-ui/architecture/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/api/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/concepts/task-model/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/api/domain-models/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/cli/architecture/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/overview/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/api/repository-interfaces/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/tdd-guide/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/spec-driven-workflow/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/page.mdx
 - [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/guides/web-ui/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/web-ui/design-system/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/api/domain-models/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/repository-pattern/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/testing/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/settings-service/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/api/repository-interfaces/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/cli/architecture/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/concepts/feature-model/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/guides/configuration/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/web-ui/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/implementation-guide/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/concepts/artifacts/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/api/agent-interfaces/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/guides/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/web-ui/components/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/guides/cli-commands/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/page.mdx
 - [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/setup/page.mdx
-- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/clean-architecture/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/concepts/task-model/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/agent-system/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/overview/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/adding-agents/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/typespec-guide/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/getting-started/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/cli/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/building/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/cli/design-system/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/cli/commands/page.mdx
 - [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/concepts/sdlc-lifecycle/page.mdx
-✓ Compiled successfully in 15.7s
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/api/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/development/cicd/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/concepts/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/architecture/clean-architecture/page.mdx
+- [33mwarn[0m [nextra] Failed to get the last modified timestamp from Git for the file ../../../../.shep/repos/fbfd7efb528913ed/wt/feat-nextra-docs-site/packages/docs-site/app/docs/guides/langgraph-agents/page.mdx
+✓ Compiled successfully in 29.0s
   Running TypeScript ...
   Collecting page data using 9 workers ...
   Generating static pages using 9 workers (0/42) ...
   Generating static pages using 9 workers (10/42) 
   Generating static pages using 9 workers (20/42) 
   Generating static pages using 9 workers (31/42) 
-✓ Generating static pages using 9 workers (42/42) in 810.3ms
+✓ Generating static pages using 9 workers (42/42) in 1295.0ms
   Finalizing page optimization ...
 
 Route (app)
@@ -110,4 +99,3 @@ Route (app)
 
 ○  (Static)  prerendered as static content
 
-Exit code: 
