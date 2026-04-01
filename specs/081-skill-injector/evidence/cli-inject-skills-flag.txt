@@ -1,0 +1,15 @@
+CLI --inject-skills / --no-inject-skills Flag Verification
+================================================================
+
+Source: src/presentation/cli/commands/feat/new.command.ts
+
+Line 43:   injectSkills?: boolean;                    (NewOptions interface)
+Line 108:  .option('--inject-skills', ...)             (Commander.js option)
+Line 109:  .option('--no-inject-skills', ...)          (Commander.js negation option)
+Line 180:  ...(options.injectSkills !== undefined && { injectSkills: options.injectSkills }),
+
+The --inject-skills and --no-inject-skills flags follow the established Commander.js
+negation pattern (same as --fast/--no-fast, --pr/--no-pr). When provided:
+  - --inject-skills → injectSkills: true passed to CreateFeatureInput
+  - --no-inject-skills → injectSkills: false passed to CreateFeatureInput
+  - Neither → injectSkills undefined (falls through to settings default)

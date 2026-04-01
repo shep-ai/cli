@@ -1,0 +1,42 @@
+SkillInjectorService Unit Tests — 21/21 passing
+================================================================
+vitest v4.0.18 — project: node
+Run: npx vitest run --project node tests/unit/infrastructure/services/skill-injector.service.test.ts --reporter=verbose
+
+SkillInjectorService > local skill injection
+  ✓ should deep-copy a local skill to worktree .claude/skills/<name>/
+  ✓ should create .claude/skills/ directory if missing
+  ✓ should resolve source paths against repo root, not worktree
+  ✓ should add failed skill to result.failed when fs.cp throws
+  ✓ should return empty result for empty skills array
+
+SkillInjectorService > idempotency check
+  ✓ should skip skill when SKILL.md exists in target directory
+  ✓ should produce identical results when inject() is called twice
+
+SkillInjectorService > remote skill injection
+  ✓ should call ExecFunction with correct npx arguments for remote skill
+  ✓ should add remote skill to failed array when execution throws
+  ✓ should add remote skill to failed array on timeout (AbortError)
+
+SkillInjectorService > .gitignore management
+  ✓ should append injected untracked skill to .gitignore
+  ✓ should NOT add tracked skill to .gitignore
+  ✓ should not create duplicate .gitignore entries on repeated runs
+  ✓ should create .gitignore when absent
+
+SkillInjectorService > input validation
+  ✓ should reject source with shell metacharacters (semicolon)
+  ✓ should reject skill name with path traversal (..)
+  ✓ should reject skill name starting with /
+  ✓ should throw for non-existent worktree path
+  ✓ should reject source with pipe character
+  ✓ should reject skill name with backslash
+
+SkillInjectorService > multiple skills
+  ✓ should process multiple skills and aggregate results
+
+Test Files  1 passed (1)
+     Tests  21 passed (21)
+  Start at  17:43:53
+  Duration  155ms

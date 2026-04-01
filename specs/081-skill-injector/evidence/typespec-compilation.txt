@@ -1,0 +1,10 @@
+TypeSpec Compilation — Success
+================================================================
+Run: pnpm tsp:compile
+
+> @shepai/cli@1.161.0 tsp:compile
+> tsp compile tsp/
+
+TypeSpec compiler v0.60.1
+
+Compilation completed successfully.

@@ -1,0 +1,29 @@
+Settings Mapper — Skill Injection Tests — 14/14 passing (73 total mapper tests passing)
+================================================================
+vitest v4.0.18 — project: node
+Run: npx vitest run --project node tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts --reporter=verbose
+
+Settings Mapper > toDatabase() - skill injection
+  ✓ should map skillInjection.enabled=true to skill_injection_enabled=1
+  ✓ should map skillInjection.enabled=false to skill_injection_enabled=0
+  ✓ should map undefined skillInjection to skill_injection_enabled=0
+  ✓ should serialize skills array to JSON string
+  ✓ should map empty skills array to null
+  ✓ should map undefined skillInjection to null skills
+
+Settings Mapper > fromDatabase() - skill injection
+  ✓ should reconstruct skillInjection from enabled=1 and valid JSON
+  ✓ should reconstruct skillInjection with enabled=false when flag is 0 but skills exist
+  ✓ should omit skillInjection when both columns are default/null
+  ✓ should reconstruct skillInjection with empty skills when enabled=1 but skills is null
+  ✓ should deserialize remote skills with remoteSkillName
+
+Settings Mapper > round-trip - skill injection
+  ✓ should preserve skillInjection with local and remote skills through round-trip
+  ✓ should preserve disabled skillInjection with skills through round-trip
+  ✓ should preserve undefined skillInjection through round-trip
+
+Test Files  1 passed (1)
+     Tests  73 passed (73)
+  Start at  17:43:26
+  Duration  126ms

@@ -1,0 +1,25 @@
+TypeSpec Generated Types Tests — 8/8 passing
+================================================================
+vitest v4.0.18 — project: node
+Run: npx vitest run --project node tests/unit/domain/generated/skill-injection-types.test.ts --reporter=verbose
+
+SkillSourceType enum
+  ✓ should have Local variant with value "local"
+  ✓ should have Remote variant with value "remote"
+  ✓ should only have two variants
+
+SkillSource type
+  ✓ should accept a valid local skill source
+  ✓ should accept a valid remote skill source with remoteSkillName
+
+SkillInjectionConfig type
+  ✓ should accept a config with enabled false and empty skills
+  ✓ should accept a config with skills list
+
+WorkflowConfig.skillInjection
+  ✓ should accept skillInjection as an optional field
+
+Test Files  1 passed (1)
+     Tests  8 passed (8)
+  Start at  17:44:27
+  Duration  94ms
