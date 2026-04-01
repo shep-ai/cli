@@ -4,6 +4,7 @@ import { IS_WINDOWS } from '@shepai/core/infrastructure/platform';
 import { resolve } from '@/lib/server-container';
 import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
 import type { ListRepositoriesUseCase } from '@shepai/core/application/use-cases/repositories/list-repositories.use-case';
+import type { AutoResolveMergedBranchesUseCase } from '@shepai/core/application/use-cases/features/auto-resolve-merged-branches.use-case';
 import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
 import type { IDeploymentService } from '@shepai/core/application/ports/output/services/deployment-service.interface';
 import type { Repository } from '@shepai/core/domain/generated/output';
@@ -160,6 +161,18 @@ export async function getGraphData(): Promise<{ nodes: CanvasNodeType[]; edges: 
 
   // PR/CI status is kept fresh by PrSyncWatcher (30s background poll).
   // No live GitHub calls here — use cached DB values for fast response.
+
+  // Fire-and-forget: resolve features whose branches have been merged.
+  // This corrects stale "action needed" states without blocking page load.
+  // Resolved features surface on the next SSE poll cycle (~500ms).
+  try {
+    const autoResolve = resolve<AutoResolveMergedBranchesUseCase>(
+      'AutoResolveMergedBranchesUseCase'
+    );
+    void autoResolve.execute(features);
+  } catch {
+    // Use case not registered — skip silently (e.g. test environments)
+  }
 
   const featuresWithRuns = await Promise.all(
     features.map(async (feature) => {
