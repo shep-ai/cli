@@ -31,7 +31,12 @@ export interface ISkillInjectorService {
    *
    * @param worktreePath - Absolute path to the worktree root
    * @param config - Skill injection configuration from settings
+   * @param repoRoot - Absolute path to the main repository root (for resolving local skill sources)
    * @returns Counts of injected, skipped, and failed skills
    */
-  inject(worktreePath: string, config: SkillInjectionConfig): Promise<SkillInjectionResult>;
+  inject(
+    worktreePath: string,
+    config: SkillInjectionConfig,
+    repoRoot?: string
+  ): Promise<SkillInjectionResult>;
 }
