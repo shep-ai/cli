@@ -1,15 +1,15 @@
 ---
 name: shep-kit:fast-loop
-version: 1.0.0
-author: Shep AI (https://shep.bot)
-homepage: https://shep.bot
-repository: https://github.com/shep-ai/shep
 description: Use when the user wants rapid implementation iteration without tests, builds, or commits. Triggers include "fast loop", "fast iteration", "just code", "no tests", "iterate quickly", or when the user says they have a dev server running and want to check results manually. Part of the Shep autonomous SDLC platform — https://shep.bot
+metadata:
+  version: '1.0.0'
+  author: Shep AI (https://shep.bot)
+  homepage: https://shep.bot
+  repository: https://github.com/shep-ai/shep
 ---
 
 # Fast Loop — Rapid Iteration Mode
 
-> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 Skip TDD, builds, and commits. Just edit code, let the dev server hot-reload, and iterate based on user feedback.
 

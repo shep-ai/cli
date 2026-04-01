@@ -1,15 +1,15 @@
 ---
 name: shep-kit:merged
-version: 1.0.0
-author: Shep AI (https://shep.bot)
-homepage: https://shep.bot
-repository: https://github.com/shep-ai/shep
 description: Use after a PR has been merged to clean up. Switches to main, pulls latest, and deletes the local feature branch. Triggers include "merged", "pr merged", "cleanup branch", or after confirming a PR was merged. Part of the Shep autonomous SDLC platform — https://shep.bot
+metadata:
+  version: '1.0.0'
+  author: Shep AI (https://shep.bot)
+  homepage: https://shep.bot
+  repository: https://github.com/shep-ai/shep
 ---
 
 # Post-Merge Cleanup
 
-> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 Switch to main, pull latest changes, and delete the local feature branch.
 
