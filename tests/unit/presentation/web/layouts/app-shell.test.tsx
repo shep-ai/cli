@@ -45,7 +45,13 @@ function ContextPublisher({
   features,
   hasRepositories = false,
 }: {
-  features: { featureId: string; name: string; status: 'action-needed' | 'in-progress' | 'done' }[];
+  features: {
+    featureId: string;
+    name: string;
+    status: 'action-needed' | 'in-progress' | 'done';
+    repositoryPath: string;
+    repositoryName: string;
+  }[];
   hasRepositories?: boolean;
 }) {
   const { setFeatures, setHasRepositories } = useSidebarFeaturesContext();
@@ -93,8 +99,20 @@ describe('AppShell', () => {
 
   it('passes context features to AppSidebar when sidebar is collapsed', () => {
     const features = [
-      { featureId: 'f-1', name: 'Auth Module', status: 'action-needed' as const },
-      { featureId: 'f-2', name: 'Dashboard', status: 'in-progress' as const },
+      {
+        featureId: 'f-1',
+        name: 'Auth Module',
+        status: 'action-needed' as const,
+        repositoryPath: '/home/user/my-app',
+        repositoryName: 'my-app',
+      },
+      {
+        featureId: 'f-2',
+        name: 'Dashboard',
+        status: 'in-progress' as const,
+        repositoryPath: '/home/user/my-app',
+        repositoryName: 'my-app',
+      },
     ];
 
     renderShell(<ContextPublisher features={features} />);

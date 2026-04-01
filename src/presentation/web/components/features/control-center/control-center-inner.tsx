@@ -89,7 +89,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return featureNodes
       .map((n) => {
         const d = n.data as FeatureNodeData;
-        return `${d.featureId}:${d.state}:${d.name}`;
+        return `${d.featureId}:${d.state}:${d.name}:${d.repositoryPath}`;
       })
       .sort()
       .join(',');
@@ -101,10 +101,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         const d = n.data as FeatureNodeData;
         const status = mapNodeStateToSidebarStatus(d.state);
         if (!status) return null;
+        const repoPath = d.repositoryPath ?? '';
         return {
           featureId: d.featureId,
           name: d.name,
           status,
+          repositoryPath: repoPath,
+          repositoryName: d.repositoryName ?? repoPath.split('/').filter(Boolean).pop() ?? repoPath,
           ...(d.startedAt != null && { startedAt: d.startedAt }),
           ...(d.runtime != null && { duration: d.runtime }),
           ...(d.agentType && { agentType: d.agentType }),
@@ -115,6 +118,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       featureId: string;
       name: string;
       status: 'action-needed' | 'in-progress' | 'done';
+      repositoryPath: string;
+      repositoryName: string;
       startedAt?: number;
       duration?: string;
       agentType?: string;

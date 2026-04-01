@@ -1,0 +1,12 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-sidebar-repo-grouping
+
+ ✓  web  tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx (11 tests) 158ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx (7 tests) 482ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx (8 tests) 774ms
+
+ Test Files  3 passed (3)
+      Tests  26 passed (26)
+   Start at  14:23:17
+   Duration  5.79s (transform 3.20s, setup 3.68s, import 4.63s, tests 1.41s, environment 4.03s)
+

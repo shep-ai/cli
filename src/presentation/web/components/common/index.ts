@@ -33,6 +33,7 @@ export {
 } from './feature-node';
 export { FeatureStatusBadges, type FeatureStatusBadgesProps } from './feature-status-badges';
 export { FeatureStatusGroup, type FeatureStatusGroupProps } from './feature-status-group';
+export { RepoGroup, type RepoGroupProps } from './repo-group';
 export { LoadingSkeleton } from './loading-skeleton';
 export {
   RepositoryNode,

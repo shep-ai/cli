@@ -53,6 +53,8 @@ const mockFeatures = [
     status: 'action-needed' as const,
     agentType: 'claude-code',
     modelId: 'claude-sonnet-4-6',
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
   },
   {
     featureId: 'feat-payment-002',
@@ -60,6 +62,8 @@ const mockFeatures = [
     status: 'action-needed' as const,
     agentType: 'cursor',
     modelId: 'claude-opus-4-6',
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
   },
   {
     featureId: 'feat-dashboard-003',
@@ -68,6 +72,8 @@ const mockFeatures = [
     startedAt: Date.now() - 330_000,
     agentType: 'gemini-cli',
     modelId: 'gemini-2.5-pro',
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
   },
   {
     featureId: 'feat-api-004',
@@ -76,6 +82,8 @@ const mockFeatures = [
     startedAt: Date.now() - 60_000,
     agentType: 'claude-code',
     modelId: 'claude-haiku-4-5',
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
   },
   {
     featureId: 'feat-settings-005',
@@ -84,6 +92,8 @@ const mockFeatures = [
     duration: '2h',
     agentType: 'claude-code',
     modelId: 'claude-sonnet-4-6',
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
   },
   {
     featureId: 'feat-profile-006',
@@ -92,6 +102,8 @@ const mockFeatures = [
     duration: '1h',
     agentType: 'dev',
     modelId: 'gpt-8',
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
   },
 ];
 
@@ -130,12 +142,16 @@ export const AllInProgress: Story = {
         name: 'Feature A',
         status: 'in-progress' as const,
         startedAt: Date.now() - 120_000,
+        repositoryPath: '/home/user/projects/my-app',
+        repositoryName: 'my-app',
       },
       {
         featureId: 'feat-b-002',
         name: 'Feature B',
         status: 'in-progress' as const,
         startedAt: Date.now() - 600_000,
+        repositoryPath: '/home/user/projects/my-app',
+        repositoryName: 'my-app',
       },
     ],
   },
@@ -144,9 +160,99 @@ export const AllInProgress: Story = {
 export const AllDone: Story = {
   args: {
     features: [
-      { featureId: 'feat-a-001', name: 'Feature A', status: 'done' as const, duration: '30m' },
-      { featureId: 'feat-b-002', name: 'Feature B', status: 'done' as const, duration: '1h' },
-      { featureId: 'feat-c-003', name: 'Feature C', status: 'done' as const, duration: '3h' },
+      {
+        featureId: 'feat-a-001',
+        name: 'Feature A',
+        status: 'done' as const,
+        duration: '30m',
+        repositoryPath: '/home/user/projects/my-app',
+        repositoryName: 'my-app',
+      },
+      {
+        featureId: 'feat-b-002',
+        name: 'Feature B',
+        status: 'done' as const,
+        duration: '1h',
+        repositoryPath: '/home/user/projects/my-app',
+        repositoryName: 'my-app',
+      },
+      {
+        featureId: 'feat-c-003',
+        name: 'Feature C',
+        status: 'done' as const,
+        duration: '3h',
+        repositoryPath: '/home/user/projects/my-app',
+        repositoryName: 'my-app',
+      },
+    ],
+  },
+};
+
+export const MultipleRepositories: Story = {
+  args: {
+    features: [
+      {
+        featureId: 'feat-auth-001',
+        name: 'Auth Module',
+        status: 'action-needed' as const,
+        agentType: 'claude-code',
+        modelId: 'claude-sonnet-4-6',
+        repositoryPath: '/home/user/projects/frontend',
+        repositoryName: 'frontend',
+      },
+      {
+        featureId: 'feat-dashboard-002',
+        name: 'Dashboard',
+        status: 'in-progress' as const,
+        startedAt: Date.now() - 330_000,
+        agentType: 'gemini-cli',
+        modelId: 'gemini-2.5-pro',
+        repositoryPath: '/home/user/projects/frontend',
+        repositoryName: 'frontend',
+      },
+      {
+        featureId: 'feat-settings-003',
+        name: 'Settings Page',
+        status: 'done' as const,
+        duration: '2h',
+        repositoryPath: '/home/user/projects/frontend',
+        repositoryName: 'frontend',
+      },
+      {
+        featureId: 'feat-api-004',
+        name: 'API Gateway',
+        status: 'in-progress' as const,
+        startedAt: Date.now() - 60_000,
+        agentType: 'claude-code',
+        modelId: 'claude-haiku-4-5',
+        repositoryPath: '/home/user/projects/backend',
+        repositoryName: 'backend',
+      },
+      {
+        featureId: 'feat-payment-005',
+        name: 'Payment Service',
+        status: 'action-needed' as const,
+        agentType: 'cursor',
+        modelId: 'claude-opus-4-6',
+        repositoryPath: '/home/user/projects/backend',
+        repositoryName: 'backend',
+      },
+      {
+        featureId: 'feat-deploy-006',
+        name: 'CI/CD Pipeline',
+        status: 'done' as const,
+        duration: '45m',
+        repositoryPath: '/home/user/projects/infra',
+        repositoryName: 'infra',
+      },
+      {
+        featureId: 'feat-monitor-007',
+        name: 'Monitoring Setup',
+        status: 'in-progress' as const,
+        startedAt: Date.now() - 180_000,
+        repositoryPath: '/home/user/projects/infra',
+        repositoryName: 'infra',
+      },
     ],
   },
 };
