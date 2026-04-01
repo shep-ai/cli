@@ -1,10 +1,10 @@
 Unit Test Results — pnpm test:unit
 ===================================
-Date: 2026-04-01
+Date: 2026-04-01T17:37:00Z
 
 Test Files:  374 passed (374)
 Tests:       5291 passed (5291)
-Duration:    144.97s
+Duration:    59.20s (transform 10.95s, setup 63.72s, import 54.34s, tests 121.48s, environment 125.05s)
 
 Feature-relevant test files (all passing):
 - tests/unit/application/use-cases/repositories/list-github-organizations.use-case.test.ts
