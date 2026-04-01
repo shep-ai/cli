@@ -1,0 +1,33 @@
+feature:
+  id: "080-auto-archive-completed"
+  name: "auto-archive-completed"
+  number: 80
+  branch: "feat/080-auto-archive-completed"
+  lifecycle: "research"
+  createdAt: "2026-03-30T19:59:33Z"
+status:
+  phase: "research"
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2026-03-30T19:59:33Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "fast-implement"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-30T19:59:33Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []

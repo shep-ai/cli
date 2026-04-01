@@ -33,6 +33,10 @@ import {
   initializeNotificationWatcher,
   getNotificationWatcher,
 } from '@/infrastructure/services/notifications/notification-watcher.service.js';
+import {
+  initializeAutoArchiveWatcher,
+  getAutoArchiveWatcher,
+} from '@/infrastructure/services/auto-archive/auto-archive-watcher.service.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import type { IWebServerService } from '@/application/ports/output/services/web-server-service.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
@@ -81,6 +85,10 @@ export function createServeCommand(): Command {
         initializeNotificationWatcher(runRepo, phaseTimingRepo, featureRepo, notificationService);
         getNotificationWatcher().start();
 
+        // Start auto-archive watcher
+        initializeAutoArchiveWatcher(featureRepo);
+        getAutoArchiveWatcher().start();
+
         // Graceful shutdown handler — identical pattern to ui.command.ts
         let isShuttingDown = false;
         const shutdown = async () => {
@@ -92,6 +100,7 @@ export function createServeCommand(): Command {
           forceExit.unref();
 
           getNotificationWatcher().stop();
+          getAutoArchiveWatcher().stop();
           const deploymentService = container.resolve<IDeploymentService>('IDeploymentService');
           deploymentService.stopAll();
           await service.stop();

@@ -59,6 +59,11 @@ properties:
     type: boolean
     default: true
     description: "Default new features to fast mode (default: true)"
+  autoArchiveDelayMinutes:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Minutes after completion before auto-archiving a feature (default: 10, 0 = disabled)"
 required:
   - openPrOnImplementationComplete
   - approvalGateDefaults

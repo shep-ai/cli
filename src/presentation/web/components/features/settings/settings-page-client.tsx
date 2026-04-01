@@ -406,6 +406,13 @@ export function SettingsPageClient({
   const [defaultFastMode, setDefaultFastMode] = useState(
     settings.workflow.defaultFastMode !== false
   );
+  // Auto-archive state
+  const [autoArchiveEnabled, setAutoArchiveEnabled] = useState(
+    (settings.workflow.autoArchiveDelayMinutes ?? 10) > 0
+  );
+  const [autoArchiveDelay, setAutoArchiveDelay] = useState(
+    String(settings.workflow.autoArchiveDelayMinutes ?? 10)
+  );
   const [ciMaxFix, setCiMaxFix] = useState(
     settings.workflow.ciMaxFixAttempts != null ? String(settings.workflow.ciMaxFixAttempts) : ''
   );
@@ -537,6 +544,8 @@ export function SettingsPageClient({
       ciWatchEnabled?: boolean;
       hideCiStatus?: boolean;
       defaultFastMode?: boolean;
+      autoArchiveEnabled?: boolean;
+      autoArchiveDelay?: string;
       ciMaxFix?: string;
       ciTimeout?: string;
       ciLogMax?: string;
@@ -551,6 +560,8 @@ export function SettingsPageClient({
     } = {}
   ) {
     const timeoutSeconds = parseOptionalInt(overrides.ciTimeout ?? ciTimeout);
+    const archiveEnabled = overrides.autoArchiveEnabled ?? autoArchiveEnabled;
+    const archiveDelay = parseInt(overrides.autoArchiveDelay ?? autoArchiveDelay, 10);
     return {
       workflow: {
         openPrOnImplementationComplete: overrides.openPr ?? openPr,
@@ -565,6 +576,11 @@ export function SettingsPageClient({
         ciWatchEnabled: overrides.ciWatchEnabled ?? ciWatchEnabled,
         hideCiStatus: overrides.hideCiStatus ?? hideCiStatus,
         defaultFastMode: overrides.defaultFastMode ?? defaultFastMode,
+        autoArchiveDelayMinutes: archiveEnabled
+          ? Number.isNaN(archiveDelay) || archiveDelay < 1
+            ? 10
+            : archiveDelay
+          : 0,
         ciMaxFixAttempts: parseOptionalInt(overrides.ciMaxFix ?? ciMaxFix),
         ciWatchTimeoutMs: timeoutSeconds != null ? timeoutSeconds * 1000 : undefined,
         ciLogMaxChars: parseOptionalInt(overrides.ciLogMax ?? ciLogMax),
@@ -997,6 +1013,43 @@ export function SettingsPageClient({
                 save(buildWorkflowPayload({ ciWatchEnabled: v }));
               }}
             />
+            <SubsectionLabel>Archive</SubsectionLabel>
+            <SwitchRow
+              label="Auto-archive completed"
+              description="Automatically archive features after they reach the completed state"
+              id="auto-archive-enabled"
+              testId="switch-auto-archive-enabled"
+              checked={autoArchiveEnabled}
+              onChange={(v) => {
+                setAutoArchiveEnabled(v);
+                save(buildWorkflowPayload({ autoArchiveEnabled: v }));
+              }}
+            />
+            <SettingsRow
+              label="Archive delay"
+              description="Minutes to wait after completion before archiving (1–1440)"
+              htmlFor="auto-archive-delay"
+            >
+              <NumberStepper
+                id="auto-archive-delay"
+                testId="input-auto-archive-delay"
+                value={autoArchiveDelay}
+                placeholder="10"
+                min={1}
+                max={1440}
+                suffix="min"
+                onChange={(v) => {
+                  setAutoArchiveDelay(v);
+                }}
+                onBlur={() => {
+                  if (!autoArchiveEnabled) return;
+                  const n = parseInt(autoArchiveDelay, 10);
+                  const clamped = Number.isNaN(n) ? 10 : Math.min(1440, Math.max(1, n));
+                  setAutoArchiveDelay(String(clamped));
+                  save(buildWorkflowPayload({ autoArchiveDelay: String(clamped) }));
+                }}
+              />
+            </SettingsRow>
           </SettingsSection>
           <SectionHint
             links={[

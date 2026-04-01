@@ -84,6 +84,15 @@ vi.mock('@/infrastructure/services/pr-sync/pr-sync-watcher.service.js', () => ({
   }),
 }));
 
+// Mock auto-archive watcher service (requires start/stop methods)
+vi.mock('@/infrastructure/services/auto-archive/auto-archive-watcher.service.js', () => ({
+  initializeAutoArchiveWatcher: vi.fn(),
+  getAutoArchiveWatcher: vi.fn().mockReturnValue({
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
+}));
+
 // Mock BrowserOpenerService — use a class so `new` works
 const mockBrowserOpen = vi.fn();
 vi.mock('@/infrastructure/services/browser-opener.service.js', () => ({

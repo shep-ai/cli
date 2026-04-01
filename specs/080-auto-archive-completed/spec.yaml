@@ -1,0 +1,18 @@
+name: "auto-archive-completed"
+number: 80
+branch: "feat/080-auto-archive-completed"
+oneLiner: "Auto archive completed features after X minutes, it should be configurable and default to 10 minutes\n"
+userQuery: "Auto archive completed features after X minutes, it should be configurable and default to 10 minutes\n"
+summary: "Auto archive completed features after X minutes, it should be configurable and default to 10 minutes\n"
+phase: "Analysis"
+sizeEstimate: "M"
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+openQuestions: []
+content: "## Problem Statement\n\nAuto archive completed features after X minutes,\nit should be configurable and default to 10 minutes.\nThe settings page should allow users to enable/disable auto-archive and update its interval.\n\n## Success Criteria\n\n- [x] Features in completed (Maintain) state are auto-archived after configurable delay\n- [x] Default delay is 10 minutes\n- [x] Setting delay to 0 disables auto-archive\n- [x] Settings page has enable/disable toggle for auto-archive\n- [x] Settings page has interval stepper for archive delay in minutes\n\n## Affected Areas\n\n| Area | Impact | Reasoning |\n| ---- | ------ | --------- |\n| Domain | New field on WorkflowConfig | autoArchiveDelayMinutes added to TypeSpec |\n| Application | New use case | AutoArchiveCompletedUseCase scans and archives |\n| Infrastructure | Background watcher | AutoArchiveWatcherService polls every 60s |\n| Web UI | Settings controls | Enable/disable switch and delay stepper |\n\n## Dependencies\n\nDepends on existing feature archive use case.\n\n## Size Estimate\n\n**M**\n"
+rejectionFeedback:
+  - iteration: 1
+    message: "The settings page should have a way enable/disable the auto archive and update its interval"
+    phase: "merge"
+    timestamp: "2026-04-01T10:48:41.744Z"

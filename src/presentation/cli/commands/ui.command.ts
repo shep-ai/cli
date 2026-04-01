@@ -36,6 +36,10 @@ import {
   initializePrSyncWatcher,
   getPrSyncWatcher,
 } from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
+import {
+  initializeAutoArchiveWatcher,
+  getAutoArchiveWatcher,
+} from '@/infrastructure/services/auto-archive/auto-archive-watcher.service.js';
 import { getExistingConnection } from '@/infrastructure/persistence/sqlite/connection.js';
 import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
 import { colors, fmt, messages } from '../ui/index.js';
@@ -109,6 +113,10 @@ Examples:
         );
         getPrSyncWatcher().start();
 
+        // Start auto-archive watcher for completed features
+        initializeAutoArchiveWatcher(featureRepo);
+        getAutoArchiveWatcher().start();
+
         const url = `http://localhost:${port}`;
         messages.success(t('cli:commands.ui.serverReady', { url: fmt.code(url) }));
         messages.info(t('cli:commands.ui.pressCtrlC'));
@@ -135,6 +143,7 @@ Examples:
 
           getPrSyncWatcher().stop();
           getNotificationWatcher().stop();
+          getAutoArchiveWatcher().stop();
           await service.stop();
           process.exit(0);
         };

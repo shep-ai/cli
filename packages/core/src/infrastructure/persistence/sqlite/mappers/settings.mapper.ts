@@ -121,6 +121,9 @@ export interface SettingsRow {
   interactive_agent_enabled: number;
   interactive_agent_auto_timeout_minutes: number;
   interactive_agent_max_concurrent_sessions: number;
+
+  // Auto-archive config (added in migration 049)
+  auto_archive_delay_minutes: number;
 }
 
 /**
@@ -234,6 +237,9 @@ export function toDatabase(settings: Settings): SettingsRow {
     interactive_agent_auto_timeout_minutes: settings.interactiveAgent?.autoTimeoutMinutes ?? 15,
     interactive_agent_max_concurrent_sessions:
       settings.interactiveAgent?.maxConcurrentSessions ?? 3,
+
+    // Auto-archive config (default: 10 minutes)
+    auto_archive_delay_minutes: settings.workflow.autoArchiveDelayMinutes ?? 10,
   };
 }
 
@@ -359,6 +365,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       commitEvidence: row.workflow_commit_evidence === 1,
       hideCiStatus: row.hide_ci_status === 1,
       defaultFastMode: (row.default_fast_mode ?? 1) !== 0,
+      autoArchiveDelayMinutes: row.auto_archive_delay_minutes ?? 10,
     },
 
     // FeatureFlags (INTEGER 0/1 → boolean)

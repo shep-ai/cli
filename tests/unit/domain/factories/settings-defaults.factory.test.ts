@@ -343,6 +343,7 @@ describe('createDefaultSettings', () => {
         enableEvidence: false,
         commitEvidence: false,
         defaultFastMode: true,
+        autoArchiveDelayMinutes: 10,
       });
     });
   });

@@ -454,6 +454,10 @@ export type WorkflowConfig = {
    * Default new features to fast mode (default: true)
    */
   defaultFastMode: boolean;
+  /**
+   * Minutes after completion before auto-archiving a feature (default: 10, 0 = disabled)
+   */
+  autoArchiveDelayMinutes?: number;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',

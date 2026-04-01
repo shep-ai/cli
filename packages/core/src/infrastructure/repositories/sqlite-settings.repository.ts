@@ -70,7 +70,8 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         workflow_enable_evidence, workflow_commit_evidence,
         hide_ci_status, default_fast_mode,
         interactive_agent_enabled, interactive_agent_auto_timeout_minutes,
-        interactive_agent_max_concurrent_sessions
+        interactive_agent_max_concurrent_sessions,
+        auto_archive_delay_minutes
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement, @model_default,
@@ -98,7 +99,8 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @workflow_enable_evidence, @workflow_commit_evidence,
         @hide_ci_status, @default_fast_mode,
         @interactive_agent_enabled, @interactive_agent_auto_timeout_minutes,
-        @interactive_agent_max_concurrent_sessions
+        @interactive_agent_max_concurrent_sessions,
+        @auto_archive_delay_minutes
       )
     `);
 
@@ -208,7 +210,8 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         default_fast_mode = @default_fast_mode,
         interactive_agent_enabled = @interactive_agent_enabled,
         interactive_agent_auto_timeout_minutes = @interactive_agent_auto_timeout_minutes,
-        interactive_agent_max_concurrent_sessions = @interactive_agent_max_concurrent_sessions
+        interactive_agent_max_concurrent_sessions = @interactive_agent_max_concurrent_sessions,
+        auto_archive_delay_minutes = @auto_archive_delay_minutes
       WHERE id = @id
     `);
 
