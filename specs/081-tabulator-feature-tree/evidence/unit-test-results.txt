@@ -1,0 +1,18 @@
+Feature: Tabulator Feature Tree Table
+Test Runner: vitest v4.0.18
+Date: 2026-04-01
+
+=== Feature-specific test files ===
+
+tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts
+tests/unit/presentation/web/components/features/feature-tree-table/feature-tree-table.test.tsx
+tests/unit/presentation/web/layouts/app-sidebar.test.tsx
+
+=== Full suite results ===
+
+Test Files: 374 passed (374)
+Tests: 5277 passed (5277)
+Start at: 17:26:26
+Duration: 44.26s
+
+All tests passing - zero failures.
