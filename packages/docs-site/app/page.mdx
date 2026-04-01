@@ -1,0 +1,60 @@
+# Shep — Autonomous AI SDLC Platform
+
+**Run multiple AI agents in parallel. Each in its own worktree.**
+
+Manage 10 features at once — isolated branches, automatic commits, CI watching, and PRs — from a dashboard or the terminal.
+
+## Quick Start
+
+```bash
+# Try it instantly — no install needed
+npx @shepai/cli
+
+# Or install globally
+npm i -g @shepai/cli
+
+# Start Shep — opens the web dashboard at localhost:4050
+shep
+```
+
+### Your First Feature
+
+```bash
+cd ~/projects/my-app
+shep feat new "add a /health endpoint that returns uptime and version" --push --pr
+
+# Shep creates a worktree, runs your agent, commits, pushes, and opens a PR.
+```
+
+### Go Parallel
+
+```bash
+shep feat new "add stripe payments" --push --pr
+shep feat new "add dark mode toggle" --push --pr
+shep feat new "refactor auth middleware" --push --pr
+# All three run simultaneously in the same repo. Each in its own worktree.
+```
+
+## Why Shep?
+
+You're already using AI coding agents. The problem isn't the coding — it's everything around it.
+
+Switching branches. Stashing changes. Watching CI. Assembling PRs. Losing context when you juggle three things at once. One agent session is fine. Five is chaos.
+
+**Shep gives each feature its own isolated world** — a git worktree, a branch, an agent session — and handles the boring parts: committing, pushing, opening PRs, watching CI, and fixing failures.
+
+## Key Features
+
+- **Parallel Sessions** — Run multiple features at once, each in its own worktree
+- **Prompt to PR** — One command: `shep feat new "do X" --push --pr`
+- **Agent-Agnostic** — Use Claude Code, Cursor CLI, or Gemini CLI
+- **Web Dashboard + CLI** — Visual graph or terminal control
+- **CI Watch & Auto-Fix** — Shep watches CI, reads logs, fixes failures
+- **100% Local** — All data in `~/.shep/` as SQLite. No cloud, no account
+
+## Learn More
+
+- [Getting Started](/docs/getting-started) — Full installation and setup guide
+- [Architecture](/docs/architecture) — System design and Clean Architecture
+- [CLI Reference](/docs/cli) — All commands and flags
+- [Guides](/docs/guides) — Configuration, Web UI, and more

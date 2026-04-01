@@ -51,6 +51,8 @@
     "build:release": "pnpm generate && pnpm build:cli && pnpm build:web:prod",
     "build:web:prod": "pnpm build:web && shx rm -rf web && shx mkdir -p web && shx cp -r src/presentation/web/.next web/.next && shx rm -rf web/.next/dev web/.next/cache web/.next/standalone web/.next/trace web/.next/trace-build web/.next/turbopack web/.next/diagnostics web/.next/types web/.next/*.nft.json && shx cp -r src/presentation/web/public web/public && shx cp src/presentation/web/package.json web/ && node -e \"require('fs').writeFileSync('web/next.config.mjs','const c={typedRoutes:true,distDir:\\\".next\\\",output:\\\"standalone\\\",serverExternalPackages:[\\\"tsyringe\\\",\\\"reflect-metadata\\\",\\\"better-sqlite3\\\",\\\"node:os\\\",\\\"node:child_process\\\",\\\"node:fs\\\"]};export default c;\\n')\"",
     "build:web": "pnpm --filter @shepai/web build",
+    "build:docs": "pnpm --filter @shepai/docs-site build",
+    "dev:docs": "pnpm --filter @shepai/docs-site dev",
     "build:storybook": "storybook build",
     "test": "vitest run tests/unit tests/integration --passWithNoTests && pnpm run test:e2e",
     "test:watch": "vitest",

@@ -1,0 +1,184 @@
+# Agent System Architecture
+
+> **Implementation Status**
+>
+> The **FeatureAgent LangGraph graph** is implemented at `packages/core/src/infrastructure/services/agents/feature-agent/` with background execution support, validation/repair loops, and human-in-the-loop approval. The **AnalyzeRepository graph** is implemented at `packages/core/src/infrastructure/services/agents/analyze-repo/`. The multi-agent supervisor pattern described later in this document remains **planned architecture**.
+>
+> See [AGENTS.md](../../AGENTS.md#current-implementation) for full implementation details including the directory structure, state schema, graph flow, and node descriptions.
+
+---
+
+## Settings-Driven Agent Resolution (MANDATORY -- Applies to All Architecture)
+
+> **ARCHITECTURAL RULE:** Whether using the current executor-based system or the planned LangGraph system, agent type resolution MUST always come from `getSettings().agent.type` via `AgentExecutorFactory.createExecutor()`. No node, graph, use case, or worker may hardcode, guess, or default an agent type. This rule applies to ALL current and future agent implementations.
+
+See [AGENTS.md -- Settings-Driven Agent Resolution](../../AGENTS.md#settings-driven-agent-resolution-mandatory) for the full rule and resolution flow.
+
+---
+
+## Architecture
+
+Multi-stage workflow orchestration using LangGraph StateGraphs with agent-agnostic execution. The FeatureAgent and AnalyzeRepository graphs are implemented; the multi-agent supervisor pattern is planned.
+
+## Overview
+
+Shep implements a **state-based workflow system** using [LangGraph](https://www.langchain.com/langgraph) for multi-stage feature development. Nodes are **pure async functions** that process and update state. Agent execution is delegated to an `IAgentExecutor` implementation (Claude Code, Gemini CLI, Aider, Cursor, etc.) resolved via settings.
+
+```
++-----------------------------------------+
+|     FeatureWorkflow (StateGraph)        |
++-----------------------------------------+
+|                                         |
+|  [Analyze] --> [Gather Req] --> [Plan]  |
+|                     |                   |
+|                 (loop until             |
+|                  clear)                 |
+|                     |                   |
+|                     v                   |
+|              [Implement] --> [END]      |
+|                                         |
+|  State: typed, immutable updates        |
+|  Execution: IAgentExecutor (delegated)  |
+|                                         |
++-----------------------------------------+
+```
+
+## Design Principles
+
+1. **State-Driven**: All workflow state flows through a typed schema
+2. **Pure Functions**: Nodes are deterministic, side-effect-free async functions
+3. **Explicit Edges**: Flow control via direct or conditional edges (no hidden routing)
+4. **Agent-Agnostic**: Execution delegated to `IAgentExecutor` implementations resolved via settings
+5. **Type Safe**: TypeScript Annotations with Zod validation for tool parameters
+6. **Observable**: Full execution history via checkpoints
+
+## Core Concepts
+
+### StateGraph
+
+Typed workflow definition using LangGraph's StateGraph:
+
+```typescript
+import { Annotation } from '@langchain/langgraph';
+
+export const FeatureState = Annotation.Root({
+  repoPath: Annotation<string>,
+  requirements: Annotation<Requirement[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+  plan: Annotation<Plan | null>,
+  tasks: Annotation<Task[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+  messages: Annotation<string[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+});
+
+export type FeatureStateType = typeof FeatureState.State;
+```
+
+### Nodes
+
+Functions that process and update state by delegating to `IAgentExecutor`:
+
+```typescript
+function createAnalyzeNode(executor: IAgentExecutor) {
+  return async (
+    state: AnalyzeRepositoryStateType
+  ): Promise<Partial<AnalyzeRepositoryStateType>> => {
+    const prompt = buildAnalyzePrompt(state.repositoryPath);
+    const result = await executor.execute(prompt, {
+      cwd: state.repositoryPath,
+    });
+    return { analysisMarkdown: result.result };
+  };
+}
+```
+
+### Edges
+
+Connections defining workflow progression:
+
+```typescript
+// Direct edge: always go from A to B
+graph.addEdge('analyze', 'requirements');
+
+// Conditional edge: choose based on state
+graph.addConditionalEdges('requirements', (state) => {
+  if (allRequirementsClear(state)) return 'plan';
+  return 'requirements'; // Loop back for clarification
+});
+```
+
+## Implemented Graphs
+
+### AnalyzeRepository Graph
+
+Located at `packages/core/src/infrastructure/services/agents/analyze-repo/`. Single-node graph that generates a repository analysis document.
+
+### FeatureAgent Graph
+
+Located at `packages/core/src/infrastructure/services/agents/feature-agent/`. Full SDLC workflow graph with:
+
+- Background process execution via worker
+- Heartbeat monitoring
+- Phase timing tracking
+- Human-in-the-loop approval gates
+- Lifecycle context management
+
+Key files:
+
+- `feature-agent-graph.ts` -- Full SDLC graph definition
+- `fast-feature-agent-graph.ts` -- Simplified fast-mode graph
+- `feature-agent-process.service.ts` -- Process management
+- `feature-agent-worker.ts` -- Background worker
+- `state.ts` -- State annotation
+- `nodes/` -- Individual node implementations
+
+## Agent Executor Interfaces
+
+The agent system uses these key interfaces (defined in `packages/core/src/application/ports/output/agents/`):
+
+| Interface                     | Purpose                                          |
+| ----------------------------- | ------------------------------------------------ |
+| `IAgentExecutor`              | Execute prompts against an AI coding agent       |
+| `IAgentExecutorFactory`       | Create executor instances for a given agent type |
+| `IAgentExecutorProvider`      | Resolve the current executor from settings       |
+| `IAgentRegistry`              | Register and discover agent definitions          |
+| `IAgentRunner`                | Run agent workflows with lifecycle management    |
+| `IAgentValidator`             | Validate agent tool availability                 |
+| `IFeatureAgentProcessService` | Manage feature agent background processes        |
+| `IStructuredAgentCaller`      | Make structured (typed) calls to agents          |
+
+## Workflow Stages
+
+| Stage            | Node               | Responsibility                                               |
+| ---------------- | ------------------ | ------------------------------------------------------------ |
+| **Analyze**      | `analyzeNode`      | Parse codebase structure, patterns, tech stack               |
+| **Requirements** | `requirementsNode` | Gather requirements via conversation, validate clarity       |
+| **Plan**         | `planNode`         | Decompose into tasks, create artifacts (PRD, RFC, Tech Plan) |
+| **Implement**    | `implementNode`    | Execute tasks respecting dependency graph                    |
+
+## Practical Example
+
+For implementation details, see [docs/development/adding-agents.md](../development/adding-agents.md).
+
+---
+
+## Maintaining This Document
+
+**Update when:**
+
+- StateGraph structure changes
+- New workflow stages added
+- Node functions added or modified
+- New agent executor types added
+
+**Related docs:**
+
+- [AGENTS.md](../../AGENTS.md) - Detailed LangGraph implementation
+- [../development/adding-agents.md](../development/adding-agents.md) - Adding new nodes
