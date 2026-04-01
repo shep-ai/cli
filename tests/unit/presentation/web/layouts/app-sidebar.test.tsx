@@ -53,26 +53,45 @@ function renderWithSidebar(ui: React.ReactElement) {
 }
 
 const mockFeatures = [
-  { featureId: 'feat-auth-001', name: 'Auth Module', status: 'action-needed' as const },
+  {
+    featureId: 'feat-auth-001',
+    name: 'Auth Module',
+    status: 'action-needed' as const,
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
+  },
   {
     featureId: 'feat-dashboard-002',
     name: 'Dashboard',
     status: 'in-progress' as const,
     startedAt: Date.now() - 330_000,
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
   },
   {
     featureId: 'feat-settings-003',
     name: 'Settings Page',
     status: 'done' as const,
     duration: '2h',
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
   },
   {
     featureId: 'feat-api-004',
     name: 'API Gateway',
     status: 'in-progress' as const,
     startedAt: Date.now() - 60_000,
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
   },
-  { featureId: 'feat-profile-005', name: 'User Profile', status: 'done' as const, duration: '1h' },
+  {
+    featureId: 'feat-profile-005',
+    name: 'User Profile',
+    status: 'done' as const,
+    duration: '1h',
+    repositoryPath: '/home/user/projects/my-app',
+    repositoryName: 'my-app',
+  },
 ];
 
 describe('AppSidebar', () => {
@@ -130,5 +149,55 @@ describe('AppSidebar', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
     expect(screen.getByText('Settings')).toBeInTheDocument();
+  });
+
+  it('does not show repo groups when there is only one repository', () => {
+    renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
+
+    // Should not render repo group headers for single repo
+    expect(screen.queryByTestId('repo-group')).not.toBeInTheDocument();
+  });
+
+  it('shows repo groups when there are multiple repositories', () => {
+    const multiRepoFeatures = [
+      {
+        featureId: 'feat-auth-001',
+        name: 'Auth Module',
+        status: 'action-needed' as const,
+        repositoryPath: '/home/user/projects/frontend',
+        repositoryName: 'frontend',
+      },
+      {
+        featureId: 'feat-api-002',
+        name: 'API Gateway',
+        status: 'in-progress' as const,
+        startedAt: Date.now() - 60_000,
+        repositoryPath: '/home/user/projects/backend',
+        repositoryName: 'backend',
+      },
+      {
+        featureId: 'feat-settings-003',
+        name: 'Settings Page',
+        status: 'done' as const,
+        duration: '2h',
+        repositoryPath: '/home/user/projects/frontend',
+        repositoryName: 'frontend',
+      },
+    ];
+
+    renderWithSidebar(<AppSidebar features={multiRepoFeatures} featureFlags={defaultFlags} />);
+
+    // Repo group headers should appear
+    const repoGroups = screen.getAllByTestId('repo-group');
+    expect(repoGroups).toHaveLength(2);
+
+    // Repo names should be visible
+    expect(screen.getByText('frontend')).toBeInTheDocument();
+    expect(screen.getByText('backend')).toBeInTheDocument();
+
+    // Features should still be visible
+    expect(screen.getByText('Auth Module')).toBeInTheDocument();
+    expect(screen.getByText('API Gateway')).toBeInTheDocument();
+    expect(screen.getByText('Settings Page')).toBeInTheDocument();
   });
 });

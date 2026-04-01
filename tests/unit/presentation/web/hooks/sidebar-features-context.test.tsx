@@ -55,12 +55,24 @@ describe('SidebarFeaturesContext', () => {
 
     act(() => {
       result.current.setFeatures([
-        { name: 'Login', status: 'in-progress' as const, featureId: 'f-1' },
+        {
+          name: 'Login',
+          status: 'in-progress' as const,
+          featureId: 'f-1',
+          repositoryPath: '/home/user/my-app',
+          repositoryName: 'my-app',
+        },
       ]);
     });
 
     expect(result.current.features).toEqual([
-      { name: 'Login', status: 'in-progress', featureId: 'f-1' },
+      {
+        name: 'Login',
+        status: 'in-progress',
+        featureId: 'f-1',
+        repositoryPath: '/home/user/my-app',
+        repositoryName: 'my-app',
+      },
     ]);
   });
 
@@ -71,8 +83,21 @@ describe('SidebarFeaturesContext', () => {
 
     act(() => {
       result.current.setFeatures([
-        { name: 'A', status: 'done' as const, featureId: 'f-a', duration: '1h' },
-        { name: 'B', status: 'action-needed' as const, featureId: 'f-b' },
+        {
+          name: 'A',
+          status: 'done' as const,
+          featureId: 'f-a',
+          duration: '1h',
+          repositoryPath: '/home/user/my-app',
+          repositoryName: 'my-app',
+        },
+        {
+          name: 'B',
+          status: 'action-needed' as const,
+          featureId: 'f-b',
+          repositoryPath: '/home/user/my-app',
+          repositoryName: 'my-app',
+        },
       ]);
     });
 

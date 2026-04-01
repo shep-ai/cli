@@ -14,6 +14,10 @@ export interface SidebarFeatureItem {
   duration?: string;
   agentType?: string;
   modelId?: string;
+  /** Absolute path to the repository this feature belongs to */
+  repositoryPath: string;
+  /** Human-readable repository name (last path segment) */
+  repositoryName: string;
 }
 
 // ---------------------------------------------------------------------------

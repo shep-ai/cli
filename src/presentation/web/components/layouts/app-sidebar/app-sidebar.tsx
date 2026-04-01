@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings } from 'lucide-react';
 import {
@@ -24,6 +25,7 @@ import { useSoundEnabled } from '@/hooks/use-sound-enabled';
 import { useTheme } from '@/hooks/useTheme';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
+import { RepoGroup } from '@/components/common/repo-group';
 import { SidebarSectionHeader } from '@/components/common/sidebar-section-header';
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
@@ -40,6 +42,8 @@ export interface FeatureItem {
   duration?: string;
   agentType?: string;
   modelId?: string;
+  repositoryPath: string;
+  repositoryName: string;
 }
 
 export interface AppSidebarProps {
@@ -66,11 +70,33 @@ export function AppSidebar({
   const toggleOffSound = useSoundAction('toggle-off');
   const clickSound = useSoundAction('navigate');
 
-  const grouped = featureStatusOrder.map((key) => {
-    const { label } = featureStatusConfig[key];
-    const items = features.filter((f) => f.status === key);
-    return { key, label, items };
-  });
+  // Group features by repository, then by status within each repo
+  const repoGroups = useMemo(() => {
+    const byRepo = new Map<string, { repoName: string; features: FeatureItem[] }>();
+    for (const feature of features) {
+      const key = feature.repositoryPath;
+      let group = byRepo.get(key);
+      if (!group) {
+        group = { repoName: feature.repositoryName, features: [] };
+        byRepo.set(key, group);
+      }
+      group.features.push(feature);
+    }
+    return Array.from(byRepo.entries()).map(([repoPath, { repoName, features: repoFeatures }]) => ({
+      repoPath,
+      repoName,
+      featureCount: repoFeatures.length,
+      statusGroups: featureStatusOrder
+        .map((statusKey) => ({
+          statusKey,
+          label: featureStatusConfig[statusKey].label,
+          items: repoFeatures.filter((f) => f.status === statusKey),
+        }))
+        .filter((g) => g.items.length > 0),
+    }));
+  }, [features]);
+
+  const hasMultipleRepos = repoGroups.length > 1;
 
   return (
     <Sidebar data-testid="app-sidebar" data-no-drawer-close collapsible="icon">
@@ -143,26 +169,49 @@ export function AppSidebar({
           >
             <SidebarSectionHeader label="Features" />
             <ScrollArea className="min-h-0 flex-1">
-              {grouped.map(({ key, label, items }) =>
-                items.length > 0 ? (
-                  <FeatureStatusGroup key={key} label={label} count={items.length}>
-                    {items.map((feature) => (
-                      <FeatureListItem
-                        key={feature.featureId}
-                        name={feature.name}
-                        status={feature.status}
-                        startedAt={feature.startedAt}
-                        duration={feature.duration}
-                        agentType={feature.agentType}
-                        modelId={feature.modelId}
-                        onClick={
-                          onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
-                        }
-                      />
-                    ))}
-                  </FeatureStatusGroup>
-                ) : null
-              )}
+              {hasMultipleRepos
+                ? repoGroups.map(({ repoPath, repoName, featureCount, statusGroups }) => (
+                    <RepoGroup key={repoPath} repoName={repoName} featureCount={featureCount}>
+                      {statusGroups.map(({ statusKey, label, items }) => (
+                        <FeatureStatusGroup key={statusKey} label={label} count={items.length}>
+                          {items.map((feature) => (
+                            <FeatureListItem
+                              key={feature.featureId}
+                              name={feature.name}
+                              status={feature.status}
+                              startedAt={feature.startedAt}
+                              duration={feature.duration}
+                              agentType={feature.agentType}
+                              modelId={feature.modelId}
+                              onClick={
+                                onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
+                              }
+                            />
+                          ))}
+                        </FeatureStatusGroup>
+                      ))}
+                    </RepoGroup>
+                  ))
+                : repoGroups.flatMap(({ statusGroups }) =>
+                    statusGroups.map(({ statusKey, label, items }) => (
+                      <FeatureStatusGroup key={statusKey} label={label} count={items.length}>
+                        {items.map((feature) => (
+                          <FeatureListItem
+                            key={feature.featureId}
+                            name={feature.name}
+                            status={feature.status}
+                            startedAt={feature.startedAt}
+                            duration={feature.duration}
+                            agentType={feature.agentType}
+                            modelId={feature.modelId}
+                            onClick={
+                              onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
+                            }
+                          />
+                        ))}
+                      </FeatureStatusGroup>
+                    ))
+                  )}
             </ScrollArea>
           </div>
         ) : null}
