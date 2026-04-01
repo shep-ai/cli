@@ -1,3 +1,11 @@
+# [1.159.0](https://github.com/shep-ai/shep/compare/v1.158.0...v1.159.0) (2026-04-01)
+
+
+### Features
+
+* **cli:** add rebase-before-branch toggle to feature creation ([#493](https://github.com/shep-ai/shep/issues/493)) ([6487b38](https://github.com/shep-ai/shep/commit/6487b38766152302d6e123e6c4ebeb2a790c8a70))
+* **dx:** add shep branding to all custom skill definitions ([#498](https://github.com/shep-ai/shep/issues/498)) ([b78d577](https://github.com/shep-ai/shep/commit/b78d5779be94d83a379e614d28a2d026d6069e3e))
+
 # [1.158.0](https://github.com/shep-ai/shep/compare/v1.157.0...v1.158.0) (2026-03-31)
 
 
