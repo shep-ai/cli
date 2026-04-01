@@ -38,6 +38,8 @@ export interface CreateFeatureInput {
   attachmentPaths?: string[];
   /** Sync the default branch from remote before creating the feature branch (default: true). */
   rebaseBeforeBranch?: boolean;
+  /** Inject curated skills into the worktree (overrides settings.workflow.skillInjection.enabled). */
+  injectSkills?: boolean;
 }
 
 export interface CreateFeatureResult {
