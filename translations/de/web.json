@@ -14,6 +14,7 @@
       "notifications": "Benachrichtigungen",
       "flags": "Flags",
       "chat": "Chat",
+      "layout": "Layout",
       "database": "Datenbank"
     },
     "language": {
@@ -197,6 +198,13 @@
       "maxConcurrentSessions": "Maximale gleichzeitige Sitzungen",
       "maxConcurrentSessionsDescription": "Maximale Anzahl aktiver interaktiver Agenten-Sitzungen gleichzeitig (1–10)",
       "hint": "Der Chat-Tab startet einen persistenten Agentenprozess pro Feature. Das Auto-Zeitlimit stoppt inaktive Sitzungen automatisch, um Ressourcen zu sparen. Das Limit für gleichzeitige Sitzungen verhindert unkontrollierten Ressourcenverbrauch auf Entwicklermaschinen."
+    },
+    "fabLayout": {
+      "title": "Layout",
+      "description": "Position der schwebenden Aktionsschaltflächen im Kontrollzentrum steuern",
+      "swapPosition": "FAB-Positionen tauschen",
+      "swapPositionDescription": "Chat-Button nach links und Erstellen-Button nach rechts verschieben",
+      "hint": "Die zwei schwebenden Aktionsschaltflächen (Erstellen und Chat) befinden sich in den unteren Ecken des Kontrollzentrums. Aktivieren Sie diese Option, um ihre Positionen zu tauschen."
     },
     "database": {
       "title": "Datenbank",

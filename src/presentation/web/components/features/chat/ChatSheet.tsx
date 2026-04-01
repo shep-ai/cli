@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { ChatTab } from './ChatTab';
 import { ChatDotIndicator } from './ChatDotIndicator';
 import { useTurnStatus } from '@/hooks/turn-statuses-provider';
+import { useFabLayout } from '@/hooks/fab-layout-context';
+import { useSidebar } from '@/components/ui/sidebar';
 
 // ── Persistent global chat popup (draggable + resizable) ──────────────────
 
@@ -61,6 +63,8 @@ export function GlobalChatPopup() {
   const [hasOpened, setHasOpened] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const globalChatTurnStatus = useTurnStatus('global');
+  const { swapPosition } = useFabLayout();
+  const { state: sidebarState } = useSidebar();
 
   // Position/size — initialized from localStorage
   // eslint-disable-next-line react/hook-use-state -- wrapped setters below
@@ -289,7 +293,7 @@ export function GlobalChatPopup() {
             isMaximized
               ? 'bg-background fixed inset-0 z-[60] flex flex-col overflow-hidden dark:bg-neutral-900'
               : cn(
-                  !pos && 'fixed end-8 bottom-24',
+                  !pos && (swapPosition ? 'fixed start-8 bottom-24' : 'fixed end-8 bottom-24'),
                   'z-[60] flex flex-col overflow-hidden rounded-lg',
                   'border-border/60 border dark:border-white/10',
                   'bg-background dark:bg-neutral-900',
@@ -398,8 +402,12 @@ export function GlobalChatPopup() {
         </div>
       ) : null}
 
-      {/* Chat FAB — end corner (right in LTR, left in RTL), hidden when maximized */}
-      <div className={cn('group/fab fixed end-8 bottom-6 z-30', isMaximized && 'hidden')}>
+      {/* Chat FAB — default: end corner (right in LTR); swapped: start corner tracking sidebar */}
+      <ChatFabWrapper
+        swapPosition={swapPosition}
+        sidebarState={sidebarState}
+        isMaximized={isMaximized}
+      >
         <Button
           size="icon"
           onClick={toggle}
@@ -438,7 +446,50 @@ export function GlobalChatPopup() {
             </p>
           </div>
         </div>
-      </div>
+      </ChatFabWrapper>
     </>
+  );
+}
+
+/** Wrapper for the Chat FAB that handles position swapping. */
+function ChatFabWrapper({
+  swapPosition,
+  sidebarState,
+  isMaximized,
+  children,
+}: {
+  swapPosition: boolean;
+  sidebarState: 'expanded' | 'collapsed';
+  isMaximized: boolean;
+  children: React.ReactNode;
+}) {
+  const { i18n } = useTranslation('web');
+  const isRtl = i18n.dir() === 'rtl';
+
+  if (!swapPosition) {
+    return (
+      <div className={cn('group/fab fixed end-8 bottom-6 z-30', isMaximized && 'hidden')}>
+        {children}
+      </div>
+    );
+  }
+
+  // Swapped: chat FAB moves to start side, tracking sidebar width
+  const sidebarOffset =
+    sidebarState === 'expanded'
+      ? 'calc(var(--sidebar-width) + 32px)'
+      : 'calc(var(--sidebar-width-icon) + 32px)';
+
+  const positionStyle: React.CSSProperties = isRtl
+    ? { right: sidebarOffset, transition: 'right 200ms ease-in-out' }
+    : { left: sidebarOffset, transition: 'left 200ms ease-in-out' };
+
+  return (
+    <div
+      className={cn('group/fab fixed bottom-6 z-30', isMaximized && 'hidden')}
+      style={positionStyle}
+    >
+      {children}
+    </div>
   );
 }

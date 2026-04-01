@@ -124,6 +124,9 @@ export interface SettingsRow {
 
   // Auto-archive config (added in migration 049)
   auto_archive_delay_minutes: number;
+
+  // FAB layout config (added in migration 050)
+  fab_position_swapped: number;
 }
 
 /**
@@ -240,6 +243,9 @@ export function toDatabase(settings: Settings): SettingsRow {
 
     // Auto-archive config (default: 10 minutes)
     auto_archive_delay_minutes: settings.workflow.autoArchiveDelayMinutes ?? 10,
+
+    // FAB layout config (default: not swapped)
+    fab_position_swapped: (settings.fabLayout?.swapPosition ?? false) ? 1 : 0,
   };
 }
 
@@ -384,6 +390,11 @@ export function fromDatabase(row: SettingsRow): Settings {
       enabled: (row.interactive_agent_enabled ?? 1) !== 0,
       autoTimeoutMinutes: row.interactive_agent_auto_timeout_minutes ?? 15,
       maxConcurrentSessions: row.interactive_agent_max_concurrent_sessions ?? 3,
+    },
+
+    // FabLayoutConfig (INTEGER 0/1 → boolean)
+    fabLayout: {
+      swapPosition: (row.fab_position_swapped ?? 0) !== 0,
     },
 
     // Onboarding (INTEGER → boolean)

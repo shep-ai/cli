@@ -14,6 +14,7 @@
       "notifications": "Notificaciones",
       "flags": "Opciones",
       "chat": "Chat",
+      "layout": "Diseño",
       "database": "Base de datos"
     },
     "language": {
@@ -211,6 +212,13 @@
       "maxConcurrentSessions": "Máximo de sesiones concurrentes",
       "maxConcurrentSessionsDescription": "Número máximo de sesiones de agente interactivo activas a la vez (1-10)",
       "hint": "La pestaña de chat genera un proceso de agente persistente por funcionalidad. El tiempo de espera automático detiene las sesiones inactivas automáticamente para conservar recursos. El límite de sesiones concurrentes previene el uso excesivo de recursos en las máquinas de los desarrolladores."
+    },
+    "fabLayout": {
+      "title": "Diseño",
+      "description": "Controlar la posición de los botones de acción flotantes en el centro de control",
+      "swapPosition": "Intercambiar posiciones de FAB",
+      "swapPositionDescription": "Mover el botón de Chat a la izquierda y el de Crear a la derecha",
+      "hint": "Los dos botones de acción flotantes (Crear y Chat) se ubican en las esquinas inferiores del centro de control. Active esta opción para intercambiar sus posiciones."
     },
     "database": {
       "title": "Base de datos",

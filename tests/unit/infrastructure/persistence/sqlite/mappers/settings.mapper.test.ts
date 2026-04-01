@@ -162,6 +162,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     interactive_agent_auto_timeout_minutes: 15,
     interactive_agent_max_concurrent_sessions: 3,
     auto_archive_delay_minutes: 10,
+    fab_position_swapped: 0,
     ...overrides,
   };
 }
@@ -927,6 +928,70 @@ describe('Settings Mapper', () => {
       const row = toDatabase(original);
       const restored = fromDatabase(row);
       expect(restored.workflow.defaultFastMode).toBe(false);
+    });
+  });
+
+  describe('toDatabase() - fabLayout', () => {
+    it('should map fabLayout.swapPosition=true to fab_position_swapped=1', () => {
+      const settings = createTestSettings({
+        fabLayout: { swapPosition: true },
+      } as any);
+      const row = toDatabase(settings);
+      expect(row.fab_position_swapped).toBe(1);
+    });
+
+    it('should map fabLayout.swapPosition=false to fab_position_swapped=0', () => {
+      const settings = createTestSettings({
+        fabLayout: { swapPosition: false },
+      } as any);
+      const row = toDatabase(settings);
+      expect(row.fab_position_swapped).toBe(0);
+    });
+
+    it('should default to 0 when fabLayout is undefined', () => {
+      const settings = createTestSettings();
+      const row = toDatabase(settings);
+      expect(row.fab_position_swapped).toBe(0);
+    });
+  });
+
+  describe('fromDatabase() - fabLayout', () => {
+    it('should map fab_position_swapped=1 to fabLayout.swapPosition=true', () => {
+      const row = createTestRow({ fab_position_swapped: 1 });
+      const settings = fromDatabase(row);
+      expect(settings.fabLayout?.swapPosition).toBe(true);
+    });
+
+    it('should map fab_position_swapped=0 to fabLayout.swapPosition=false', () => {
+      const row = createTestRow({ fab_position_swapped: 0 });
+      const settings = fromDatabase(row);
+      expect(settings.fabLayout?.swapPosition).toBe(false);
+    });
+
+    it('should default to false when column is null (migration backward compat)', () => {
+      const row = createTestRow({ fab_position_swapped: undefined as any });
+      const settings = fromDatabase(row);
+      expect(settings.fabLayout?.swapPosition).toBe(false);
+    });
+  });
+
+  describe('round-trip - fabLayout', () => {
+    it('should preserve fabLayout.swapPosition=true through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        fabLayout: { swapPosition: true },
+      } as any);
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.fabLayout?.swapPosition).toBe(true);
+    });
+
+    it('should preserve fabLayout.swapPosition=false through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({
+        fabLayout: { swapPosition: false },
+      } as any);
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.fabLayout?.swapPosition).toBe(false);
     });
   });
 });

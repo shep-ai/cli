@@ -572,6 +572,30 @@ model InteractiveAgentConfig {
 }
 
 /**
+ * FAB Layout Configuration
+ *
+ * Controls the horizontal placement of the two floating action buttons (FABs)
+ * in the web UI control center:
+ * - Create FAB (+): opens the new-feature/add-repo speed-dial
+ * - Chat FAB: opens the global Shep Chat popup
+ *
+ * By default the Create FAB sits on the start side (left in LTR) and the
+ * Chat FAB sits on the end side (right in LTR). When `swapPosition` is true
+ * the positions are mirrored so that the Chat FAB moves to the start side
+ * and the Create FAB moves to the end side.
+ */
+@doc("FAB (floating action button) layout configuration")
+model FabLayoutConfig {
+  /**
+   * When true the Create (+) and Chat FABs swap horizontal positions.
+   * Default layout: Create = start (left in LTR), Chat = end (right in LTR).
+   * Swapped layout: Chat = start (left in LTR), Create = end (right in LTR).
+   */
+  @doc("Swap Create and Chat FAB positions (default: false)")
+  swapPosition: boolean = false;
+}
+
+/**
  * Settings Entity
  *
  * Global Shep platform settings stored as a singleton. This entity contains
@@ -710,4 +734,13 @@ model Settings extends BaseEntity {
    */
   @doc("Interactive agent chat configuration (optional, defaults applied at runtime)")
   interactiveAgent?: InteractiveAgentConfig;
+
+  /**
+   * FAB layout configuration.
+   * Controls the horizontal placement of the Create (+) and Chat floating
+   * action buttons in the web UI.
+   * Optional for backward compatibility — defaults applied at runtime.
+   */
+  @doc("FAB layout configuration (optional, defaults applied at runtime)")
+  fabLayout?: FabLayoutConfig;
 }
