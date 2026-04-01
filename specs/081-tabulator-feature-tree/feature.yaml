@@ -1,0 +1,36 @@
+feature:
+  id: '081-tabulator-feature-tree'
+  name: 'tabulator-feature-tree'
+  number: 81
+  branch: 'feat/081-tabulator-feature-tree'
+  lifecycle: 'research'
+  createdAt: '2026-04-01T14:03:49Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-04-01T14:03:49Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-04-01T14:03:49Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
