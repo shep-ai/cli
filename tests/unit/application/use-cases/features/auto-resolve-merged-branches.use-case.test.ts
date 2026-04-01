@@ -82,6 +82,8 @@ function createMockGitPrService(): IGitPrService {
     stageFiles: vi.fn(),
     rebaseContinue: vi.fn(),
     rebaseAbort: vi.fn(),
+    stash: vi.fn(),
+    stashPop: vi.fn(),
     getBranchSyncStatus: vi.fn(),
   };
 }
