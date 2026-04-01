@@ -98,8 +98,6 @@ export function AppSidebar({
     }));
   }, [features, t]);
 
-  const hasMultipleRepos = repoGroups.length > 1;
-
   return (
     <Sidebar
       data-testid="app-sidebar"
@@ -181,49 +179,28 @@ export function AppSidebar({
           >
             <SidebarSectionHeader label={t('sidebar.features')} />
             <ScrollArea className="min-h-0 flex-1">
-              {hasMultipleRepos
-                ? repoGroups.map(({ repoPath, repoName, featureCount, statusGroups }) => (
-                    <RepoGroup key={repoPath} repoName={repoName} featureCount={featureCount}>
-                      {statusGroups.map(({ statusKey, label, items }) => (
-                        <FeatureStatusGroup key={statusKey} label={label} count={items.length}>
-                          {items.map((feature) => (
-                            <FeatureListItem
-                              key={feature.featureId}
-                              name={feature.name}
-                              status={feature.status}
-                              startedAt={feature.startedAt}
-                              duration={feature.duration}
-                              agentType={feature.agentType}
-                              modelId={feature.modelId}
-                              onClick={
-                                onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
-                              }
-                            />
-                          ))}
-                        </FeatureStatusGroup>
+              {repoGroups.map(({ repoPath, repoName, featureCount, statusGroups }) => (
+                <RepoGroup key={repoPath} repoName={repoName} featureCount={featureCount}>
+                  {statusGroups.map(({ statusKey, label, items }) => (
+                    <FeatureStatusGroup key={statusKey} label={label} count={items.length}>
+                      {items.map((feature) => (
+                        <FeatureListItem
+                          key={feature.featureId}
+                          name={feature.name}
+                          status={feature.status}
+                          startedAt={feature.startedAt}
+                          duration={feature.duration}
+                          agentType={feature.agentType}
+                          modelId={feature.modelId}
+                          onClick={
+                            onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
+                          }
+                        />
                       ))}
-                    </RepoGroup>
-                  ))
-                : repoGroups.flatMap(({ statusGroups }) =>
-                    statusGroups.map(({ statusKey, label, items }) => (
-                      <FeatureStatusGroup key={statusKey} label={label} count={items.length}>
-                        {items.map((feature) => (
-                          <FeatureListItem
-                            key={feature.featureId}
-                            name={feature.name}
-                            status={feature.status}
-                            startedAt={feature.startedAt}
-                            duration={feature.duration}
-                            agentType={feature.agentType}
-                            modelId={feature.modelId}
-                            onClick={
-                              onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
-                            }
-                          />
-                        ))}
-                      </FeatureStatusGroup>
-                    ))
-                  )}
+                    </FeatureStatusGroup>
+                  ))}
+                </RepoGroup>
+              ))}
             </ScrollArea>
           </div>
         ) : null}

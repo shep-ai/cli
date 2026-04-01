@@ -151,11 +151,13 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
-  it('does not show repo groups when there is only one repository', () => {
+  it('shows repo group even when there is only one repository', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
-    // Should not render repo group headers for single repo
-    expect(screen.queryByTestId('repo-group')).not.toBeInTheDocument();
+    // Should render repo group header for single repo
+    const repoGroups = screen.getAllByTestId('repo-group');
+    expect(repoGroups).toHaveLength(1);
+    expect(screen.getByText('my-app')).toBeInTheDocument();
   });
 
   it('shows repo groups when there are multiple repositories', () => {
