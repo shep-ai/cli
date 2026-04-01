@@ -1,3 +1,12 @@
+# [1.161.0](https://github.com/shep-ai/shep/compare/v1.160.0...v1.161.0) (2026-04-01)
+
+
+### Features
+
+* **domain:** auto-archive completed features with configurable delay ([#496](https://github.com/shep-ai/shep/issues/496)) ([b68b79d](https://github.com/shep-ai/shep/commit/b68b79dcd2dcb610f4e2044c590f75ba15c8edaf))
+* **web:** auto-resolve features with merged branches on page load ([#500](https://github.com/shep-ai/shep/issues/500)) ([77e0eac](https://github.com/shep-ai/shep/commit/77e0eac7ea918948837473575e6ff64ad83af344))
+* **web:** group sidebar features by repository then by status ([#501](https://github.com/shep-ai/shep/issues/501)) ([d8a28f6](https://github.com/shep-ai/shep/commit/d8a28f6d22f3efd1f5c1d048f4a7531f2d15766d))
+
 # [1.160.0](https://github.com/shep-ai/shep/compare/v1.159.0...v1.160.0) (2026-04-01)
 
 
