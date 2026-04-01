@@ -433,6 +433,8 @@
     "prDescription": "Nach dem Pushen einen Pull Request öffnen.",
     "watch": "Überwachen",
     "watchDescription": "CI überwachen und Fehler automatisch beheben.",
+    "sync": "Sync",
+    "syncDescription": "Pull latest main from remote before creating the feature branch.",
     "commitSpecs": "Specs committen",
     "commitSpecsDescription": "Specs ins Repository committen.",
     "forkAndPr": "Fork & PR",

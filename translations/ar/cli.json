@@ -204,6 +204,7 @@
         "pendingOption": "إنشاء الميزة بدون بدء الوكيل",
         "fastOption": "تخطي مراحل SDLC والتنفيذ مباشرة من الأمر",
         "modelOption": "معرّف نموذج LLM لهذا التشغيل (مثال: claude-opus-4-6)",
+        "noRebaseOption": "Skip syncing main from remote before creating the feature branch",
         "attachOption": "إرفاق ملف (قابل للتكرار)",
         "parentNotFound": "الميزة الأصلية غير موجودة: {{id}}",
         "attachmentNotFound": "المرفق غير موجود: {{path}}",

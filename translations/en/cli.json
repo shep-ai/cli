@@ -204,6 +204,7 @@
         "pendingOption": "Create feature without starting the agent",
         "fastOption": "Skip SDLC phases and implement directly from your prompt",
         "modelOption": "LLM model identifier for this run (e.g. claude-opus-4-6)",
+        "noRebaseOption": "Skip syncing main from remote before creating the feature branch",
         "attachOption": "Attach a file (repeatable)",
         "parentNotFound": "Parent feature not found: {{id}}",
         "attachmentNotFound": "Attachment not found: {{path}}",

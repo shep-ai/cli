@@ -1,0 +1,33 @@
+feature:
+  id: "080-rebase-before-branch"
+  name: "rebase-before-branch"
+  number: 80
+  branch: "feat/080-rebase-before-branch"
+  lifecycle: "research"
+  createdAt: "2026-03-30T19:20:20Z"
+status:
+  phase: "research"
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2026-03-30T19:20:20Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "fast-implement"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-03-30T19:20:20Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []

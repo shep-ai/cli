@@ -12,6 +12,7 @@ import {
   Loader2,
   GitFork,
   FileText,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSoundAction } from '@/hooks/use-sound-action';
@@ -87,6 +88,8 @@ export interface FeatureCreatePayload {
   forkAndPr: boolean;
   /** Commit specs/evidences into the repo (defaults false when forkAndPr is enabled). */
   commitSpecs: boolean;
+  /** Sync main from remote before creating the feature branch (default: true). */
+  rebaseBeforeBranch: boolean;
   /** Optional agent type override for this feature run */
   agentType?: string;
   /** Optional model override for this feature run */
@@ -244,6 +247,7 @@ export function FeatureCreateDrawer({
   const [pending, setPending] = useState(false);
   const [forkAndPr, setForkAndPr] = useState(false);
   const [commitSpecs, setCommitSpecs] = useState(true);
+  const [rebaseBeforeBranch, setRebaseBeforeBranch] = useState(true);
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
   const [selectedRepoPath, setSelectedRepoPath] = useState<string | undefined>(
@@ -328,6 +332,7 @@ export function FeatureCreateDrawer({
     setPending(false);
     setForkAndPr(false);
     setCommitSpecs(true);
+    setRebaseBeforeBranch(true);
     setOverrideAgent(undefined);
     setOverrideModel(undefined);
     setUploadError(null);
@@ -501,6 +506,7 @@ export function FeatureCreateDrawer({
         fast,
         forkAndPr,
         commitSpecs,
+        rebaseBeforeBranch,
         ...(pending ? { pending } : {}),
         ...(overrideAgent ? { agentType: overrideAgent } : {}),
         ...(overrideModel ? { model: overrideModel } : {}),
@@ -524,6 +530,7 @@ export function FeatureCreateDrawer({
       fast,
       forkAndPr,
       commitSpecs,
+      rebaseBeforeBranch,
       pending,
       overrideAgent,
       overrideModel,
@@ -1098,6 +1105,29 @@ export function FeatureCreateDrawer({
                   </Tooltip>
                   {/* Separator between standard git and repo options */}
                   <div className="bg-border h-4 w-px shrink-0" />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="rebase-before-branch"
+                          size="sm"
+                          checked={rebaseBeforeBranch}
+                          onCheckedChange={setRebaseBeforeBranch}
+                          disabled={isSubmitting}
+                        />
+                        <Label
+                          htmlFor="rebase-before-branch"
+                          className="flex cursor-pointer items-center gap-1 text-xs font-medium"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          {t('createDrawer.sync')}
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {t('createDrawer.syncDescription')}
+                    </TooltipContent>
+                  </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex cursor-pointer items-center gap-1.5">

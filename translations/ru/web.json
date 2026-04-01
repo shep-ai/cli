@@ -447,6 +447,8 @@
     "prDescription": "Открыть запрос на слияние после отправки.",
     "watch": "Наблюдение",
     "watchDescription": "Следить за CI и автоматически исправлять ошибки.",
+    "sync": "Sync",
+    "syncDescription": "Pull latest main from remote before creating the feature branch.",
     "commitSpecs": "Коммит спецификаций",
     "commitSpecsDescription": "Закоммитить спецификации в репозиторий.",
     "forkAndPr": "Форк и PR",

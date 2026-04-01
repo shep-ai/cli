@@ -251,6 +251,19 @@ export class CreateFeatureUseCase {
 
     // Create git worktree branching from the repo's default branch
     const defaultBranch = await this.gitPrService.getDefaultBranch(effectiveRepoPath);
+
+    // Sync the default branch from remote before branching so the feature
+    // starts from the latest upstream state. Enabled by default; callers
+    // can opt out with `rebaseBeforeBranch: false`.
+    if (input.rebaseBeforeBranch !== false) {
+      try {
+        await this.gitPrService.syncMain(effectiveRepoPath, defaultBranch);
+      } catch {
+        // Sync failure is non-fatal — proceed with local state.
+        // Common case: no remote configured (local-only repos).
+      }
+    }
+
     const worktreePath = this.worktreeService.getWorktreePath(effectiveRepoPath, branch);
     await this.worktreeService.create(effectiveRepoPath, branch, worktreePath, defaultBranch);
 
