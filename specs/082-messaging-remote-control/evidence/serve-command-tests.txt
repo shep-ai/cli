@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-messaging-remote-control
+
+ ✓  node  tests/unit/commands/_serve.command.test.ts (12 tests) 21ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  12:01:39
+   Duration  438ms (transform 191ms, setup 78ms, import 173ms, tests 21ms, environment 0ms)
+

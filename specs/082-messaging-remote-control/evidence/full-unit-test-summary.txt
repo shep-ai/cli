@@ -1,0 +1,30 @@
+       ✓ fast mode checkbox has accessible label  843ms
+       ✓ fast mode checkbox is disabled when isSubmitting  1636ms
+       ✓ fast mode resets to default after submit  5200ms
+       ✓ submits the form when Ctrl+Enter is pressed in the textarea  2433ms
+       ✓ submits the form when Meta+Enter is pressed in the textarea  2841ms
+       ✓ does not submit when description is empty and Ctrl+Enter is pressed  1461ms
+       ✓ does not submit when isSubmitting and Ctrl+Enter is pressed  916ms
+       ✓ does not submit on plain Enter (without modifier)  3256ms
+       ✓ shows attachment chip after dropping a valid file  716ms
+       ✓ shows inline error for files exceeding 10 MB without calling upload API  545ms
+       ✓ shows inline error for disallowed file extensions  639ms
+       ✓ applies drag-over class on dragenter and removes it on dragleave  623ms
+       ✓ shows attachment chip after pasting an image from clipboard  896ms
+       ✓ includes sessionId in the upload request  715ms
+       ✓ includes sessionId in submitted payload  2827ms
+       ✓ shows repository combobox when repositoryPath is empty and repositories provided  368ms
+       ✓ shows read-only repo label when repositoryPath is provided  379ms
+       ✓ submit button is disabled when no repo selected and repositoryPath is empty  2367ms
+       ✓ submit button is enabled when repo is selected via combobox  1906ms
+       ✓ submit button is enabled when repositoryPath is provided (canvas flow)  1055ms
+       ✓ handleSubmit includes selectedRepoPath in payload  1803ms
+       ✓ can submit feature after adding new repo via combobox  373ms
+       ✓ resets forkAndPr state to false when canPushDirectly changes from false to true  470ms
+       ✓ calls getViewerPermission on repo change and updates toggle visibility  382ms
+
+ Test Files  378 passed (378)
+      Tests  5338 passed (5338)
+   Start at  12:01:40
+   Duration  178.53s (transform 105.69s, setup 206.38s, import 342.31s, tests 413.07s, environment 384.27s)
+
