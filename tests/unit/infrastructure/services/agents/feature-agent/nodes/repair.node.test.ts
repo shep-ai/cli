@@ -66,6 +66,10 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     ciWatchEnabled: true,
     enableEvidence: false,
     commitEvidence: false,
+    iterationCount: 0,
+    maxIterations: 10,
+    feedbackHistory: [],
+    explorationStatus: undefined,
   } as FeatureAgentState;
 }
 
