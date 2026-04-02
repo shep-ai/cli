@@ -164,6 +164,7 @@ function makeFakeHandle(sessionId = 'claude-session-abc'): FakeHandle {
     send: sendMock,
     stream,
     close: closeMock,
+    abort: () => closeMock(),
   };
 
   return { handle, pushEvent, endStream, sendMock, closeMock };
