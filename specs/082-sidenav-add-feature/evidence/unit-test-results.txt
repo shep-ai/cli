@@ -1,120 +1,26 @@
-
  RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-sidenav-add-feature
-
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > renders repo name 40ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > shows feature count badge 6ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > renders children when expanded (default) 5ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > hides children when collapsed 155ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > toggles children visibility on click 46ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > starts collapsed when defaultOpen is false 5ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > has correct aria-expanded attribute 18ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > does not render add-feature button when onAddFeature is not provided 2ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > renders add-feature button when onAddFeature is provided 3ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > calls onAddFeature when the + button is clicked 16ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > has accessible label on the add-feature button 6ms
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Control Center nav item in header 128ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Tools nav item in header 38ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Features label in content 37ms
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > groups features by status into Action Needed, In Progress, and Done sections 44ms
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > fires onFeatureClick with featureId when a feature is clicked 215ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Settings nav item in header linking to /settings 30ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > shows repo group even when there is only one repository 46ms
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > shows repo groups when there are multiple repositories 56ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > renders repo name 46ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > shows feature count badge 7ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > renders children when expanded (default) 6ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > hides children when collapsed 189ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > toggles children visibility on click 54ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > starts collapsed when defaultOpen is false 3ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > has correct aria-expanded attribute 25ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > does not render add-feature button when onAddFeature is not provided 3ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > renders add-feature button when onAddFeature is provided 6ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > calls onAddFeature when the + button is clicked 17ms
+ ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > has accessible label on the add-feature button 5ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Control Center nav item in header 208ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Tools nav item in header 59ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Features label in content 62ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > groups features by status into Action Needed, In Progress, and Done sections 72ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > fires onFeatureClick with featureId when a feature is clicked 298ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Settings nav item in header linking to /settings 46ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > shows repo group even when there is only one repository 40ms
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > shows repo groups when there are multiple repositories 31ms
  ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders add-feature buttons on repo groups when onAddFeature is provided 38ms
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
-Not implemented: HTMLMediaElement's pause() method
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > calls onAddFeature with repository path when add-feature button is clicked 83ms
-
+ ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > calls onAddFeature with repository path when add-feature button is clicked 103ms
  Test Files  2 passed (2)
       Tests  21 passed (21)
-   Start at  21:08:57
-   Duration  2.45s (transform 569ms, setup 674ms, import 866ms, tests 1.02s, environment 1.24s)
-
+   Start at  21:15:06
+   Duration  3.25s (transform 743ms, setup 919ms, import 1.10s, tests 1.32s, environment 1.64s)
