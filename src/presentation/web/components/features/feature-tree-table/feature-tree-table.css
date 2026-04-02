@@ -6,17 +6,18 @@
 @import 'tabulator-tables/dist/css/tabulator_midnight.min.css';
 
 /* ── Dotted page background (matches features canvas) ─────── */
+/* Uses SVG circles identical to React Flow's BackgroundVariant.Dots */
 .features-page-dotted-bg {
   background-color: #f6f7f8;
-  background-image: radial-gradient(circle, #b8bcc4 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='0.5' cy='0.5' r='0.5' fill='%23b8bcc4'/%3E%3C/svg%3E");
+  background-repeat: repeat;
 }
 
 :root.dark .features-page-dotted-bg,
 .dark .features-page-dotted-bg {
   background-color: var(--color-background, #0a0a0a);
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='0.5' cy='0.5' r='0.5' fill='%23ffffff1a'/%3E%3C/svg%3E");
+  background-repeat: repeat;
 }
 
 /* ── Base overrides ─────────────────────────────────────────── */
