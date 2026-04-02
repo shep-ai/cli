@@ -23,6 +23,9 @@ interface SessionInfo {
   startedAt: string;
   idleTimeoutMinutes: number;
   lastActivityAt: string;
+  totalCostUsd: number | null;
+  totalInputTokens: number | null;
+  totalOutputTokens: number | null;
 }
 
 // ── API helpers ─────────────────────────────────────────────────────────────

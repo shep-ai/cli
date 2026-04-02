@@ -70,6 +70,12 @@ export interface SessionInfo {
   startedAt: string;
   idleTimeoutMinutes: number;
   lastActivityAt: string;
+  /** Cumulative cost in USD for this session (null if not yet tracked) */
+  totalCostUsd: number | null;
+  /** Cumulative input tokens for this session */
+  totalInputTokens: number | null;
+  /** Cumulative output tokens for this session */
+  totalOutputTokens: number | null;
 }
 
 /**

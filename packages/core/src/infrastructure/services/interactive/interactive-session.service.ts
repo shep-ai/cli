@@ -638,6 +638,16 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               state.currentAssistantBuffer = '';
               state.toolEventsLog = [];
 
+              // Accumulate usage from this turn
+              if (event.usage) {
+                void this.sessionRepo.accumulateUsage(state.sessionId, {
+                  costUsd: event.usage.costUsd ?? 0,
+                  inputTokens: event.usage.inputTokens ?? 0,
+                  outputTokens: event.usage.outputTokens ?? 0,
+                  turns: event.usage.numTurns ?? 1,
+                });
+              }
+
               // Mark as unread — if user has the chat open, the frontend
               // will immediately call markRead to clear it
               void this.sessionRepo.updateTurnStatus(state.sessionId, 'unread');
@@ -653,6 +663,15 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 `[InteractiveSession] agent error during turn for session ${state.sessionId}:`,
                 event.content
               );
+              // Accumulate usage even on errors — cost was still incurred
+              if (event.usage) {
+                void this.sessionRepo.accumulateUsage(state.sessionId, {
+                  costUsd: event.usage.costUsd ?? 0,
+                  inputTokens: event.usage.inputTokens ?? 0,
+                  outputTokens: event.usage.outputTokens ?? 0,
+                  turns: event.usage.numTurns ?? 1,
+                });
+              }
               this.notify(state, {
                 delta: '',
                 done: true,
@@ -892,6 +911,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       // Resolve model display: explicit override > default
       const displayModel = state.model ?? 'claude-sonnet-4-6';
 
+      const usage = await this.sessionRepo.getUsage(state.sessionId);
       sessionInfo = {
         pid: null, // SDK manages process internally
         sessionId: state.agentSessionId ?? state.sessionId,
@@ -903,6 +923,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
         lastActivityAt: dbSession?.lastActivityAt
           ? new Date(dbSession.lastActivityAt as unknown as string).toISOString()
           : new Date().toISOString(),
+        totalCostUsd: usage?.totalCostUsd ?? null,
+        totalInputTokens: usage?.totalInputTokens ?? null,
+        totalOutputTokens: usage?.totalOutputTokens ?? null,
       };
     } else {
       // No in-memory state — check DB for last session (e.g. after server restart / hot-reload)
@@ -914,6 +937,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
           latest.status !== InteractiveSessionStatus.stopped &&
           latest.status !== InteractiveSessionStatus.error
         ) {
+          const latestUsage = await this.sessionRepo.getUsage(latest.id);
           sessionInfo = {
             pid: null,
             sessionId: latest.id,
@@ -925,6 +949,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
             lastActivityAt: latest.lastActivityAt
               ? new Date(latest.lastActivityAt as unknown as string).toISOString()
               : new Date().toISOString(),
+            totalCostUsd: latestUsage?.totalCostUsd ?? null,
+            totalInputTokens: latestUsage?.totalInputTokens ?? null,
+            totalOutputTokens: latestUsage?.totalOutputTokens ?? null,
           };
         }
       }

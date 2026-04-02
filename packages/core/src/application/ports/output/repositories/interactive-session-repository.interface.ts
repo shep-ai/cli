@@ -91,4 +91,25 @@ export interface IInteractiveSessionRepository {
    * Returns a map of featureId → turnStatus (only 'processing' | 'unread' entries).
    */
   getAllActiveTurnStatuses(): Promise<Map<string, string>>;
+
+  /**
+   * Accumulate usage from a completed turn onto the session totals.
+   * All values are ADDED to the existing totals (not replaced).
+   */
+  accumulateUsage(
+    id: string,
+    usage: { costUsd: number; inputTokens: number; outputTokens: number; turns: number }
+  ): Promise<void>;
+
+  /**
+   * Get cumulative usage for a session.
+   */
+  getUsage(
+    id: string
+  ): Promise<{
+    totalCostUsd: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalTurns: number;
+  } | null>;
 }

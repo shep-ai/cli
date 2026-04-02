@@ -229,6 +229,8 @@ describe('InteractiveSessionService', () => {
       updateTurnStatus: vi.fn().mockResolvedValue(undefined),
       getTurnStatuses: vi.fn().mockResolvedValue(new Map()),
       getAllActiveTurnStatuses: vi.fn().mockResolvedValue(new Map()),
+      accumulateUsage: vi.fn().mockResolvedValue(undefined),
+      getUsage: vi.fn().mockResolvedValue(null),
     };
 
     messageRepo = {

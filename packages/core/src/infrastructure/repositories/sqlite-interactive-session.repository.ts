@@ -169,4 +169,55 @@ export class SQLiteInteractiveSessionRepository implements IInteractiveSessionRe
     }
     return result;
   }
+
+  async accumulateUsage(
+    id: string,
+    usage: { costUsd: number; inputTokens: number; outputTokens: number; turns: number }
+  ): Promise<void> {
+    this.db
+      .prepare(
+        `UPDATE interactive_sessions SET
+           total_cost_usd = total_cost_usd + @cost_usd,
+           total_input_tokens = total_input_tokens + @input_tokens,
+           total_output_tokens = total_output_tokens + @output_tokens,
+           total_turns = total_turns + @turns,
+           updated_at = @updated_at
+         WHERE id = @id`
+      )
+      .run({
+        id,
+        cost_usd: usage.costUsd,
+        input_tokens: usage.inputTokens,
+        output_tokens: usage.outputTokens,
+        turns: usage.turns,
+        updated_at: Date.now(),
+      });
+  }
+
+  async getUsage(id: string): Promise<{
+    totalCostUsd: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalTurns: number;
+  } | null> {
+    const row = this.db
+      .prepare(
+        'SELECT total_cost_usd, total_input_tokens, total_output_tokens, total_turns FROM interactive_sessions WHERE id = ?'
+      )
+      .get(id) as
+      | {
+          total_cost_usd: number;
+          total_input_tokens: number;
+          total_output_tokens: number;
+          total_turns: number;
+        }
+      | undefined;
+    if (!row) return null;
+    return {
+      totalCostUsd: row.total_cost_usd,
+      totalInputTokens: row.total_input_tokens,
+      totalOutputTokens: row.total_output_tokens,
+      totalTurns: row.total_turns,
+    };
+  }
 }
