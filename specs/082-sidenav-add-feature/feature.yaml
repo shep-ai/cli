@@ -1,0 +1,34 @@
+feature:
+  id: "082-sidenav-add-feature"
+  name: "sidenav-add-feature"
+  number: 82
+  branch: "feat/082-sidenav-add-feature"
+  lifecycle: "research"
+  createdAt: "2026-04-02T17:47:53Z"
+status:
+  phase: "research"
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2026-04-02T17:47:53Z"
+  lastUpdatedBy: "feature-agent"
+  completedPhases:
+    - "evidence"
+    - "fast-implement"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-04-02T17:47:53Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []

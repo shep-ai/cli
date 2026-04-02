@@ -64,6 +64,8 @@ export interface AppSidebarProps {
   featureFlags: FeatureFlagsState;
 
   onFeatureClick?: (featureId: string) => void;
+  /** Called when the user clicks the + button on a repo group to create a feature */
+  onAddFeature?: (repositoryPath: string) => void;
 }
 
 export function AppSidebar({
@@ -71,6 +73,7 @@ export function AppSidebar({
   featureFlags,
 
   onFeatureClick,
+  onAddFeature,
 }: AppSidebarProps) {
   const { t, i18n } = useTranslation('web');
   const pathname = usePathname();
@@ -193,7 +196,12 @@ export function AppSidebar({
             <SidebarSectionHeader label={t('sidebar.features')} />
             <ScrollArea className="min-h-0 flex-1">
               {repoGroups.map(({ repoPath, repoName, featureCount, statusGroups }) => (
-                <RepoGroup key={repoPath} repoName={repoName} featureCount={featureCount}>
+                <RepoGroup
+                  key={repoPath}
+                  repoName={repoName}
+                  featureCount={featureCount}
+                  onAddFeature={onAddFeature ? () => onAddFeature(repoPath) : undefined}
+                >
                   {statusGroups.map(({ statusKey, label, items }) => (
                     <FeatureStatusGroup key={statusKey} label={label} count={items.length}>
                       {items.map((feature) => (

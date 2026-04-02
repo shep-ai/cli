@@ -44,6 +44,13 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
     [router, guardedNavigate]
   );
 
+  const handleAddFeature = useCallback(
+    (repositoryPath: string) => {
+      guardedNavigate(() => router.push(`/create?repo=${encodeURIComponent(repositoryPath)}`));
+    },
+    [router, guardedNavigate]
+  );
+
   const [addingRepo, setAddingRepo] = useState(false);
   const [githubDialogOpen, setGithubDialogOpen] = useState(false);
   const [showReactPicker, setShowReactPicker] = useState(false);
@@ -107,6 +114,7 @@ function AppShellInner({ children, sidebarOpen }: AppShellProps) {
         features={features}
         featureFlags={featureFlags}
         onFeatureClick={handleFeatureClick}
+        onAddFeature={handleAddFeature}
       />
       <SidebarInset>
         <div className="relative h-full">
