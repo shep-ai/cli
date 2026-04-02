@@ -21,7 +21,7 @@ describe('sanitizeForMessaging', () => {
   });
 
   it('should strip environment variable assignments', () => {
-    const result = sanitizeForMessaging('Using API_KEY=sk-abc123def456');
+    const result = sanitizeForMessaging('Using API_KEY=test-value');
     expect(result).toBe('Using [env]');
   });
 
