@@ -276,9 +276,10 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       );
       let handle: InteractiveAgentSessionHandle;
 
-      if (state.agentSessionId) {
+      const previousAgentSessionId = state.agentSessionId;
+      if (previousAgentSessionId) {
         // Resume existing SDK session
-        handle = await executor.resumeSession(state.agentSessionId, {
+        handle = await executor.resumeSession(previousAgentSessionId, {
           cwd: worktreePath,
           model: state.model,
           systemPrompt: context,
@@ -366,6 +367,17 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               // Capture the SDK session ID (available after first message exchange)
               const sdkSessionId = handle.sessionId;
               if (sdkSessionId) {
+                // Detect CWD mismatch: if we tried to resume but got a different
+                // session ID, the SDK silently created a fresh session (typically
+                // because the cwd changed or session JSONL was lost).
+                if (previousAgentSessionId && sdkSessionId !== previousAgentSessionId) {
+                  // eslint-disable-next-line no-console
+                  console.warn(
+                    `[InteractiveSession] Session resume mismatch for feature ${featureId}: ` +
+                      `expected ${previousAgentSessionId}, got ${sdkSessionId}. ` +
+                      `SDK created a fresh session (likely cwd changed or session expired).`
+                  );
+                }
                 state.agentSessionId = sdkSessionId;
                 // Persist to DB so it survives service restarts
                 void this.sessionRepo.updateAgentSessionId(state.sessionId, sdkSessionId);
