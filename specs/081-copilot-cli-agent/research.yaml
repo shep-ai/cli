@@ -1,0 +1,332 @@
+name: "copilot-cli-agent"
+summary: >
+  Comprehensive technical research for integrating GitHub Copilot CLI as a new agent executor
+  in Shep's settings-driven agent system. The implementation follows the established
+  subprocess-based executor pattern (ClaudeCodeExecutorService, CodexCliExecutorService,
+  GeminiCliExecutorService), spawning the `copilot` binary with -p flag prompt delivery,
+  --output-format json JSONL output, and --allow-all permissions bypass for headless execution.
+  No new npm dependencies required.
+
+relatedFeatures: []
+
+technologies:
+  - "TypeSpec (domain enum extension for AgentType)"
+  - "TypeScript (executor service implementation)"
+  - "Node.js child_process (subprocess spawning via SpawnFunction)"
+  - "GitHub Copilot CLI (copilot -p <prompt> --allow-all --output-format json)"
+  - "JSONL (newline-delimited JSON event stream parsing)"
+  - "Vitest (unit and integration testing)"
+  - "Next.js (web UI agent selection components)"
+  - "Storybook (UI component story variants)"
+  - "Inquirer.js (TUI agent selection prompt)"
+
+relatedLinks:
+  - title: "GitHub Copilot CLI documentation"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line"
+  - title: "GitHub Copilot npm package"
+    url: "https://www.npmjs.com/package/@githubnext/github-copilot-cli"
+  - title: "GitHub Copilot subscriptions"
+    url: "https://docs.github.com/en/copilot/about-github-copilot/subscription-plans-for-github-copilot"
+  - title: "GitHub Copilot models"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/ai-model-in-github-copilot"
+
+decisions:
+  - title: "Executor architecture pattern"
+    chosen: "Single-class subprocess executor following ClaudeCodeExecutorService and CodexCliExecutorService pattern"
+    rejected:
+      - "SDK-based integration via an HTTP client — would add npm dependencies and introduce a different integration pattern than all other executors. Every existing executor uses raw subprocess spawning via SpawnFunction for consistency and testability."
+      - "GitHub CLI (gh) extension wrapper — the `gh copilot` command is an interactive CLI extension without a documented non-interactive JSON output mode. The standalone `copilot` CLI provides --output-format json and --allow-all for headless operation."
+    rationale: |
+      All existing executors (ClaudeCode, CodexCli, GeminiCli, Cursor) use the same architecture:
+      constructor-injected SpawnFunction, spawn the CLI binary, deliver the prompt, and
+      parse structured JSON output from stdout. This pattern is proven, testable (mock
+      SpawnFunction), and maintains zero external dependencies. The Copilot CLI's
+      `copilot -p <prompt> --output-format json` mode produces JSONL events on stdout
+      that map to our AgentExecutionStreamEvent types.
+
+  - title: "Prompt delivery method"
+    chosen: "-p / --prompt flag"
+    rejected:
+      - "Stdin pipe — the confirmed non-interactive Copilot CLI interface uses -p flag, not stdin. Stdin delivery is not the documented pattern for Copilot CLI headless mode."
+      - "Positional argument — not the documented Copilot CLI interface. The -p flag is the explicit non-interactive prompt entry point."
+    rationale: |
+      Confirmed via local testing: the non-interactive Copilot CLI invocation is
+      `copilot -p "prompt" --allow-all --output-format json -s --no-custom-instructions --no-ask-user`.
+      The -p flag is the primary interface for headless operation. While other executors (CodexCli,
+      ClaudeCode) use stdin piping because their CLIs support it as a convention, Copilot CLI's
+      native non-interactive API is the -p flag. This avoids any stdin EOF signaling or buffering
+      complications specific to the copilot binary.
+      
+      Note: For very large prompts (>shell argument limit), a future iteration may explore
+      writing the prompt to a temp file and referencing it, but -p flag covers typical SDLC
+      prompt sizes.
+
+  - title: "Permission bypass mode"
+    chosen: "--allow-all flag"
+    rejected:
+      - "No permission flag — the CLI will pause for interactive approval at each tool use, incompatible with Shep's autonomous execution model."
+      - "Per-tool allowlist — Copilot CLI does not have a documented --allowedTools equivalent for fine-grained tool scoping in non-interactive mode."
+    rationale: |
+      --allow-all is the documented flag for non-interactive scripting and automation in
+      Copilot CLI. It grants all tool permissions without prompting, mirroring:
+      - Claude Code: --dangerously-skip-permissions
+      - Codex CLI: --sandbox danger-full-access
+      Shep's SDLC workflows are inherently autonomous — the agent must write files, run
+      commands, and modify the project without human approval gates at each step.
+      Security is maintained at the Shep orchestration level.
+
+  - title: "Session resume implementation"
+    chosen: "--resume=<sessionId> flag"
+    rejected:
+      - "--continue flag — resumes the most recent session without a specific ID. Less precise for multi-phase SDLC workflows where a specific earlier session must be targeted (e.g., resuming the research phase session during implementation)."
+      - "No session resume — would limit multi-phase SDLC workflow continuity. The sessionId from the result event provides clean mapping to AgentExecutionOptions.resumeSession."
+    rationale: |
+      Copilot CLI outputs a `result` event with a `sessionId` field in the JSONL stream.
+      This sessionId maps directly to AgentExecutionResult.sessionId and
+      AgentExecutionOptions.resumeSession. Using --resume=<sessionId> enables precise
+      multi-phase context continuity, mirroring how ClaudeCodeExecutorService uses
+      --resume <session_id>. --continue is a convenience alias for the most recent session
+      only and cannot target a specific prior phase's context.
+
+  - title: "Authentication strategy"
+    chosen: "GitHub OAuth session only (copilot auth login); no API key injection"
+    rejected:
+      - "GITHUB_TOKEN injection — a GitHub PAT does not grant Copilot API access. Copilot access is subscription-based via GitHub OAuth, not via a generic GitHub token."
+      - "COPILOT_API_KEY injection — there is no documented COPILOT_API_KEY environment variable for Copilot CLI. The authentication model is GitHub OAuth exclusively."
+    rationale: |
+      GitHub Copilot CLI is fundamentally different from Codex CLI and Gemini CLI in its auth model:
+      - Codex CLI: CODEX_API_KEY env var (OpenAI API key)
+      - Gemini CLI: GEMINI_API_KEY env var (Google AI Studio key)
+      - Copilot CLI: GitHub OAuth session (requires active Copilot subscription)
+      
+      There is no API token to inject. Users must run `copilot auth login` which stores
+      GitHub OAuth credentials locally. The executor only supports authMethod: 'session'.
+      If the user attempts to configure authMethod: 'token', the executor should surface
+      an informative error explaining that Copilot CLI uses GitHub OAuth only.
+      
+      This means the auth section of the settings wizard should only show the session
+      option for copilot-cli (no token input field).
+
+  - title: "JSONL event mapping to AgentExecutionStreamEvent"
+    chosen: "Map Copilot JSONL events to existing AgentExecutionStreamEvent types using a stateful line parser"
+    rejected:
+      - "Raw stdout buffering — loses streaming capability and sessionId metadata."
+      - "Regex-based text extraction — fragile and loses structured event type information."
+    rationale: |
+      Confirmed Copilot CLI JSONL event stream (from local testing with --output-format json):
+      - `assistant.message_delta` events — delta text being streamed (yield progress)
+      - `assistant.message` events — complete assistant message text (accumulate response)
+      - `result` event — final event with `sessionId` and usage stats (yield result)
+      
+      This maps to our stream event types:
+      - assistant.message_delta -> yield progress event with delta text
+      - assistant.message -> accumulate final response text
+      - result -> extract sessionId and usage, yield result event
+      - Any other event type with non-empty content -> yield progress
+      
+      The line-buffered JSONL parsing pattern is identical to CodexCliExecutorService
+      and ClaudeCodeExecutorService: accumulate stdout chunks, split on newlines, parse
+      each complete line as JSON, handle partial lines across chunk boundaries.
+
+  - title: "Model list strategy"
+    chosen: "Static curated list of known models accessible via Copilot CLI --model flag"
+    rejected:
+      - "Default model only (claude-sonnet-4-5) — unnecessarily restricts users with Copilot plans that provide access to other models."
+      - "Dynamic model discovery — would require spawning a subprocess just to list models, adding latency. No existing executor does dynamic discovery."
+    rationale: |
+      The factory's getSupportedModels() returns a static array (same as CLAUDE_CODE_MODELS,
+      CODEX_CLI_MODELS, GEMINI_CLI_MODELS, CURSOR_MODELS). This is informational for the UI
+      model picker — the executor passes whatever model the user configures via --model.
+      
+      Known models available via Copilot CLI (from documentation and --help output):
+      - claude-sonnet-4-5 (default)
+      - claude-opus-4-5
+      - claude-haiku-4-5
+      - gpt-4.1
+      - gpt-4o
+      - o3
+      - o4-mini
+      
+      The list should be treated as informational; actual model availability depends on
+      the user's Copilot subscription tier.
+
+  - title: "Feature support declaration"
+    chosen: "Support session-resume and streaming; do not support system-prompt, tool-scoping, structured-output, session-listing"
+    rejected:
+      - "Support all features — Copilot CLI does not have a --append-system-prompt flag; the system prompt is Copilot's own. No --allowedTools equivalent exists. No documented JSON schema output flag."
+      - "Support only streaming — misses session-resume which is critical for multi-phase SDLC workflows."
+    rationale: |
+      Based on confirmed Copilot CLI capabilities:
+      - session-resume: Supported via --resume=<sessionId>
+      - streaming: Supported via --output-format json JSONL event stream
+      - system-prompt: NOT supported (Copilot uses its own system prompt; no append flag)
+      - tool-scoping: NOT supported (no per-tool allowlist in non-interactive mode)
+      - structured-output: NOT supported initially (no JSON schema flag confirmed in CLI)
+      - session-listing: NOT supported initially
+      
+      structured-output may be added in a future iteration if a schema output flag
+      is discovered or added to the Copilot CLI. The supportsFeature() implementation
+      uses a static SUPPORTED_FEATURES Set, making additions trivial.
+
+openQuestions:
+  - question: "Does --no-custom-instructions affect Shep's system prompt injection?"
+    resolved: true
+    options:
+      - option: "Always pass --no-custom-instructions"
+        description: "The --no-custom-instructions flag disables the user's custom GitHub Copilot instructions (.github/copilot-instructions.md). This ensures Shep's prompts run without repo-level instruction interference, providing consistent behavior across different repos."
+        selected: true
+      - option: "Omit --no-custom-instructions"
+        description: "Allow custom instructions to apply. Could cause inconsistent behavior where Copilot behaves differently in repos with custom instructions vs without."
+        selected: false
+    selectionRationale: |
+      Always passing --no-custom-instructions ensures predictable executor behavior.
+      Shep constructs its own prompts with all necessary context; repo-level Copilot
+      instructions could interfere with or contradict Shep's instructions. The confirmed
+      non-interactive invocation includes this flag for consistency.
+
+  - question: "Should -s (silent) flag be passed to suppress progress output on stderr?"
+    resolved: true
+    options:
+      - option: "Always pass -s (silent) flag"
+        description: "The -s flag suppresses Copilot CLI's own progress/status output on stderr. Since Shep parses JSONL from stdout only, stderr noise from Copilot's own UI would be captured as error signals unless suppressed."
+        selected: true
+      - option: "Only pass -s when not in verbose mode"
+        description: "Conditionally suppress based on Shep's logging level. Adds complexity without benefit — Copilot's stderr UI output is not useful to Shep's parsing logic."
+        selected: false
+    selectionRationale: |
+      The confirmed non-interactive invocation includes -s. Always passing -s prevents
+      Copilot CLI's UI progress output (spinners, status lines) from appearing on stderr,
+      which Shep monitors for fatal error patterns. This keeps stderr clean: only genuine
+      errors (auth failure, binary missing, tool execution errors) appear there.
+
+  - question: "How should the executor handle Copilot CLI not being installed?"
+    resolved: true
+    options:
+      - option: "ENOENT → clear error with install instructions"
+        description: "When spawn fails with ENOENT (binary not found), reject with a message including installation instructions: 'GitHub Copilot CLI not found. Install via: npm install -g @githubnext/github-copilot-cli, then authenticate with: copilot auth login'"
+        selected: true
+      - option: "Generic ENOENT error"
+        description: "Surface the raw ENOENT error without guidance. Unhelpful for users who don't know the install path."
+        selected: false
+    selectionRationale: |
+      All other executors (ClaudeCode, CodexCli, GeminiCli) surface actionable install
+      instructions on ENOENT. For Copilot CLI, the error should include both the install
+      command and the authentication step since both are required before first use.
+
+content: |
+  ## Confirmed CLI Behavior (Local Testing)
+
+  The following Copilot CLI behavior was confirmed via local testing:
+
+  ### Binary and Version
+  - Binary name: `copilot`
+  - `copilot --help` confirms available flags including `--model`, `--resume`, `--allow-all`,
+    `--output-format json`, `-s`, `--no-custom-instructions`, `--no-ask-user`
+
+  ### Non-Interactive Invocation
+  ```
+  copilot -p "Reply with exactly OK" --allow-all --output-format json -s --no-custom-instructions --no-ask-user
+  ```
+  
+  Flags breakdown:
+  - `-p <prompt>` — The prompt text (primary non-interactive input)
+  - `--allow-all` — Bypasses all tool permission prompts
+  - `--output-format json` — Enables JSONL structured output on stdout
+  - `-s` — Silent mode (suppress CLI progress UI on stderr)
+  - `--no-custom-instructions` — Disables repo-level custom instructions
+  - `--no-ask-user` — Never prompts the user for input during execution
+
+  ### JSONL Output Format
+  ```
+  {"type":"assistant.message_delta","delta":"O"}
+  {"type":"assistant.message_delta","delta":"K"}
+  {"type":"assistant.message","content":"OK"}
+  {"type":"result","sessionId":"<uuid>","usage":{"inputTokens":N,"outputTokens":N}}
+  ```
+  
+  Key events:
+  - `assistant.message_delta` — streaming text delta (for real-time output)
+  - `assistant.message` — complete assistant response text
+  - `result` — final event with sessionId and usage statistics
+
+  ### Session Resume
+  ```
+  copilot -p "follow-up prompt" --resume=<sessionId> --allow-all --output-format json -s --no-custom-instructions --no-ask-user
+  ```
+  The `--resume=<sessionId>` flag accepts the sessionId from a previous execution's `result` event.
+
+  ### Model Selection
+  ```
+  copilot -p "prompt" --model claude-opus-4-5 --allow-all --output-format json -s --no-custom-instructions --no-ask-user
+  ```
+
+  ### Authentication
+  - Auth is GitHub OAuth via `copilot auth login` (browser-based)
+  - Requires active GitHub Copilot subscription
+  - No API key environment variable available or needed
+  - Unauthenticated invocations exit non-zero with auth error on stderr
+
+  ## Integration Architecture
+
+  ### File Locations
+  - Executor: `packages/core/src/infrastructure/services/agents/common/executors/copilot-cli-executor.service.ts`
+  - Tests: `tests/unit/infrastructure/services/agents/executors/copilot-cli-executor.test.ts`
+  - Icon: `public/icons/agents/copilot.svg`
+
+  ### Executor Class Structure
+  ```typescript
+  export class CopilotCliExecutorService implements IAgentExecutor {
+    readonly agentType = AgentType.CopilotCli;
+    
+    constructor(
+      private readonly spawn: SpawnFunction,
+      private readonly authConfig?: AgentConfig,
+    ) {}
+    
+    supportsFeature(feature: AgentExecutorFeature): boolean { ... }
+    async execute(prompt: string, options?: AgentExecutionOptions): Promise<AgentExecutionResult> { ... }
+    async *executeStream(prompt: string, options?: AgentExecutionOptions): AsyncGenerator<AgentExecutionStreamEvent> { ... }
+  }
+  ```
+
+  ### Base Flags (constant)
+  ```
+  ['--allow-all', '--output-format', 'json', '-s', '--no-custom-instructions', '--no-ask-user']
+  ```
+
+  ### buildArgs() Logic
+  1. Start with base flags
+  2. If `options.model` is provided: append `['--model', options.model]`
+  3. If `options.resumeSession` is provided: append `['--resume=' + options.resumeSession]`
+  4. Prepend `['-p', prompt]` — always the first two arguments
+  
+  Final invocation: `copilot -p <prompt> [--model <model>] [--resume=<sessionId>] --allow-all --output-format json -s --no-custom-instructions --no-ask-user`
+
+  ### JSONL Parser Logic
+  ```
+  For each JSONL line:
+    parse as JSON
+    if type === 'assistant.message_delta': delta += event.delta; yield progress
+    if type === 'assistant.message': responseText = event.content
+    if type === 'result': sessionId = event.sessionId; usage = event.usage; yield result
+    else: skip (unknown event type)
+  ```
+
+  ### Auth Validation
+  - The executor does not inject any environment variable
+  - If spawn fails with ENOENT: clear error with install instructions
+  - If exit code is non-zero and stderr contains 'auth' or 'login': auth error message
+    with `copilot auth login` instructions
+  - Auth method 'token' is unsupported: surface informative error
+
+  ## Risk Assessment
+
+  | Risk | Likelihood | Mitigation |
+  | ---- | ---------- | ---------- |
+  | Copilot CLI JSONL schema changes in new versions | Low | JSONL parser skips unknown event types gracefully; add version detection if needed |
+  | --resume flag syntax changes | Low | Isolate resume logic to buildArgs(); easy to update |
+  | TypeSpec compilation fails after enum addition | Very Low | Run pnpm tsp:compile immediately; well-established pattern |
+  | GitHub Copilot icon licensing | Low | Use GitHub's openly published Copilot icon; verify license |
+  | -p flag insufficient for very large prompts | Medium | Document size limit; future iteration can write to temp file and reference |
+  | Model list drift (new models not in static list) | Medium | Static list is informational only; users can type any model string manually |
+  | Windows process termination differences | Low | Follow existing taskkill /F /T pattern from Cursor executor |

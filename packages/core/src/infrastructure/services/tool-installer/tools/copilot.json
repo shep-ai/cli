@@ -1,0 +1,32 @@
+{
+  "name": "GitHub Copilot CLI",
+  "summary": "AI-powered code assistant from GitHub",
+  "description": "GitHub Copilot CLI is an AI-powered code assistant from GitHub that helps you write, understand, and debug code with advanced AI capabilities.",
+  "tags": ["cli-agent"],
+  "author": "GitHub",
+  "website": "https://github.com/features/copilot/cli",
+  "platforms": ["linux", "darwin", "win32"],
+  "iconUrl": "https://cdn.simpleicons.org/githubcopilot",
+  "binary": "copilot",
+  "packageManager": "curl",
+  "commands": {
+    "linux": "curl -fsSL https://gh.io/copilot-install | bash",
+    "darwin": "curl -fsSL https://gh.io/copilot-install | bash",
+    "win32": "npm install -g @github/copilot-cli"
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli-agents/overview",
+  "verifyCommand": "copilot --version",
+  "autoInstall": true,
+  "openDirectory": "cd {dir} && exec copilot",
+  "spawnOptions": {
+    "shell": true,
+    "stdio": "inherit",
+    "detached": false
+  },
+  "terminalCommand": {
+    "linux": "x-terminal-emulator -e bash -c 'cd {dir} && exec copilot'",
+    "darwin": "open -a Terminal.app bash -c 'cd {dir} && exec copilot'",
+    "win32": "start pwsh.exe 'cd {dir} && copilot'"
+  }
+}

@@ -36,6 +36,11 @@ export function createAgentSelectConfig() {
         description: t('tui:prompts.selectAgent.choices.codexCli.description'),
       },
       {
+        name: t('tui:prompts.selectAgent.choices.copilotCli.name'),
+        value: AgentType.CopilotCli,
+        description: t('tui:prompts.selectAgent.choices.copilotCli.description'),
+      },
+      {
         name: t('tui:prompts.selectAgent.choices.cursor.name'),
         value: AgentType.Cursor,
         description: t('tui:prompts.selectAgent.choices.cursor.description'),

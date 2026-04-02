@@ -9,6 +9,10 @@
           "name": "Codex CLI",
           "description": "OpenAI Codex CLI Terminal-Agent (GPT-Modelle)"
         },
+        "copilotCli": {
+          "name": "Copilot CLI",
+          "description": "GitHub Copilot CLI (Standard: Claude Sonnet 4.5, erfordert Copilot-Abonnement)"
+        },
         "cursor": { "name": "Cursor", "description": "Cursor KI-Coding-Agent" },
         "devMock": {
           "name": "Dev (Mock)",

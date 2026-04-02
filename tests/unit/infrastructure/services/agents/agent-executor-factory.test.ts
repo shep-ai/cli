@@ -12,6 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentExecutorFactory } from '@/infrastructure/services/agents/common/agent-executor-factory.service.js';
 import { DevAgentExecutorService } from '@/infrastructure/services/agents/common/executors/dev-executor.service.js';
 import { CodexCliExecutorService } from '@/infrastructure/services/agents/common/executors/codex-cli-executor.service.js';
+import { CopilotCliExecutorService } from '@/infrastructure/services/agents/common/executors/copilot-cli-executor.service.js';
 import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
 import { AgentType, AgentAuthMethod } from '@/domain/generated/output.js';
 import type { AgentConfig } from '@/domain/generated/output.js';
@@ -146,6 +147,31 @@ describe('AgentExecutorFactory', () => {
       expect(executor).toBeInstanceOf(CodexCliExecutorService);
     });
 
+    it('should create CopilotCliExecutorService for copilot-cli type', () => {
+      const copilotConfig: AgentConfig = {
+        type: AgentType.CopilotCli,
+        authMethod: AgentAuthMethod.Session,
+      };
+
+      const executor = factory.createExecutor(AgentType.CopilotCli, copilotConfig);
+
+      expect(executor).toBeDefined();
+      expect(executor).toBeInstanceOf(CopilotCliExecutorService);
+      expect(executor.agentType).toBe(AgentType.CopilotCli);
+    });
+
+    it('should cache copilot-cli executor instances', () => {
+      const copilotConfig: AgentConfig = {
+        type: AgentType.CopilotCli,
+        authMethod: AgentAuthMethod.Session,
+      };
+
+      const executor1 = factory.createExecutor(AgentType.CopilotCli, copilotConfig);
+      const executor2 = factory.createExecutor(AgentType.CopilotCli, copilotConfig);
+
+      expect(executor1).toBe(executor2);
+    });
+
     it('should return executor with correct agentType', () => {
       const executor = factory.createExecutor(AgentType.ClaudeCode, defaultAuthConfig);
 
@@ -168,8 +194,9 @@ describe('AgentExecutorFactory', () => {
       expect(supported).toContain('cursor');
       expect(supported).toContain('gemini-cli');
       expect(supported).toContain('codex-cli');
+      expect(supported).toContain('copilot-cli');
       expect(supported).toContain('dev');
-      expect(supported).toHaveLength(5);
+      expect(supported).toHaveLength(6);
     });
 
     it('should not include unsupported agents', () => {
@@ -188,6 +215,15 @@ describe('AgentExecutorFactory', () => {
       expect(codexInfo).toBeDefined();
       expect(codexInfo!.cmd).toBe('codex');
       expect(codexInfo!.versionArgs).toEqual(['--version']);
+    });
+
+    it('should include copilot-cli entry with cmd copilot', () => {
+      const cliInfos = factory.getCliInfo();
+      const copilotInfo = cliInfos.find((info) => info.agentType === AgentType.CopilotCli);
+
+      expect(copilotInfo).toBeDefined();
+      expect(copilotInfo!.cmd).toBe('copilot');
+      expect(copilotInfo!.versionArgs).toEqual(['--version']);
     });
   });
 
@@ -241,6 +277,27 @@ describe('AgentExecutorFactory', () => {
         'gpt-5-codex',
         'gpt-5-codex-mini',
         'gpt-5',
+      ]);
+    });
+
+    it('should return copilot-cli model list with 7 models', () => {
+      const models = factory.getSupportedModels(AgentType.CopilotCli);
+
+      expect(models).toHaveLength(13);
+      expect(models).toEqual([
+        'claude-haiku-4.5',
+        'claude-opus-4.5',
+        'claude-opus-4.6',
+        'claude-sonnet-4',
+        'claude-sonnet-4.5',
+        'claude-sonnet-4.6',
+        'gpt-4.1',
+        'gpt-5-mini',
+        'gpt-5.2',
+        'gpt-5.2-codex',
+        'gpt-5.3-codex',
+        'gpt-5.4',
+        'gpt-5.4-mini',
       ]);
     });
 

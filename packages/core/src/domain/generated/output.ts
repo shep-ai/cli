@@ -462,6 +462,7 @@ export type WorkflowConfig = {
 export enum AgentType {
   ClaudeCode = 'claude-code',
   CodexCli = 'codex-cli',
+  CopilotCli = 'copilot-cli',
   GeminiCli = 'gemini-cli',
   Aider = 'aider',
   Continue = 'continue',

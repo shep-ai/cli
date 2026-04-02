@@ -1,0 +1,163 @@
+name: "copilot-cli-agent"
+summary: >
+  Integrate GitHub Copilot CLI as a new agent executor following the established subprocess-based
+  pattern (ClaudeCodeExecutorService, CodexCliExecutorService, GeminiCliExecutorService). The
+  implementation is purely additive — extend TypeSpec AgentType enum, implement
+  CopilotCliExecutorService with JSONL parsing and session resume, wire through factory/DI/
+  presentation layers. Four phases: domain foundation, executor core, factory+DI wiring, and
+  presentation layer integration.
+
+relatedFeatures: []
+technologies:
+  - "TypeSpec (AgentType enum extension)"
+  - "TypeScript (executor service implementation)"
+  - "Node.js child_process (subprocess spawning via SpawnFunction)"
+  - "GitHub Copilot CLI (copilot -p <prompt> --allow-all --output-format json)"
+  - "JSONL (newline-delimited JSON event stream parsing)"
+  - "Vitest (unit and integration testing)"
+  - "Next.js (web UI agent selection components)"
+  - "Storybook (UI component story variants)"
+  - "Inquirer.js (TUI agent selection prompt)"
+
+relatedLinks:
+  - title: "GitHub Copilot CLI documentation"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line"
+  - title: "GitHub Copilot models"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/ai-model-in-github-copilot"
+
+phases:
+  - id: "phase-1"
+    name: "Domain Foundation"
+    description: |
+      Add CopilotCli variant to the AgentType enum in TypeSpec and regenerate
+      domain output. This must come first because every downstream component
+      (executor, factory, DI, UI) depends on the AgentType enum having the
+      copilot-cli value. Quick phase — single enum addition plus tsp compile.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Executor Service Core"
+    description: |
+      Implement CopilotCliExecutorService — the main engineering effort. Includes
+      execute(), executeStream(), supportsFeature(), JSONL event parsing (-p flag
+      prompt delivery, assistant.message_delta/assistant.message/result events),
+      session resume via --resume=<sessionId>, and error handling. TDD-driven with
+      comprehensive unit tests modeled on codex-cli-executor.test.ts. This phase
+      depends on phase-1 for the AgentType enum value.
+    parallel: false
+
+  - id: "phase-3"
+    name: "Factory, DI, and Infrastructure Wiring"
+    description: |
+      Wire the executor into the system: add copilot-cli case to AgentExecutorFactory
+      (createExecutor, getSupportedAgents, getCliInfo, getSupportedModels), register
+      stub session repository in DI container. Update existing factory tests. This phase
+      depends on phase-2 for the executor class.
+    parallel: false
+
+  - id: "phase-4"
+    name: "Presentation Layer Integration"
+    description: |
+      Add Copilot CLI to all user-facing surfaces: TUI agent select prompt, Web UI
+      agent settings section (session-only auth), agent type icons, agent model picker,
+      and all associated Storybook stories. Includes sourcing the GitHub Copilot brand
+      icon asset. This phase depends on phase-3 for factory integration (model picker
+      reads from factory).
+    parallel: false
+
+filesToCreate:
+  - "packages/core/src/infrastructure/services/agents/common/executors/copilot-cli-executor.service.ts"
+  - "tests/unit/infrastructure/services/agents/executors/copilot-cli-executor.test.ts"
+  - "public/icons/agents/copilot.svg"
+
+filesToModify:
+  - "tsp/common/enums/agent-config.tsp"
+  - "packages/core/src/domain/generated/output.ts"
+  - "packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts"
+  - "packages/core/src/infrastructure/di/container.ts"
+  - "tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts"
+  - "src/presentation/tui/prompts/agent-select.prompt.ts"
+  - "src/presentation/web/components/common/feature-node/agent-type-icons.tsx"
+  - "src/presentation/web/components/features/settings/agent-settings-section.tsx"
+  - "src/presentation/web/app/actions/get-all-agent-models.ts"
+  - "src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx"
+  - "src/presentation/web/components/features/settings/agent-settings-section.stories.tsx"
+  - "src/presentation/web/components/features/settings/AgentModelPicker/AgentModelPicker.stories.tsx"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The Copilot CLI executor integrates into Shep's existing agent system as a fifth
+  subprocess-based executor alongside ClaudeCode, CodexCli, GeminiCli, and Cursor. The
+  architecture is purely additive — no existing interfaces, patterns, or abstractions change.
+
+  **Integration points follow Clean Architecture layers:**
+  - **Domain:** AgentType enum gains `CopilotCli: "copilot-cli"` variant (TypeSpec -> generated output)
+  - **Infrastructure:** New CopilotCliExecutorService implements IAgentExecutor; factory creates it;
+    DI container registers a stub session repository
+  - **Presentation:** TUI agent select prompt, Web UI settings/icons/model picker all gain
+    copilot-cli entries
+
+  The executor spawns `copilot -p <prompt> --allow-all --output-format json -s
+  --no-custom-instructions --no-ask-user`, parses JSONL events from stdout, and accumulates
+  the response from `assistant.message` events. This follows the established pattern in
+  ClaudeCodeExecutorService and CodexCliExecutorService with the key difference being
+  -p flag prompt delivery instead of stdin piping.
+
+  ## Key Design Decisions
+
+  ### 1. -p Flag Prompt Delivery (not stdin)
+  Copilot CLI's confirmed non-interactive interface uses `-p <prompt>`. Unlike Codex CLI
+  (which accepts `codex exec -` for stdin) and Claude Code (stdin pipe), Copilot CLI's
+  headless API is the -p flag. This is a departure from the stdin convention used by
+  other executors but is the correct approach for Copilot CLI.
+
+  ### 2. --allow-all Permission Bypass
+  Matches the pattern where all autonomous executors bypass interactive approval gates:
+  Claude Code: --dangerously-skip-permissions, Codex: --sandbox danger-full-access.
+  --allow-all is Copilot CLI's equivalent for non-interactive scripting.
+
+  ### 3. Session Resume via --resume=<sessionId>
+  The sessionId from the final `result` JSONL event maps to AgentExecutionResult.sessionId.
+  `--resume=<sessionId>` is appended to the args when options.resumeSession is provided.
+  This mirrors ClaudeCodeExecutorService's `--resume <session_id>` pattern.
+
+  ### 4. OAuth-Only Authentication (no API key injection)
+  Unlike all other executors, Copilot CLI does not support API key injection. Auth is
+  GitHub OAuth exclusively (copilot auth login). The executor supports only authMethod:
+  'session'. Attempting authMethod: 'token' surfaces an informative error.
+
+  ### 5. Always --output-format json for JSONL Event Stream
+  Provides sessionId, usage metadata, and typed events (assistant.message_delta,
+  assistant.message, result) in both execute() and executeStream(). Single parsing
+  codepath for both methods.
+
+  ### 6. Static Model List (13 known models)
+  getSupportedModels() returns a static array — informational for the UI model picker.
+  Known models: claude-haiku-4.5 (Default), claude-opus-4.5, claude-opus-4.6, claude-sonnet-4,
+  claude-sonnet-4.5, claude-sonnet-4.6, gpt-4.1, gpt-5-mini, gpt-5.2, gpt-5.2-codex,
+  gpt-5.3-codex, gpt-5.4, gpt-5.4-mini. The executor passes whatever model the user configures.
+
+  ## Implementation Strategy
+
+  **Phase ordering rationale:** Domain types must exist before the executor can reference
+  them; the executor must exist before the factory can instantiate it; the factory must be
+  wired before the UI can display models from it.
+
+  Phase 1 is intentionally small (single enum addition + tsp compile). Phase 2 is the
+  bulk of the effort (~350-line executor + ~500-line test file), following strict TDD with
+  the codex-cli-executor test pattern as a template. Phase 3 is mechanical wiring with
+  existing patterns to follow. Phase 4 is mostly copy-paste from existing agent entries.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Copilot CLI JSONL format differs from confirmed testing | JSONL parser gracefully skips unknown event types; integration test validates real output |
+  | --resume flag syntax changes between versions | Isolate to buildArgs(); single-line change to update |
+  | TypeSpec compilation breaks after enum addition | Run pnpm tsp:compile immediately; well-established pattern |
+  | GitHub Copilot icon licensing | Use GitHub's openly published Copilot SVG mark; verify license |
+  | Factory tests break when adding new agent type | Update factory test assertions for copilot-cli in getSupportedAgents and model list |
+  | Windows process termination | Follow existing taskkill /F /T pattern from Cursor executor |
