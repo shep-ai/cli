@@ -1,13 +1,48 @@
 
  RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-messaging-remote-control
 
- ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts (9 tests) 23ms
- ✓  node  tests/unit/infrastructure/services/messaging/chat-relay.test.ts (8 tests) 32ms
- ✓  node  tests/unit/infrastructure/services/messaging/notification-emitter.test.ts (7 tests) 16ms
- ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts (15 tests) 20ms
+ ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts > sanitizeForMessaging > should strip Unix absolute file paths 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts > sanitizeForMessaging > should strip Windows file paths 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts > sanitizeForMessaging > should strip environment variable assignments 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts > sanitizeForMessaging > should strip fenced code blocks 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts > sanitizeForMessaging > should strip long inline code 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts > sanitizeForMessaging > should truncate messages exceeding 4000 characters 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts > sanitizeForMessaging > should preserve normal text without sensitive content 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts > sanitizeForMessaging > should handle empty strings 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/content-sanitizer.test.ts > sanitizeForMessaging > should handle messages exactly at the limit 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/chat-relay.test.ts > MessagingChatRelay > startRelay > should start a relay and return a confirmation message 4ms
+ ✓  node  tests/unit/infrastructure/services/messaging/chat-relay.test.ts > MessagingChatRelay > endRelay > should end the relay and return a confirmation message 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/chat-relay.test.ts > MessagingChatRelay > endRelay > should return "no active relay" when there is none 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/chat-relay.test.ts > MessagingChatRelay > bufferAgentOutput > should buffer output and flush after interval 4ms
+ ✓  node  tests/unit/infrastructure/services/messaging/chat-relay.test.ts > MessagingChatRelay > bufferAgentOutput > should not send when no active relay 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/chat-relay.test.ts > MessagingChatRelay > flushBuffer > should flush immediately when called explicitly 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/chat-relay.test.ts > MessagingChatRelay > flushBuffer > should not send when buffer is empty 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/chat-relay.test.ts > MessagingChatRelay > stop > should flush any remaining buffer and clear the relay 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/notification-emitter.test.ts > MessagingNotificationEmitter > should not forward events before start() 7ms
+ ✓  node  tests/unit/infrastructure/services/messaging/notification-emitter.test.ts > MessagingNotificationEmitter > should forward events after start() with debouncing 2ms
+ ✓  node  tests/unit/infrastructure/services/messaging/notification-emitter.test.ts > MessagingNotificationEmitter > should debounce multiple events for the same feature+type 3ms
+ ✓  node  tests/unit/infrastructure/services/messaging/notification-emitter.test.ts > MessagingNotificationEmitter > should NOT debounce waiting_approval events 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/notification-emitter.test.ts > MessagingNotificationEmitter > should not debounce events for different features 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/notification-emitter.test.ts > MessagingNotificationEmitter > should stop forwarding after stop() 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/notification-emitter.test.ts > MessagingNotificationEmitter > should sanitize messages before forwarding 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > help command > should return help text 3ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > status command > should return "No active features" when list is empty 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > status command > should list features with short IDs 2ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > status command > should show single feature detail when featureId is provided 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > approve command > should return usage when no featureId 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > approve command > should return not found when feature does not exist 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > approve command > should approve when feature has active agent run 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > approve command > should return error when feature has no agent run 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > reject command > should reject with feedback 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > stop command > should stop agent run 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > new command > should return usage when no args 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > new command > should return error when no repositories configured 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > new command > should create feature when repository exists 0ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > resume command > should resume a feature 1ms
+ ✓  node  tests/unit/infrastructure/services/messaging/command-executor.test.ts > MessagingCommandExecutor > unknown command > should return unknown command message 0ms
 
  Test Files  4 passed (4)
       Tests  39 passed (39)
-   Start at  12:00:57
-   Duration  543ms (transform 627ms, setup 183ms, import 625ms, tests 92ms, environment 1ms)
+   Start at  12:10:52
+   Duration  415ms (transform 381ms, setup 221ms, import 357ms, tests 46ms, environment 1ms)
 

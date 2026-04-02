@@ -1,10 +1,21 @@
 
  RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-messaging-remote-control
 
- ✓  node  tests/unit/commands/_serve.command.test.ts (12 tests) 21ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > command structure > returns a Commander Command instance 4ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > command structure > has name "_serve" 0ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > command structure > is hidden from --help output 1ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > command structure > has a --port option 1ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > command execution > calls WebServerService.start with the provided port 4ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > command execution > passes port 4099 when --port 4099 is provided 1ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > command execution > starts the notification watcher after server start 0ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > SIGTERM graceful shutdown > registers a SIGTERM handler 1ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > SIGTERM graceful shutdown > calls service.stop() when SIGTERM is received 1ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > SIGTERM graceful shutdown > calls process.exit(0) after graceful shutdown 1ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > SIGTERM graceful shutdown > isShuttingDown flag prevents double-shutdown (service.stop called once) 1ms
+ ✓  node  tests/unit/commands/_serve.command.test.ts > _serve command > SIGINT graceful shutdown > registers a SIGINT handler with the same shutdown behavior 1ms
 
  Test Files  1 passed (1)
       Tests  12 passed (12)
-   Start at  12:01:39
-   Duration  438ms (transform 191ms, setup 78ms, import 173ms, tests 21ms, environment 0ms)
+   Start at  12:10:54
+   Duration  432ms (transform 198ms, setup 64ms, import 180ms, tests 16ms, environment 0ms)
 
