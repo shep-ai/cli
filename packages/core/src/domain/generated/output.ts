@@ -636,6 +636,54 @@ export type FabLayoutConfig = {
 };
 
 /**
+ * Configuration for a single messaging platform connection
+ */
+export type MessagingPlatformConfig = {
+  /**
+   * Whether this platform connection is active
+   */
+  enabled: boolean;
+  /**
+   * Platform-specific chat ID for message routing (set during pairing)
+   */
+  chatId?: string;
+  /**
+   * Whether the chat has been verified via pairing code
+   */
+  paired: boolean;
+};
+
+/**
+ * Messaging remote control configuration
+ */
+export type MessagingConfig = {
+  /**
+   * Whether messaging remote control is enabled
+   */
+  enabled: boolean;
+  /**
+   * URL of the Commands.com Gateway instance
+   */
+  gatewayUrl?: string;
+  /**
+   * Telegram platform configuration
+   */
+  telegram?: MessagingPlatformConfig;
+  /**
+   * WhatsApp platform configuration
+   */
+  whatsapp?: MessagingPlatformConfig;
+  /**
+   * Debounce window in milliseconds for notification delivery (default: 5000)
+   */
+  debounceMs: number;
+  /**
+   * Buffer interval in milliseconds for chat relay output batching (default: 3000)
+   */
+  chatBufferMs: number;
+};
+
+/**
  * Global Shep platform settings (singleton)
  */
 export type Settings = BaseEntity & {
@@ -683,6 +731,10 @@ export type Settings = BaseEntity & {
    * FAB layout configuration (optional, defaults applied at runtime)
    */
   fabLayout?: FabLayoutConfig;
+  /**
+   * Messaging remote control configuration (optional, defaults applied at runtime)
+   */
+  messaging?: MessagingConfig;
 };
 export enum TaskState {
   Todo = 'Todo',
@@ -1671,6 +1723,78 @@ export type Repository = SoftDeletableEntity & {
    * Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)
    */
   remoteUrl?: string;
+};
+export enum MessagingFrameType {
+  Command = 'command',
+  ChatMessage = 'chat_message',
+  ChatControl = 'chat_control',
+}
+export enum MessagingCommandType {
+  New = 'new',
+  Approve = 'approve',
+  Reject = 'reject',
+  Stop = 'stop',
+  Resume = 'resume',
+  Status = 'status',
+  Mute = 'mute',
+  Unmute = 'unmute',
+  Help = 'help',
+}
+export enum MessagingPlatform {
+  Telegram = 'telegram',
+  WhatsApp = 'whatsapp',
+}
+
+/**
+ * A parsed command received from a messaging platform via the Gateway tunnel
+ */
+export type MessagingCommand = {
+  /**
+   * Type of frame: command, chat_message, or chat_control
+   */
+  type: MessagingFrameType;
+  /**
+   * The slash command name (new, approve, reject, stop, resume, status)
+   */
+  command: MessagingCommandType;
+  /**
+   * Target feature ID (short numeric or full UUID)
+   */
+  featureId?: string;
+  /**
+   * Free-text arguments (feature description, rejection feedback, chat text)
+   */
+  args?: string;
+  /**
+   * Chat ID for routing responses back to the correct conversation
+   */
+  chatId: string;
+  /**
+   * Platform for routing responses back (telegram or whatsapp)
+   */
+  platform: MessagingPlatform;
+};
+
+/**
+ * A notification or response sent from Shep to a messaging platform via the Gateway tunnel
+ */
+export type MessagingNotification = {
+  /**
+   * Event type: feature lifecycle, CI status, gate waiting, command response, chat response
+   */
+  event: string;
+  /**
+   * ID of the feature this notification relates to
+   */
+  featureId: string;
+  /**
+   * Human-readable feature name or title
+   */
+  title: string;
+  /**
+   * Human-readable notification body (sanitized, no code or secrets)
+   */
+  message: string;
 };
 
 /**
