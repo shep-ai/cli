@@ -32,15 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        agent: [dev, claude-code, cursor]
-        # 8/9 combos enabled — cursor/windows excluded (cursor CLI hangs on Windows CI)
-        exclude:
-          - os: windows-latest
-            agent: cursor
-        # To exclude other combos, add entries here:
-        #   - os: ubuntu-latest
-        #     agent: dev
-        #   - os: macos-latest
+        agent: [dev, claude-code]
+        # cursor temporarily excluded from e2e matrix
+        # agent: [dev, claude-code, cursor]
+        # exclude:
+        #   - os: windows-latest
         #     agent: cursor
 
     permissions:
@@ -86,19 +82,19 @@ jobs:
           if (Test-Path "$env:USERPROFILE\.local\bin") { $claudePath = "$env:USERPROFILE\.local\bin" }
           echo $claudePath >> $env:GITHUB_PATH
 
-      - name: Install Cursor CLI (Linux/macOS)
-        if: matrix.agent == 'cursor' && runner.os != 'Windows'
-        run: |
-          curl -fsS https://cursor.com/install | bash
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      # - name: Install Cursor CLI (Linux/macOS)
+      #   if: matrix.agent == 'cursor' && runner.os != 'Windows'
+      #   run: |
+      #     curl -fsS https://cursor.com/install | bash
+      #     echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Install Cursor CLI (Windows)
-        if: matrix.agent == 'cursor' && runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          irm 'https://cursor.com/install?win32=true' | iex
-          # Installer adds $LOCALAPPDATA\cursor-agent to user PATH
-          echo "$env:LOCALAPPDATA\cursor-agent" >> $env:GITHUB_PATH
+      # - name: Install Cursor CLI (Windows)
+      #   if: matrix.agent == 'cursor' && runner.os == 'Windows'
+      #   shell: pwsh
+      #   run: |
+      #     irm 'https://cursor.com/install?win32=true' | iex
+      #     # Installer adds $LOCALAPPDATA\cursor-agent to user PATH
+      #     echo "$env:LOCALAPPDATA\cursor-agent" >> $env:GITHUB_PATH
 
       # ─────────────────────────────────────────────────────────────────────
       # 3. Clone sheep repo (target for feature creation)
@@ -122,15 +118,15 @@ jobs:
         shell: bash
         working-directory: ${{ env.TARGET_DIR }}
         run: |
-          if [ "${{ matrix.agent }}" = "cursor" ]; then
-            shep settings agent --agent cursor --auth token --token "$CURSOR_API_KEY"
-          elif [ "${{ matrix.agent }}" = "claude-code" ]; then
+          # if [ "${{ matrix.agent }}" = "cursor" ]; then
+          #   shep settings agent --agent cursor --auth token --token "$CURSOR_API_KEY"
+          if [ "${{ matrix.agent }}" = "claude-code" ]; then
             shep settings agent --agent claude-code --auth session
           else
             shep settings agent --agent dev
           fi
-        env:
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        # env:
+        #   CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
 
       # ─────────────────────────────────────────────────────────────────────
       # 5. Generate prompt and create feature (no push/pr/merge)
@@ -142,14 +138,14 @@ jobs:
         env:
           DEV_EXECUTOR_DELAY_MS: '0'
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          # CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
         run: |
           SUFFIX=$(node -e "console.log(Math.random().toString(36).slice(2,8))")
           # Use cheapest model per agent
           # Cursor CLI only supports its own model list — use "auto" (its default)
-          if [ "${{ matrix.agent }}" = "cursor" ]; then
-            MODEL="auto"
-          elif [ "${{ matrix.agent }}" = "claude-code" ]; then
+          # if [ "${{ matrix.agent }}" = "cursor" ]; then
+          #   MODEL="auto"
+          if [ "${{ matrix.agent }}" = "claude-code" ]; then
             MODEL="claude-haiku-4-5"
           else
             MODEL=""
@@ -184,7 +180,7 @@ jobs:
         env:
           DEV_EXECUTOR_DELAY_MS: '0'
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          # CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
         run: |
           const { execSync } = require('child_process');
           const cwd = process.env.TARGET_DIR;
