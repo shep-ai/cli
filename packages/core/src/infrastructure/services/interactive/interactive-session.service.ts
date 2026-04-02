@@ -93,6 +93,14 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   private sessions = new Map<string, SessionState>();
   /** Cached agentSessionIds from stopped sessions, keyed by featureId. */
   private stoppedAgentSessionIds = new Map<string, string>();
+  /**
+   * Feature-level subscribers that survive session restarts.
+   *
+   * Unlike session-level subscribers (in SessionState.subscribers), these
+   * persist when a session dies and a new one boots. SSE connections
+   * subscribe here so they continue receiving events from new sessions.
+   */
+  private featureSubscribers = new Map<string, Set<(chunk: StreamChunk) => void>>();
 
   constructor(
     private readonly sessionRepo: IInteractiveSessionRepository,
@@ -311,7 +319,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               if (event.content) {
                 greetingText += event.content;
                 state.currentAssistantBuffer += event.content;
-                state.subscribers.forEach((sub) => sub({ delta: event.content!, done: false }));
+                this.notify(state, { delta: event.content!, done: false });
               }
               break;
 
@@ -320,14 +328,12 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 const toolLabel = event.label;
                 const toolDetail = event.detail;
                 void this.persistToolEvent(state, toolLabel, toolDetail);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Using tool: ${toolLabel}`,
-                    activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Using tool: ${toolLabel}`,
+                  activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
+                });
               }
               break;
 
@@ -336,23 +342,19 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 const resultLabel = event.label;
                 const resultDetail = event.detail;
                 void this.persistToolEvent(state, resultLabel, resultDetail);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Completed: ${resultLabel}`,
-                    activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Completed: ${resultLabel}`,
+                  activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
+                });
               }
               break;
 
             case 'status':
               if (event.content) {
                 const statusContent = event.content;
-                state.subscribers.forEach((sub) =>
-                  sub({ delta: '', done: false, log: statusContent })
-                );
+                this.notify(state, { delta: '', done: false, log: statusContent });
               }
               break;
 
@@ -392,7 +394,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               state.toolEventsLog = [];
 
               // Notify subscribers of end-of-turn
-              state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+              this.notify(state, { delta: '', done: true });
 
               // Start idle timer now that the session is live
               this.resetTimer(state);
@@ -564,7 +566,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               if (event.content) {
                 responseText += event.content;
                 state.currentAssistantBuffer += event.content;
-                state.subscribers.forEach((sub) => sub({ delta: event.content!, done: false }));
+                this.notify(state, { delta: event.content!, done: false });
               }
               break;
 
@@ -573,14 +575,12 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 const toolLabel = event.label;
                 const toolDetail = event.detail;
                 void this.persistToolEvent(state, toolLabel, toolDetail);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Using tool: ${toolLabel}`,
-                    activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Using tool: ${toolLabel}`,
+                  activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
+                });
               }
               break;
 
@@ -589,23 +589,19 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 const resultLabel = event.label;
                 const resultDetail = event.detail;
                 void this.persistToolEvent(state, resultLabel, resultDetail);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Completed: ${resultLabel}`,
-                    activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Completed: ${resultLabel}`,
+                  activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
+                });
               }
               break;
 
             case 'status':
               if (event.content) {
                 const statusContent = event.content;
-                state.subscribers.forEach((sub) =>
-                  sub({ delta: '', done: false, log: statusContent })
-                );
+                this.notify(state, { delta: '', done: false, log: statusContent });
               }
               break;
 
@@ -635,7 +631,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               void this.sessionRepo.updateTurnStatus(state.sessionId, 'unread');
 
               // Notify subscribers of end-of-turn
-              state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+              this.notify(state, { delta: '', done: true });
               return; // Turn complete
             }
 
@@ -645,9 +641,11 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 `[InteractiveSession] agent error during turn for session ${state.sessionId}:`,
                 event.content
               );
-              state.subscribers.forEach((sub) =>
-                sub({ delta: '', done: true, log: `Error: ${event.content ?? 'unknown'}` })
-              );
+              this.notify(state, {
+                delta: '',
+                done: true,
+                log: `Error: ${event.content ?? 'unknown'}`,
+              });
               break;
 
             case 'init':
@@ -657,36 +655,32 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               break;
 
             case 'api_retry':
-              state.subscribers.forEach((sub) =>
-                sub({ delta: '', done: false, log: event.content ?? 'Retrying API call...' })
-              );
+              this.notify(state, {
+                delta: '',
+                done: false,
+                log: event.content ?? 'Retrying API call...',
+              });
               break;
 
             case 'rate_limit':
-              state.subscribers.forEach((sub) =>
-                sub({ delta: '', done: false, log: event.content ?? 'Rate limited' })
-              );
+              this.notify(state, { delta: '', done: false, log: event.content ?? 'Rate limited' });
               break;
 
             case 'task_started':
               if (event.content) {
                 void this.persistToolEvent(state, 'Subtask started', event.content);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Subtask: ${event.content}`,
-                    activity: { kind: 'system', label: 'Subtask started', detail: event.content },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Subtask: ${event.content}`,
+                  activity: { kind: 'system', label: 'Subtask started', detail: event.content },
+                });
               }
               break;
 
             case 'task_progress':
               if (event.content) {
-                state.subscribers.forEach((sub) =>
-                  sub({ delta: '', done: false, log: `Subtask: ${event.content}` })
-                );
+                this.notify(state, { delta: '', done: false, log: `Subtask: ${event.content}` });
               }
               break;
 
@@ -694,18 +688,16 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               if (event.content) {
                 const taskStatus = event.detail ?? 'completed';
                 void this.persistToolEvent(state, `Subtask ${taskStatus}`, event.content);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Subtask ${taskStatus}: ${event.content}`,
-                    activity: {
-                      kind: 'system',
-                      label: `Subtask ${taskStatus}`,
-                      detail: event.content,
-                    },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Subtask ${taskStatus}: ${event.content}`,
+                  activity: {
+                    kind: 'system',
+                    label: `Subtask ${taskStatus}`,
+                    detail: event.content,
+                  },
+                });
               }
               break;
           }
@@ -731,7 +723,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 
         state.currentAssistantBuffer = '';
         state.toolEventsLog = [];
-        state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+        this.notify(state, { delta: '', done: true });
       } else if (!responseText) {
         // Stream ended without any response — SDK session likely died.
         // Mark as error so the next message triggers a fresh session.
@@ -739,9 +731,11 @@ export class InteractiveSessionService implements IInteractiveSessionService {
         console.error(
           `[InteractiveSession] stream ended without response for session ${state.sessionId} — session may have died`
         );
-        state.subscribers.forEach((sub) =>
-          sub({ delta: '', done: true, log: 'Session disconnected — will restart on next message' })
-        );
+        this.notify(state, {
+          delta: '',
+          done: true,
+          log: 'Session disconnected — will restart on next message',
+        });
         if (state.agentSessionId) {
           this.stoppedAgentSessionIds.set(state.featureId, state.agentSessionId);
         }
@@ -943,13 +937,21 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   }
 
   subscribeByFeature(featureId: string, onChunk: (chunk: StreamChunk) => void): UnsubscribeFn {
-    const state = this.findActiveStateForFeature(featureId);
-    if (!state) {
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
-      return () => {};
+    // Subscribe at the feature level so the callback survives session restarts.
+    // When a session dies (idle timeout, error) and a new one boots, the SSE
+    // connection keeps receiving events from the new session automatically.
+    let subs = this.featureSubscribers.get(featureId);
+    if (!subs) {
+      subs = new Set();
+      this.featureSubscribers.set(featureId, subs);
     }
-    state.subscribers.add(onChunk);
-    return () => state.subscribers.delete(onChunk);
+    subs.add(onChunk);
+    return () => {
+      subs!.delete(onChunk);
+      if (subs!.size === 0) {
+        this.featureSubscribers.delete(featureId);
+      }
+    };
   }
 
   async stopByFeature(featureId: string): Promise<void> {
@@ -1053,6 +1055,25 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       await this.messageRepo.create(msg);
     } catch {
       // Non-critical — don't fail the turn for a tool event
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Event dispatch
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Dispatch a StreamChunk to all subscribers for a session.
+   *
+   * Sends to both session-level subscribers (legacy, for sessionId-based
+   * subscribe()) and feature-level subscribers (for SSE connections that
+   * must survive session restarts).
+   */
+  private notify(state: SessionState, chunk: StreamChunk): void {
+    state.subscribers.forEach((sub) => sub(chunk));
+    const featureSubs = this.featureSubscribers.get(state.featureId);
+    if (featureSubs) {
+      featureSubs.forEach((sub) => sub(chunk));
     }
   }
 
