@@ -51,7 +51,7 @@ export function AddSkillDialog({
       toast.error(result.error ?? 'Failed to add skill');
       return;
     }
-    toast.success(`Added "${skill.name}" to auto-injection`);
+    toast.success(`Added "${skill.name}" to feature skills`);
     onAdded();
   };
 
@@ -72,7 +72,7 @@ export function AddSkillDialog({
       toast.error(result.error ?? 'Failed to add skill');
       return;
     }
-    toast.success(`Added "${remoteName.trim()}" to auto-injection`);
+    toast.success(`Added "${remoteName.trim()}" to feature skills`);
     setRemoteName('');
     setRemoteSource('');
     setRemoteSkillName('');
@@ -83,7 +83,7 @@ export function AddSkillDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" data-testid="add-skill-dialog">
         <DialogHeader>
-          <DialogTitle>Add Skill to Auto-Injection</DialogTitle>
+          <DialogTitle>Add Skill to Features</DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="local">
           <TabsList className="w-full">

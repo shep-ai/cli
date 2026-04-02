@@ -61,13 +61,9 @@ export function SkillsPageClient({ skills, injectionConfig }: SkillsPageClientPr
   if (skills.length === 0) {
     return (
       <div className="flex flex-col gap-6 p-6">
-        <PageHeader title="Skills" description="Claude Code skills installed in this project" />
-        {injectionConfig.skills.length > 0 ? (
-          <>
-            <AutoInjectedSkillsSection config={injectionConfig} discoveredSkills={skills} />
-            <Separator />
-          </>
-        ) : null}
+        <PageHeader title="Skills" description="Claude Code skills available to this project" />
+        <AutoInjectedSkillsSection config={injectionConfig} discoveredSkills={skills} />
+        <Separator />
         <EmptyState
           icon={<Puzzle className="size-10" />}
           title="No skills found"
@@ -79,15 +75,11 @@ export function SkillsPageClient({ skills, injectionConfig }: SkillsPageClientPr
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <PageHeader title="Skills" description="Claude Code skills installed in this project" />
+      <PageHeader title="Skills" description="Claude Code skills available to this project" />
 
-      {/* Auto-Injected Skills */}
-      {injectionConfig.skills.length > 0 ? (
-        <>
-          <AutoInjectedSkillsSection config={injectionConfig} discoveredSkills={skills} />
-          <Separator />
-        </>
-      ) : null}
+      {/* Feature Skills */}
+      <AutoInjectedSkillsSection config={injectionConfig} discoveredSkills={skills} />
+      <Separator />
 
       {/* Search */}
       <div className="relative">

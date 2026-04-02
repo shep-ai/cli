@@ -375,6 +375,12 @@ describe('createDefaultSettings', () => {
               type: SkillSourceType.Local,
               source: '.claude/skills/vercel-react-best-practices',
             },
+            {
+              name: 'frontend-design',
+              type: SkillSourceType.Remote,
+              source: 'anthropics/claude-code',
+              remoteSkillName: 'frontend-design',
+            },
           ],
         },
       });
@@ -392,23 +398,42 @@ describe('createDefaultSettings', () => {
       expect(settings.workflow.skillInjection!.enabled).toBe(false);
     });
 
-    it('should have 7 default local skills', () => {
+    it('should have 8 default skills', () => {
       const settings = createDefaultSettings();
-      expect(settings.workflow.skillInjection!.skills).toHaveLength(7);
+      expect(settings.workflow.skillInjection!.skills).toHaveLength(8);
     });
 
-    it('should have all skills with type local', () => {
+    it('should have local skills with type local and remote skills with type remote', () => {
       const settings = createDefaultSettings();
-      for (const skill of settings.workflow.skillInjection!.skills) {
-        expect(skill.type).toBe(SkillSourceType.Local);
-      }
+      const localSkills = settings.workflow.skillInjection!.skills.filter(
+        (s) => s.type === SkillSourceType.Local
+      );
+      const remoteSkills = settings.workflow.skillInjection!.skills.filter(
+        (s) => s.type === SkillSourceType.Remote
+      );
+      expect(localSkills).toHaveLength(7);
+      expect(remoteSkills).toHaveLength(1);
     });
 
-    it('should have each skill with a valid source path', () => {
+    it('should have each local skill with a valid source path', () => {
       const settings = createDefaultSettings();
-      for (const skill of settings.workflow.skillInjection!.skills) {
+      const localSkills = settings.workflow.skillInjection!.skills.filter(
+        (s) => s.type === SkillSourceType.Local
+      );
+      for (const skill of localSkills) {
         expect(skill.source).toBe(`.claude/skills/${skill.name}`);
       }
+    });
+
+    it('should have remote frontend-design skill with correct source and skill name', () => {
+      const settings = createDefaultSettings();
+      const remoteSkill = settings.workflow.skillInjection!.skills.find(
+        (s) => s.name === 'frontend-design'
+      );
+      expect(remoteSkill).toBeDefined();
+      expect(remoteSkill!.type).toBe(SkillSourceType.Remote);
+      expect(remoteSkill!.source).toBe('anthropics/claude-code');
+      expect(remoteSkill!.remoteSkillName).toBe('frontend-design');
     });
 
     it('should include the expected skill names', () => {
@@ -422,6 +447,7 @@ describe('createDefaultSettings', () => {
         'shadcn-ui',
         'tsp-model',
         'vercel-react-best-practices',
+        'frontend-design',
       ]);
     });
   });

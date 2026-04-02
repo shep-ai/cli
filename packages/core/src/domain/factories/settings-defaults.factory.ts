@@ -174,6 +174,12 @@ export function createDefaultSettings(): Settings {
         type: SkillSourceType.Local,
         source: '.claude/skills/vercel-react-best-practices',
       },
+      {
+        name: 'frontend-design',
+        type: SkillSourceType.Remote,
+        source: 'anthropics/claude-code',
+        remoteSkillName: 'frontend-design',
+      },
     ],
   };
 
