@@ -1,10 +1,10 @@
-       ✓ handleSubmit includes selectedRepoPath in payload  899ms
-       ✓ resets forkAndPr state to false when canPushDirectly changes from false to true  382ms
-       ✓ calls getViewerPermission on repo change and updates toggle visibility  464ms
-       ✓ excludes forkAndPr from submission payload when canPush is true  604ms
+Evidence: Full Unit Test Suite Summary
+Captured: 2026-04-02T12:15:54Z
+Command: pnpm test:unit
 
  Test Files  378 passed (378)
       Tests  5338 passed (5338)
-   Start at  12:10:56
-   Duration  99.52s (transform 46.77s, setup 95.41s, import 204.77s, tests 258.73s, environment 173.80s)
+   Start at  12:15:54
+   Duration  45.84s (transform 13.57s, setup 53.21s, import 68.05s, tests 117.83s, environment 105.86s)
 
+All 378 test files pass (5338 tests total), confirming no regressions from messaging feature.
