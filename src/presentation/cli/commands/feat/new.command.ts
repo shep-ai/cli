@@ -36,6 +36,7 @@ interface NewOptions {
   allowAll?: boolean;
   parent?: string;
   fast?: boolean;
+  explore?: boolean;
   pending?: boolean;
   model?: string;
   attach?: string[];
@@ -102,6 +103,7 @@ export function createNewCommand(): Command {
     .option('--pending', t('cli:commands.feat.new.pendingOption'))
     .option('--fast', t('cli:commands.feat.new.fastOption'))
     .option('--no-fast', t('cli:commands.feat.new.noFastOption'))
+    .option('--explore', t('cli:commands.feat.new.exploreOption'))
     .option('--model <model>', t('cli:commands.feat.new.modelOption'))
     .option('--no-rebase', t('cli:commands.feat.new.noRebaseOption'))
     .option('--attach <path>', t('cli:commands.feat.new.attachOption'), collect, [])
@@ -160,11 +162,20 @@ export function createNewCommand(): Command {
           }
         }
 
-        const mode = options.fast
-          ? FeatureMode.Fast
-          : options.fast === false
-            ? FeatureMode.Regular
-            : defaults.defaultMode;
+        // Validate mutually exclusive mode flags
+        if (options.explore && options.fast) {
+          messages.error(t('cli:commands.feat.new.exploreAndFastConflict'));
+          process.exitCode = 1;
+          return;
+        }
+
+        const mode = options.explore
+          ? FeatureMode.Exploration
+          : options.fast
+            ? FeatureMode.Fast
+            : options.fast === false
+              ? FeatureMode.Regular
+              : defaults.defaultMode;
 
         const result = await spinner(t('cli:commands.feat.new.spinnerText'), () =>
           useCase.execute({
