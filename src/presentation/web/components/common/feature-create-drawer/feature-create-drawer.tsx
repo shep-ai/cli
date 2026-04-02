@@ -35,6 +35,7 @@ import { Separator } from '@/components/ui/separator';
 import { pickFolder } from '@/components/common/add-repository-button/pick-folder';
 import { ReactFileManagerDialog } from '@/components/common/react-file-manager-dialog';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
+import { FeatureMode } from '@shepai/core/domain/generated/output';
 import { addRepository } from '@/app/actions/add-repository';
 import { pickFiles } from './pick-files';
 
@@ -80,8 +81,8 @@ export interface FeatureCreatePayload {
   enableEvidence: boolean;
   commitEvidence: boolean;
   parentId?: string;
-  /** When true, skip SDLC phases and implement directly from the prompt. */
-  fast: boolean;
+  /** Execution mode: Regular (full SDLC), Fast (direct implementation), or Exploration (iterative prototyping). */
+  mode: FeatureMode;
   /** When true, create the feature in pending state (no agent spawned). */
   pending?: boolean;
   /** Fork repo and create PR to upstream at merge time. */
@@ -225,7 +226,7 @@ export function FeatureCreateDrawer({
   const defaultCiWatch = workflowDefaults?.ciWatchEnabled !== false;
   const defaultEnableEvidence = workflowDefaults?.enableEvidence ?? false;
   const defaultCommitEvidence = workflowDefaults?.commitEvidence ?? false;
-  const defaultFast = workflowDefaults?.fast !== false;
+  const defaultMode = workflowDefaults?.defaultMode ?? FeatureMode.Fast;
 
   const [description, setDescription] = useState(initialDescription ?? '');
 
@@ -244,7 +245,7 @@ export function FeatureCreateDrawer({
   const [enableEvidence, setEnableEvidence] = useState(defaultEnableEvidence);
   const [commitEvidence, setCommitEvidence] = useState(defaultCommitEvidence);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
-  const [fast, setFast] = useState(defaultFast);
+  const [mode, setMode] = useState<FeatureMode>(defaultMode);
   const [pending, setPending] = useState(false);
   const [forkAndPr, setForkAndPr] = useState(false);
   const [commitSpecs, setCommitSpecs] = useState(true);
@@ -273,7 +274,7 @@ export function FeatureCreateDrawer({
       setCiWatchEnabled(workflowDefaults.ciWatchEnabled !== false);
       setEnableEvidence(workflowDefaults.enableEvidence);
       setCommitEvidence(workflowDefaults.commitEvidence);
-      setFast(workflowDefaults.fast !== false);
+      setMode(workflowDefaults.defaultMode ?? FeatureMode.Fast);
     }
   }, [workflowDefaults]);
 
@@ -330,7 +331,7 @@ export function FeatureCreateDrawer({
     setParentId(undefined);
     setSelectedRepoPath(validRepoPath || undefined);
     setLocalRepos(repositories ?? []);
-    setFast(defaultFast);
+    setMode(defaultMode);
     setPending(false);
     setForkAndPr(false);
     setCommitSpecs(true);
@@ -347,7 +348,7 @@ export function FeatureCreateDrawer({
     defaultEnableEvidence,
     defaultCiWatch,
     defaultCommitEvidence,
-    defaultFast,
+    defaultMode,
     validRepoPath,
     repositories,
   ]);
@@ -506,7 +507,7 @@ export function FeatureCreateDrawer({
         ciWatchEnabled,
         enableEvidence,
         commitEvidence,
-        fast,
+        mode,
         forkAndPr,
         commitSpecs,
         rebaseBeforeBranch,
@@ -530,7 +531,7 @@ export function FeatureCreateDrawer({
       enableEvidence,
       ciWatchEnabled,
       commitEvidence,
-      fast,
+      mode,
       forkAndPr,
       commitSpecs,
       rebaseBeforeBranch,
@@ -825,8 +826,10 @@ export function FeatureCreateDrawer({
                       <div className="flex cursor-pointer items-center gap-2">
                         <Switch
                           id="fast-mode"
-                          checked={fast}
-                          onCheckedChange={setFast}
+                          checked={mode === FeatureMode.Fast}
+                          onCheckedChange={(v) =>
+                            setMode(v ? FeatureMode.Fast : FeatureMode.Regular)
+                          }
                           disabled={isSubmitting}
                         />
                         <Label
@@ -906,7 +909,8 @@ export function FeatureCreateDrawer({
                             }
                             disabled={
                               isSubmitting ||
-                              (fast && (opt.id === 'allowPrd' || opt.id === 'allowPlan'))
+                              (mode === FeatureMode.Fast &&
+                                (opt.id === 'allowPrd' || opt.id === 'allowPlan'))
                             }
                           />
                           <Label
@@ -918,7 +922,8 @@ export function FeatureCreateDrawer({
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">
-                        {fast && (opt.id === 'allowPrd' || opt.id === 'allowPlan')
+                        {mode === FeatureMode.Fast &&
+                        (opt.id === 'allowPrd' || opt.id === 'allowPlan')
                           ? t('createDrawer.skippedInFastMode')
                           : opt.description}
                       </TooltipContent>

@@ -26,7 +26,7 @@ import type { ISpecInitializerService } from '@/application/ports/output/service
 import type { IRepositoryRepository } from '@/application/ports/output/repositories/repository-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IAgentValidator } from '@/application/ports/output/agents/agent-validator.interface.js';
-import { SdlcLifecycle } from '@/domain/generated/output.js';
+import { SdlcLifecycle, FeatureMode } from '@/domain/generated/output.js';
 import type { Feature } from '@/domain/generated/output.js';
 import type { MetadataGenerator } from '@/application/use-cases/features/create/metadata-generator.js';
 import type { SlugResolver } from '@/application/use-cases/features/create/slug-resolver.js';
@@ -57,7 +57,7 @@ function makeParentFeature(overrides?: Partial<Feature>): Feature {
     lifecycle: SdlcLifecycle.Implementation,
     messages: [],
     relatedArtifacts: [],
-    fast: false,
+    mode: FeatureMode.Regular,
     push: false,
     openPr: false,
     forkAndPr: false,
@@ -531,13 +531,13 @@ describe('CreateFeatureUseCase', () => {
 
   describe('fast mode', () => {
     it('should set lifecycle to Implementation when fast=true', async () => {
-      const result = await useCase.execute({ ...baseInput, fast: true });
+      const result = await useCase.execute({ ...baseInput, mode: FeatureMode.Fast });
 
       expect(result.feature.lifecycle).toBe(SdlcLifecycle.Implementation);
     });
 
     it('should set lifecycle to Requirements when fast=false', async () => {
-      const result = await useCase.execute({ ...baseInput, fast: false });
+      const result = await useCase.execute({ ...baseInput, mode: FeatureMode.Regular });
 
       expect(result.feature.lifecycle).toBe(SdlcLifecycle.Requirements);
     });
@@ -549,7 +549,7 @@ describe('CreateFeatureUseCase', () => {
     });
 
     it('should pass fast flag to specInitializer.initialize() as mode', async () => {
-      await useCase.execute({ ...baseInput, fast: true });
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Fast });
 
       expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
         expect.any(String),
@@ -561,7 +561,7 @@ describe('CreateFeatureUseCase', () => {
     });
 
     it('should not pass mode to specInitializer.initialize() when fast is false', async () => {
-      await useCase.execute({ ...baseInput, fast: false });
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Regular });
 
       expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
         expect.any(String),
@@ -573,7 +573,7 @@ describe('CreateFeatureUseCase', () => {
     });
 
     it('should pass fast=true to agentProcess.spawn() options', async () => {
-      await useCase.execute({ ...baseInput, fast: true });
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Fast });
 
       expect(mockAgentProcess.spawn).toHaveBeenCalledWith(
         expect.any(String),
@@ -581,12 +581,12 @@ describe('CreateFeatureUseCase', () => {
         expect.any(String),
         expect.any(String),
         expect.any(String),
-        expect.objectContaining({ fast: true })
+        expect.objectContaining({ mode: FeatureMode.Fast })
       );
     });
 
     it('should not include fast in spawn options when fast is false', async () => {
-      await useCase.execute({ ...baseInput, fast: false });
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Regular });
 
       const spawnCall = (mockAgentProcess.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
       const options = spawnCall[5];
@@ -600,7 +600,7 @@ describe('CreateFeatureUseCase', () => {
       const result = await useCase.execute({
         ...baseInput,
         parentId: 'parent-id',
-        fast: true,
+        mode: FeatureMode.Fast,
       });
 
       expect(result.feature.lifecycle).toBe(SdlcLifecycle.Blocked);
@@ -679,7 +679,7 @@ describe('CreateFeatureUseCase', () => {
     });
 
     it('should set fast feature to Pending lifecycle when pending=true and fast=true', async () => {
-      const result = await useCase.execute({ ...baseInput, pending: true, fast: true });
+      const result = await useCase.execute({ ...baseInput, pending: true, mode: FeatureMode.Fast });
 
       expect(result.feature.lifecycle).toBe(SdlcLifecycle.Pending);
       expect(mockAgentProcess.spawn).not.toHaveBeenCalled();

@@ -17,7 +17,7 @@ import { join, resolve } from 'node:path';
 import { container } from '@/infrastructure/di/container.js';
 import { CreateFeatureUseCase } from '@/application/use-cases/features/create/create-feature.use-case.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
-import { SdlcLifecycle } from '@/domain/generated/output.js';
+import { SdlcLifecycle, FeatureMode } from '@/domain/generated/output.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { colors, messages, spinner } from '../../ui/index.js';
 import { getCliI18n } from '../../i18n.js';
@@ -56,7 +56,7 @@ interface WorkflowDefaults {
   allowPlan: boolean;
   allowMerge: boolean;
   push: boolean;
-  fast: boolean;
+  defaultMode: FeatureMode;
 }
 
 function getWorkflowDefaults(): WorkflowDefaults {
@@ -67,7 +67,7 @@ function getWorkflowDefaults(): WorkflowDefaults {
       allowPlan: false,
       allowMerge: false,
       push: false,
-      fast: true,
+      defaultMode: FeatureMode.Fast,
     };
   }
   const settings = getSettings();
@@ -78,7 +78,7 @@ function getWorkflowDefaults(): WorkflowDefaults {
     allowPlan: gates.allowPlan,
     allowMerge: gates.allowMerge,
     push: gates.pushOnImplementationComplete,
-    fast: settings.workflow.defaultFastMode,
+    defaultMode: settings.workflow.defaultFastMode ? FeatureMode.Fast : FeatureMode.Regular,
   };
 }
 
@@ -160,7 +160,11 @@ export function createNewCommand(): Command {
           }
         }
 
-        const fast = options.fast ?? defaults.fast;
+        const mode = options.fast
+          ? FeatureMode.Fast
+          : options.fast === false
+            ? FeatureMode.Regular
+            : defaults.defaultMode;
 
         const result = await spinner(t('cli:commands.feat.new.spinnerText'), () =>
           useCase.execute({
@@ -171,7 +175,7 @@ export function createNewCommand(): Command {
             openPr,
             ...(parentId !== undefined && { parentId }),
             ...(options.pending && { pending: true }),
-            ...(fast && { fast: true }),
+            mode,
             ...(options.model !== undefined && { model: options.model }),
             ...(attachmentPaths.length > 0 && { attachmentPaths }),
             rebaseBeforeBranch: options.rebase,

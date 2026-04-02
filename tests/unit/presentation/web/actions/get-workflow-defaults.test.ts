@@ -20,6 +20,10 @@ describe('getWorkflowDefaults server action', () => {
     mockGetSettings.mockReturnValue({
       workflow: {
         openPrOnImplementationComplete: true,
+        defaultFastMode: true,
+        ciWatchEnabled: true,
+        enableEvidence: false,
+        commitEvidence: false,
         approvalGateDefaults: {
           allowPrd: true,
           allowPlan: false,
@@ -39,6 +43,10 @@ describe('getWorkflowDefaults server action', () => {
       },
       push: true,
       openPr: true,
+      ciWatchEnabled: true,
+      enableEvidence: false,
+      commitEvidence: false,
+      defaultMode: 'Fast',
     });
   });
 
@@ -46,6 +54,10 @@ describe('getWorkflowDefaults server action', () => {
     mockGetSettings.mockReturnValue({
       workflow: {
         openPrOnImplementationComplete: false,
+        defaultFastMode: false,
+        ciWatchEnabled: false,
+        enableEvidence: false,
+        commitEvidence: false,
         approvalGateDefaults: {
           allowPrd: false,
           allowPlan: false,
@@ -65,6 +77,10 @@ describe('getWorkflowDefaults server action', () => {
       },
       push: false,
       openPr: false,
+      ciWatchEnabled: false,
+      enableEvidence: false,
+      commitEvidence: false,
+      defaultMode: 'Regular',
     });
   });
 
