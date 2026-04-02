@@ -453,7 +453,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         label: t('fab.adoptBranch'),
         icon: <GitBranch className="h-4 w-4" />,
         onClick: () => {
-          guardedNavigate(() => router.push('/adopt'));
+          guardedNavigate(() => router.push('/adopt' as Parameters<typeof router.push>[0]));
         },
       });
     }

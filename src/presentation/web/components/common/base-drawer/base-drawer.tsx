@@ -129,7 +129,7 @@ export function BaseDrawer({
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="ring-offset-background focus:ring-ring absolute end-4 top-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden"
+          className="ring-offset-background focus:ring-ring absolute end-3 top-2 z-50 rounded-sm p-1 opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden"
           data-testid={testId ? `${testId}-close-button` : undefined}
         >
           <XIcon className="size-4" />

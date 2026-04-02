@@ -2,7 +2,7 @@
 
 import { existsSync } from 'node:fs';
 import { platform } from 'node:os';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, normalize } from 'node:path';
 import { spawn } from 'node:child_process';
 
 // Use a record lookup instead of if/else to prevent the bundler from
@@ -35,7 +35,11 @@ export async function openFolder(
       };
     }
 
-    const child = spawn(entry.cmd, entry.args(repositoryPath), {
+    // Normalize to platform-native separators — explorer.exe on Windows
+    // does not understand forward-slash paths and falls back to Documents.
+    const nativePath = normalize(repositoryPath);
+
+    const child = spawn(entry.cmd, entry.args(nativePath), {
       detached: true,
       stdio: 'ignore',
     });

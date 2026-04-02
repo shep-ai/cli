@@ -1,21 +1,11 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import {
-  Loader2,
-  Trash2,
-  Play,
-  Square,
-  Copy,
-  Check,
-  Code2,
-  ExternalLink,
-  Archive,
-  ArchiveRestore,
-} from 'lucide-react';
+import { Loader2, Trash2, Play, Square, Copy, Check, Archive, ArchiveRestore } from 'lucide-react';
 import type {
   PrdApprovalPayload,
   QuestionSelectionChange,
@@ -23,6 +13,7 @@ import type {
 import { approveFeature } from '@/app/actions/approve-feature';
 import { resumeFeature } from '@/app/actions/resume-feature';
 import { startFeature } from '@/app/actions/start-feature';
+import { stopFeature } from '@/app/actions/stop-feature';
 import { rejectFeature } from '@/app/actions/reject-feature';
 import type { RejectAttachment } from '@/components/common/drawer-action-bar';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
@@ -35,10 +26,8 @@ import { useDeployAction } from '@/hooks/use-deploy-action';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { BaseDrawer } from '@/components/common/base-drawer';
 import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
-import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeleteFeatureDialog } from '@/components/common/delete-feature-dialog';
-import { ActionButton } from '@/components/common/action-button';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import { FeatureDrawerTabs } from '@/components/common/feature-drawer-tabs';
 import { useFeatureActions } from '@/components/common/feature-drawer/use-feature-actions';
@@ -74,9 +63,24 @@ export function FeatureDrawerClient({
   // Track the view locally so SSE events can update the drawer type in real-time
   const [view, setView] = useState(initialView);
 
-  // Sync when server re-renders with new props (e.g. after navigation)
+  // Sync when server re-renders with new props (e.g. after navigation).
+  // When reopening the SAME feature, merge server data into the existing view
+  // to preserve enriched fields (repositoryName, baseBranch, oneLiner, remoteUrl)
+  // that useDrawerSync added but the minimal server component doesn't provide.
   useEffect(() => {
-    setView(initialView);
+    setView((prev) => {
+      if (
+        prev.type === 'feature' &&
+        initialView.type === 'feature' &&
+        prev.node.featureId === initialView.node.featureId
+      ) {
+        return {
+          ...initialView,
+          node: { ...prev.node, ...initialView.node },
+        };
+      }
+      return initialView;
+    });
   }, [initialView]);
 
   const featureNode = view.type === 'feature' ? view.node : null;
@@ -479,16 +483,27 @@ export function FeatureDrawerClient({
       return;
     }
     toast.success('Feature resumed — agent restarting');
-    // Optimistically update canvas node
     window.dispatchEvent(
       new CustomEvent('shep:feature-approved', {
         detail: { featureId },
       })
     );
-    // Optimistically update the drawer view
     setView((prev) => {
       if (prev.type !== 'feature') return prev;
       return { ...prev, node: { ...prev.node, state: 'running' } };
+    });
+  }, []);
+
+  const handleStop = useCallback(async (featureId: string) => {
+    const result = await stopFeature(featureId);
+    if (!result.stopped) {
+      toast.error(result.error ?? 'Failed to stop');
+      return;
+    }
+    toast.success('Agent stopped');
+    setView((prev) => {
+      if (prev.type !== 'feature') return prev;
+      return { ...prev, node: { ...prev.node, state: 'error' } };
     });
   }, []);
 
@@ -576,161 +591,174 @@ export function FeatureDrawerClient({
 
   if (featureNode) {
     const shortId = featureNode.featureId.slice(0, 8);
-    const repoName =
-      featureNode.repositoryName ??
-      featureNode.repositoryPath.split('/').filter(Boolean).at(-1) ??
-      '';
+    {
+      /* Reusable toolbar icon button classes */
+    }
+    const tbBtn =
+      'text-muted-foreground hover:bg-foreground/8 hover:text-foreground inline-flex size-8 items-center justify-center rounded-[3px] disabled:opacity-40';
+    const tbSep = 'bg-border/60 mx-1.5 h-5 w-px shrink-0';
+
     headerContent = (
-      <>
-        {repoName ? (
-          <div className="flex items-center gap-1.5 pt-0.5">
-            <Code2 className="text-muted-foreground size-3.5 shrink-0" />
-            {featureNode.remoteUrl ? (
-              <a
-                href={featureNode.remoteUrl as string}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
-                data-testid="feature-drawer-repo-link"
-              >
-                {repoName}
-                <ExternalLink className="size-3" />
-              </a>
-            ) : (
-              <span className="text-muted-foreground text-xs">{repoName}</span>
-            )}
-          </div>
-        ) : null}
-        {featureActionsInput ? (
-          <div className="flex items-center gap-2 pt-1" data-testid="feature-drawer-actions">
-            {featureNode?.state !== 'done' ? (
-              <OpenActionMenu
-                actions={featureActions}
-                repositoryPath={featureActionsInput.repositoryPath}
-                worktreePath={featureActionsInput.worktreePath}
-                showSpecs={!!featureActionsInput.specPath}
-              />
-            ) : null}
-            {featureNode?.state !== 'done' && featureFlags.envDeploy && featureDeployTarget ? (
-              <>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <ActionButton
-                          label={
-                            isFeatureDeployActive
-                              ? t('featureDrawer.stopDevServer')
-                              : t('featureDrawer.startDevServer')
-                          }
-                          onClick={isFeatureDeployActive ? deployAction.stop : deployAction.deploy}
-                          loading={deployAction.deployLoading || deployAction.stopLoading}
-                          error={!!deployAction.deployError}
-                          icon={isFeatureDeployActive ? Square : Play}
-                          iconOnly
-                          variant="outline"
-                          size="icon-sm"
-                        />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isFeatureDeployActive
-                        ? t('featureDrawer.stopDevServer')
-                        : t('featureDrawer.startDevServer')}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                {isFeatureDeployActive ? (
-                  <DeploymentStatusBadge
-                    status={deployAction.status}
-                    url={deployAction.url}
-                    targetId={featureDeployTarget?.targetId}
-                  />
-                ) : null}
-              </>
-            ) : null}
-            <div className="ml-auto flex items-center gap-1.5">
-              <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
-                {shortId}
-              </code>
-              <button
-                type="button"
-                onClick={handleCopyId}
-                className="text-muted-foreground hover:text-foreground inline-flex items-center rounded p-0.5 transition-colors"
-                aria-label={t('featureDrawer.copyFeatureId')}
-                data-testid="feature-drawer-copy-id"
-              >
-                {idCopied ? (
-                  <Check className="size-3.5 text-green-600" />
-                ) : (
-                  <Copy className="size-3.5" />
-                )}
-              </button>
-            </div>
+      <div data-testid="feature-drawer-toolbar">
+        <div className="flex h-10 items-center px-2" data-testid="feature-drawer-actions">
+          {/* ── Left: Open + Run/Stop ── */}
+          {featureActionsInput && featureNode?.state !== 'done' ? (
+            <OpenActionMenu
+              actions={featureActions}
+              repositoryPath={featureActionsInput.repositoryPath}
+              worktreePath={featureActionsInput.worktreePath}
+              showSpecs={!!featureActionsInput.specPath}
+            />
+          ) : null}
+          {featureActionsInput &&
+          featureNode?.state !== 'done' &&
+          featureFlags.envDeploy &&
+          featureDeployTarget ? (
+            <>
+              <div className={tbSep} />
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={deployAction.deployLoading || deployAction.stopLoading}
+                      onClick={isFeatureDeployActive ? deployAction.stop : deployAction.deploy}
+                      className={cn(
+                        'inline-flex size-7 items-center justify-center rounded-[3px] disabled:opacity-40',
+                        isFeatureDeployActive
+                          ? 'text-red-500 hover:bg-red-500/10 hover:text-red-400'
+                          : 'text-green-600 hover:bg-green-500/10 dark:text-green-500'
+                      )}
+                      aria-label={
+                        isFeatureDeployActive
+                          ? t('featureDrawer.stopDevServer')
+                          : t('featureDrawer.startDevServer')
+                      }
+                    >
+                      {deployAction.deployLoading || deployAction.stopLoading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : isFeatureDeployActive ? (
+                        <Square className="size-4" />
+                      ) : (
+                        <Play className="size-4" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {isFeatureDeployActive
+                      ? t('featureDrawer.stopDevServer')
+                      : t('featureDrawer.startDevServer')}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {isFeatureDeployActive ? (
+                <DeploymentStatusBadge
+                  status={deployAction.status}
+                  url={deployAction.url}
+                  targetId={featureDeployTarget?.targetId}
+                />
+              ) : null}
+            </>
+          ) : null}
+
+          {/* ── Spacer ── */}
+          <div className="flex-1" />
+
+          {/* ── Right: ID · archive · delete ── */}
+          <div className="flex items-center">
+            <code className="text-muted-foreground/70 font-mono text-[10px] tracking-wide select-none">
+              {shortId}
+            </code>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleCopyId}
+                    className={tbBtn}
+                    aria-label={t('featureDrawer.copyFeatureId')}
+                    data-testid="feature-drawer-copy-id"
+                  >
+                    {idCopied ? (
+                      <Check className="size-4 text-green-500" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {t('featureDrawer.copyFeatureId')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {featureNode.featureId ? (
               <>
-                {featureNode.state === 'archived' ? (
-                  <TooltipProvider>
+                <div className={tbSep} />
+                <TooltipProvider delayDuration={300}>
+                  {featureNode.state === 'archived' ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={t('featureDrawer.unarchiveFeature')}
+                        <button
+                          type="button"
                           disabled={isArchiving}
-                          className="text-muted-foreground hover:text-primary"
+                          className={tbBtn}
                           data-testid="feature-drawer-unarchive"
                           onClick={() => handleUnarchive(featureNode.featureId)}
                         >
                           {isArchiving ? (
                             <Loader2 className="size-4 animate-spin" />
                           ) : (
-                            <ArchiveRestore className="size-4" />
+                            <ArchiveRestore className="size-3" />
                           )}
-                        </Button>
+                        </button>
                       </TooltipTrigger>
-                      <TooltipContent>{t('featureDrawer.unarchiveFeature')}</TooltipContent>
+                      <TooltipContent side="bottom" className="text-xs">
+                        {t('featureDrawer.unarchiveFeature')}
+                      </TooltipContent>
                     </Tooltip>
-                  </TooltipProvider>
-                ) : featureNode.state !== 'deleting' ? (
-                  <TooltipProvider>
+                  ) : featureNode.state !== 'deleting' ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={t('featureDrawer.archiveFeature')}
+                        <button
+                          type="button"
                           disabled={isArchiving}
-                          className="text-muted-foreground hover:text-foreground"
+                          className={tbBtn}
                           data-testid="feature-drawer-archive"
                           onClick={() => handleArchive(featureNode.featureId)}
                         >
                           {isArchiving ? (
                             <Loader2 className="size-4 animate-spin" />
                           ) : (
-                            <Archive className="size-4" />
+                            <Archive className="size-3" />
                           )}
-                        </Button>
+                        </button>
                       </TooltipTrigger>
-                      <TooltipContent>{t('featureDrawer.archiveFeature')}</TooltipContent>
+                      <TooltipContent side="bottom" className="text-xs">
+                        {t('featureDrawer.archiveFeature')}
+                      </TooltipContent>
                     </Tooltip>
-                  </TooltipProvider>
-                ) : null}
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t('featureDrawer.deleteFeature')}
-                  disabled={isDeleting}
-                  className="text-muted-foreground hover:text-destructive"
-                  data-testid="feature-drawer-delete"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  {isDeleting ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="size-4" />
-                  )}
-                </Button>
+                  ) : null}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        className={cn(tbBtn, 'hover:bg-destructive/10 hover:text-destructive')}
+                        data-testid="feature-drawer-delete"
+                        onClick={() => setDeleteDialogOpen(true)}
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="size-3" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {t('featureDrawer.deleteFeature')}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <DeleteFeatureDialog
                   open={deleteDialogOpen}
                   onOpenChange={setDeleteDialogOpen}
@@ -746,8 +774,8 @@ export function FeatureDrawerClient({
               </>
             ) : null}
           </div>
-        ) : null}
-      </>
+        </div>
+      </div>
     );
   }
 
@@ -796,6 +824,9 @@ export function FeatureDrawerClient({
         chatInput={chatInput}
         onChatInputChange={setChatInput}
         interactiveAgentEnabled={interactiveAgentEnabled}
+        onRetry={handleRetry}
+        onStop={handleStop}
+        onStart={handleStart}
       />
     );
   }
