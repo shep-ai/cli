@@ -107,6 +107,13 @@ export function useChatRuntime(
 ) {
   const queryClient = useQueryClient();
 
+  // Keep a ref to the latest model/agent so the mutation closure always
+  // reads the current value without depending on stale captures.
+  const modelRef = useRef(options?.model);
+  const agentTypeRef = useRef(options?.agentType);
+  modelRef.current = options?.model;
+  agentTypeRef.current = options?.agentType;
+
   // ── TanStack Query: fetch messages from backend ─────────────────────────
   const { data: chatState, isLoading: isChatLoading } = useQuery({
     queryKey: chatQueryKey(featureId),
@@ -218,7 +225,7 @@ export function useChatRuntime(
   // ── Mutation: send user message ─────────────────────────────────────────
   const sendMutation = useMutation({
     mutationFn: (content: string) =>
-      postMessage(featureId, content, worktreePath ?? '', options?.model, options?.agentType),
+      postMessage(featureId, content, worktreePath ?? '', modelRef.current, agentTypeRef.current),
     onMutate: async (content: string) => {
       startAwaiting();
       // Cancel in-flight refetches so our optimistic update isn't overwritten

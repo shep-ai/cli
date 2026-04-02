@@ -851,11 +851,15 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 
     // If the caller requested a different model/agent than the running session,
     // silently stop the current session so a new one boots with the new config.
+    // Also clear the cached agentSessionId so we create a fresh SDK session
+    // instead of resuming the old one (which would keep the old model).
     if (state && model && state.model !== model) {
       await this.stopSession(state.sessionId);
+      this.stoppedAgentSessionIds.delete(featureId);
       state = undefined;
     } else if (state && agentType && state.agentType !== agentType) {
       await this.stopSession(state.sessionId);
+      this.stoppedAgentSessionIds.delete(featureId);
       state = undefined;
     }
 
