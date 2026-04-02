@@ -1,3 +1,11 @@
+# [1.163.0](https://github.com/shep-ai/shep/compare/v1.162.0...v1.163.0) (2026-04-02)
+
+
+### Features
+
+* **web:** add fab position swap setting ([#508](https://github.com/shep-ai/shep/issues/508)) ([9968774](https://github.com/shep-ai/shep/commit/9968774d5121c310863937d7647a409c74582e47))
+* **web:** support multi-org github repository import ([#506](https://github.com/shep-ai/shep/issues/506)) ([fbc58e6](https://github.com/shep-ai/shep/commit/fbc58e661d74e4c70a3c27449891f425669b6391))
+
 # [1.162.0](https://github.com/shep-ai/shep/compare/v1.161.0...v1.162.0) (2026-04-01)
 
 
