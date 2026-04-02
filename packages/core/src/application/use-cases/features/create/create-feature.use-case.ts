@@ -188,6 +188,9 @@ export class CreateFeatureUseCase {
         allowMerge: false,
       },
       iterationCount: 0,
+      ...(effectiveMode === FeatureMode.Exploration && {
+        maxIterations: getSettings().workflow.explorationMaxIterations ?? 10,
+      }),
       agentRunId: runId,
       specPath: '',
       repositoryId: repository.id,
