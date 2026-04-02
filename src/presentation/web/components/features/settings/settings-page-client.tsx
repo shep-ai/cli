@@ -17,6 +17,7 @@ import {
   Settings2,
   Timer,
   MessageSquare,
+  LayoutGrid,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -46,6 +47,7 @@ import type {
   FeatureFlags,
   NotificationPreferences,
   InteractiveAgentConfig,
+  FabLayoutConfig,
 } from '@shepai/core/domain/generated/output';
 import type { AvailableTerminal } from '@/app/actions/get-available-terminals';
 
@@ -73,6 +75,7 @@ const SECTIONS = [
   { id: 'notifications', labelKey: 'settings.sections.notifications', icon: Bell },
   { id: 'feature-flags', labelKey: 'settings.sections.flags', icon: Flag },
   { id: 'interactive-agent', labelKey: 'settings.sections.chat', icon: MessageSquare },
+  { id: 'fab-layout', labelKey: 'settings.sections.layout', icon: LayoutGrid },
   { id: 'database', labelKey: 'settings.sections.database', icon: Database },
 ] as const;
 
@@ -469,6 +472,10 @@ export function SettingsPageClient({
   const [interactiveSessions, setInteractiveSessions] = useState(
     String(interactiveAgentConfig.maxConcurrentSessions)
   );
+
+  // FAB layout state
+  const fabLayoutConfig: FabLayoutConfig = settings.fabLayout ?? { swapPosition: false };
+  const [fabSwapPosition, setFabSwapPosition] = useState(fabLayoutConfig.swapPosition);
 
   // Notification state
   const [inApp, setInApp] = useState(settings.notifications.inApp.enabled);
@@ -1672,6 +1679,32 @@ export function SettingsPageClient({
             </SettingsRow>
           </SettingsSection>
           <SectionHint>{t('settings.interactiveAgent.hint')}</SectionHint>
+        </div>
+
+        {/* ── FAB Layout ── */}
+        <div
+          id="section-fab-layout"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+        >
+          <SettingsSection
+            icon={LayoutGrid}
+            title={t('settings.fabLayout.title')}
+            description={t('settings.fabLayout.description')}
+            testId="fab-layout-settings-section"
+          >
+            <SwitchRow
+              label={t('settings.fabLayout.swapPosition')}
+              description={t('settings.fabLayout.swapPositionDescription')}
+              id="fab-swap-position"
+              testId="switch-fab-swap-position"
+              checked={fabSwapPosition}
+              onChange={(v) => {
+                setFabSwapPosition(v);
+                save({ fabLayout: { swapPosition: v } });
+              }}
+            />
+          </SettingsSection>
+          <SectionHint>{t('settings.fabLayout.hint')}</SectionHint>
         </div>
 
         {/* ── Database ── */}

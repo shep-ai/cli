@@ -14,6 +14,7 @@
       "notifications": "Notificações",
       "flags": "Flags",
       "chat": "Chat",
+      "layout": "Layout",
       "database": "Banco de Dados"
     },
     "language": {
@@ -211,6 +212,13 @@
       "maxConcurrentSessions": "Máximo de sessões simultâneas",
       "maxConcurrentSessionsDescription": "Número máximo de sessões de agente interativo ativas ao mesmo tempo (1-10)",
       "hint": "A aba Chat inicia um processo de agente persistente por recurso. O tempo limite automático para sessões ociosas automaticamente para economizar recursos. O limite de sessões simultâneas evita uso excessivo de recursos em máquinas de desenvolvimento."
+    },
+    "fabLayout": {
+      "title": "Layout",
+      "description": "Controlar a posição dos botões de ação flutuantes no centro de controle",
+      "swapPosition": "Trocar posições dos FABs",
+      "swapPositionDescription": "Mover o botão de Chat para a esquerda e o de Criar para a direita",
+      "hint": "Os dois botões de ação flutuantes (Criar e Chat) ficam nos cantos inferiores do centro de controle. Ative esta opção para trocar suas posições."
     },
     "database": {
       "title": "Banco de Dados",

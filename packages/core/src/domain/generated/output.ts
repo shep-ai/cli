@@ -626,6 +626,16 @@ export type InteractiveAgentConfig = {
 };
 
 /**
+ * FAB (floating action button) layout configuration
+ */
+export type FabLayoutConfig = {
+  /**
+   * Swap Create and Chat FAB positions (default: false)
+   */
+  swapPosition: boolean;
+};
+
+/**
  * Global Shep platform settings (singleton)
  */
 export type Settings = BaseEntity & {
@@ -669,6 +679,10 @@ export type Settings = BaseEntity & {
    * Interactive agent chat configuration (optional, defaults applied at runtime)
    */
   interactiveAgent?: InteractiveAgentConfig;
+  /**
+   * FAB layout configuration (optional, defaults applied at runtime)
+   */
+  fabLayout?: FabLayoutConfig;
 };
 export enum TaskState {
   Todo = 'Todo',

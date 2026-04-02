@@ -14,6 +14,7 @@
       "notifications": "Notifications",
       "flags": "Drapeaux",
       "chat": "Chat",
+      "layout": "Disposition",
       "database": "Base de données"
     },
     "language": {
@@ -211,6 +212,13 @@
       "maxConcurrentSessions": "Sessions simultanées max",
       "maxConcurrentSessionsDescription": "Nombre maximum de sessions d'agent interactif actives simultanément (1-10)",
       "hint": "L'onglet Chat lance un processus d'agent persistant par fonctionnalité. Le délai d'inactivité automatique arrête les sessions inactives pour économiser les ressources. Le plafond de sessions simultanées empêche l'utilisation incontrôlée des ressources sur les machines de développement."
+    },
+    "fabLayout": {
+      "title": "Disposition",
+      "description": "Contrôler la position des boutons d'action flottants dans le centre de contrôle",
+      "swapPosition": "Inverser les positions des FAB",
+      "swapPositionDescription": "Déplacer le bouton Chat à gauche et le bouton Créer à droite",
+      "hint": "Les deux boutons d'action flottants (Créer et Chat) se trouvent dans les coins inférieurs du centre de contrôle. Activez cette option pour inverser leurs positions."
     },
     "database": {
       "title": "Base de données",

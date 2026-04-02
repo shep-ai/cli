@@ -1,0 +1,11 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FabLayoutConfig.yaml
+type: object
+properties:
+  swapPosition:
+    type: boolean
+    default: false
+    description: "Swap Create and Chat FAB positions (default: false)"
+required:
+  - swapPosition
+description: FAB (floating action button) layout configuration
