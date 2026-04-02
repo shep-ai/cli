@@ -104,9 +104,7 @@ export interface IInteractiveSessionRepository {
   /**
    * Get cumulative usage for a session.
    */
-  getUsage(
-    id: string
-  ): Promise<{
+  getUsage(id: string): Promise<{
     totalCostUsd: number;
     totalInputTokens: number;
     totalOutputTokens: number;
