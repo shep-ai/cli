@@ -1,3 +1,10 @@
+# [1.164.0](https://github.com/shep-ai/shep/compare/v1.163.0...v1.164.0) (2026-04-02)
+
+
+### Features
+
+* **web:** ide-inspired drawer tabs redesign with repo overview ([#499](https://github.com/shep-ai/shep/issues/499)) ([d4ddf73](https://github.com/shep-ai/shep/commit/d4ddf733c1ec5d04025af0592e0a15004a4f9d12))
+
 # [1.163.0](https://github.com/shep-ai/shep/compare/v1.162.0...v1.163.0) (2026-04-02)
 
 
