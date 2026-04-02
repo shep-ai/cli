@@ -22,8 +22,8 @@ describe('DeploymentStatusBadge', () => {
     expect(screen.getByText('Starting...')).toBeInTheDocument();
     const spinner = container.querySelector('.animate-spin');
     expect(spinner).toBeInTheDocument();
-    const badge = container.querySelector('[class*="bg-blue"]');
-    expect(badge).toBeInTheDocument();
+    const blueIcon = container.querySelector('[class*="text-blue"]');
+    expect(blueIcon).toBeInTheDocument();
   });
 
   it('renders green badge with clickable URL when status is Ready', () => {

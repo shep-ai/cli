@@ -112,16 +112,11 @@ test.describe('Copy path copies the feature worktree path', () => {
       timeout: 15000,
     });
 
-    // Find and click the Open dropdown
+    // Click "Copy path" button in the toolbar
     const actionsBar = page.getByTestId('feature-drawer-actions');
-    const openButton = actionsBar.getByRole('button', { name: /open/i });
-    await expect(openButton).toBeVisible({ timeout: 5000 });
-    await openButton.click();
-
-    // Click "Copy path"
-    const copyItem = page.getByRole('menuitem', { name: 'Copy path' });
-    await expect(copyItem).toBeVisible();
-    await copyItem.click();
+    const copyButton = actionsBar.getByRole('button', { name: 'Copy path' });
+    await expect(copyButton).toBeVisible({ timeout: 5000 });
+    await copyButton.click();
 
     // Read clipboard content
     const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
@@ -153,14 +148,11 @@ test.describe('Copy path copies the feature worktree path', () => {
       timeout: 15000,
     });
 
+    // Click "Copy path" button in the toolbar
     const actionsBar = page.getByTestId('feature-drawer-actions');
-    const openButton = actionsBar.getByRole('button', { name: /open/i });
-    await expect(openButton).toBeVisible({ timeout: 5000 });
-    await openButton.click();
-
-    const copyItem = page.getByRole('menuitem', { name: 'Copy path' });
-    await expect(copyItem).toBeVisible();
-    await copyItem.click();
+    const copyButton = actionsBar.getByRole('button', { name: 'Copy path' });
+    await expect(copyButton).toBeVisible({ timeout: 5000 });
+    await copyButton.click();
 
     const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
 

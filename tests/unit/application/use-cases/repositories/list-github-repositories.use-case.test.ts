@@ -39,6 +39,7 @@ describe('ListGitHubRepositoriesUseCase', () => {
       listUserRepositories: vi
         .fn<() => Promise<GitHubRepo[]>>()
         .mockResolvedValue([createMockRepo()]),
+      listOrganizations: vi.fn().mockResolvedValue([]),
       parseGitHubUrl: vi.fn(),
       getViewerPermission: vi.fn().mockResolvedValue('ADMIN'),
     };

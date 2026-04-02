@@ -27,6 +27,7 @@ import { useSoundAction } from '@/hooks/use-sound-action';
 import { useDrawerCloseGuard } from '@/hooks/drawer-close-guard';
 import { useViewportPersistence } from '@/hooks/use-viewport-persistence';
 import { useSidebar } from '@/components/ui/sidebar';
+import { useFabLayout } from '@/hooks/fab-layout-context';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -452,7 +453,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         label: t('fab.adoptBranch'),
         icon: <GitBranch className="h-4 w-4" />,
         onClick: () => {
-          guardedNavigate(() => router.push('/adopt'));
+          guardedNavigate(() => router.push('/adopt' as Parameters<typeof router.push>[0]));
         },
       });
     }
@@ -508,11 +509,29 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   );
 }
 
-/** (+) FAB that tracks sidebar width via CSS var + transition. */
+/** (+) FAB that tracks sidebar width via CSS var + transition.
+ *  When fabLayout.swapPosition is true, moves to the end side (right in LTR). */
 function CreateFab({ actions }: { actions: FloatingActionButtonAction[] }) {
   const { state } = useSidebar();
   const { i18n } = useTranslation('web');
+  const { swapPosition } = useFabLayout();
   const isRtl = i18n.dir() === 'rtl';
+
+  // Default: start side (left in LTR), tracking sidebar width
+  // Swapped: end side (right in LTR), fixed 32px from edge
+  if (swapPosition) {
+    const positionStyle: React.CSSProperties = isRtl
+      ? {
+          left: 'calc(var(--sidebar-width-icon) + 32px)',
+          transition: 'left 200ms ease-in-out',
+        }
+      : { right: '32px', transition: 'right 200ms ease-in-out' };
+
+    return (
+      <FloatingActionButton actions={actions} className="!fixed bottom-6" style={positionStyle} />
+    );
+  }
+
   // Sidebar expanded = var(--sidebar-width) = 16rem, collapsed = var(--sidebar-width-icon) = 3rem
   // Position just outside the sidebar edge with 16px gap
   const offset =

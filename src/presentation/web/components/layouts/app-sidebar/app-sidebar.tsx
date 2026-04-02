@@ -2,7 +2,18 @@
 
 import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings } from 'lucide-react';
+import {
+  Home,
+  Moon,
+  Sun,
+  Volume2,
+  VolumeOff,
+  Zap,
+  ZapOff,
+  Wrench,
+  Puzzle,
+  Settings,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Sidebar,
@@ -23,6 +34,7 @@ import { ShepLogo } from '@/components/common/shep-logo';
 import { VersionBadge } from '@/components/common/version-badge';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { useSoundEnabled } from '@/hooks/use-sound-enabled';
+import { useAnimationsEnabled } from '@/hooks/use-animations-enabled';
 import { useTheme } from '@/hooks/useTheme';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
@@ -67,6 +79,7 @@ export function AppSidebar({
   const { mounted: showExpanded, visible: expandedVisible } = useDeferredMount(collapsed, 200);
   const versionData = useVersion();
   const { enabled: soundEnabled, toggle: toggleSound } = useSoundEnabled();
+  const { enabled: animationsEnabled, toggle: toggleAnimations } = useAnimationsEnabled();
   const { resolvedTheme, theme, setTheme } = useTheme();
   const toggleOnSound = useSoundAction('toggle-on');
   const toggleOffSound = useSoundAction('toggle-off');
@@ -284,6 +297,29 @@ export function AppSidebar({
                     </TooltipTrigger>
                     <TooltipContent side="top">
                       {soundEnabled ? t('sidebar.muteSounds') : t('sidebar.unmuteSounds')}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {!collapsed && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton
+                        className="w-auto flex-none"
+                        onClick={() => {
+                          clickSound.play();
+                          toggleAnimations();
+                        }}
+                        aria-label={animationsEnabled ? 'Disable animations' : 'Enable animations'}
+                      >
+                        {animationsEnabled ? (
+                          <Zap className="h-4 w-4" />
+                        ) : (
+                          <ZapOff className="h-4 w-4" />
+                        )}
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {animationsEnabled ? 'Disable animations' : 'Enable animations'}
                     </TooltipContent>
                   </Tooltip>
                 )}

@@ -14,6 +14,7 @@ import { container } from '@/infrastructure/di/container.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
 import { ImportGitHubRepositoryUseCase } from '@/application/use-cases/repositories/import-github-repository.use-case.js';
 import { ListGitHubRepositoriesUseCase } from '@/application/use-cases/repositories/list-github-repositories.use-case.js';
+import { ListGitHubOrganizationsUseCase } from '@/application/use-cases/repositories/list-github-organizations.use-case.js';
 import type { IGitHubRepositoryService } from '@/application/ports/output/services/github-repository-service.interface.js';
 import {
   GitHubAuthError,
@@ -45,7 +46,12 @@ export function createAddCommand(): Command {
             'IGitHubRepositoryService'
           );
           const listUseCase = container.resolve(ListGitHubRepositoriesUseCase);
-          const wizardResult = await githubImportWizard(gitHubService, listUseCase);
+          const listOrgsUseCase = container.resolve(ListGitHubOrganizationsUseCase);
+          const wizardResult = await githubImportWizard(
+            gitHubService,
+            listUseCase,
+            listOrgsUseCase
+          );
           url = wizardResult.url;
           if (!dest && wizardResult.dest) {
             dest = wizardResult.dest;

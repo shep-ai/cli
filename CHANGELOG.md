@@ -1,3 +1,25 @@
+## [1.164.1](https://github.com/shep-ai/shep/compare/v1.164.0...v1.164.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* **agents:** harden sdk integration and improve chat ux ([#514](https://github.com/shep-ai/shep/issues/514)) ([7e05d0c](https://github.com/shep-ai/shep/commit/7e05d0c560d78eb773f51fb5f34a8bab62b3da83))
+
+# [1.164.0](https://github.com/shep-ai/shep/compare/v1.163.0...v1.164.0) (2026-04-02)
+
+
+### Features
+
+* **web:** ide-inspired drawer tabs redesign with repo overview ([#499](https://github.com/shep-ai/shep/issues/499)) ([d4ddf73](https://github.com/shep-ai/shep/commit/d4ddf733c1ec5d04025af0592e0a15004a4f9d12))
+
+# [1.163.0](https://github.com/shep-ai/shep/compare/v1.162.0...v1.163.0) (2026-04-02)
+
+
+### Features
+
+* **web:** add fab position swap setting ([#508](https://github.com/shep-ai/shep/issues/508)) ([9968774](https://github.com/shep-ai/shep/commit/9968774d5121c310863937d7647a409c74582e47))
+* **web:** support multi-org github repository import ([#506](https://github.com/shep-ai/shep/issues/506)) ([fbc58e6](https://github.com/shep-ai/shep/commit/fbc58e661d74e4c70a3c27449891f425669b6391))
+
 # [1.162.0](https://github.com/shep-ai/shep/compare/v1.161.0...v1.162.0) (2026-04-01)
 
 
