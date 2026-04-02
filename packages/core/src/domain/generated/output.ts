@@ -1072,6 +1072,10 @@ export type Feature = SoftDeletableEntity & {
    */
   agentRunId?: string;
   /**
+   * Skills that were injected into this feature's worktree during creation
+   */
+  injectedSkills?: string[];
+  /**
    * Absolute path to the feature spec directory inside the worktree
    */
   specPath?: string;

@@ -309,13 +309,15 @@ export class CreateFeatureUseCase {
     // Inject curated skills into the worktree (opt-in, guarded by settings or CLI flag)
     const settings = getSettings();
     const shouldInject = input.injectSkills ?? settings.workflow.skillInjection?.enabled ?? false;
+    let injectedSkillNames: string[] | undefined;
     if (shouldInject && settings.workflow.skillInjection?.skills?.length) {
       try {
-        await this.skillInjector.inject(
+        const result = await this.skillInjector.inject(
           worktreePath,
           settings.workflow.skillInjection,
           effectiveRepoPath
         );
+        injectedSkillNames = [...result.injected, ...result.skipped];
       } catch {
         // Skill injection failure must not block feature creation (NFR-3)
       }
@@ -330,6 +332,7 @@ export class CreateFeatureUseCase {
       branch,
       specPath: specDir,
       ...(committedAttachments?.length ? { attachments: committedAttachments } : {}),
+      ...(injectedSkillNames?.length ? { injectedSkills: injectedSkillNames } : {}),
       updatedAt: new Date(),
     };
     await this.featureRepo.update(updatedFeature);

@@ -352,6 +352,9 @@ model Feature extends SoftDeletableEntity {
   @doc("Associated agent run ID for process tracking (optional)")
   agentRunId?: string;
 
+  @doc("Skills that were injected into this feature's worktree during creation")
+  injectedSkills?: string[];
+
   /**
    * Absolute path to the spec directory for this feature.
    *

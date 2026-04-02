@@ -9,10 +9,14 @@ import { EmptyState } from '@/components/common/empty-state';
 import { SkillList } from './skill-list';
 import { CategoryFilter } from './category-filter';
 import { SkillDetailDrawer } from './skill-detail-drawer';
+import type { SkillInjectionConfig } from '@shepai/core/domain/generated/output';
+import { Separator } from '@/components/ui/separator';
+import { AutoInjectedSkillsSection } from './auto-injected-skills-section';
 import type { SkillCategory, SkillData } from '@/lib/skills';
 
 export interface SkillsPageClientProps {
   skills: SkillData[];
+  injectionConfig: SkillInjectionConfig;
 }
 
 function computeCategoryCounts(skills: SkillData[]): Record<SkillCategory, number> {
@@ -28,7 +32,7 @@ function computeCategoryCounts(skills: SkillData[]): Record<SkillCategory, numbe
   return counts;
 }
 
-export function SkillsPageClient({ skills }: SkillsPageClientProps) {
+export function SkillsPageClient({ skills, injectionConfig }: SkillsPageClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<SkillCategory | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillData | null>(null);
@@ -58,6 +62,12 @@ export function SkillsPageClient({ skills }: SkillsPageClientProps) {
     return (
       <div className="flex flex-col gap-6 p-6">
         <PageHeader title="Skills" description="Claude Code skills installed in this project" />
+        {injectionConfig.skills.length > 0 ? (
+          <>
+            <AutoInjectedSkillsSection config={injectionConfig} discoveredSkills={skills} />
+            <Separator />
+          </>
+        ) : null}
         <EmptyState
           icon={<Puzzle className="size-10" />}
           title="No skills found"
@@ -70,6 +80,14 @@ export function SkillsPageClient({ skills }: SkillsPageClientProps) {
   return (
     <div className="flex flex-col gap-6 p-6">
       <PageHeader title="Skills" description="Claude Code skills installed in this project" />
+
+      {/* Auto-Injected Skills */}
+      {injectionConfig.skills.length > 0 ? (
+        <>
+          <AutoInjectedSkillsSection config={injectionConfig} discoveredSkills={skills} />
+          <Separator />
+        </>
+      ) : null}
 
       {/* Search */}
       <div className="relative">

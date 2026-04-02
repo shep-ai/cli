@@ -445,3 +445,17 @@ export const RebaseError: Story = {
     rebaseError: 'Rebase failed: unresolvable conflicts in src/index.ts',
   },
 };
+
+/* ---------------------------------------------------------------------------
+ * Injected skills stories
+ * ------------------------------------------------------------------------- */
+
+/** Feature with injected skills displayed in a dedicated section. */
+export const WithInjectedSkills: Story = {
+  args: {
+    data: {
+      ...fullData,
+      injectedSkills: ['architecture-reviewer', 'cross-validate-artifacts', 'tsp-model'],
+    },
+  },
+};

@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { SkillSourceType, type SkillInjectionConfig } from '@shepai/core/domain/generated/output';
 import { SkillsPageClient } from './skills-page-client';
 import type { SkillData } from '@/lib/skills';
+
+const emptyInjectionConfig: SkillInjectionConfig = { enabled: false, skills: [] };
 
 const meta = {
   title: 'Features/SkillsPageClient',
@@ -183,17 +186,43 @@ const manySkills: SkillData[] = [
 export const Default: Story = {
   args: {
     skills: sampleSkills,
+    injectionConfig: emptyInjectionConfig,
   },
 };
 
 export const Empty: Story = {
   args: {
     skills: [],
+    injectionConfig: emptyInjectionConfig,
   },
 };
 
 export const ManySkills: Story = {
   args: {
     skills: manySkills,
+    injectionConfig: emptyInjectionConfig,
+  },
+};
+
+export const WithInjectedSkills: Story = {
+  args: {
+    skills: sampleSkills,
+    injectionConfig: {
+      enabled: true,
+      skills: [
+        {
+          name: 'architecture-reviewer',
+          type: SkillSourceType.Local,
+          source: '.claude/skills/architecture-reviewer',
+        },
+        { name: 'tsp-model', type: SkillSourceType.Local, source: '.claude/skills/tsp-model' },
+        {
+          name: 'remotion-best-practices',
+          type: SkillSourceType.Remote,
+          source: '@anthropic/remotion-skills',
+          remoteSkillName: 'remotion-best-practices',
+        },
+      ],
+    },
   },
 };

@@ -90,6 +90,7 @@ function createTestRow(overrides: Partial<FeatureRow> = {}): FeatureRow {
     previous_lifecycle: null,
     fast: 0,
     attachments: '[]',
+    injected_skills: null,
     deleted_at: null,
     created_at: new Date('2026-03-08T10:00:00Z').getTime(),
     updated_at: new Date('2026-03-08T10:00:00Z').getTime(),
@@ -292,6 +293,46 @@ describe('Feature Mapper — pr mergeable', () => {
       });
       const feature = fromDatabase(row);
       expect(feature.pr?.mergeable).toBeUndefined();
+    });
+  });
+});
+
+describe('Feature Mapper — injectedSkills', () => {
+  describe('toDatabase()', () => {
+    it('serializes injectedSkills to JSON string', () => {
+      const feature = createTestFeature({
+        injectedSkills: ['architecture-reviewer', 'tsp-model'],
+      });
+      const row = toDatabase(feature);
+      expect(row.injected_skills).toBe(JSON.stringify(['architecture-reviewer', 'tsp-model']));
+    });
+
+    it('serializes null when injectedSkills is undefined', () => {
+      const feature = createTestFeature({ injectedSkills: undefined });
+      const row = toDatabase(feature);
+      expect(row.injected_skills).toBeNull();
+    });
+
+    it('serializes null when injectedSkills is empty', () => {
+      const feature = createTestFeature({ injectedSkills: [] });
+      const row = toDatabase(feature);
+      expect(row.injected_skills).toBeNull();
+    });
+  });
+
+  describe('fromDatabase()', () => {
+    it('deserializes injected_skills from JSON string', () => {
+      const row = createTestRow({
+        injected_skills: JSON.stringify(['architecture-reviewer', 'tsp-model']),
+      });
+      const feature = fromDatabase(row);
+      expect(feature.injectedSkills).toEqual(['architecture-reviewer', 'tsp-model']);
+    });
+
+    it('omits injectedSkills when injected_skills is null', () => {
+      const row = createTestRow({ injected_skills: null });
+      const feature = fromDatabase(row);
+      expect(feature.injectedSkills).toBeUndefined();
     });
   });
 });

@@ -13,6 +13,7 @@ import {
   GitCommitHorizontal,
   GitMerge,
   Info,
+  Puzzle,
   RefreshCw,
   Settings,
   ShieldCheck,
@@ -22,6 +23,7 @@ import {
 import { InlineAttachments } from '@/components/common/inline-attachments';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { CometSpinner } from '@/components/ui/comet-spinner';
 import { ActionButton } from '@/components/common/action-button';
@@ -345,6 +347,11 @@ export function OverviewTab({
 
       {/* ── Settings ── */}
       <SettingsBlock data={data} pinnedConfig={pinnedConfig} />
+
+      {/* ── Injected Skills ── */}
+      {data.injectedSkills?.length ? (
+        <InjectedSkillsSection skills={data.injectedSkills} />
+      ) : null}
     </div>
   );
 }
@@ -565,6 +572,22 @@ function SettingsBlock({
             ) : null}
           </div>
         ) : null}
+      </div>
+    </Section>
+  );
+}
+
+// ── Injected Skills ────────────────────────────────────────────────
+
+function InjectedSkillsSection({ skills }: { skills: string[] }) {
+  return (
+    <Section icon={Puzzle} title="Feature Skills">
+      <div className="flex flex-wrap gap-1.5">
+        {skills.map((name) => (
+          <Badge key={name} variant="secondary">
+            {name}
+          </Badge>
+        ))}
       </div>
     </Section>
   );
