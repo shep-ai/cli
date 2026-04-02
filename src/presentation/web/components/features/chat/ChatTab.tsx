@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
-import { Trash2, Square, Cpu } from 'lucide-react';
+import { Trash2, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Thread } from '@/components/assistant-ui/thread';
 import { useAttachments } from '@/hooks/use-attachments';
@@ -31,7 +31,7 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
     [att.completedAttachments]
   );
 
-  const { runtime, status, clearChat, stopAgent, sessionInfo, isChatLoading } = useChatRuntime(
+  const { runtime, status, clearChat, sessionInfo, isChatLoading } = useChatRuntime(
     featureId,
     worktreePath,
     { contentTransform, onMessageSent: att.clearAttachments }
@@ -96,12 +96,7 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Header bar — session info + stop/clear */}
-      <ChatHeader
-        sessionInfo={sessionInfo}
-        isAgentActive={status.isRunning}
-        onClear={clearChat}
-        onStop={stopAgent}
-      />
+      <ChatHeader sessionInfo={sessionInfo} isAgentActive={status.isRunning} onClear={clearChat} />
       <div className="flex min-h-0 flex-1 flex-col">
         {isChatLoading ? (
           <ChatSkeleton />
@@ -163,12 +158,10 @@ function ChatHeader({
   sessionInfo,
   isAgentActive,
   onClear,
-  onStop,
 }: {
   sessionInfo: SessionInfo | null;
   isAgentActive: boolean;
   onClear: () => Promise<void>;
-  onStop: () => Promise<void>;
 }) {
   const { t } = useTranslation('web');
   return (
@@ -192,23 +185,8 @@ function ChatHeader({
         )}
       </div>
 
-      {/* Right — actions with separator */}
+      {/* Right — clear action */}
       <div className="flex items-center gap-1 ps-2">
-        {sessionInfo ? (
-          <>
-            <ToolbarButton
-              onClick={() => {
-                void onStop();
-              }}
-              title={t('chat.forceStopAgent')}
-              variant="danger"
-            >
-              <Square className="h-2.5 w-2.5 fill-current" />
-              <span>{t('chat.stop')}</span>
-            </ToolbarButton>
-            <span className="text-border mx-0.5">|</span>
-          </>
-        ) : null}
         <ToolbarButton
           onClick={() => {
             void onClear();
