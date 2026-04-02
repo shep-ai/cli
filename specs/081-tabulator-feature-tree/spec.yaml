@@ -16,3 +16,9 @@ rejectionFeedback:
     message: "1. the table background should be the same background as the control center\n2. the look and feed need to be fully aligned to shadcn (https://ui.shadcn.com/docs/components/radix/data-table)\n3. the table should have support to grouping by repository (tree)"
     phase: "merge"
     timestamp: "2026-04-02T06:14:03.419Z"
+  - iteration: 2
+    message: "the last change made it look worst. see the original attached picture its looked better.\nlets change the page background colors from white to grey with dots like we have in the canvas, the table background shouldn't change"
+    phase: "merge"
+    timestamp: "2026-04-02T06:40:03.607Z"
+    attachments:
+      - "/Users/arielshadkhan/.shep/attachments/pending-5f750d3d-c432-456a-a992-1aa5df9ce863/image-7db313a2.png"

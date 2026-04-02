@@ -8,7 +8,7 @@ export default async function FeaturesPage() {
   const features = await getFeatureTreeData();
 
   return (
-    <div className="flex h-full flex-col p-6">
+    <div className="features-page-dotted-bg flex h-full flex-col p-6">
       <FeatureTreePageClient features={features} />
     </div>
   );

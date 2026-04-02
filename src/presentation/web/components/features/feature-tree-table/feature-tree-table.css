@@ -5,9 +5,23 @@
  */
 @import 'tabulator-tables/dist/css/tabulator_midnight.min.css';
 
+/* ── Dotted page background (matches features canvas) ─────── */
+.features-page-dotted-bg {
+  background-color: #f6f7f8;
+  background-image: radial-gradient(circle, #b8bcc4 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+:root.dark .features-page-dotted-bg,
+.dark .features-page-dotted-bg {
+  background-color: var(--color-background, #0a0a0a);
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
 /* ── Base overrides ─────────────────────────────────────────── */
 .tabulator {
-  background-color: transparent;
+  background-color: var(--color-background, #ffffff);
   border: 1px solid var(--color-border, #e2e8f0);
   border-radius: var(--radius-lg, 0.5rem);
   color: var(--color-foreground, #0a0a0a);
@@ -134,6 +148,7 @@
 /* ── Dark-mode overrides ────────────────────────────────────── */
 :root.dark .tabulator,
 .dark .tabulator {
+  background-color: var(--color-background, #0a0a0a);
   color: var(--color-foreground, #fafafa);
   border-color: var(--color-border, #333333);
 }
