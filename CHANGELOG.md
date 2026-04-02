@@ -1,3 +1,10 @@
+## [1.164.1](https://github.com/shep-ai/shep/compare/v1.164.0...v1.164.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* **agents:** harden sdk integration and improve chat ux ([#514](https://github.com/shep-ai/shep/issues/514)) ([7e05d0c](https://github.com/shep-ai/shep/commit/7e05d0c560d78eb773f51fb5f34a8bab62b3da83))
+
 # [1.164.0](https://github.com/shep-ai/shep/compare/v1.163.0...v1.164.0) (2026-04-02)
 
 
