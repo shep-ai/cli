@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
-import type { ColumnDefinition, CellComponent } from 'tabulator-tables';
+import type { ColumnDefinition, CellComponent, RowComponent } from 'tabulator-tables';
 import { cn } from '@/lib/utils';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
 import './feature-tree-table.css';
@@ -17,6 +17,8 @@ export interface FeatureTreeRow {
   parentId?: string;
   /** Child rows for tree hierarchy */
   _children?: FeatureTreeRow[];
+  /** Whether this row is a repository group header */
+  _isRepoGroup?: boolean;
 }
 
 export interface FeatureTreeTableProps {
@@ -44,6 +46,8 @@ const STATUS_LABELS: Record<FeatureStatus, string> = {
 };
 
 function statusFormatter(cell: CellComponent): string {
+  const row = cell.getRow().getData() as FeatureTreeRow;
+  if (row._isRepoGroup) return '';
   const value = cell.getValue() as FeatureStatus;
   const color = STATUS_COLORS[value] ?? '#94a3b8';
   const label = STATUS_LABELS[value] ?? value;
@@ -51,16 +55,16 @@ function statusFormatter(cell: CellComponent): string {
 }
 
 function buildColumns(onFeatureClick?: (featureId: string) => void): ColumnDefinition[] {
-  const columns: ColumnDefinition[] = [
+  return [
     {
       title: 'Name',
       field: 'name',
       widthGrow: 3,
       ...(onFeatureClick && {
         cellClick: (_e: UIEvent, cell: CellComponent) => {
-          const row = cell.getRow();
-          const id = row.getData().id as string;
-          onFeatureClick(id);
+          const data = cell.getRow().getData() as FeatureTreeRow;
+          if (data._isRepoGroup) return;
+          onFeatureClick(data.id);
         },
         cssClass: 'cursor-pointer',
       }),
@@ -75,49 +79,86 @@ function buildColumns(onFeatureClick?: (featureId: string) => void): ColumnDefin
       title: 'Lifecycle',
       field: 'lifecycle',
       widthGrow: 1.5,
+      formatter: (cell: CellComponent) => {
+        const row = cell.getRow().getData() as FeatureTreeRow;
+        if (row._isRepoGroup) return '';
+        return cell.getValue() as string;
+      },
     },
     {
       title: 'Branch',
       field: 'branch',
       widthGrow: 2,
-    },
-    {
-      title: 'Repository',
-      field: 'repositoryName',
-      widthGrow: 2,
+      formatter: (cell: CellComponent) => {
+        const row = cell.getRow().getData() as FeatureTreeRow;
+        if (row._isRepoGroup) return '';
+        return cell.getValue() as string;
+      },
     },
   ];
-  return columns;
 }
 
 /**
- * Build tree-structured data from a flat list of features.
- * Features with a `parentId` become children of their parent.
- * Top-level features (no parentId) are roots.
+ * Build tree-structured data grouped by repository.
+ * Each repository becomes a parent node with its features as children.
+ * Features that have parent-child relationships are nested within their repository group.
  */
 export function buildTreeData(flatData: FeatureTreeRow[]): FeatureTreeRow[] {
-  const lookup = new Map<string, FeatureTreeRow>();
+  if (flatData.length === 0) return [];
+
+  // Group features by repository
+  const byRepo = new Map<string, FeatureTreeRow[]>();
+  for (const item of flatData) {
+    const repoName = item.repositoryName || 'Unknown';
+    if (!byRepo.has(repoName)) {
+      byRepo.set(repoName, []);
+    }
+    byRepo.get(repoName)!.push(item);
+  }
+
   const roots: FeatureTreeRow[] = [];
 
-  // First pass: index all items
-  for (const item of flatData) {
-    lookup.set(item.id, { ...item, _children: [] });
-  }
+  for (const [repoName, features] of byRepo) {
+    // Build parent-child relationships within this repo group
+    const lookup = new Map<string, FeatureTreeRow>();
+    const repoChildren: FeatureTreeRow[] = [];
 
-  // Second pass: build parent-child relationships
-  for (const item of flatData) {
-    const node = lookup.get(item.id)!;
-    if (item.parentId && lookup.has(item.parentId)) {
-      lookup.get(item.parentId)!._children!.push(node);
-    } else {
-      roots.push(node);
+    for (const item of features) {
+      lookup.set(item.id, { ...item, _children: [] });
     }
-  }
 
-  // Clean up empty _children arrays
-  for (const node of lookup.values()) {
-    if (node._children?.length === 0) {
-      delete node._children;
+    for (const item of features) {
+      const node = lookup.get(item.id)!;
+      if (item.parentId && lookup.has(item.parentId)) {
+        lookup.get(item.parentId)!._children!.push(node);
+      } else {
+        repoChildren.push(node);
+      }
+    }
+
+    // Clean up empty _children arrays
+    for (const node of lookup.values()) {
+      if (node._children?.length === 0) {
+        delete node._children;
+      }
+    }
+
+    // If there's only one repo, skip the group wrapper
+    if (byRepo.size === 1) {
+      roots.push(...repoChildren);
+    } else {
+      // Create a repo group node
+      const repoGroup: FeatureTreeRow = {
+        id: `repo-${repoName}`,
+        name: repoName,
+        status: 'pending',
+        lifecycle: '',
+        branch: '',
+        repositoryName: repoName,
+        _isRepoGroup: true,
+        _children: repoChildren,
+      };
+      roots.push(repoGroup);
     }
   }
 
@@ -150,6 +191,12 @@ export function FeatureTreeTable({ data, className, onFeatureClick }: FeatureTre
       placeholder: 'No features found',
       headerSortClickElement: 'icon',
       rowHeight: 40,
+      rowFormatter: (row: RowComponent) => {
+        const rowData = row.getData() as FeatureTreeRow;
+        if (rowData._isRepoGroup) {
+          row.getElement().classList.add('tabulator-row-repo-group');
+        }
+      },
     });
 
     tabulatorRef.current = table;

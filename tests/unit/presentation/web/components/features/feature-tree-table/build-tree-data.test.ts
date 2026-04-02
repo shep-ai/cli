@@ -14,33 +14,65 @@ function makeRow(overrides: Partial<FeatureTreeRow> & { id: string }): FeatureTr
 }
 
 describe('buildTreeData', () => {
-  it('returns flat list when no items have parentId', () => {
-    const data = [makeRow({ id: 'a' }), makeRow({ id: 'b' }), makeRow({ id: 'c' })];
-
-    const tree = buildTreeData(data);
-
-    expect(tree).toHaveLength(3);
-    expect(tree[0]._children).toBeUndefined();
-    expect(tree[1]._children).toBeUndefined();
-    expect(tree[2]._children).toBeUndefined();
+  it('returns empty array for empty input', () => {
+    const tree = buildTreeData([]);
+    expect(tree).toEqual([]);
   });
 
-  it('nests child under parent when parentId matches', () => {
-    const data = [makeRow({ id: 'parent' }), makeRow({ id: 'child', parentId: 'parent' })];
+  it('returns flat list without repo grouping when all features share one repo', () => {
+    const data = [
+      makeRow({ id: 'a', repositoryName: 'my-app' }),
+      makeRow({ id: 'b', repositoryName: 'my-app' }),
+    ];
 
     const tree = buildTreeData(data);
 
+    expect(tree).toHaveLength(2);
+    expect(tree[0].id).toBe('a');
+    expect(tree[1].id).toBe('b');
+    expect(tree[0]._isRepoGroup).toBeUndefined();
+  });
+
+  it('groups features by repository when multiple repos exist', () => {
+    const data = [
+      makeRow({ id: 'feat-1', repositoryName: 'app-a' }),
+      makeRow({ id: 'feat-2', repositoryName: 'app-b' }),
+    ];
+
+    const tree = buildTreeData(data);
+
+    expect(tree).toHaveLength(2);
+    expect(tree[0]._isRepoGroup).toBe(true);
+    expect(tree[0].name).toBe('app-a');
+    expect(tree[0]._children).toHaveLength(1);
+    expect(tree[0]._children![0].id).toBe('feat-1');
+
+    expect(tree[1]._isRepoGroup).toBe(true);
+    expect(tree[1].name).toBe('app-b');
+    expect(tree[1]._children).toHaveLength(1);
+    expect(tree[1]._children![0].id).toBe('feat-2');
+  });
+
+  it('nests child under parent within the same repo group', () => {
+    const data = [
+      makeRow({ id: 'parent', repositoryName: 'my-app' }),
+      makeRow({ id: 'child', parentId: 'parent', repositoryName: 'my-app' }),
+    ];
+
+    const tree = buildTreeData(data);
+
+    // Single repo — no repo grouping
     expect(tree).toHaveLength(1);
     expect(tree[0].id).toBe('parent');
     expect(tree[0]._children).toHaveLength(1);
     expect(tree[0]._children![0].id).toBe('child');
   });
 
-  it('supports multi-level nesting', () => {
+  it('supports multi-level nesting within a repo', () => {
     const data = [
-      makeRow({ id: 'root' }),
-      makeRow({ id: 'child', parentId: 'root' }),
-      makeRow({ id: 'grandchild', parentId: 'child' }),
+      makeRow({ id: 'root', repositoryName: 'my-app' }),
+      makeRow({ id: 'child', parentId: 'root', repositoryName: 'my-app' }),
+      makeRow({ id: 'grandchild', parentId: 'child', repositoryName: 'my-app' }),
     ];
 
     const tree = buildTreeData(data);
@@ -52,24 +84,22 @@ describe('buildTreeData', () => {
   });
 
   it('treats orphaned children as roots when parent is missing', () => {
-    const data = [makeRow({ id: 'orphan', parentId: 'nonexistent' }), makeRow({ id: 'root' })];
+    const data = [
+      makeRow({ id: 'orphan', parentId: 'nonexistent', repositoryName: 'my-app' }),
+      makeRow({ id: 'root', repositoryName: 'my-app' }),
+    ];
 
     const tree = buildTreeData(data);
 
     expect(tree).toHaveLength(2);
   });
 
-  it('returns empty array for empty input', () => {
-    const tree = buildTreeData([]);
-    expect(tree).toEqual([]);
-  });
-
   it('handles multiple children under one parent', () => {
     const data = [
-      makeRow({ id: 'parent' }),
-      makeRow({ id: 'child-1', parentId: 'parent' }),
-      makeRow({ id: 'child-2', parentId: 'parent' }),
-      makeRow({ id: 'child-3', parentId: 'parent' }),
+      makeRow({ id: 'parent', repositoryName: 'my-app' }),
+      makeRow({ id: 'child-1', parentId: 'parent', repositoryName: 'my-app' }),
+      makeRow({ id: 'child-2', parentId: 'parent', repositoryName: 'my-app' }),
+      makeRow({ id: 'child-3', parentId: 'parent', repositoryName: 'my-app' }),
     ];
 
     const tree = buildTreeData(data);
@@ -78,20 +108,26 @@ describe('buildTreeData', () => {
     expect(tree[0]._children).toHaveLength(3);
   });
 
-  it('handles mixed roots and children', () => {
+  it('preserves parent-child nesting within multi-repo groups', () => {
     const data = [
-      makeRow({ id: 'root-1' }),
-      makeRow({ id: 'root-2' }),
-      makeRow({ id: 'child-of-1', parentId: 'root-1' }),
-      makeRow({ id: 'child-of-2', parentId: 'root-2' }),
+      makeRow({ id: 'parent-a', repositoryName: 'app-a' }),
+      makeRow({ id: 'child-a', parentId: 'parent-a', repositoryName: 'app-a' }),
+      makeRow({ id: 'feat-b', repositoryName: 'app-b' }),
     ];
 
     const tree = buildTreeData(data);
 
     expect(tree).toHaveLength(2);
+    // First repo group
+    expect(tree[0]._isRepoGroup).toBe(true);
+    expect(tree[0].name).toBe('app-a');
     expect(tree[0]._children).toHaveLength(1);
-    expect(tree[0]._children![0].id).toBe('child-of-1');
+    expect(tree[0]._children![0].id).toBe('parent-a');
+    expect(tree[0]._children![0]._children).toHaveLength(1);
+    expect(tree[0]._children![0]._children![0].id).toBe('child-a');
+    // Second repo group
+    expect(tree[1]._isRepoGroup).toBe(true);
     expect(tree[1]._children).toHaveLength(1);
-    expect(tree[1]._children![0].id).toBe('child-of-2');
+    expect(tree[1]._children![0].id).toBe('feat-b');
   });
 });

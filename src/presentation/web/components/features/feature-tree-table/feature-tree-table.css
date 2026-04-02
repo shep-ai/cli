@@ -1,85 +1,87 @@
 /*
- * Tabulator theme overrides for Shep's light/dark mode.
- * We import the base Tabulator CSS, then override colors
- * using CSS custom properties from our Tailwind theme.
+ * Tabulator theme — shadcn data-table alignment.
+ * Uses the same bg-background as the rest of the app (control center, etc.).
+ * No alternate-row striping; clean, minimal look matching shadcn's <Table>.
  */
 @import 'tabulator-tables/dist/css/tabulator_midnight.min.css';
 
-/* ── Light-mode overrides ─────────────────────────────────────── */
+/* ── Base overrides ─────────────────────────────────────────── */
 .tabulator {
-  --tabulator-bg: var(--color-background, #ffffff);
-  --tabulator-header-bg: var(--color-muted, #f4f4f5);
-  --tabulator-row-odd: var(--color-background, #ffffff);
-  --tabulator-row-even: var(--color-muted, #f4f4f5);
-  --tabulator-border: var(--color-border, #e4e4e7);
-  --tabulator-text: var(--color-foreground, #09090b);
-
-  background-color: var(--tabulator-bg);
-  border-color: var(--tabulator-border);
-  color: var(--tabulator-text);
-  font-size: 13px;
-  border-radius: 8px;
+  background-color: transparent;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 0.5rem);
+  color: var(--color-foreground, #0a0a0a);
+  font-family: var(--font-sans);
+  font-size: 14px;
   overflow: hidden;
 }
 
+/* ── Header — matches shadcn TableHeader ────────────────────── */
 .tabulator .tabulator-header {
-  background-color: var(--tabulator-header-bg);
-  border-bottom-color: var(--tabulator-border);
-  color: var(--tabulator-text);
+  background-color: var(--color-muted, #f1f5f9);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  color: var(--color-muted-foreground, #64748b);
 }
 
 .tabulator .tabulator-header .tabulator-col {
-  background-color: var(--tabulator-header-bg);
-  border-right-color: var(--tabulator-border);
+  background-color: transparent;
+  border-right: none;
+}
+
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+  padding: 8px 16px;
 }
 
 .tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title {
-  color: var(--tabulator-text);
-  font-weight: 600;
+  color: var(--color-muted-foreground, #64748b);
+  font-weight: 500;
+  font-size: 14px;
 }
 
+/* ── Rows — uniform background, subtle border ───────────────── */
 .tabulator .tabulator-tableholder .tabulator-table .tabulator-row {
-  border-bottom-color: var(--tabulator-border);
-  color: var(--tabulator-text);
+  background-color: transparent;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  color: var(--color-foreground, #0a0a0a);
 }
 
-.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:nth-child(odd) {
-  background-color: var(--tabulator-row-odd);
-}
-
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:nth-child(odd),
 .tabulator .tabulator-tableholder .tabulator-table .tabulator-row:nth-child(even) {
-  background-color: var(--tabulator-row-even);
+  background-color: transparent;
 }
 
 .tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
-  background-color: var(--color-accent, #f4f4f5);
+  background-color: var(--color-muted, #f1f5f9);
 }
 
+/* ── Cells ──────────────────────────────────────────────────── */
 .tabulator .tabulator-tableholder .tabulator-table .tabulator-row .tabulator-cell {
-  border-right-color: var(--tabulator-border);
+  border-right: none;
+  padding: 8px 16px;
 }
 
-/* Tree toggle icon styling */
+/* ── Tree toggle icon ───────────────────────────────────────── */
 .tabulator .tabulator-row .tabulator-data-tree-control {
-  border-color: var(--tabulator-text);
+  border-color: var(--color-muted-foreground, #64748b);
 }
 
 .tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-collapse::after {
-  background-color: var(--tabulator-text);
+  background-color: var(--color-muted-foreground, #64748b);
 }
 
 .tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand::after,
 .tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand::before {
-  background-color: var(--tabulator-text);
+  background-color: var(--color-muted-foreground, #64748b);
 }
 
-/* Placeholder text */
+/* ── Placeholder ────────────────────────────────────────────── */
 .tabulator .tabulator-tableholder .tabulator-placeholder span {
-  color: var(--color-muted-foreground, #71717a);
+  color: var(--color-muted-foreground, #64748b);
   font-size: 14px;
+  padding: 24px;
 }
 
-/* Clickable name cells */
+/* ── Clickable name cells ───────────────────────────────────── */
 .tabulator .tabulator-row .tabulator-cell.cursor-pointer {
   cursor: pointer;
 }
@@ -88,13 +90,66 @@
   text-decoration: underline;
 }
 
-/* ── Dark-mode overrides ──────────────────────────────────────── */
+/* ── Repository group rows ──────────────────────────────────── */
+.tabulator .tabulator-row.tabulator-row-repo-group {
+  background-color: var(--color-muted, #f1f5f9);
+  font-weight: 500;
+}
+
+.tabulator .tabulator-row.tabulator-row-repo-group:hover {
+  background-color: var(--color-muted, #f1f5f9);
+}
+
+/* ── Sort arrow ─────────────────────────────────────────────── */
+.tabulator .tabulator-header .tabulator-col.tabulator-sortable .tabulator-col-content .tabulator-col-sorter {
+  color: var(--color-muted-foreground, #64748b);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+.tabulator ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.tabulator ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabulator ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-foreground, #0a0a0a) 12%, transparent);
+  border-radius: 9999px;
+}
+
+.tabulator ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-foreground, #0a0a0a) 25%, transparent);
+}
+
+/* ── Dark-mode overrides ────────────────────────────────────── */
 :root.dark .tabulator,
 .dark .tabulator {
-  --tabulator-bg: var(--color-background, #09090b);
-  --tabulator-header-bg: var(--color-muted, #27272a);
-  --tabulator-row-odd: var(--color-background, #09090b);
-  --tabulator-row-even: color-mix(in srgb, var(--color-muted, #27272a) 50%, transparent);
-  --tabulator-border: var(--color-border, #27272a);
-  --tabulator-text: var(--color-foreground, #fafafa);
+  color: var(--color-foreground, #fafafa);
+  border-color: var(--color-border, #333333);
+}
+
+:root.dark .tabulator .tabulator-header,
+.dark .tabulator .tabulator-header {
+  background-color: var(--color-muted, #262626);
+  border-bottom-color: var(--color-border, #333333);
+  color: var(--color-muted-foreground, #a3a3a3);
+}
+
+:root.dark .tabulator .tabulator-tableholder .tabulator-table .tabulator-row,
+.dark .tabulator .tabulator-tableholder .tabulator-table .tabulator-row {
+  border-bottom-color: var(--color-border, #333333);
+  color: var(--color-foreground, #fafafa);
+}
+
+:root.dark .tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover,
+.dark .tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
+  background-color: var(--color-muted, #262626);
+}
+
+:root.dark .tabulator .tabulator-row.tabulator-row-repo-group,
+.dark .tabulator .tabulator-row.tabulator-row-repo-group {
+  background-color: var(--color-muted, #262626);
 }

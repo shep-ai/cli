@@ -21,7 +21,7 @@ const meta: Meta<typeof FeatureTreeTable> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const sampleFeatures: FeatureTreeRow[] = [
+const singleRepoFeatures: FeatureTreeRow[] = [
   {
     id: 'feat-1',
     name: 'Authentication System',
@@ -56,28 +56,45 @@ const sampleFeatures: FeatureTreeRow[] = [
     branch: 'feat/payments',
     repositoryName: 'my-app',
   },
+];
+
+const multiRepoFeatures: FeatureTreeRow[] = [
+  ...singleRepoFeatures,
   {
     id: 'feat-5',
-    name: 'Stripe Checkout',
-    status: 'error',
-    lifecycle: 'Implementation',
-    branch: 'feat/stripe-checkout',
-    repositoryName: 'my-app',
-    parentId: 'feat-4',
-  },
-  {
-    id: 'feat-6',
     name: 'Dashboard Widgets',
     status: 'blocked',
     lifecycle: 'Blocked',
     branch: 'feat/dashboard-widgets',
     repositoryName: 'admin-portal',
   },
+  {
+    id: 'feat-6',
+    name: 'Stripe Checkout',
+    status: 'error',
+    lifecycle: 'Implementation',
+    branch: 'feat/stripe-checkout',
+    repositoryName: 'admin-portal',
+  },
+  {
+    id: 'feat-7',
+    name: 'API Gateway',
+    status: 'in-progress',
+    lifecycle: 'Implementation',
+    branch: 'feat/api-gateway',
+    repositoryName: 'infrastructure',
+  },
 ];
 
 export const Default: Story = {
   args: {
-    data: sampleFeatures,
+    data: multiRepoFeatures,
+  },
+};
+
+export const SingleRepository: Story = {
+  args: {
+    data: singleRepoFeatures,
   },
 };
 
@@ -87,15 +104,9 @@ export const Empty: Story = {
   },
 };
 
-export const FlatList: Story = {
-  args: {
-    data: sampleFeatures.map((f) => ({ ...f, parentId: undefined })),
-  },
-};
-
 export const WithClickHandler: Story = {
   args: {
-    data: sampleFeatures,
+    data: multiRepoFeatures,
     onFeatureClick: (id: string) => alert(`Clicked feature: ${id}`),
   },
 };
