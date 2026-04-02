@@ -130,3 +130,18 @@ There are multiple code paths that spawn an agent process: create, start, resume
 - `create-feature.ts` web action → `initializeAndSpawn()` Phase 2 call (passes input to use case)
 
 **Rule:** Treat `create-feature.use-case.ts initializeAndSpawn()` as the canonical spawn. When adding a flag, copy its option-passing pattern to all other sites.
+
+## Database Migrations Must Be Fully Backward Compatible
+
+**NEVER write a migration that drops or renames a column.** Migrations must be additive-only so that switching branches or rolling back code does not break the database.
+
+**What happened:** Migration 051 dropped the `fast` column and replaced it with `mode`. Switching back to `main` (which still reads `fast`) caused "no such column: fast" — the database was permanently mutated and incompatible with older code.
+
+**Rules:**
+1. **Add new columns, never drop old ones.** If replacing `fast` with `mode`, add `mode` and keep `fast` in place.
+2. **Backfill new columns from old ones** — e.g. `UPDATE features SET mode = CASE WHEN fast = 1 THEN 'Fast' ELSE 'Regular' END`.
+3. **Old columns become read-ignored, not deleted.** Code on the new branch reads `mode`; code on the old branch reads `fast`. Both work.
+4. **Column cleanup is a separate, later migration** — only after the old code path is fully dead and merged to main.
+5. **Same rule for renames** — add the new name, copy data, keep the old name.
+
+**Pattern:** Think of migrations like API versioning. Old consumers (branches, rollbacks) must not break when a new migration runs. Two-phase: first add+backfill, later (optionally) drop.
