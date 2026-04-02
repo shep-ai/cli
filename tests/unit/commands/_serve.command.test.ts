@@ -33,6 +33,9 @@ vi.mock('@/infrastructure/di/container.js', () => ({
       if (token === 'IDeploymentService') {
         return mockDeploymentService;
       }
+      if (token === 'IMessagingService') {
+        return mockMessagingService;
+      }
       if (
         token === 'IAgentRunRepository' ||
         token === 'IPhaseTimingRepository' ||
@@ -81,6 +84,12 @@ const mockWebServerService = {
 
 const mockDeploymentService = {
   stopAll: vi.fn(),
+};
+
+const mockMessagingService = {
+  isConfigured: vi.fn().mockReturnValue(false),
+  start: vi.fn().mockResolvedValue(undefined),
+  stop: vi.fn().mockResolvedValue(undefined),
 };
 
 import { getNotificationWatcher } from '@/infrastructure/services/notifications/notification-watcher.service.js';

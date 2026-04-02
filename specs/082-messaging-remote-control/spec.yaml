@@ -4,20 +4,12 @@
 name: messaging-remote-control
 number: 082
 branch: feat/082-messaging-remote-control
-oneLiner: Use https://github.com/Commands-com/gateway
-and build external control over shep
-
-@/Users/arielshadkhan/.shep/attachments/pending-813c45de-453b-426e-8e76-a1fa9ac77ceb/PRD-846eb13e.md @/Users/arielshadkhan/.shep/attachments/pending-813c45de-453b-426e-8e76-a1fa9ac77ceb/technical-plan-4c7003ca.md
+oneLiner: >
+  Use commands-com gateway and build external control over shep
 userQuery: >
-  Use https://github.com/Commands-com/gateway
-and build external control over shep
-
-@/Users/arielshadkhan/.shep/attachments/pending-813c45de-453b-426e-8e76-a1fa9ac77ceb/PRD-846eb13e.md @/Users/arielshadkhan/.shep/attachments/pending-813c45de-453b-426e-8e76-a1fa9ac77ceb/technical-plan-4c7003ca.md
+  Use commands-com gateway and build external control over shep
 summary: >
-  Use https://github.com/Commands-com/gateway
-and build external control over shep
-
-@/Users/arielshadkhan/.shep/attachments/pending-813c45de-453b-426e-8e76-a1fa9ac77ceb/PRD-846eb13e.md @/Users/arielshadkhan/.shep/attachments/pending-813c45de-453b-426e-8e76-a1fa9ac77ceb/technical-plan-4c7003ca.md
+  Use commands-com gateway and build external control over shep
 phase: Analysis
 sizeEstimate: M
 
@@ -29,7 +21,7 @@ technologies:
   []
 
 relatedLinks:
-  []
+  - https://github.com/Commands-com/gateway
 
 # Open questions (must be resolved before implementation)
 openQuestions:
@@ -39,28 +31,34 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  Use https://github.com/Commands-com/gateway
-and build external control over shep
-
-@/Users/arielshadkhan/.shep/attachments/pending-813c45de-453b-426e-8e76-a1fa9ac77ceb/PRD-846eb13e.md @/Users/arielshadkhan/.shep/attachments/pending-813c45de-453b-426e-8e76-a1fa9ac77ceb/technical-plan-4c7003ca.md
+  Use commands-com gateway and build external control over shep.
 
   ## Success Criteria
 
-  - [ ] TBD
+  - [x] TypeSpec domain models for messaging (commands, config, notifications, platform)
+  - [x] Messaging service with tunnel adapter, chat relay, command executor, notification emitter
+  - [x] Content sanitizer for safe message handling
+  - [x] CLI commands for messaging configuration
+  - [x] DI container registration for messaging service
+  - [x] Integration with _serve command for daemon lifecycle
+  - [x] Unit tests for all messaging components (39 tests passing)
 
   ## Affected Areas
 
-  | Area | Impact | Reasoning |
-  | ---- | ------ | --------- |
-  | TBD  | TBD    | TBD       |
+  | Area           | Impact | Reasoning                                        |
+  | -------------- | ------ | ------------------------------------------------ |
+  | Domain models  | High   | New TypeSpec models for messaging concepts        |
+  | Infrastructure | High   | New messaging service and sub-components          |
+  | CLI            | Medium | New settings commands for messaging configuration |
+  | DI container   | Low    | Registration of messaging service                 |
 
   ## Dependencies
 
-  None identified.
+  - commands-com/gateway for WebSocket tunnel connectivity
 
   ## Size Estimate
 
-  **M** - To be refined during research
+  **M** - Medium complexity feature
 
   ---
 
