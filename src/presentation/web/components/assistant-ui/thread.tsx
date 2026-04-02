@@ -497,6 +497,13 @@ function ThinkingIndicator({ booting }: { booting: boolean }) {
 
 function MessageMeta() {
   const message = useMessage();
+  // Tick every 30s so relative timestamps stay fresh
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const meta = useMemo(() => {
     if (!message?.createdAt) return null;
     const date = new Date(message.createdAt as unknown as string);
@@ -505,7 +512,8 @@ function MessageMeta() {
       time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       relative: formatRelativeTime(date),
     };
-  }, [message?.createdAt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message?.createdAt, tick]);
 
   if (!meta) return null;
 
