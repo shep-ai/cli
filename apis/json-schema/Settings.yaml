@@ -36,6 +36,9 @@ properties:
   fabLayout:
     $ref: FabLayoutConfig.yaml
     description: FAB layout configuration (optional, defaults applied at runtime)
+  messaging:
+    $ref: MessagingConfig.yaml
+    description: Messaging remote control configuration (optional, defaults applied at runtime)
 required:
   - models
   - user

@@ -1,0 +1,19 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: MessagingPlatformConfig.yaml
+type: object
+properties:
+  enabled:
+    type: boolean
+    default: false
+    description: Whether this platform connection is active
+  chatId:
+    type: string
+    description: Platform-specific chat ID for message routing (set during pairing)
+  paired:
+    type: boolean
+    default: false
+    description: Whether the chat has been verified via pairing code
+required:
+  - enabled
+  - paired
+description: Configuration for a single messaging platform connection

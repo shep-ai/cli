@@ -51,6 +51,8 @@ import { DeploymentService } from '../services/deployment/deployment.service.js'
 import { AttachmentStorageService } from '../services/attachment-storage.service.js';
 import type { IGitHubRepositoryService } from '../../application/ports/output/services/github-repository-service.interface.js';
 import { GitHubRepositoryService } from '../services/external/github-repository.service.js';
+import type { IMessagingService } from '../../application/ports/output/services/messaging-service.interface.js';
+import { getSettings } from '../services/settings.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -595,6 +597,66 @@ export async function initializeContainer(): Promise<typeof container> {
 
   // Startup cleanup: mark any zombie sessions (booting/ready from a prior server run) as stopped
   await interactiveSessionRepo.markAllActiveStopped();
+
+  // Register messaging service as a lazy factory — only instantiated when
+  // the daemon resolves it. Avoids loading ws and messaging code for CLI commands.
+  container.register<IMessagingService>('IMessagingService', {
+    useFactory: (c) => {
+      let instance: IMessagingService | null = null;
+      const getInstance = async (): Promise<IMessagingService> => {
+        if (!instance) {
+          const { MessagingService } = await import('../services/messaging/messaging.service.js');
+          const settingsModule = await import('../services/settings.service.js');
+          const settings = settingsModule.getSettings();
+          const messagingConfig = settings.messaging ?? {
+            enabled: false,
+            debounceMs: 5000,
+            chatBufferMs: 3000,
+          };
+
+          instance = new MessagingService({
+            config: messagingConfig,
+            authToken: '', // Resolved from Gateway OAuth at connection time
+            notificationBus: c.resolve('NotificationEventBus') as ReturnType<
+              typeof getNotificationBus
+            >,
+            featureRepo: c.resolve<IFeatureRepository>('IFeatureRepository'),
+            createFeature: c.resolve(CreateFeatureUseCase),
+            approveAgentRun: c.resolve(ApproveAgentRunUseCase),
+            rejectAgentRun: c.resolve(RejectAgentRunUseCase),
+            stopAgentRun: c.resolve(StopAgentRunUseCase),
+            resumeFeature: c.resolve(ResumeFeatureUseCase),
+            listFeatures: c.resolve(ListFeaturesUseCase),
+            showFeature: c.resolve(ShowFeatureUseCase),
+            listRepositories: c.resolve(ListRepositoriesUseCase),
+          });
+        }
+        return instance;
+      };
+      return new Proxy({} as IMessagingService, {
+        get: (_target, prop) => {
+          if (prop === 'isConfigured') {
+            // isConfigured is synchronous — check settings directly
+            return () => {
+              try {
+                const settings = getSettings();
+                const mc = settings.messaging;
+                if (!mc?.enabled || !mc?.gatewayUrl) return false;
+                return !!(mc.telegram?.paired ?? mc.whatsapp?.paired);
+              } catch {
+                return false;
+              }
+            };
+          }
+          return async (...args: unknown[]) => {
+            const svc = await getInstance();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return (svc as any)[prop](...args);
+          };
+        },
+      });
+    },
+  });
 
   _initialized = true;
   return container;

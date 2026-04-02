@@ -44,6 +44,7 @@ import type { IPhaseTimingRepository } from '@/application/ports/output/agents/p
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IDeploymentService } from '@/application/ports/output/services/deployment-service.interface.js';
+import type { IMessagingService } from '@/application/ports/output/services/messaging-service.interface.js';
 import { getCliI18n } from '../i18n.js';
 
 function parsePort(value: string): number {
@@ -89,6 +90,12 @@ export function createServeCommand(): Command {
         initializeAutoArchiveWatcher(featureRepo);
         getAutoArchiveWatcher().start();
 
+        // Start messaging service if configured
+        const messagingService = container.resolve<IMessagingService>('IMessagingService');
+        if (messagingService.isConfigured()) {
+          await messagingService.start();
+        }
+
         // Graceful shutdown handler — identical pattern to ui.command.ts
         let isShuttingDown = false;
         const shutdown = async () => {
@@ -101,6 +108,7 @@ export function createServeCommand(): Command {
 
           getNotificationWatcher().stop();
           getAutoArchiveWatcher().stop();
+          await messagingService.stop();
           const deploymentService = container.resolve<IDeploymentService>('IDeploymentService');
           deploymentService.stopAll();
           await service.stop();
