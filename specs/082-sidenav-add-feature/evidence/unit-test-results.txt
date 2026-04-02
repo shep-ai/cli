@@ -1,26 +1,101 @@
- RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-sidenav-add-feature
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > renders repo name 46ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > shows feature count badge 7ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > renders children when expanded (default) 6ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > hides children when collapsed 189ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > toggles children visibility on click 54ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > starts collapsed when defaultOpen is false 3ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > has correct aria-expanded attribute 25ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > does not render add-feature button when onAddFeature is not provided 3ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > renders add-feature button when onAddFeature is provided 6ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > calls onAddFeature when the + button is clicked 17ms
- ✓  web  tests/unit/presentation/web/common/repo-group.test.tsx > RepoGroup > has accessible label on the add-feature button 5ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Control Center nav item in header 208ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Tools nav item in header 59ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Features label in content 62ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > groups features by status into Action Needed, In Progress, and Done sections 72ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > fires onFeatureClick with featureId when a feature is clicked 298ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders Settings nav item in header linking to /settings 46ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > shows repo group even when there is only one repository 40ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > shows repo groups when there are multiple repositories 31ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > renders add-feature buttons on repo groups when onAddFeature is provided 38ms
- ✓  web  tests/unit/presentation/web/layouts/app-sidebar.test.tsx > AppSidebar > calls onAddFeature with repository path when add-feature button is clicked 103ms
- Test Files  2 passed (2)
-      Tests  21 passed (21)
-   Start at  21:15:06
-   Duration  3.25s (transform 743ms, setup 919ms, import 1.10s, tests 1.32s, environment 1.64s)
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-sidenav-add-feature[39m
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/repo-group.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[32m 141[2mms[22m[39m
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/layouts/app-sidebar.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 267[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m21 passed[39m[22m[90m (21)[39m
+[2m   Start at [22m 21:27:10
+[2m   Duration [22m 1.29s[2m (transform 226ms, setup 367ms, import 419ms, tests 408ms, environment 905ms)[22m
+
