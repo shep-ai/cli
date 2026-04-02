@@ -43,12 +43,14 @@ async function fetchChatState(featureId: string): Promise<ChatState> {
 async function postMessage(
   featureId: string,
   content: string,
-  worktreePath: string
+  worktreePath: string,
+  model?: string,
+  agentType?: string
 ): Promise<InteractiveMessage> {
   const res = await fetch(`/api/interactive/chat/${featureId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content, worktreePath }),
+    body: JSON.stringify({ content, worktreePath, model, agentType }),
   });
   if (!res.ok) throw new Error(`Failed to send message: ${res.status}`);
   const data = (await res.json()) as { message: InteractiveMessage };
@@ -88,6 +90,10 @@ export interface ChatRuntimeOptions {
   contentTransform?: (content: string) => string;
   /** Called after a message is successfully sent (e.g. clear attachments). */
   onMessageSent?: () => void;
+  /** Override model for new sessions (e.g. 'claude-sonnet-4-6'). */
+  model?: string;
+  /** Override agent type for new sessions (e.g. 'claude-code'). */
+  agentType?: string;
 }
 
 /**
@@ -211,7 +217,8 @@ export function useChatRuntime(
 
   // ── Mutation: send user message ─────────────────────────────────────────
   const sendMutation = useMutation({
-    mutationFn: (content: string) => postMessage(featureId, content, worktreePath ?? ''),
+    mutationFn: (content: string) =>
+      postMessage(featureId, content, worktreePath ?? '', options?.model, options?.agentType),
     onMutate: async (content: string) => {
       startAwaiting();
       // Cancel in-flight refetches so our optimistic update isn't overwritten

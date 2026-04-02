@@ -34,7 +34,12 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
   const { runtime, status, clearChat, sessionInfo, isChatLoading } = useChatRuntime(
     featureId,
     worktreePath,
-    { contentTransform, onMessageSent: att.clearAttachments }
+    {
+      contentTransform,
+      onMessageSent: att.clearAttachments,
+      model: overrideModel,
+      agentType: overrideAgent,
+    }
   );
 
   const handlePickFiles = useCallback(async () => {

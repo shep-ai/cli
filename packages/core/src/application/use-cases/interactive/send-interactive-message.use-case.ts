@@ -18,6 +18,8 @@ export interface SendInteractiveMessageInput {
   featureId: string;
   content: string;
   worktreePath: string;
+  model?: string;
+  agentType?: string;
 }
 
 /**
@@ -35,6 +37,12 @@ export class SendInteractiveMessageUseCase {
   ) {}
 
   async execute(input: SendInteractiveMessageInput): Promise<InteractiveMessage> {
-    return this.service.sendUserMessage(input.featureId, input.content, input.worktreePath);
+    return this.service.sendUserMessage(
+      input.featureId,
+      input.content,
+      input.worktreePath,
+      input.model,
+      input.agentType
+    );
   }
 }

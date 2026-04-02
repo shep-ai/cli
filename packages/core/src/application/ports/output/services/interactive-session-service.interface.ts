@@ -184,7 +184,9 @@ export interface IInteractiveSessionService {
   sendUserMessage(
     featureId: string,
     content: string,
-    worktreePath: string
+    worktreePath: string,
+    model?: string,
+    agentType?: string
   ): Promise<InteractiveMessage>;
 
   /**

@@ -830,7 +830,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   async sendUserMessage(
     featureId: string,
     content: string,
-    worktreePath: string
+    worktreePath: string,
+    model?: string,
+    agentType?: string
   ): Promise<InteractiveMessage> {
     // 1. Persist user message to DB immediately — this is the source of truth
     const now = new Date();
@@ -882,7 +884,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       }
 
       // Boot a new session — startSession will find the agentSessionId from DB
-      const session = await this.startSession(featureId, worktreePath);
+      const session = await this.startSession(featureId, worktreePath, model, agentType);
       const newState = this.sessions.get(session.id);
       if (newState) {
         newState.pendingUserContent = content;

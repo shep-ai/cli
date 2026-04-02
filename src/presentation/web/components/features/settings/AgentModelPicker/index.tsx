@@ -120,6 +120,7 @@ export function AgentModelPicker({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
+            type="button"
             variant="outline"
             role="combobox"
             aria-expanded={open}
@@ -145,7 +146,7 @@ export function AgentModelPicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-(--radix-popover-trigger-width) overflow-hidden p-0"
+          className="z-[70] w-(--radix-popover-trigger-width) overflow-hidden p-0"
           align="start"
         >
           {/* Sliding container — both panels side by side, translateX controlled by level */}
