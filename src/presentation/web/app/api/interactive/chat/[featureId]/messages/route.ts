@@ -29,8 +29,13 @@ interface RouteParams {
 export async function POST(request: NextRequest, { params }: RouteParams): Promise<NextResponse> {
   try {
     const { featureId } = await params;
-    const body = (await request.json()) as { content?: string; worktreePath?: string };
-    const { content, worktreePath } = body;
+    const body = (await request.json()) as {
+      content?: string;
+      worktreePath?: string;
+      model?: string;
+      agentType?: string;
+    };
+    const { content, worktreePath, model, agentType } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       return NextResponse.json({ error: 'content must be a non-empty string' }, { status: 400 });
@@ -51,6 +56,8 @@ export async function POST(request: NextRequest, { params }: RouteParams): Promi
       featureId,
       content,
       worktreePath: resolvedWorktreePath,
+      model: typeof model === 'string' ? model : undefined,
+      agentType: typeof agentType === 'string' ? agentType : undefined,
     });
 
     return NextResponse.json({ message }, { status: 201 });

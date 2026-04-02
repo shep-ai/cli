@@ -12,7 +12,7 @@ importers:
   .:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.2.81
+        specifier: 0.2.81
         version: 0.2.81(zod@4.3.6)
       '@assistant-ui/react':
         specifier: ^0.12.19

@@ -164,6 +164,7 @@ function makeFakeHandle(sessionId = 'claude-session-abc'): FakeHandle {
     send: sendMock,
     stream,
     close: closeMock,
+    abort: () => closeMock(),
   };
 
   return { handle, pushEvent, endStream, sendMock, closeMock };
@@ -228,6 +229,8 @@ describe('InteractiveSessionService', () => {
       updateTurnStatus: vi.fn().mockResolvedValue(undefined),
       getTurnStatuses: vi.fn().mockResolvedValue(new Map()),
       getAllActiveTurnStatuses: vi.fn().mockResolvedValue(new Map()),
+      accumulateUsage: vi.fn().mockResolvedValue(undefined),
+      getUsage: vi.fn().mockResolvedValue(null),
     };
 
     messageRepo = {

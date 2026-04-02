@@ -57,8 +57,10 @@ export interface InteractiveAgentSessionHandle {
   send(message: string): Promise<void>;
   /** Iterate response events from the agent */
   stream(): AsyncIterable<InteractiveAgentEvent>;
-  /** Terminate the session */
+  /** Terminate the session gracefully */
   close(): Promise<void>;
+  /** Abort the current operation immediately (kills the agent process) */
+  abort(): void;
 }
 
 /** Executor interface for interactive agent sessions. */

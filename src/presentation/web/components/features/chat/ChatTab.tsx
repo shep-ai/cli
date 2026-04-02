@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
-import { Trash2, Square, Cpu } from 'lucide-react';
+import { Trash2, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Thread } from '@/components/assistant-ui/thread';
 import { useAttachments } from '@/hooks/use-attachments';
@@ -17,9 +17,12 @@ export interface ChatTabProps {
   worktreePath?: string;
 }
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
+  const [debugMode, setDebugMode] = useState(false);
   const att = useAttachments();
 
   const contentTransform = useCallback(
@@ -31,10 +34,16 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
     [att.completedAttachments]
   );
 
-  const { runtime, status, clearChat, stopAgent, sessionInfo, isChatLoading } = useChatRuntime(
+  const { runtime, status, clearChat, sessionInfo, isChatLoading } = useChatRuntime(
     featureId,
     worktreePath,
-    { contentTransform, onMessageSent: att.clearAttachments }
+    {
+      contentTransform,
+      onMessageSent: att.clearAttachments,
+      model: overrideModel,
+      agentType: overrideAgent,
+      debugMode,
+    }
   );
 
   const handlePickFiles = useCallback(async () => {
@@ -100,7 +109,8 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
         sessionInfo={sessionInfo}
         isAgentActive={status.isRunning}
         onClear={clearChat}
-        onStop={stopAgent}
+        debugMode={debugMode}
+        onDebugToggle={IS_DEV ? setDebugMode : undefined}
       />
       <div className="flex min-h-0 flex-1 flex-col">
         {isChatLoading ? (
@@ -163,12 +173,14 @@ function ChatHeader({
   sessionInfo,
   isAgentActive,
   onClear,
-  onStop,
+  debugMode,
+  onDebugToggle,
 }: {
   sessionInfo: SessionInfo | null;
   isAgentActive: boolean;
   onClear: () => Promise<void>;
-  onStop: () => Promise<void>;
+  debugMode: boolean;
+  onDebugToggle?: (enabled: boolean) => void;
 }) {
   const { t } = useTranslation('web');
   return (
@@ -192,22 +204,18 @@ function ChatHeader({
         )}
       </div>
 
-      {/* Right — actions with separator */}
+      {/* Right — actions */}
       <div className="flex items-center gap-1 ps-2">
-        {sessionInfo ? (
-          <>
-            <ToolbarButton
-              onClick={() => {
-                void onStop();
-              }}
-              title={t('chat.forceStopAgent')}
-              variant="danger"
-            >
-              <Square className="h-2.5 w-2.5 fill-current" />
-              <span>{t('chat.stop')}</span>
-            </ToolbarButton>
-            <span className="text-border mx-0.5">|</span>
-          </>
+        {onDebugToggle ? (
+          <label className="text-muted-foreground/60 flex cursor-pointer items-center gap-1 text-[10px]">
+            <input
+              type="checkbox"
+              checked={debugMode}
+              onChange={(e) => onDebugToggle(e.target.checked)}
+              className="h-3 w-3 cursor-pointer rounded"
+            />
+            Debug
+          </label>
         ) : null}
         <ToolbarButton
           onClick={() => {
