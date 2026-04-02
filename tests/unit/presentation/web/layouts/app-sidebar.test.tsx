@@ -202,4 +202,31 @@ describe('AppSidebar', () => {
     expect(screen.getByText('API Gateway')).toBeInTheDocument();
     expect(screen.getByText('Settings Page')).toBeInTheDocument();
   });
+
+  it('renders add-feature buttons on repo groups when onAddFeature is provided', () => {
+    renderWithSidebar(
+      <AppSidebar features={mockFeatures} featureFlags={defaultFlags} onAddFeature={vi.fn()} />
+    );
+
+    const addButtons = screen.getAllByTestId('repo-add-feature');
+    expect(addButtons).toHaveLength(1);
+  });
+
+  it('calls onAddFeature with repository path when add-feature button is clicked', async () => {
+    const handleAddFeature = vi.fn();
+    const user = userEvent.setup();
+
+    renderWithSidebar(
+      <AppSidebar
+        features={mockFeatures}
+        featureFlags={defaultFlags}
+        onAddFeature={handleAddFeature}
+      />
+    );
+
+    await user.click(screen.getByTestId('repo-add-feature'));
+
+    expect(handleAddFeature).toHaveBeenCalledOnce();
+    expect(handleAddFeature).toHaveBeenCalledWith('/home/user/projects/my-app');
+  });
 });
