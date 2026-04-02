@@ -375,11 +375,15 @@ export type StageTimeouts = {
    */
   planMs?: number;
   /**
-   * Timeout for the implement stage (default: 600000)
+   * Timeout for the implement stage (default: 1800000)
    */
   implementMs?: number;
   /**
-   * Timeout for the merge stage (default: 600000)
+   * Timeout for the fast-implement stage (default: 1800000)
+   */
+  fastImplementMs?: number;
+  /**
+   * Timeout for the merge stage (default: 1800000)
    */
   mergeMs?: number;
 };

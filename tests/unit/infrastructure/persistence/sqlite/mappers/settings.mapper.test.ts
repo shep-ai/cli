@@ -144,6 +144,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     stage_timeout_research_ms: null,
     stage_timeout_plan_ms: null,
     stage_timeout_implement_ms: null,
+    stage_timeout_fast_implement_ms: null,
     stage_timeout_merge_ms: null,
     analyze_repo_timeout_analyze_ms: null,
     onboarding_complete: 0,
@@ -569,6 +570,7 @@ describe('Settings Mapper', () => {
             researchMs: 900_000,
             planMs: 600_000,
             implementMs: 1_800_000,
+            fastImplementMs: 1_200_000,
             mergeMs: 600_000,
           },
         },
@@ -579,6 +581,7 @@ describe('Settings Mapper', () => {
       expect(row.stage_timeout_research_ms).toBe(900_000);
       expect(row.stage_timeout_plan_ms).toBe(600_000);
       expect(row.stage_timeout_implement_ms).toBe(1_800_000);
+      expect(row.stage_timeout_fast_implement_ms).toBe(1_200_000);
       expect(row.stage_timeout_merge_ms).toBe(600_000);
     });
 
@@ -590,6 +593,7 @@ describe('Settings Mapper', () => {
       expect(row.stage_timeout_research_ms).toBeNull();
       expect(row.stage_timeout_plan_ms).toBeNull();
       expect(row.stage_timeout_implement_ms).toBeNull();
+      expect(row.stage_timeout_fast_implement_ms).toBeNull();
       expect(row.stage_timeout_merge_ms).toBeNull();
     });
 
@@ -616,11 +620,13 @@ describe('Settings Mapper', () => {
       const row = createTestRow({
         stage_timeout_analyze_ms: 300_000,
         stage_timeout_implement_ms: 1_800_000,
+        stage_timeout_fast_implement_ms: 1_200_000,
       });
       const settings = fromDatabase(row);
       expect(settings.workflow.stageTimeouts).toEqual({
         analyzeMs: 300_000,
         implementMs: 1_800_000,
+        fastImplementMs: 1_200_000,
       });
     });
 
@@ -654,6 +660,7 @@ describe('Settings Mapper', () => {
             researchMs: 900_000,
             planMs: 600_000,
             implementMs: 1_800_000,
+            fastImplementMs: 1_200_000,
             mergeMs: 600_000,
           },
         },

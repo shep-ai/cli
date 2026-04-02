@@ -50,6 +50,7 @@ export const AllEnabled: Story = {
         researchMs: 600000,
         planMs: 600000,
         implementMs: 600000,
+        fastImplementMs: 600000,
         mergeMs: 600000,
       },
       analyzeRepoTimeouts: {
@@ -82,6 +83,7 @@ export const WithCiSettings: Story = {
         researchMs: 1200000,
         planMs: 1200000,
         implementMs: 1200000,
+        fastImplementMs: 1200000,
         mergeMs: 1200000,
       },
       analyzeRepoTimeouts: {

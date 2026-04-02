@@ -1,0 +1,36 @@
+feature:
+  id: '082-fast-mode-timeout'
+  name: 'fast-mode-timeout'
+  number: 82
+  branch: 'feat/082-fast-mode-timeout'
+  lifecycle: 'research'
+  createdAt: '2026-04-02T17:48:30Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-04-02T17:48:30Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-04-02T17:48:30Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
