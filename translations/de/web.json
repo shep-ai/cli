@@ -134,6 +134,8 @@
       "planDescription": "Zeitlimit für Implementierungsplanung",
       "implement": "Implementierung",
       "implementDescription": "Zeitlimit für Code-Implementierung",
+      "fastImplement": "Schnelle Implementierung",
+      "fastImplementDescription": "Zeitlimit für Schnellmodus-Implementierung",
       "merge": "Merge",
       "mergeDescription": "Zeitlimit für PR-Erstellung und Merge",
       "hint": "Jeder Agent hat unabhängig konfigurierbare Phasen-Zeitlimits. Wenn eine Phase ihr Zeitlimit überschreitet, wird der Agent beendet. Längere Zeitlimits sind nützlich für komplexe Implementierungen. Feature-Agent hat standardmäßig 30 Minuten pro Phase. Repository-Analyse-Agent hat standardmäßig 10 Minuten."
