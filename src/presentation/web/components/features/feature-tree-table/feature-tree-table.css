@@ -65,7 +65,10 @@
   border-color: var(--color-muted-foreground, #64748b);
 }
 
-.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-collapse::after {
+.tabulator
+  .tabulator-row
+  .tabulator-data-tree-control
+  .tabulator-data-tree-control-collapse::after {
   background-color: var(--color-muted-foreground, #64748b);
 }
 
@@ -101,7 +104,11 @@
 }
 
 /* ── Sort arrow ─────────────────────────────────────────────── */
-.tabulator .tabulator-header .tabulator-col.tabulator-sortable .tabulator-col-content .tabulator-col-sorter {
+.tabulator
+  .tabulator-header
+  .tabulator-col.tabulator-sortable
+  .tabulator-col-content
+  .tabulator-col-sorter {
   color: var(--color-muted-foreground, #64748b);
 }
 
