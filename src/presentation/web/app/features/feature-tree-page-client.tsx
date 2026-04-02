@@ -22,7 +22,7 @@ export function FeatureTreePageClient({ features }: FeatureTreePageClientProps) 
 
   return (
     <div data-testid="feature-tree-page" className="flex h-full flex-col gap-4">
-      <PageHeader title="Features" description="All features organized as a tree view" />
+      <PageHeader title="Inventory" description="All repositories and features" />
       <div className="min-h-0 flex-1">
         <FeatureTreeTable data={features} onFeatureClick={handleFeatureClick} />
       </div>

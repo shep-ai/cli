@@ -29,6 +29,7 @@ const singleRepoFeatures: FeatureTreeRow[] = [
     lifecycle: 'Maintain',
     branch: 'feat/auth-system',
     repositoryName: 'my-app',
+    remoteUrl: 'https://github.com/acme/my-app',
   },
   {
     id: 'feat-2',
@@ -37,6 +38,7 @@ const singleRepoFeatures: FeatureTreeRow[] = [
     lifecycle: 'Implementation',
     branch: 'feat/oauth2-provider',
     repositoryName: 'my-app',
+    remoteUrl: 'https://github.com/acme/my-app',
     parentId: 'feat-1',
   },
   {
@@ -46,6 +48,7 @@ const singleRepoFeatures: FeatureTreeRow[] = [
     lifecycle: 'Planning',
     branch: 'feat/jwt-refresh',
     repositoryName: 'my-app',
+    remoteUrl: 'https://github.com/acme/my-app',
     parentId: 'feat-1',
   },
   {
@@ -55,6 +58,7 @@ const singleRepoFeatures: FeatureTreeRow[] = [
     lifecycle: 'Review',
     branch: 'feat/payments',
     repositoryName: 'my-app',
+    remoteUrl: 'https://github.com/acme/my-app',
   },
 ];
 
@@ -67,6 +71,7 @@ const multiRepoFeatures: FeatureTreeRow[] = [
     lifecycle: 'Blocked',
     branch: 'feat/dashboard-widgets',
     repositoryName: 'admin-portal',
+    remoteUrl: 'https://github.com/acme/admin-portal',
   },
   {
     id: 'feat-6',
@@ -75,6 +80,7 @@ const multiRepoFeatures: FeatureTreeRow[] = [
     lifecycle: 'Implementation',
     branch: 'feat/stripe-checkout',
     repositoryName: 'admin-portal',
+    remoteUrl: 'https://github.com/acme/admin-portal',
   },
   {
     id: 'feat-7',
@@ -83,6 +89,7 @@ const multiRepoFeatures: FeatureTreeRow[] = [
     lifecycle: 'Implementation',
     branch: 'feat/api-gateway',
     repositoryName: 'infrastructure',
+    remoteUrl: 'https://gitlab.com/acme/infrastructure',
   },
 ];
 
@@ -119,6 +126,7 @@ const deeplyNestedFeatures: FeatureTreeRow[] = [
     lifecycle: 'Implementation',
     branch: 'feat/platform-overhaul',
     repositoryName: 'platform',
+    remoteUrl: 'https://github.com/acme/platform',
   },
   {
     id: 'child-1',
@@ -127,6 +135,7 @@ const deeplyNestedFeatures: FeatureTreeRow[] = [
     lifecycle: 'Implementation',
     branch: 'feat/api-redesign',
     repositoryName: 'platform',
+    remoteUrl: 'https://github.com/acme/platform',
     parentId: 'root-1',
   },
   {
@@ -136,6 +145,7 @@ const deeplyNestedFeatures: FeatureTreeRow[] = [
     lifecycle: 'Planning',
     branch: 'feat/graphql-migration',
     repositoryName: 'platform',
+    remoteUrl: 'https://github.com/acme/platform',
     parentId: 'child-1',
   },
   {
@@ -145,6 +155,7 @@ const deeplyNestedFeatures: FeatureTreeRow[] = [
     lifecycle: 'Maintain',
     branch: 'feat/db-migration',
     repositoryName: 'platform',
+    remoteUrl: 'https://github.com/acme/platform',
     parentId: 'root-1',
   },
 ];
@@ -152,5 +163,22 @@ const deeplyNestedFeatures: FeatureTreeRow[] = [
 export const DeeplyNested: Story = {
   args: {
     data: deeplyNestedFeatures,
+  },
+};
+
+const noRemoteFeatures: FeatureTreeRow[] = [
+  {
+    id: 'feat-local-1',
+    name: 'Local Feature',
+    status: 'in-progress',
+    lifecycle: 'Implementation',
+    branch: 'feat/local-work',
+    repositoryName: 'local-project',
+  },
+];
+
+export const NoRemoteUrl: Story = {
+  args: {
+    data: noRemoteFeatures,
   },
 };

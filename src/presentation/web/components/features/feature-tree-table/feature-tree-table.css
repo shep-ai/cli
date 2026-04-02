@@ -1,9 +1,9 @@
 /*
- * Tabulator theme — shadcn data-table alignment.
- * Uses the same bg-background as the rest of the app (control center, etc.).
- * No alternate-row striping; clean, minimal look matching shadcn's <Table>.
+ * Tabulator theme — open, borderless inventory table on dotted canvas.
+ * Inspired by Snyk's Code Assets table. Uses shadcn CSS variables.
+ * Base: tabulator_simple (minimal — no opinionated colors).
  */
-@import 'tabulator-tables/dist/css/tabulator_midnight.min.css';
+@import 'tabulator-tables/dist/css/tabulator_simple.min.css';
 
 /* ── Dotted page background (matches features canvas) ─────── */
 /* Uses SVG circles identical to React Flow's BackgroundVariant.Dots */
@@ -20,21 +20,21 @@
   background-repeat: repeat;
 }
 
-/* ── Base overrides ─────────────────────────────────────────── */
+/* ── Base — borderless, fully transparent ──────────────────── */
 .tabulator {
-  background-color: var(--color-background, #ffffff);
-  border: 1px solid var(--color-border, #e2e8f0);
-  border-radius: var(--radius-lg, 0.5rem);
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
   color: var(--color-foreground, #0a0a0a);
   font-family: var(--font-sans);
   font-size: 14px;
-  overflow: hidden;
 }
 
-/* ── Header — matches shadcn TableHeader ────────────────────── */
+/* ── Header — light fill with bottom border ────────────────── */
 .tabulator .tabulator-header {
   background-color: var(--color-muted, #f1f5f9);
   border-bottom: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 0.5rem);
   color: var(--color-muted-foreground, #64748b);
 }
 
@@ -44,16 +44,27 @@
 }
 
 .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
-  padding: 8px 16px;
+  padding: 10px 16px;
 }
 
 .tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title {
   color: var(--color-muted-foreground, #64748b);
   font-weight: 500;
-  font-size: 14px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-/* ── Rows — uniform background, subtle border ───────────────── */
+/* Hide the noisy sort indicator arrows — keep headers clean */
+.tabulator
+  .tabulator-header
+  .tabulator-col.tabulator-sortable
+  .tabulator-col-content
+  .tabulator-col-sorter {
+  display: none;
+}
+
+/* ── Rows — tall, airy, light dividers ─────────────────────── */
 .tabulator .tabulator-tableholder .tabulator-table .tabulator-row {
   background-color: transparent;
   border-bottom: 1px solid var(--color-border, #e2e8f0);
@@ -66,40 +77,232 @@
 }
 
 .tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
-  background-color: var(--color-muted, #f1f5f9);
+  background-color: color-mix(in srgb, var(--color-foreground, #0a0a0a) 3%, transparent);
 }
 
-/* ── Cells ──────────────────────────────────────────────────── */
+/* ── Cells — generous vertical padding ─────────────────────── */
 .tabulator .tabulator-tableholder .tabulator-table .tabulator-row .tabulator-cell {
   border-right: none;
-  padding: 8px 16px;
+  padding: 12px 16px;
 }
 
-/* ── Tree toggle icon ───────────────────────────────────────── */
+/* ── Hide tree indent guide lines (the └ connectors) ───────── */
+.tabulator .tabulator-row .tabulator-data-tree-branch {
+  display: none;
+}
+
+/* ── Animated chevron tree toggle (replaces +/−) ───────────── */
 .tabulator .tabulator-row .tabulator-data-tree-control {
-  border-color: var(--color-muted-foreground, #64748b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 6px;
+  vertical-align: middle;
+  transition: background-color 150ms ease;
+}
+
+.tabulator .tabulator-row .tabulator-data-tree-control:hover {
+  background-color: color-mix(in srgb, var(--color-foreground, #0a0a0a) 8%, transparent);
+}
+
+/* Reset the default +/− pseudo-elements */
+.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-collapse,
+.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
 }
 
 .tabulator
   .tabulator-row
   .tabulator-data-tree-control
-  .tabulator-data-tree-control-collapse::after {
-  background-color: var(--color-muted-foreground, #64748b);
+  .tabulator-data-tree-control-collapse::after,
+.tabulator
+  .tabulator-row
+  .tabulator-data-tree-control
+  .tabulator-data-tree-control-expand::after,
+.tabulator
+  .tabulator-row
+  .tabulator-data-tree-control
+  .tabulator-data-tree-control-expand::before {
+  display: none;
 }
 
-.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand::after,
-.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand::before {
-  background-color: var(--color-muted-foreground, #64748b);
+/* Chevron — collapsed state (>) */
+.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  transform: rotate(0deg);
 }
 
-/* ── Placeholder ────────────────────────────────────────────── */
+/* Chevron — expanded state (∨) */
+.tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-collapse {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  transform: rotate(90deg);
+}
+
+/* ── Repository group rows ─────────────────────────────────── */
+.tabulator .tabulator-row.tabulator-row-repo-group {
+  background-color: transparent;
+}
+
+.tabulator .tabulator-row.tabulator-row-repo-group:hover {
+  background-color: color-mix(in srgb, var(--color-foreground, #0a0a0a) 3%, transparent);
+}
+
+.tabulator .tabulator-row.tabulator-row-repo-group .tabulator-cell:first-child {
+  display: inline-flex;
+  align-items: center;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  overflow: visible;
+}
+
+.tabulator .tabulator-row.tabulator-row-repo-group .tabulator-cell {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  overflow: visible;
+}
+
+/* ── Repo name cell layout ─────────────────────────────────── */
+.repo-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.repo-name-cell svg {
+  flex-shrink: 0;
+  color: var(--color-muted-foreground, #64748b);
+}
+
+.repo-name-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.repo-name-primary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.repo-name-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-foreground, #0a0a0a);
+}
+
+.repo-feature-count {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--color-muted-foreground, #94a3b8);
+}
+
+.repo-remote-url {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--color-muted-foreground, #94a3b8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 400px;
+}
+
+/* ── Status pill badges ────────────────────────────────────── */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.status-pill .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-pill--action-needed {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+.status-pill--action-needed .status-dot {
+  background-color: #f59e0b;
+}
+
+.status-pill--in-progress {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+.status-pill--in-progress .status-dot {
+  background-color: #3b82f6;
+}
+
+.status-pill--pending {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+.status-pill--pending .status-dot {
+  background-color: #94a3b8;
+}
+
+.status-pill--blocked {
+  background-color: #f3f4f6;
+  color: #4b5563;
+}
+.status-pill--blocked .status-dot {
+  background-color: #9ca3af;
+}
+
+.status-pill--error {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+.status-pill--error .status-dot {
+  background-color: #ef4444;
+}
+
+.status-pill--done {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+.status-pill--done .status-dot {
+  background-color: #10b981;
+}
+
+/* ── Placeholder ───────────────────────────────────────────── */
 .tabulator .tabulator-tableholder .tabulator-placeholder span {
   color: var(--color-muted-foreground, #64748b);
   font-size: 14px;
-  padding: 24px;
+  padding: 32px;
 }
 
-/* ── Clickable name cells ───────────────────────────────────── */
+/* ── Clickable name cells ──────────────────────────────────── */
 .tabulator .tabulator-row .tabulator-cell.cursor-pointer {
   cursor: pointer;
 }
@@ -108,26 +311,11 @@
   text-decoration: underline;
 }
 
-/* ── Repository group rows ──────────────────────────────────── */
-.tabulator .tabulator-row.tabulator-row-repo-group {
-  background-color: var(--color-muted, #f1f5f9);
-  font-weight: 500;
+.tabulator .tabulator-row.tabulator-row-repo-group .tabulator-cell.cursor-pointer:hover {
+  text-decoration: none;
 }
 
-.tabulator .tabulator-row.tabulator-row-repo-group:hover {
-  background-color: var(--color-muted, #f1f5f9);
-}
-
-/* ── Sort arrow ─────────────────────────────────────────────── */
-.tabulator
-  .tabulator-header
-  .tabulator-col.tabulator-sortable
-  .tabulator-col-content
-  .tabulator-col-sorter {
-  color: var(--color-muted-foreground, #64748b);
-}
-
-/* ── Scrollbar ──────────────────────────────────────────────── */
+/* ── Scrollbar ─────────────────────────────────────────────── */
 .tabulator ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -146,12 +334,11 @@
   background: color-mix(in srgb, var(--color-foreground, #0a0a0a) 25%, transparent);
 }
 
-/* ── Dark-mode overrides ────────────────────────────────────── */
+/* ── Dark mode ─────────────────────────────────────────────── */
 :root.dark .tabulator,
 .dark .tabulator {
-  background-color: var(--color-background, #0a0a0a);
+  background-color: transparent;
   color: var(--color-foreground, #fafafa);
-  border-color: var(--color-border, #333333);
 }
 
 :root.dark .tabulator .tabulator-header,
@@ -169,10 +356,63 @@
 
 :root.dark .tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover,
 .dark .tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
-  background-color: var(--color-muted, #262626);
+  background-color: color-mix(in srgb, var(--color-foreground, #fafafa) 5%, transparent);
 }
 
 :root.dark .tabulator .tabulator-row.tabulator-row-repo-group,
 .dark .tabulator .tabulator-row.tabulator-row-repo-group {
-  background-color: var(--color-muted, #262626);
+  background-color: transparent;
+}
+
+/* Dark mode chevron */
+:root.dark .tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand,
+.dark .tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-expand {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E");
+}
+
+:root.dark .tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-collapse,
+.dark .tabulator .tabulator-row .tabulator-data-tree-control .tabulator-data-tree-control-collapse {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E");
+}
+
+:root.dark .repo-name-title,
+.dark .repo-name-title {
+  color: var(--color-foreground, #fafafa);
+}
+
+/* Dark mode status pills — darker tints */
+:root.dark .status-pill--action-needed,
+.dark .status-pill--action-needed {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+:root.dark .status-pill--in-progress,
+.dark .status-pill--in-progress {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+:root.dark .status-pill--pending,
+.dark .status-pill--pending {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+:root.dark .status-pill--blocked,
+.dark .status-pill--blocked {
+  background-color: rgba(156, 163, 175, 0.15);
+  color: #9ca3af;
+}
+
+:root.dark .status-pill--error,
+.dark .status-pill--error {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+:root.dark .status-pill--done,
+.dark .status-pill--done {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34d399;
 }

@@ -31,21 +31,23 @@ export async function getFeatureTreeData(): Promise<FeatureTreeRow[]> {
 
   const [features, repositories] = await Promise.all([listFeatures.execute(), listRepos.execute()]);
 
-  const repoNameByPath = new Map<string, string>();
+  const repoByPath = new Map<string, { name: string; remoteUrl?: string }>();
   for (const repo of repositories) {
-    repoNameByPath.set(repo.path, repo.name);
+    repoByPath.set(repo.path, { name: repo.name, remoteUrl: repo.remoteUrl });
   }
 
-  return features.map((feature) => ({
-    id: feature.id,
-    name: feature.name,
-    status: lifecycleToStatus(feature.lifecycle),
-    lifecycle: feature.lifecycle,
-    branch: feature.branch,
-    repositoryName:
-      repoNameByPath.get(feature.repositoryPath) ??
-      feature.repositoryPath.split('/').pop() ??
-      feature.repositoryPath,
-    parentId: feature.parentId ?? undefined,
-  }));
+  return features.map((feature) => {
+    const repo = repoByPath.get(feature.repositoryPath);
+    return {
+      id: feature.id,
+      name: feature.name,
+      status: lifecycleToStatus(feature.lifecycle),
+      lifecycle: feature.lifecycle,
+      branch: feature.branch,
+      repositoryName:
+        repo?.name ?? feature.repositoryPath.split('/').pop() ?? feature.repositoryPath,
+      remoteUrl: repo?.remoteUrl,
+      parentId: feature.parentId ?? undefined,
+    };
+  });
 }

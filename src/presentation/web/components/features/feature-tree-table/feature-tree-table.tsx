@@ -14,11 +14,14 @@ export interface FeatureTreeRow {
   lifecycle: string;
   branch: string;
   repositoryName: string;
+  remoteUrl?: string;
   parentId?: string;
   /** Child rows for tree hierarchy */
   _children?: FeatureTreeRow[];
   /** Whether this row is a repository group header */
   _isRepoGroup?: boolean;
+  /** Number of features in this repo group */
+  _featureCount?: number;
 }
 
 export interface FeatureTreeTableProps {
@@ -26,15 +29,6 @@ export interface FeatureTreeTableProps {
   className?: string;
   onFeatureClick?: (featureId: string) => void;
 }
-
-const STATUS_COLORS: Record<FeatureStatus, string> = {
-  'action-needed': '#f59e0b',
-  'in-progress': '#3b82f6',
-  pending: '#94a3b8',
-  blocked: '#9ca3af',
-  error: '#ef4444',
-  done: '#10b981',
-};
 
 const STATUS_LABELS: Record<FeatureStatus, string> = {
   'action-needed': 'Action Needed',
@@ -45,13 +39,39 @@ const STATUS_LABELS: Record<FeatureStatus, string> = {
   done: 'Done',
 };
 
+/** SVG repo icon — lucide FolderGit2 */
+const REPO_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><circle cx="12" cy="13" r="2"/><path d="M14 13h3"/><path d="M7 13h3"/></svg>`;
+
 function statusFormatter(cell: CellComponent): string {
   const row = cell.getRow().getData() as FeatureTreeRow;
   if (row._isRepoGroup) return '';
   const value = cell.getValue() as FeatureStatus;
-  const color = STATUS_COLORS[value] ?? '#94a3b8';
   const label = STATUS_LABELS[value] ?? value;
-  return `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;"></span>${label}</span>`;
+  return `<span class="status-pill status-pill--${value}"><span class="status-dot"></span>${label}</span>`;
+}
+
+function nameFormatter(cell: CellComponent): string {
+  const row = cell.getRow().getData() as FeatureTreeRow;
+
+  if (row._isRepoGroup) {
+    const countLabel = row._featureCount === 1 ? '1 Feature' : `${row._featureCount ?? 0} Features`;
+    const remoteLabel = row.remoteUrl
+      ? `<span class="repo-remote-url">${escapeHtml(row.remoteUrl)}</span>`
+      : '';
+
+    return `<span class="repo-name-cell">${REPO_ICON_SVG}<span class="repo-name-text"><span class="repo-name-primary"><span class="repo-name-title">${escapeHtml(row.name)}</span><span class="repo-feature-count">${countLabel}</span></span>${remoteLabel}</span></span>`;
+  }
+
+  return escapeHtml(cell.getValue() as string);
+}
+
+function escapeHtml(text: string): string {
+  const div = typeof document !== 'undefined' ? document.createElement('div') : null;
+  if (div) {
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function buildColumns(onFeatureClick?: (featureId: string) => void): ColumnDefinition[] {
@@ -60,6 +80,7 @@ function buildColumns(onFeatureClick?: (featureId: string) => void): ColumnDefin
       title: 'Name',
       field: 'name',
       widthGrow: 3,
+      formatter: nameFormatter,
       ...(onFeatureClick && {
         cellClick: (_e: UIEvent, cell: CellComponent) => {
           const data = cell.getRow().getData() as FeatureTreeRow;
@@ -92,7 +113,9 @@ function buildColumns(onFeatureClick?: (featureId: string) => void): ColumnDefin
       formatter: (cell: CellComponent) => {
         const row = cell.getRow().getData() as FeatureTreeRow;
         if (row._isRepoGroup) return '';
-        return cell.getValue() as string;
+        const val = cell.getValue() as string;
+        if (!val) return '';
+        return `<code style="font-size:12px;color:var(--color-muted-foreground,#64748b);font-family:var(--font-mono)">${escapeHtml(val)}</code>`;
       },
     },
   ];
@@ -143,23 +166,23 @@ export function buildTreeData(flatData: FeatureTreeRow[]): FeatureTreeRow[] {
       }
     }
 
-    // If there's only one repo, skip the group wrapper
-    if (byRepo.size === 1) {
-      roots.push(...repoChildren);
-    } else {
-      // Create a repo group node
-      const repoGroup: FeatureTreeRow = {
-        id: `repo-${repoName}`,
-        name: repoName,
-        status: 'pending',
-        lifecycle: '',
-        branch: '',
-        repositoryName: repoName,
-        _isRepoGroup: true,
-        _children: repoChildren,
-      };
-      roots.push(repoGroup);
-    }
+    // Get remoteUrl from the first feature in this group
+    const remoteUrl = features[0]?.remoteUrl;
+
+    // Always create repo group nodes (inventory view is repo-centric)
+    const repoGroup: FeatureTreeRow = {
+      id: `repo-${repoName}`,
+      name: repoName,
+      status: 'pending',
+      lifecycle: '',
+      branch: '',
+      repositoryName: repoName,
+      remoteUrl,
+      _isRepoGroup: true,
+      _featureCount: features.length,
+      _children: repoChildren,
+    };
+    roots.push(repoGroup);
   }
 
   return roots;
@@ -188,9 +211,8 @@ export function FeatureTreeTable({ data, className, onFeatureClick }: FeatureTre
       dataTreeStartExpanded: true,
       layout: 'fitColumns',
       height: '100%',
-      placeholder: 'No features found',
+      placeholder: 'No repositories found',
       headerSortClickElement: 'icon',
-      rowHeight: 40,
       rowFormatter: (row: RowComponent) => {
         const rowData = row.getData() as FeatureTreeRow;
         if (rowData._isRepoGroup) {

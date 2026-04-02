@@ -239,7 +239,7 @@
   "navigation": {
     "controlCenter": "Control Center",
     "dashboard": "Dashboard",
-    "features": "Features",
+    "features": "Inventory",
     "repositories": "Repositories",
     "settings": "Settings",
     "sessions": "Sessions",
@@ -247,7 +247,7 @@
     "skills": "Skills"
   },
   "sidebar": {
-    "features": "Features",
+    "features": "Inventory",
     "switchToLight": "Light mode",
     "switchToDark": "Dark mode",
     "muteSounds": "Mute sounds",
