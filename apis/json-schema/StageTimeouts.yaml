@@ -26,10 +26,15 @@ properties:
     type: integer
     minimum: -2147483648
     maximum: 2147483647
-    description: "Timeout for the implement stage (default: 600000)"
+    description: "Timeout for the implement stage (default: 1800000)"
+  fastImplementMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout for the fast-implement stage (default: 1800000)"
   mergeMs:
     type: integer
     minimum: -2147483648
     maximum: 2147483647
-    description: "Timeout for the merge stage (default: 600000)"
+    description: "Timeout for the merge stage (default: 1800000)"
 description: Per-stage timeout overrides for the feature agent workflow (all values in milliseconds)
