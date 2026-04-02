@@ -42,6 +42,7 @@ export type { IDeploymentService, DeploymentStatus } from './deployment-service.
 export type {
   IGitHubRepositoryService,
   GitHubRepo,
+  GitHubOrganization,
   ListUserRepositoriesOptions,
   CloneOptions,
   ParsedGitHubUrl,

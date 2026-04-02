@@ -5,8 +5,20 @@ import { Lock, Globe, Loader2, Search, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { listGitHubRepositories } from '@/app/actions/list-github-repositories';
+import { listGitHubOrganizations } from '@/app/actions/list-github-organizations';
 import type { GitHubRepo } from '@shepai/core/application/ports/output/services/github-repository-service.interface';
+import type { GitHubOrganization } from '@shepai/core/application/ports/output/services/github-repository-service.interface';
+
+/** Sentinel value representing the authenticated user's personal account */
+const PERSONAL_OWNER = '__personal__';
 
 export interface GitHubRepoBrowserProps {
   onSelect: (nameWithOwner: string) => void;
@@ -15,26 +27,50 @@ export interface GitHubRepoBrowserProps {
   fetchRepos?: (input?: {
     search?: string;
     limit?: number;
+    owner?: string;
   }) => Promise<{ repos?: GitHubRepo[]; error?: string }>;
+  /** Override the fetch function for testing/stories */
+  fetchOrgs?: () => Promise<{ orgs?: GitHubOrganization[]; error?: string }>;
 }
 
 export function GitHubRepoBrowser({
   onSelect,
   loading: externalLoading = false,
   fetchRepos = listGitHubRepositories,
+  fetchOrgs = listGitHubOrganizations,
 }: GitHubRepoBrowserProps) {
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
+  const [orgs, setOrgs] = useState<GitHubOrganization[]>([]);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [selectedOwner, setSelectedOwner] = useState(PERSONAL_OWNER);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Fetch organizations on mount
+  useEffect(() => {
+    async function loadOrgs() {
+      try {
+        const result = await fetchOrgs();
+        if (result.orgs) {
+          setOrgs(result.orgs);
+        }
+      } catch {
+        // Org listing failure is non-critical — user can still browse personal repos
+      }
+    }
+    loadOrgs();
+  }, [fetchOrgs]);
+
   const fetchData = useCallback(
-    async (searchTerm?: string) => {
+    async (searchTerm?: string, owner?: string) => {
       setFetching(true);
       setError('');
       try {
-        const result = await fetchRepos(searchTerm ? { search: searchTerm } : undefined);
+        const input: { search?: string; owner?: string } = {};
+        if (searchTerm) input.search = searchTerm;
+        if (owner && owner !== PERSONAL_OWNER) input.owner = owner;
+        const result = await fetchRepos(Object.keys(input).length > 0 ? input : undefined);
         if (result.error) {
           setError(result.error);
           setRepos([]);
@@ -52,15 +88,20 @@ export function GitHubRepoBrowser({
   );
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchData(search || undefined, selectedOwner);
+  }, [fetchData, selectedOwner]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSearchChange(value: string) {
     setSearch(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      fetchData(value || undefined);
+      fetchData(value || undefined, selectedOwner);
     }, 300);
+  }
+
+  function handleOwnerChange(value: string) {
+    setSelectedOwner(value);
+    setSearch('');
   }
 
   const disabled = externalLoading;
@@ -79,6 +120,22 @@ export function GitHubRepoBrowser({
 
   return (
     <div className="flex flex-col gap-3">
+      {orgs.length > 0 ? (
+        <Select value={selectedOwner} onValueChange={handleOwnerChange} disabled={disabled}>
+          <SelectTrigger aria-label="Select owner">
+            <SelectValue placeholder="Select owner" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={PERSONAL_OWNER}>My repositories</SelectItem>
+            {orgs.map((org) => (
+              <SelectItem key={org.login} value={org.login}>
+                {org.login}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
+
       <div className="relative">
         <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
         <Input

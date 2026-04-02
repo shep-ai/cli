@@ -1,4 +1,8 @@
-export async function listGitHubRepositories(input?: { search?: string; limit?: number }): Promise<{
+export async function listGitHubRepositories(input?: {
+  search?: string;
+  limit?: number;
+  owner?: string;
+}): Promise<{
   repos?: {
     name: string;
     nameWithOwner: string;

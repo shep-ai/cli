@@ -41,6 +41,7 @@ describe('ImportGitHubRepositoryUseCase', () => {
       checkAuth: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
       cloneRepository: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
       listUserRepositories: vi.fn().mockResolvedValue([]),
+      listOrganizations: vi.fn().mockResolvedValue([]),
       parseGitHubUrl: vi.fn().mockReturnValue({
         owner: 'octocat',
         repo: 'my-project',

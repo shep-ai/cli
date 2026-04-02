@@ -8,6 +8,7 @@ import { GitHubAuthError } from '@shepai/core/application/ports/output/services/
 interface ListGitHubRepositoriesInput {
   search?: string;
   limit?: number;
+  owner?: string;
 }
 
 export async function listGitHubRepositories(
