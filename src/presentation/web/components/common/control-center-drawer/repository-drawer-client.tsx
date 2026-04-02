@@ -365,11 +365,21 @@ function RepoOverview({
 
   useEffect(() => {
     if (!data.repositoryPath) return;
+    let cancelled = false;
     setLoading(true);
-    getGitRepoInfo(data.repositoryPath, 8).then((result) => {
-      setRepoInfo(result);
-      setLoading(false);
-    });
+    getGitRepoInfo(data.repositoryPath, 8)
+      .then((result) => {
+        if (!cancelled) setRepoInfo(result);
+      })
+      .catch(() => {
+        // Silently handle — repo info is non-critical
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [data.repositoryPath]);
 
   if (!data.repositoryPath) return null;

@@ -63,9 +63,24 @@ export function FeatureDrawerClient({
   // Track the view locally so SSE events can update the drawer type in real-time
   const [view, setView] = useState(initialView);
 
-  // Sync when server re-renders with new props (e.g. after navigation)
+  // Sync when server re-renders with new props (e.g. after navigation).
+  // When reopening the SAME feature, merge server data into the existing view
+  // to preserve enriched fields (repositoryName, baseBranch, oneLiner, remoteUrl)
+  // that useDrawerSync added but the minimal server component doesn't provide.
   useEffect(() => {
-    setView(initialView);
+    setView((prev) => {
+      if (
+        prev.type === 'feature' &&
+        initialView.type === 'feature' &&
+        prev.node.featureId === initialView.node.featureId
+      ) {
+        return {
+          ...initialView,
+          node: { ...prev.node, ...initialView.node },
+        };
+      }
+      return initialView;
+    });
   }, [initialView]);
 
   const featureNode = view.type === 'feature' ? view.node : null;

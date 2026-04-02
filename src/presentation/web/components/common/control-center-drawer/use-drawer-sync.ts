@@ -25,13 +25,19 @@ export function useDrawerSync(
 ): void {
   const wasOpenRef = useRef(isOpen);
   const isFetchingRef = useRef(false);
+  // Incremented on every open transition — stale fetches from a previous
+  // open/close cycle are discarded so they can't overwrite fresh data.
+  const generationRef = useRef(0);
 
   const syncFromServer = useCallback(async () => {
     if (!featureId || isFetchingRef.current) return;
     isFetchingRef.current = true;
+    const gen = generationRef.current;
     try {
       const data = await getFeatureDrawerData(featureId);
       if (!data) return;
+      // Discard result if the drawer was closed and reopened while fetching
+      if (gen !== generationRef.current) return;
       setView((prev) => mergeFeatureData(prev, data));
     } catch {
       // Silent — background sync failure is non-critical
@@ -47,6 +53,10 @@ export function useDrawerSync(
   useEffect(() => {
     if (isOpen && (!wasOpenRef.current || !hasFetchedOnMountRef.current)) {
       hasFetchedOnMountRef.current = true;
+      // New open transition — bump generation to invalidate any in-flight fetch
+      // from a previous cycle and reset the fetching guard.
+      generationRef.current += 1;
+      isFetchingRef.current = false;
       void syncFromServer();
     }
     wasOpenRef.current = isOpen;

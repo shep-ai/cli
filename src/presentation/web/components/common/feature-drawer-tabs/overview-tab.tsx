@@ -202,6 +202,40 @@ export function OverviewTab({
         </Section>
       ) : null}
 
+      {/* ── PR (right after description) ── */}
+      {data.pr ? (
+        <Section icon={GitCommitHorizontal} title="Pull Request">
+          <Card>
+            <div className="flex items-center gap-2">
+              <a
+                href={data.pr.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary inline-flex items-center gap-1 text-sm font-semibold hover:underline"
+              >
+                #{data.pr.number} <ExternalLink className="size-3" />
+              </a>
+              <span className={cn('text-xs font-semibold', prColor[data.pr.status])}>
+                {data.pr.status}
+              </span>
+              {data.pr.mergeable === false ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400">
+                  <AlertTriangle className="size-3 shrink-0" /> Conflicts
+                </span>
+              ) : null}
+              {data.pr.ciStatus && data.hideCiStatus !== true ? (
+                <CiStatusBadge status={data.pr.ciStatus} />
+              ) : null}
+              {data.pr.commitHash ? (
+                <code className="text-foreground/40 ml-auto font-mono text-[11px]">
+                  {data.pr.commitHash.slice(0, 7)}
+                </code>
+              ) : null}
+            </div>
+          </Card>
+        </Section>
+      ) : null}
+
       {/* ── Quick stats grid ── */}
       <div className="grid grid-cols-2 gap-2 px-3 pb-1">
         {data.branch ? (
@@ -275,55 +309,6 @@ export function OverviewTab({
           </Card>
         ) : null}
       </div>
-
-      {/* ── PR ── */}
-      {data.pr ? (
-        <Section icon={GitCommitHorizontal} title="Pull Request">
-          <Card>
-            <div className="flex items-center justify-between">
-              <a
-                href={data.pr.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary inline-flex items-center gap-1 text-sm font-semibold hover:underline"
-              >
-                #{data.pr.number} <ExternalLink className="size-3" />
-              </a>
-              <span className={cn('text-xs font-semibold', prColor[data.pr.status])}>
-                {data.pr.status}
-              </span>
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {data.pr.ciStatus && data.hideCiStatus !== true ? (
-                <div>
-                  <span className="text-foreground/40 text-[10px] uppercase">CI</span>
-                  <div className="mt-0.5">
-                    <CiStatusBadge status={data.pr.ciStatus} />
-                  </div>
-                </div>
-              ) : null}
-              {data.pr.mergeable === false ? (
-                <div>
-                  <span className="text-foreground/40 text-[10px] uppercase">Merge</span>
-                  <div className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-orange-600 dark:text-orange-400">
-                    <AlertTriangle className="size-3" /> Conflicts
-                  </div>
-                </div>
-              ) : null}
-              {data.pr.commitHash ? (
-                <div>
-                  <span className="text-foreground/40 text-[10px] uppercase">Commit</span>
-                  <div className="mt-0.5">
-                    <code className="text-foreground/60 font-mono text-[11px]">
-                      {data.pr.commitHash.slice(0, 7)}
-                    </code>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </Card>
-        </Section>
-      ) : null}
 
       {/* ── Errors ── */}
       {data.blockedBy || data.errorMessage ? (
