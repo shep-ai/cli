@@ -49,11 +49,11 @@ shep settings agent --agent claude-code
 shep settings agent --agent cursor
 ```
 
-| Agent | Status |
-| --- | --- |
+| Agent       | Status                  |
+| ----------- | ----------------------- |
 | Claude Code | Available (recommended) |
-| Cursor CLI | Available |
-| Gemini CLI | Coming soon |
+| Cursor CLI  | Available               |
+| Gemini CLI  | Coming soon             |
 
 Your selection persists in global settings and applies to all subsequent commands.
 
@@ -83,7 +83,14 @@ Control how Shep analyzes your codebase in `.shep/config.json`:
     "additionalExcludes": ["**/vendor/**", "**/generated/**"],
     "maxFileSize": 1048576,
     "maxFiles": 10000,
-    "perspectives": ["architecture", "dependencies", "patterns", "conventions", "tech-stack", "documentation"]
+    "perspectives": [
+      "architecture",
+      "dependencies",
+      "patterns",
+      "conventions",
+      "tech-stack",
+      "documentation"
+    ]
   }
 }
 ```
@@ -119,13 +126,13 @@ Control how Shep analyzes your codebase in `.shep/config.json`:
 
 ## Environment Variables
 
-| Variable | Description | Default |
-| --- | --- | --- |
-| `SHEP_PORT` | Server port | `4050` |
-| `SHEP_HOST` | Server host | `localhost` |
-| `SHEP_API_KEY` | API key for token-based auth | -- |
-| `SHEP_LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info` |
-| `DEBUG` | Enable verbose debug logging | -- |
+| Variable         | Description                                      | Default     |
+| ---------------- | ------------------------------------------------ | ----------- |
+| `SHEP_PORT`      | Server port                                      | `4050`      |
+| `SHEP_HOST`      | Server host                                      | `localhost` |
+| `SHEP_API_KEY`   | API key for token-based auth                     | --          |
+| `SHEP_LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info`      |
+| `DEBUG`          | Enable verbose debug logging                     | --          |
 
 ```bash
 SHEP_PORT=8080 SHEP_LOG_LEVEL=debug shep

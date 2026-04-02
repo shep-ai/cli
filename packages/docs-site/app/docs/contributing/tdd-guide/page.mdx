@@ -107,8 +107,12 @@ export class Feature {
   private _isArchived: boolean = false;
   private _archivedAt: Date | null = null;
 
-  get isArchived(): boolean { return this._isArchived; }
-  get archivedAt(): Date | null { return this._archivedAt; }
+  get isArchived(): boolean {
+    return this._isArchived;
+  }
+  get archivedAt(): Date | null {
+    return this._archivedAt;
+  }
 
   archive(): void {
     if (this._lifecycle !== SdlcLifecycle.Maintenance) {

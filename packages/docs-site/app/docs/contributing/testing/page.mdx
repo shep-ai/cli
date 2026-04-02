@@ -158,7 +158,9 @@ describe('SqliteFeatureRepository', () => {
     repository = new SqliteFeatureRepository(db);
   });
 
-  afterEach(() => { db.close(); });
+  afterEach(() => {
+    db.close();
+  });
 
   it('should persist and retrieve a feature', async () => {
     const feature = Feature.create({
@@ -244,8 +246,14 @@ export function createMockFeatureRepository(): IFeatureRepository {
   const features = new Map<string, Feature>();
   return {
     findById: vi.fn((id) => Promise.resolve(features.get(id) ?? null)),
-    save: vi.fn((feature) => { features.set(feature.id, feature); return Promise.resolve(); }),
-    delete: vi.fn((id) => { features.delete(id); return Promise.resolve(); }),
+    save: vi.fn((feature) => {
+      features.set(feature.id, feature);
+      return Promise.resolve();
+    }),
+    delete: vi.fn((id) => {
+      features.delete(id);
+      return Promise.resolve();
+    }),
   };
 }
 ```

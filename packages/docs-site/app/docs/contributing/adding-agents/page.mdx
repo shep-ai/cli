@@ -122,15 +122,17 @@ import { FeatureState } from '../state';
 import { myNode } from '../nodes/my-node.node';
 
 export function createFeatureGraph() {
-  return new StateGraph(FeatureState)
-    .addNode('analyze', analyzeNode)
-    .addNode('requirements', requirementsNode)
-    .addNode('myNode', myNode) // NEW
-    .addNode('plan', planNode)
-    .addNode('implement', implementNode)
-    .addEdge(START, 'analyze')
-    // ...
-    .compile();
+  return (
+    new StateGraph(FeatureState)
+      .addNode('analyze', analyzeNode)
+      .addNode('requirements', requirementsNode)
+      .addNode('myNode', myNode) // NEW
+      .addNode('plan', planNode)
+      .addNode('implement', implementNode)
+      .addEdge(START, 'analyze')
+      // ...
+      .compile()
+  );
 }
 ```
 
@@ -162,7 +164,9 @@ describe('myNode', () => {
   it('should process analysis and return output', async () => {
     const state = {
       repoPath: '/test/repo',
-      repoAnalysis: { /* mock data */ },
+      repoAnalysis: {
+        /* mock data */
+      },
       requirements: [{ id: '1', text: 'Requirement' }],
       myNodeOutput: null,
       currentPhase: SdlcLifecycle.Requirements,

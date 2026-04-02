@@ -4,14 +4,14 @@ Complete reference for every `shep` command. Commands are grouped by function.
 
 ## Starting Shep
 
-| Command | Description |
-| --- | --- |
-| `shep` | Start the Shep daemon. Equivalent to `shep start`. |
-| `shep start` | Start the background service and open the dashboard. |
-| `shep stop` | Stop the background service. |
-| `shep restart` | Restart the background service. |
-| `shep status` | Print the current daemon status (running, stopped, port). |
-| `shep ui` | Open the web dashboard in your default browser. |
+| Command        | Description                                               |
+| -------------- | --------------------------------------------------------- |
+| `shep`         | Start the Shep daemon. Equivalent to `shep start`.        |
+| `shep start`   | Start the background service and open the dashboard.      |
+| `shep stop`    | Stop the background service.                              |
+| `shep restart` | Restart the background service.                           |
+| `shep status`  | Print the current daemon status (running, stopped, port). |
+| `shep ui`      | Open the web dashboard in your default browser.           |
 
 ```bash
 # Start Shep in your project
@@ -36,11 +36,11 @@ shep feat new --push --pr
 shep feat new --fast
 ```
 
-| Flag | Description |
-| --- | --- |
+| Flag     | Description                                                           |
+| -------- | --------------------------------------------------------------------- |
 | `--push` | Push the feature branch to the remote after implementation completes. |
-| `--pr` | Open a pull request automatically (implies `--push`). |
-| `--fast` | Skip detailed SDLC phases and go straight to coding. |
+| `--pr`   | Open a pull request automatically (implies `--push`).                 |
+| `--fast` | Skip detailed SDLC phases and go straight to coding.                  |
 
 ### `shep feat ls`
 
@@ -188,15 +188,15 @@ shep repo show repo_def456
 
 Manage global and per-repo configuration. Running `shep settings` without a subcommand launches the interactive wizard.
 
-| Command | Description |
-| --- | --- |
-| `shep settings` | Launch the interactive settings wizard. |
-| `shep settings show` | Print current settings to the terminal. |
-| `shep settings init` | Run first-time setup (agent selection, auth, IDE). |
-| `shep settings agent` | Configure which AI coding agent Shep uses. |
-| `shep settings ide` | Set your preferred IDE (VS Code, Cursor, etc.). |
+| Command                  | Description                                          |
+| ------------------------ | ---------------------------------------------------- |
+| `shep settings`          | Launch the interactive settings wizard.              |
+| `shep settings show`     | Print current settings to the terminal.              |
+| `shep settings init`     | Run first-time setup (agent selection, auth, IDE).   |
+| `shep settings agent`    | Configure which AI coding agent Shep uses.           |
+| `shep settings ide`      | Set your preferred IDE (VS Code, Cursor, etc.).      |
 | `shep settings workflow` | Configure workflow behavior (approval, auto-commit). |
-| `shep settings model` | Set AI model preferences for planning and analysis. |
+| `shep settings model`    | Set AI model preferences for planning and analysis.  |
 
 ```bash
 # Quick agent switch

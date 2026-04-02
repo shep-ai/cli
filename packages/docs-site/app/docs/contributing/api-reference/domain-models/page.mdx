@@ -362,37 +362,61 @@ enum PlanState {
 ### ArtifactCategory
 
 ```typescript
-enum ArtifactCategory { PRD = 'PRD', API = 'API', Design = 'Design', Other = 'Other' }
+enum ArtifactCategory {
+  PRD = 'PRD',
+  API = 'API',
+  Design = 'Design',
+  Other = 'Other',
+}
 ```
 
 ### ArtifactFormat
 
 ```typescript
-enum ArtifactFormat { Markdown = 'md', Text = 'txt', Yaml = 'yaml', Other = 'Other' }
+enum ArtifactFormat {
+  Markdown = 'md',
+  Text = 'txt',
+  Yaml = 'yaml',
+  Other = 'Other',
+}
 ```
 
 ### ArtifactState
 
 ```typescript
-enum ArtifactState { Todo = 'Todo', Elaborating = 'Elaborating', Done = 'Done' }
+enum ArtifactState {
+  Todo = 'Todo',
+  Elaborating = 'Elaborating',
+  Done = 'Done',
+}
 ```
 
 ### RequirementType
 
 ```typescript
-enum RequirementType { Functional = 'Functional', NonFunctional = 'NonFunctional' }
+enum RequirementType {
+  Functional = 'Functional',
+  NonFunctional = 'NonFunctional',
+}
 ```
 
 ### ResearchState
 
 ```typescript
-enum ResearchState { NotStarted = 'NotStarted', Running = 'Running', Finished = 'Finished' }
+enum ResearchState {
+  NotStarted = 'NotStarted',
+  Running = 'Running',
+  Finished = 'Finished',
+}
 ```
 
 ### MessageRole
 
 ```typescript
-enum MessageRole { Assistant = 'assistant', User = 'user' }
+enum MessageRole {
+  Assistant = 'assistant',
+  User = 'user',
+}
 ```
 
 ### AgentType
@@ -411,7 +435,10 @@ enum AgentType {
 ### AgentAuthMethod
 
 ```typescript
-enum AgentAuthMethod { Session = 'session', Token = 'token' }
+enum AgentAuthMethod {
+  Session = 'session',
+  Token = 'token',
+}
 ```
 
 ### EditorType
@@ -429,13 +456,21 @@ enum EditorType {
 ### PrStatus
 
 ```typescript
-enum PrStatus { Open = 'Open', Merged = 'Merged', Closed = 'Closed' }
+enum PrStatus {
+  Open = 'Open',
+  Merged = 'Merged',
+  Closed = 'Closed',
+}
 ```
 
 ### CiStatus
 
 ```typescript
-enum CiStatus { Pending = 'Pending', Success = 'Success', Failure = 'Failure' }
+enum CiStatus {
+  Pending = 'Pending',
+  Success = 'Success',
+  Failure = 'Failure',
+}
 ```
 
 ### NotificationEventType

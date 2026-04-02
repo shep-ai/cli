@@ -33,7 +33,9 @@ async function bootstrap() {
   const program = new Command()
     .name('shep')
     .version(version, '-v, --version')
-    .action(async () => { await startDaemon(); });
+    .action(async () => {
+      await startDaemon();
+    });
 
   program.addCommand(createVersionCommand());
   program.addCommand(createSettingsCommand());
