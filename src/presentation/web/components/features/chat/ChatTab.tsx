@@ -17,9 +17,12 @@ export interface ChatTabProps {
   worktreePath?: string;
 }
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
+  const [debugMode, setDebugMode] = useState(false);
   const att = useAttachments();
 
   const contentTransform = useCallback(
@@ -39,6 +42,7 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
       onMessageSent: att.clearAttachments,
       model: overrideModel,
       agentType: overrideAgent,
+      debugMode,
     }
   );
 
@@ -101,7 +105,13 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Header bar — session info + stop/clear */}
-      <ChatHeader sessionInfo={sessionInfo} isAgentActive={status.isRunning} onClear={clearChat} />
+      <ChatHeader
+        sessionInfo={sessionInfo}
+        isAgentActive={status.isRunning}
+        onClear={clearChat}
+        debugMode={debugMode}
+        onDebugToggle={IS_DEV ? setDebugMode : undefined}
+      />
       <div className="flex min-h-0 flex-1 flex-col">
         {isChatLoading ? (
           <ChatSkeleton />
@@ -163,10 +173,14 @@ function ChatHeader({
   sessionInfo,
   isAgentActive,
   onClear,
+  debugMode,
+  onDebugToggle,
 }: {
   sessionInfo: SessionInfo | null;
   isAgentActive: boolean;
   onClear: () => Promise<void>;
+  debugMode: boolean;
+  onDebugToggle?: (enabled: boolean) => void;
 }) {
   const { t } = useTranslation('web');
   return (
@@ -190,8 +204,19 @@ function ChatHeader({
         )}
       </div>
 
-      {/* Right — clear action */}
+      {/* Right — actions */}
       <div className="flex items-center gap-1 ps-2">
+        {onDebugToggle ? (
+          <label className="text-muted-foreground/60 flex cursor-pointer items-center gap-1 text-[10px]">
+            <input
+              type="checkbox"
+              checked={debugMode}
+              onChange={(e) => onDebugToggle(e.target.checked)}
+              className="h-3 w-3 cursor-pointer rounded"
+            />
+            Debug
+          </label>
+        ) : null}
         <ToolbarButton
           onClick={() => {
             void onClear();
