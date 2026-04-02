@@ -847,7 +847,17 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     await this.messageRepo.create(userMsg);
 
     // 2. Find active session for this feature
-    const state = this.findActiveStateForFeature(featureId);
+    let state = this.findActiveStateForFeature(featureId);
+
+    // If the caller requested a different model/agent than the running session,
+    // silently stop the current session so a new one boots with the new config.
+    if (state && model && state.model !== model) {
+      await this.stopSession(state.sessionId);
+      state = undefined;
+    } else if (state && agentType && state.agentType !== agentType) {
+      await this.stopSession(state.sessionId);
+      state = undefined;
+    }
 
     if (state) {
       const dbSession = await this.sessionRepo.findById(state.sessionId);
@@ -998,17 +1008,6 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   async stopByFeature(featureId: string): Promise<void> {
     const state = this.findActiveStateForFeature(featureId);
     if (!state) return;
-    // Persist a system message before killing
-    const msg: InteractiveMessage = {
-      id: crypto.randomUUID(),
-      featureId,
-      sessionId: state.sessionId,
-      role: InteractiveMessageRole.assistant,
-      content: '**Session stopped by user**',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    await this.messageRepo.create(msg);
     await this.stopSession(state.sessionId);
   }
 

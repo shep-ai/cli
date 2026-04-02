@@ -31,7 +31,7 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
     [att.completedAttachments]
   );
 
-  const { runtime, status, clearChat, stopAgent, sessionInfo, isChatLoading } = useChatRuntime(
+  const { runtime, status, clearChat, sessionInfo, isChatLoading } = useChatRuntime(
     featureId,
     worktreePath,
     {
@@ -91,8 +91,6 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
           onAgentModelChange={(agent, model) => {
             setOverrideAgent(agent);
             setOverrideModel(model);
-            // Stop the current session so the next message boots with the new model
-            void stopAgent();
           }}
           className="w-55"
         />
