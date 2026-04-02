@@ -202,6 +202,8 @@
       "gitRebaseSyncDescription": "Enable git rebase-on-main and sync-main operations",
       "reactFileManager": "React File Manager",
       "reactFileManagerDescription": "Use the built-in React file manager instead of the native OS folder picker",
+      "inventory": "Inventory",
+      "inventoryDescription": "Enable the Inventory page showing all repositories and features in a tree view",
       "hint": "Experimental features that are still under development. Enable at your own risk — they may change or be removed in future versions. Debug mode adds verbose logging useful for troubleshooting."
     },
     "interactiveAgent": {

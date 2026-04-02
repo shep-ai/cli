@@ -371,6 +371,7 @@ export function SettingsPageClient({
     adoptBranch: false,
     gitRebaseSync: false,
     reactFileManager: false,
+    inventory: false,
   };
 
   // Agent state
@@ -1610,6 +1611,18 @@ export function SettingsPageClient({
               checked={flags.reactFileManager}
               onChange={(v) => {
                 const newFlags = { ...flags, reactFileManager: v };
+                setFlags(newFlags);
+                save({ featureFlags: newFlags });
+              }}
+            />
+            <SwitchRow
+              label={t('settings.featureFlags.inventory')}
+              description={t('settings.featureFlags.inventoryDescription')}
+              id="flag-inventory"
+              testId="switch-flag-inventory"
+              checked={flags.inventory}
+              onChange={(v) => {
+                const newFlags = { ...flags, inventory: v };
                 setFlags(newFlags);
                 save({ featureFlags: newFlags });
               }}

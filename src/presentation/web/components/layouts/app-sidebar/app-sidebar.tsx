@@ -162,12 +162,14 @@ export function AppSidebar({
             href="/"
             active={pathname === '/'}
           />
-          <SidebarNavItem
-            icon={TableProperties}
-            label={t('navigation.features')}
-            href="/features"
-            active={pathname === '/features'}
-          />
+          {featureFlags.inventory ? (
+            <SidebarNavItem
+              icon={TableProperties}
+              label={t('navigation.features')}
+              href="/features"
+              active={pathname === '/features'}
+            />
+          ) : null}
           <SidebarNavItem
             icon={Wrench}
             label={t('navigation.tools')}

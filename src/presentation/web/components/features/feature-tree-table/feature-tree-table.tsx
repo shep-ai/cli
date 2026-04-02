@@ -24,8 +24,14 @@ export interface FeatureTreeRow {
   _featureCount?: number;
 }
 
+export interface InventoryRepo {
+  name: string;
+  remoteUrl?: string;
+}
+
 export interface FeatureTreeTableProps {
   data: FeatureTreeRow[];
+  repos?: InventoryRepo[];
   className?: string;
   onFeatureClick?: (featureId: string) => void;
 }
@@ -54,7 +60,9 @@ function nameFormatter(cell: CellComponent): string {
   const row = cell.getRow().getData() as FeatureTreeRow;
 
   if (row._isRepoGroup) {
-    const countLabel = row._featureCount === 1 ? '1 Feature' : `${row._featureCount ?? 0} Features`;
+    const count = row._featureCount ?? 0;
+    const countLabel =
+      count === 0 ? 'No features' : count === 1 ? '1 Feature' : `${count} Features`;
     const remoteLabel = row.remoteUrl
       ? `<span class="repo-remote-url">${escapeHtml(row.remoteUrl)}</span>`
       : '';
@@ -124,11 +132,12 @@ function buildColumns(onFeatureClick?: (featureId: string) => void): ColumnDefin
 /**
  * Build tree-structured data grouped by repository.
  * Each repository becomes a parent node with its features as children.
- * Features that have parent-child relationships are nested within their repository group.
+ * Repos without features are included as empty groups.
  */
-export function buildTreeData(flatData: FeatureTreeRow[]): FeatureTreeRow[] {
-  if (flatData.length === 0) return [];
-
+export function buildTreeData(
+  flatData: FeatureTreeRow[],
+  repos?: InventoryRepo[]
+): FeatureTreeRow[] {
   // Group features by repository
   const byRepo = new Map<string, FeatureTreeRow[]>();
   for (const item of flatData) {
@@ -137,6 +146,17 @@ export function buildTreeData(flatData: FeatureTreeRow[]): FeatureTreeRow[] {
       byRepo.set(repoName, []);
     }
     byRepo.get(repoName)!.push(item);
+  }
+
+  // Ensure all known repos are represented (even without features)
+  const repoMeta = new Map<string, { remoteUrl?: string }>();
+  if (repos) {
+    for (const repo of repos) {
+      repoMeta.set(repo.name, { remoteUrl: repo.remoteUrl });
+      if (!byRepo.has(repo.name)) {
+        byRepo.set(repo.name, []);
+      }
+    }
   }
 
   const roots: FeatureTreeRow[] = [];
@@ -166,10 +186,8 @@ export function buildTreeData(flatData: FeatureTreeRow[]): FeatureTreeRow[] {
       }
     }
 
-    // Get remoteUrl from the first feature in this group
-    const remoteUrl = features[0]?.remoteUrl;
+    const remoteUrl = repoMeta.get(repoName)?.remoteUrl ?? features[0]?.remoteUrl;
 
-    // Always create repo group nodes (inventory view is repo-centric)
     const repoGroup: FeatureTreeRow = {
       id: `repo-${repoName}`,
       name: repoName,
@@ -180,7 +198,7 @@ export function buildTreeData(flatData: FeatureTreeRow[]): FeatureTreeRow[] {
       remoteUrl,
       _isRepoGroup: true,
       _featureCount: features.length,
-      _children: repoChildren,
+      ...(repoChildren.length > 0 ? { _children: repoChildren } : {}),
     };
     roots.push(repoGroup);
   }
@@ -188,7 +206,12 @@ export function buildTreeData(flatData: FeatureTreeRow[]): FeatureTreeRow[] {
   return roots;
 }
 
-export function FeatureTreeTable({ data, className, onFeatureClick }: FeatureTreeTableProps) {
+export function FeatureTreeTable({
+  data,
+  repos,
+  className,
+  onFeatureClick,
+}: FeatureTreeTableProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tabulatorRef = useRef<Tabulator | null>(null);
   const onFeatureClickRef = useRef(onFeatureClick);
@@ -201,7 +224,7 @@ export function FeatureTreeTable({ data, className, onFeatureClick }: FeatureTre
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const treeData = buildTreeData(data);
+    const treeData = buildTreeData(data, repos);
     const columns = buildColumns(stableOnFeatureClick);
 
     const table = new Tabulator(containerRef.current, {
@@ -227,7 +250,7 @@ export function FeatureTreeTable({ data, className, onFeatureClick }: FeatureTre
       table.destroy();
       tabulatorRef.current = null;
     };
-  }, [data, stableOnFeatureClick]);
+  }, [data, repos, stableOnFeatureClick]);
 
   return (
     <div

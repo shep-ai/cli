@@ -5,6 +5,11 @@ import type { FeatureTreeRow } from '@/components/features/feature-tree-table';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
 import { SdlcLifecycle } from '@shepai/core/domain/generated/output';
 
+export interface InventoryRepo {
+  name: string;
+  remoteUrl?: string;
+}
+
 const LIFECYCLE_TO_STATUS: Record<string, FeatureStatus> = {
   [SdlcLifecycle.Started]: 'pending',
   [SdlcLifecycle.Analyze]: 'in-progress',
@@ -25,7 +30,10 @@ function lifecycleToStatus(lifecycle: SdlcLifecycle): FeatureStatus {
   return LIFECYCLE_TO_STATUS[lifecycle] ?? 'pending';
 }
 
-export async function getFeatureTreeData(): Promise<FeatureTreeRow[]> {
+export async function getFeatureTreeData(): Promise<{
+  features: FeatureTreeRow[];
+  repos: InventoryRepo[];
+}> {
   const listFeatures = resolve<ListFeaturesUseCase>('ListFeaturesUseCase');
   const listRepos = resolve<ListRepositoriesUseCase>('ListRepositoriesUseCase');
 
@@ -36,7 +44,7 @@ export async function getFeatureTreeData(): Promise<FeatureTreeRow[]> {
     repoByPath.set(repo.path, { name: repo.name, remoteUrl: repo.remoteUrl });
   }
 
-  return features.map((feature) => {
+  const featureRows = features.map((feature) => {
     const repo = repoByPath.get(feature.repositoryPath);
     return {
       id: feature.id,
@@ -50,4 +58,11 @@ export async function getFeatureTreeData(): Promise<FeatureTreeRow[]> {
       parentId: feature.parentId ?? undefined,
     };
   });
+
+  const repos = repositories.map((repo) => ({
+    name: repo.name,
+    remoteUrl: repo.remoteUrl,
+  }));
+
+  return { features: featureRows, repos };
 }

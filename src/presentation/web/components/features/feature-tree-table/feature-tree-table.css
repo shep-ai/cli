@@ -22,19 +22,20 @@
 
 /* ── Base — borderless, fully transparent ──────────────────── */
 .tabulator {
-  background-color: transparent;
-  border: none;
-  border-radius: 0;
+  background-color: var(--color-card, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-lg, 0.5rem);
+  box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05));
   color: var(--color-foreground, #0a0a0a);
   font-family: var(--font-sans);
   font-size: 14px;
+  overflow: hidden;
 }
 
 /* ── Header — light fill with bottom border ────────────────── */
 .tabulator .tabulator-header {
   background-color: var(--color-muted, #f1f5f9);
   border-bottom: 1px solid var(--color-border, #e2e8f0);
-  border-radius: var(--radius-lg, 0.5rem);
   color: var(--color-muted-foreground, #64748b);
 }
 
@@ -86,9 +87,12 @@
   padding: 12px 16px;
 }
 
-/* ── Hide tree indent guide lines (the └ connectors) ───────── */
+/* ── Tree indent — keep spacing, hide the └ connector lines ── */
 .tabulator .tabulator-row .tabulator-data-tree-branch {
-  display: none;
+  border-left: none;
+  border-bottom: none;
+  width: 24px;
+  min-width: 24px;
 }
 
 /* ── Animated chevron tree toggle (replaces +/−) ───────────── */
@@ -98,16 +102,18 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  border: none;
-  border-radius: 4px;
+  border: none !important;
+  border-radius: 0;
+  background: none !important;
+  background-color: transparent !important;
   cursor: pointer;
   margin-right: 6px;
   vertical-align: middle;
-  transition: background-color 150ms ease;
 }
 
 .tabulator .tabulator-row .tabulator-data-tree-control:hover {
-  background-color: color-mix(in srgb, var(--color-foreground, #0a0a0a) 8%, transparent);
+  background: none !important;
+  background-color: transparent !important;
 }
 
 /* Reset the default +/− pseudo-elements */
@@ -337,7 +343,8 @@
 /* ── Dark mode ─────────────────────────────────────────────── */
 :root.dark .tabulator,
 .dark .tabulator {
-  background-color: transparent;
+  background-color: var(--color-card, #0a0a0a);
+  border-color: var(--color-border, #333333);
   color: var(--color-foreground, #fafafa);
 }
 

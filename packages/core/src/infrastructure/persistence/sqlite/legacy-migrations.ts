@@ -536,6 +536,19 @@ CREATE TABLE IF NOT EXISTS pr_sync_lock (
       }
     },
   },
+  {
+    version: 36,
+    name: '036-add-inventory-feature-flag',
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'feature_flag_inventory')) {
+        db.exec(
+          'ALTER TABLE settings ADD COLUMN feature_flag_inventory INTEGER NOT NULL DEFAULT 0'
+        );
+      }
+    },
+  },
 ];
 
 /**

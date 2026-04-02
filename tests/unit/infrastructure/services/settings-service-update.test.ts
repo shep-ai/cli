@@ -76,6 +76,7 @@ describe('updateSettings', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        inventory: false,
       },
     };
     updateSettings(updated);
