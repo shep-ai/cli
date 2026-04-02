@@ -20,9 +20,14 @@ vi.mock('node:os', () => ({
 }));
 
 const mockIsAbsolute = vi.fn<(p: string) => boolean>();
+const mockNormalize = vi.fn<(p: string) => string>();
 vi.mock('node:path', async () => {
   const actual = await vi.importActual('node:path');
-  return { ...actual, isAbsolute: (p: string) => mockIsAbsolute(p) };
+  return {
+    ...actual,
+    isAbsolute: (p: string) => mockIsAbsolute(p),
+    normalize: (p: string) => mockNormalize(p),
+  };
 });
 
 const { openFolder } = await import(
@@ -36,6 +41,7 @@ describe('openFolder server action', () => {
     mockSpawn.mockReturnValue({ unref: mockUnref, on: mockOn });
     mockPlatform.mockReturnValue('darwin');
     mockIsAbsolute.mockImplementation((p: string) => /^\//.test(p));
+    mockNormalize.mockImplementation((p: string) => p);
   });
 
   it('returns error for empty repositoryPath', async () => {
@@ -75,11 +81,12 @@ describe('openFolder server action', () => {
 
   it('spawns correct command on win32', async () => {
     mockPlatform.mockReturnValue('win32');
+    mockNormalize.mockImplementation((p: string) => p.replace(/\//g, '\\'));
 
     const result = await openFolder('/home/user/project');
 
     expect(result.success).toBe(true);
-    expect(mockSpawn).toHaveBeenCalledWith('explorer', ['/home/user/project'], {
+    expect(mockSpawn).toHaveBeenCalledWith('explorer', ['\\home\\user\\project'], {
       detached: true,
       stdio: 'ignore',
     });
