@@ -32,6 +32,6 @@ export async function getWorkflowDefaults(): Promise<WorkflowDefaults> {
     ciWatchEnabled: workflow.ciWatchEnabled,
     enableEvidence: workflow.enableEvidence,
     commitEvidence: workflow.commitEvidence,
-    defaultMode: workflow.defaultFastMode ? FeatureMode.Fast : FeatureMode.Regular,
+    defaultMode: (workflow.defaultMode as FeatureMode) ?? FeatureMode.Fast,
   };
 }
