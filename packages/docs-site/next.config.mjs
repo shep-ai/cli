@@ -3,7 +3,8 @@ import nextra from 'nextra';
 const withNextra = nextra({});
 
 export default withNextra({
-  output: 'export',
+  // eslint-disable-next-line no-undef
+  ...(process.env.NEXTRA_EXPORT === '1' && { output: 'export' }),
   images: {
     unoptimized: true,
   },

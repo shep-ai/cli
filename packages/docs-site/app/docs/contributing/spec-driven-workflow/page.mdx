@@ -1,0 +1,193 @@
+# Spec-Driven Development Workflow
+
+Every feature begins with a specification before any code is written.
+
+```
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → /shep-kit:implement → /shep-kit:commit-pr → /shep-kit:merged
+```
+
+## Quick Reference
+
+| Command                 | Purpose                   | Output                                    |
+| ----------------------- | ------------------------- | ----------------------------------------- |
+| `/shep-kit:new-feature` | Start new feature         | Branch + `spec.yaml`                      |
+| `/shep-kit:research`    | Technical analysis        | `research.yaml`                           |
+| `/shep-kit:plan`        | Implementation plan       | `plan.yaml` + `tasks.yaml`                |
+| `/shep-kit:implement`   | Autonomous implementation | Code + tests + updated `feature.yaml`     |
+| `/shep-kit:commit-pr`   | Commit, push, PR, CI      | Pull request (watches CI, fixes failures) |
+| `/shep-kit:merged`      | Post-merge cleanup        | Clean workspace                           |
+
+## Spec Directory
+
+```
+specs/NNN-feature-name/
+├── spec.yaml           # Requirements & scope
+├── research.yaml       # Technical decisions
+├── plan.yaml           # Architecture & phases
+├── tasks.yaml          # Task breakdown (TDD cycles)
+├── feature.yaml        # Status tracking (updated by all skills)
+└── evidence/           # Screenshots, test output
+```
+
+- **Branch**: `feat/NNN-feature-name`
+- **Numbering**: Sequential, kebab-case (e.g., `042-stripe-payments`)
+- **YAML is the only format** -- no `.md` spec files
+
+## YAML Structure
+
+Spec files (`spec.yaml`, `research.yaml`, `plan.yaml`, `tasks.yaml`) use a **metadata + content hybrid**:
+
+```yaml
+name: my-feature
+number: 42
+branch: feat/042-my-feature
+oneLiner: Short description
+phase: Research
+sizeEstimate: M
+technologies: [TypeSpec, Node.js]
+openQuestions: []
+
+content: |
+  ## Problem Statement
+  Description of the problem...
+```
+
+**Metadata** -- structured fields for programmatic access.
+**`content`** -- freeform Markdown body for the spec narrative.
+
+`feature.yaml` is different -- purely structured status tracking (no `content` field).
+
+## Workflow Details
+
+### 1. New Feature
+
+Creates branch, scaffolds spec directory, agent proposes `spec.yaml`. You review and adjust.
+
+### 2. Research
+
+Agent reads `spec.yaml`, researches options, documents decisions in `research.yaml`.
+
+### 3. Plan
+
+Agent designs architecture and breaks work into TDD phases. Plans **must** define RED-GREEN-REFACTOR cycles for each task.
+
+### 4. Implement
+
+1. Validates specs via `pnpm spec:validate` (blocks on critical issues)
+2. Resumes from last completed task if mid-session
+3. Executes tasks sequentially following TDD (RED -> GREEN -> REFACTOR)
+4. Verifies after each task (tests, build, typecheck, lint)
+5. Updates `feature.yaml` continuously
+6. Retries errors up to 3 times, stops if unresolvable
+
+### 5. Commit & PR
+
+Commits, pushes, creates PR, watches CI. If CI fails: fixes and retries. Then watches for review comments and applies fixes autonomously (max 5 iterations).
+
+### 6. Merged
+
+Switches to main, pulls, deletes feature branch, marks `feature.yaml` complete.
+
+## Real Examples
+
+From `specs/077-codex-cli-agent/` -- adding OpenAI Codex CLI as a supported agent.
+
+<details>
+<summary><strong>spec.yaml</strong> -- Requirements & scope</summary>
+
+```yaml
+name: 'codex-cli-agent'
+number: 77
+branch: 'feat/077-codex-cli-agent'
+oneLiner: 'Add OpenAI Codex CLI as a supported agent executor'
+summary: >
+  Integrate OpenAI's Codex CLI as a new agent executor. Add a CodexCli variant
+  to the AgentType enum in TypeSpec, implement a CodexCliExecutorService that
+  spawns the codex binary, and wire it through factory, DI, and all presentation
+  layers (TUI wizard, Web UI).
+phase: 'Requirements'
+sizeEstimate: 'M'
+technologies:
+  - 'TypeSpec (domain model enum extension)'
+  - 'Node.js child_process (subprocess spawning)'
+  - 'OpenAI Codex CLI (codex exec --json)'
+
+content: |
+  ## Problem Statement
+  Shep supports Claude Code, Cursor CLI, and Gemini CLI but not OpenAI's Codex CLI...
+
+  ## Success Criteria
+  - CodexCli appears in agent selection (TUI + Web)
+  - Executor spawns codex exec with JSONL output parsing
+  - Session resume works via codex exec --resume
+```
+
+</details>
+
+<details>
+<summary><strong>research.yaml</strong> -- Technical decisions</summary>
+
+```yaml
+name: 'codex-cli-agent'
+summary: >
+  Technical research for integrating Codex CLI. Follows the established
+  subprocess-based executor pattern. No new npm dependencies required.
+
+decisions:
+  - title: 'Executor architecture pattern'
+    chosen: 'Single-class subprocess executor following ClaudeCode/GeminiCli pattern'
+    rationale: >
+      All existing executors use the same architecture: constructor-injected
+      SpawnFunction, spawn CLI binary, pipe prompt via stdin, parse JSON output.
+
+  - title: 'Output parsing format'
+    chosen: 'JSONL event stream from codex exec --json'
+    rationale: >
+      codex exec --json produces newline-delimited JSON events that map
+      directly to our AgentExecutionStreamEvent types.
+```
+
+</details>
+
+<details>
+<summary><strong>tasks.yaml</strong> -- Task breakdown with TDD cycles</summary>
+
+```yaml
+name: 'codex-cli-agent'
+summary: >
+  14 tasks across 4 phases. Each task defines RED-GREEN-REFACTOR steps.
+
+tasks:
+  - id: 'task-1'
+    phaseId: 'phase-1'
+    title: 'Add CodexCli variant to AgentType enum in TypeSpec'
+    state: 'Todo'
+    dependencies: []
+    acceptanceCriteria:
+      - 'CodexCli variant exists in agent-config.tsp with value codex-cli'
+      - 'pnpm tsp:compile succeeds'
+    tdd:
+      red:
+        - "Write test asserting AgentType.CodexCli equals 'codex-cli'"
+      green:
+        - 'Add CodexCli to enum in agent-config.tsp'
+        - 'Run pnpm tsp:compile'
+      refactor:
+        - 'Verify enum ordering follows convention'
+    estimatedEffort: '20min'
+```
+
+</details>
+
+## Rules
+
+- Start every feature with `/shep-kit:new-feature`
+- Tests before implementation (TDD -- no exceptions)
+- Run `pnpm spec:validate` before implementing
+- Keep specs in sync with implementation
+- Reference spec directory in PR descriptions
+
+## Related Docs
+
+- [Implementation Guide](/docs/contributing/implementation-guide)
+- [TDD Guide](/docs/contributing/tdd-guide)

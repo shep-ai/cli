@@ -1,146 +1,242 @@
-# CLI Commands Reference
+# CLI Commands
 
-Quick reference for all Shep AI CLI commands. For detailed documentation, see [docs/cli/commands.md](../cli/commands.md).
+Complete reference for every `shep` command. Commands are grouped by function.
 
-## Daemon Commands
+## Starting Shep
 
-### `shep`
-
-Start the Shep daemon (default command). Equivalent to `shep start`.
+| Command | Description |
+| --- | --- |
+| `shep` | Start the Shep daemon. Equivalent to `shep start`. |
+| `shep start` | Start the background service and open the dashboard. |
+| `shep stop` | Stop the background service. |
+| `shep restart` | Restart the background service. |
+| `shep status` | Print the current daemon status (running, stopped, port). |
+| `shep ui` | Open the web dashboard in your default browser. |
 
 ```bash
+# Start Shep in your project
+cd ~/projects/my-app
 shep
-```
 
-### `shep start`
-
-Start the background service.
-
-```bash
-shep start
-```
-
-### `shep stop`
-
-Stop the background service.
-
-```bash
-shep stop
-```
-
-### `shep restart`
-
-Restart the background service.
-
-```bash
-shep restart
-```
-
-### `shep status`
-
-Show the current status of the background service.
-
-```bash
+# Check if the daemon is running
 shep status
 ```
 
-### `shep ui`
+## Features
 
-Launch the web UI.
+Use `shep feat` to create, inspect, and manage features throughout their lifecycle.
+
+### `shep feat new`
+
+Create a new feature. Shep analyzes your repo, gathers requirements via AI, generates a plan, and starts implementation.
 
 ```bash
-shep ui
+shep feat new
+shep feat new --push --pr
+shep feat new --fast
 ```
 
-## Feature Commands
+| Flag | Description |
+| --- | --- |
+| `--push` | Push the feature branch to the remote after implementation completes. |
+| `--pr` | Open a pull request automatically (implies `--push`). |
+| `--fast` | Skip detailed SDLC phases and go straight to coding. |
 
-### `shep feat`
+### `shep feat ls`
 
-Manage features.
+List all features in the current repository with their status.
 
-| Subcommand               | Description          |
-| ------------------------ | -------------------- |
-| `shep feat new`          | Create a new feature |
-| `shep feat ls`           | List features        |
-| `shep feat show <id>`    | Show feature details |
-| `shep feat del <id>`     | Delete a feature     |
-| `shep feat resume <id>`  | Resume a feature     |
-| `shep feat review <id>`  | Review a feature     |
-| `shep feat approve <id>` | Approve a feature    |
-| `shep feat reject <id>`  | Reject a feature     |
-| `shep feat logs <id>`    | View feature logs    |
+```bash
+shep feat ls
+```
 
-## Agent Commands
+### `shep feat show <id>`
 
-### `shep agent`
+Display full details for a feature: status, requirements, plan, and agent activity.
 
-Manage running agents.
+```bash
+shep feat show feat_abc123
+```
 
-| Subcommand                | Description          |
-| ------------------------- | -------------------- |
-| `shep agent show <id>`    | Show agent details   |
-| `shep agent ls`           | List agents          |
-| `shep agent stop <id>`    | Stop a running agent |
-| `shep agent logs <id>`    | View agent logs      |
-| `shep agent delete <id>`  | Delete an agent      |
-| `shep agent approve <id>` | Approve agent action |
-| `shep agent reject <id>`  | Reject agent action  |
+### `shep feat del <id>`
 
-## Repository Commands
+Delete a feature and clean up its worktree and branch.
 
-### `shep repo`
+```bash
+shep feat del feat_abc123
+```
 
-Manage repositories.
+### `shep feat resume <id>`
 
-| Subcommand            | Description             |
-| --------------------- | ----------------------- |
-| `shep repo ls`        | List repositories       |
-| `shep repo show <id>` | Show repository details |
+Resume a paused or interrupted feature from where it left off.
 
-## Session Commands
+```bash
+shep feat resume feat_abc123
+```
 
-### `shep session`
+### `shep feat review <id>`
 
-Manage sessions.
+Start a review of the completed feature. Shep presents a summary of changes for your approval.
 
-| Subcommand               | Description          |
-| ------------------------ | -------------------- |
-| `shep session ls`        | List sessions        |
-| `shep session show <id>` | Show session details |
+```bash
+shep feat review feat_abc123
+```
 
-## Settings Commands
+### `shep feat approve <id>`
 
-### `shep settings`
+Approve a feature after review. If `--push` or `--pr` flags were set, Shep proceeds with those actions.
 
-Manage global application settings. Running `shep settings` without a subcommand launches the interactive settings wizard.
+```bash
+shep feat approve feat_abc123
+```
 
-| Subcommand               | Description                        |
-| ------------------------ | ---------------------------------- |
-| `shep settings`          | Launch interactive settings wizard |
-| `shep settings show`     | Display current settings           |
-| `shep settings init`     | Initialize settings interactively  |
-| `shep settings agent`    | Configure agent type and auth      |
-| `shep settings ide`      | Configure IDE preference           |
-| `shep settings workflow` | Configure workflow settings        |
-| `shep settings model`    | Configure AI model preferences     |
+### `shep feat reject <id>`
 
-## Tool Commands
+Reject a feature after review. Shep pauses the feature and waits for further instructions.
 
-### `shep tools`
+```bash
+shep feat reject feat_abc123
+```
 
-Manage tools and IDE integration.
+### `shep feat logs <id>`
 
-| Subcommand        | Description                     |
-| ----------------- | ------------------------------- |
-| `shep tools list` | List available tools            |
-| `shep install`    | Install tools                   |
-| `shep ide-open`   | Open IDE for current repository |
+Stream or display logs for a feature, including agent output and phase transitions.
+
+```bash
+shep feat logs feat_abc123
+```
+
+## Agents
+
+Use `shep agent` to monitor and control the AI agents working on your features.
+
+### `shep agent ls`
+
+List all agents, both active and completed.
+
+```bash
+shep agent ls
+```
+
+### `shep agent show <id>`
+
+Display details for a specific agent: assigned feature, current task, and output.
+
+```bash
+shep agent show agent_xyz789
+```
+
+### `shep agent stop <id>`
+
+Stop a running agent. The agent finishes its current operation and exits.
+
+```bash
+shep agent stop agent_xyz789
+```
+
+### `shep agent logs <id>`
+
+Stream or display the raw output from an agent.
+
+```bash
+shep agent logs agent_xyz789
+```
+
+### `shep agent delete <id>`
+
+Delete an agent record and its associated resources.
+
+```bash
+shep agent delete agent_xyz789
+```
+
+### `shep agent approve <id>`
+
+Approve a pending agent action (used when approval is required before each task).
+
+```bash
+shep agent approve agent_xyz789
+```
+
+### `shep agent reject <id>`
+
+Reject a pending agent action. The agent skips the task and moves to the next one.
+
+```bash
+shep agent reject agent_xyz789
+```
+
+## Repositories
+
+### `shep repo ls`
+
+List all repositories Shep is tracking.
+
+```bash
+shep repo ls
+```
+
+### `shep repo show <id>`
+
+Display repository details: path, analysis status, and active features.
+
+```bash
+shep repo show repo_def456
+```
+
+## Settings
+
+Manage global and per-repo configuration. Running `shep settings` without a subcommand launches the interactive wizard.
+
+| Command | Description |
+| --- | --- |
+| `shep settings` | Launch the interactive settings wizard. |
+| `shep settings show` | Print current settings to the terminal. |
+| `shep settings init` | Run first-time setup (agent selection, auth, IDE). |
+| `shep settings agent` | Configure which AI coding agent Shep uses. |
+| `shep settings ide` | Set your preferred IDE (VS Code, Cursor, etc.). |
+| `shep settings workflow` | Configure workflow behavior (approval, auto-commit). |
+| `shep settings model` | Set AI model preferences for planning and analysis. |
+
+```bash
+# Quick agent switch
+shep settings agent
+
+# View everything
+shep settings show
+```
+
+## Tools
+
+### `shep tools list`
+
+List available tools and their install status.
+
+```bash
+shep tools list
+```
+
+### `shep install`
+
+Install required tools and dependencies for Shep to function.
+
+```bash
+shep install
+```
+
+### `shep ide-open`
+
+Open the current repository in your configured IDE.
+
+```bash
+shep ide-open
+```
 
 ## Other Commands
 
 ### `shep run`
 
-Run the agent on the current repository.
+Run the configured agent directly on the current repository without the full feature workflow.
 
 ```bash
 shep run
@@ -148,7 +244,7 @@ shep run
 
 ### `shep version`
 
-Show version information.
+Print the installed Shep version.
 
 ```bash
 shep version
@@ -156,23 +252,8 @@ shep version
 
 ### `shep upgrade`
 
-Upgrade the Shep CLI to the latest version.
+Upgrade Shep to the latest published version.
 
 ```bash
 shep upgrade
 ```
-
----
-
-## Maintaining This Document
-
-**Update when:**
-
-- New commands are added
-- Command options change
-- Subcommands are added or removed
-
-**Related docs:**
-
-- [docs/cli/commands.md](../cli/commands.md) - Detailed command documentation
-- [getting-started.md](./getting-started.md) - Basic usage

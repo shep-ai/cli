@@ -29,9 +29,7 @@ const footer = <Footer>MIT {new Date().getFullYear()} &copy; Shep AI</Footer>;
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <Head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </Head>
+      <Head />
       <body>
         <Layout
           navbar={navbar}

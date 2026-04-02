@@ -1,19 +1,22 @@
 export default {
-  'getting-started': 'Getting Started',
-  '---': {
-    type: 'separator',
+  'getting-started': {
+    title: 'Getting Started',
   },
-  architecture: 'Architecture',
-  concepts: 'Concepts',
-  '----': {
+  '---user': {
     type: 'separator',
+    title: 'Using Shep',
   },
-  guides: 'Guides',
-  cli: 'CLI',
-  'web-ui': 'Web UI',
-  '-----': {
+  'core-concepts': {
+    title: 'Core Concepts',
+  },
+  guides: {
+    title: 'Guides',
+  },
+  '---contributing': {
     type: 'separator',
+    title: 'Contributing',
   },
-  development: 'Development',
-  api: 'API Reference',
+  contributing: {
+    title: 'Contributing',
+  },
 };

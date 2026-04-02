@@ -1,0 +1,264 @@
+# CLI Command Reference
+
+## Global Options
+
+| Option          | Description                     |
+| --------------- | ------------------------------- |
+| `-v, --version` | Display version number and exit |
+| `-h, --help`    | Display help and exit           |
+
+Running `shep` with no arguments starts the web UI daemon (or runs onboarding on first launch).
+
+---
+
+## Daemon Commands
+
+### `shep`
+
+Start the web UI daemon (or run the onboarding wizard on first launch). This is the default action when no subcommand is provided.
+
+### `shep start`
+
+Start the web UI as a background daemon.
+
+### `shep stop`
+
+Stop the running web UI daemon.
+
+### `shep restart`
+
+Restart (or start) the web UI daemon.
+
+### `shep status`
+
+Show status and metrics of the running daemon.
+
+### `shep ui`
+
+Start the web UI in foreground (interactive, non-daemon mode).
+
+**Options**:
+
+| Option                | Description              | Default |
+| --------------------- | ------------------------ | ------- |
+| `-p, --port <number>` | Port number (1024-65535) | `4050`  |
+
+**Examples**:
+
+```bash
+shep ui
+shep ui --port 8080
+```
+
+**Behavior**: Starts the web UI server and prints the URL. Auto-increments port if occupied. Graceful shutdown on Ctrl+C.
+
+---
+
+## Feature Commands
+
+### `shep feat new`
+
+Create a new feature.
+
+### `shep feat ls`
+
+List all features.
+
+### `shep feat show`
+
+Show details of a specific feature.
+
+### `shep feat del`
+
+Delete a feature.
+
+### `shep feat resume`
+
+Resume a paused or blocked feature.
+
+### `shep feat review`
+
+Review a feature (triggers merge review).
+
+### `shep feat approve`
+
+Approve a feature.
+
+### `shep feat reject`
+
+Reject a feature.
+
+### `shep feat logs`
+
+View logs for a feature.
+
+---
+
+## Agent Commands
+
+### `shep agent ls`
+
+List all agent runs.
+
+### `shep agent show`
+
+Show details of a specific agent run.
+
+### `shep agent stop`
+
+Stop a running agent.
+
+### `shep agent logs`
+
+View agent run logs.
+
+### `shep agent delete`
+
+Delete an agent run record.
+
+### `shep agent approve`
+
+Approve an agent action.
+
+### `shep agent reject`
+
+Reject an agent action.
+
+---
+
+## Repository Commands
+
+### `shep repo ls`
+
+List tracked repositories.
+
+### `shep repo show`
+
+Show details of a specific repository.
+
+---
+
+## Session Commands
+
+### `shep session ls`
+
+List sessions.
+
+### `shep session show`
+
+Show details of a specific session.
+
+---
+
+## Settings Commands
+
+### `shep settings`
+
+Launch the full setup wizard (agent + IDE + workflow). Running `shep settings` without a subcommand launches the onboarding wizard interactively.
+
+### `shep settings show`
+
+Display current settings.
+
+**Options**:
+
+| Option                  | Description                            | Default |
+| ----------------------- | -------------------------------------- | ------- |
+| `-o, --output <format>` | Output format: `table`, `json`, `yaml` | `table` |
+
+**Examples**:
+
+```bash
+shep settings show
+shep settings show --output json
+shep settings show -o yaml
+```
+
+### `shep settings init`
+
+Reset settings to defaults.
+
+**Options**:
+
+| Option        | Description              |
+| ------------- | ------------------------ |
+| `-f, --force` | Skip confirmation prompt |
+
+### `shep settings agent`
+
+Configure AI coding agent.
+
+**Options**:
+
+| Option            | Description                       |
+| ----------------- | --------------------------------- |
+| `--agent <type>`  | Agent type (e.g. claude-code)     |
+| `--auth <method>` | Auth method: `session` or `token` |
+| `--token <key>`   | API token for the agent           |
+
+Without flags, launches an interactive wizard.
+
+### `shep settings ide`
+
+Configure preferred IDE.
+
+### `shep settings workflow`
+
+Configure workflow defaults.
+
+### `shep settings model`
+
+Configure default LLM model.
+
+---
+
+## Tools Commands
+
+### `shep tools list`
+
+List all available development tools with their installed status.
+
+### `shep install`
+
+Install a development tool.
+
+### `shep ide-open`
+
+Open the IDE for a repository.
+
+---
+
+## Other Commands
+
+### `shep version`
+
+Display detailed version information.
+
+```
+$ shep version
+
+@shepai/cli v0.1.0
+Autonomous AI Native SDLC Platform
+
+Node:     v20.10.0
+Platform: linux x64
+```
+
+### `shep run`
+
+Run an AI agent workflow.
+
+### `shep upgrade`
+
+Upgrade Shep CLI to the latest version.
+
+---
+
+## Adding a New Command
+
+1. Create `src/presentation/cli/commands/<name>.command.ts`.
+2. Export `create<Name>Command(): Command` factory function.
+3. Add options, help text, and action handler following the patterns above.
+4. Register in `index.ts` via `program.addCommand(create<Name>Command())`.
+5. For command groups, create an `index.ts` that uses `.addCommand()` to compose subcommands.
+6. Use `messages.*` for feedback, `OutputFormatter` for multi-format output, `process.exitCode = 1` for errors.

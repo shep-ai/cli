@@ -1,0 +1,275 @@
+# Testing Guide
+
+Comprehensive guide to testing in Shep AI CLI.
+
+## Testing Philosophy
+
+We follow **Test-Driven Development (TDD)**:
+
+1. **Write the test first** - Define expected behavior before implementation
+2. **Red-Green-Refactor** - Fail -> Pass -> Improve
+3. **Test behavior, not implementation** - Focus on what, not how
+4. **Fast feedback loops** - Use watch mode during development
+
+See the [TDD guide](/docs/contributing/tdd-guide) for the complete TDD workflow with Clean Architecture.
+
+## Test Structure
+
+```
+tests/
+├── unit/                    # Fast, isolated tests (Vitest)
+│   ├── domain/
+│   │   ├── entities/
+│   │   └── services/
+│   └── application/
+│       └── use-cases/
+├── integration/             # Tests with real dependencies (Vitest)
+│   ├── repositories/
+│   └── agents/
+├── e2e/                     # Full system tests (Playwright)
+│   ├── cli/                 # CLI command tests
+│   └── web/                 # Web UI tests
+└── helpers/                 # Test utilities
+    ├── factories.ts         # Entity factories
+    ├── mocks.ts             # Mock implementations
+    └── db.ts                # Test database helpers
+```
+
+## Test Frameworks
+
+| Framework      | Purpose                  | Location                            |
+| -------------- | ------------------------ | ----------------------------------- |
+| **Vitest**     | Unit & Integration tests | `tests/unit/`, `tests/integration/` |
+| **Playwright** | E2E tests (CLI + Web UI) | `tests/e2e/`                        |
+| **Storybook**  | Component visual testing | `src/presentation/web/stories/`     |
+
+## Running Tests
+
+### TDD Watch Mode (Primary Workflow)
+
+```bash
+# Start TDD session - tests rerun on file changes
+pnpm test:watch
+```
+
+### All Tests
+
+```bash
+pnpm test
+```
+
+### By Layer
+
+```bash
+# Unit tests only (fast)
+pnpm test:unit
+
+# Integration tests only
+pnpm test:int
+
+# E2E tests (Playwright)
+pnpm test:e2e
+```
+
+### Single File
+
+```bash
+pnpm test:single tests/unit/domain/entities/feature.test.ts
+```
+
+### By Pattern
+
+```bash
+pnpm test -- --grep "Feature"
+```
+
+### With Coverage
+
+Coverage thresholds (in `vitest.config.ts`):
+
+```typescript
+coverage: {
+  thresholds: {
+    lines: 80,
+    branches: 75,
+    functions: 80,
+    statements: 80
+  }
+}
+```
+
+## Writing Tests
+
+### Unit Tests
+
+For domain logic with no external dependencies:
+
+```typescript
+// tests/unit/domain/entities/feature.test.ts
+import { describe, it, expect } from 'vitest';
+import { Feature } from '@/domain/entities/feature';
+import { SdlcLifecycle } from '@/domain/value-objects/sdlc-lifecycle';
+
+describe('Feature', () => {
+  describe('lifecycle transitions', () => {
+    it('should allow transition from Requirements to Plan', () => {
+      const feature = Feature.create({
+        name: 'Test Feature',
+        description: 'Description',
+        repoPath: '/test/repo',
+      });
+
+      expect(feature.canTransitionTo(SdlcLifecycle.Plan)).toBe(true);
+    });
+
+    it('should throw on invalid transition', () => {
+      const feature = Feature.create({
+        name: 'Test Feature',
+        description: 'Description',
+        repoPath: '/test/repo',
+      });
+
+      expect(() => {
+        feature.transitionTo(SdlcLifecycle.Implementation);
+      }).toThrow('Invalid lifecycle transition');
+    });
+  });
+});
+```
+
+### Integration Tests
+
+For repository implementations with real database:
+
+```typescript
+// tests/integration/repositories/feature-repository.test.ts
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { Database } from 'better-sqlite3';
+import { SqliteFeatureRepository } from '@/infrastructure/repositories/sqlite/feature.repository';
+import { createTestDatabase, runMigrations } from '@tests/helpers/db';
+
+describe('SqliteFeatureRepository', () => {
+  let db: Database;
+  let repository: SqliteFeatureRepository;
+
+  beforeEach(async () => {
+    db = createTestDatabase();
+    await runMigrations(db);
+    repository = new SqliteFeatureRepository(db);
+  });
+
+  afterEach(() => { db.close(); });
+
+  it('should persist and retrieve a feature', async () => {
+    const feature = Feature.create({
+      name: 'Test Feature',
+      description: 'Description',
+      repoPath: '/test/repo',
+    });
+
+    await repository.save(feature);
+    const retrieved = await repository.findById(feature.id);
+
+    expect(retrieved).not.toBeNull();
+    expect(retrieved?.name).toBe('Test Feature');
+  });
+});
+```
+
+### E2E Tests (Playwright)
+
+#### Web UI Tests
+
+```typescript
+// tests/e2e/web/feature-workflow.spec.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Feature Workflow', () => {
+  test('should create a new feature', async ({ page }) => {
+    await page.goto('/');
+    await page.click('[data-testid="nav-features"]');
+    await page.click('[data-testid="create-feature-btn"]');
+    await page.fill('[data-testid="feature-name"]', 'User Authentication');
+    await page.fill('[data-testid="feature-description"]', 'Add login functionality');
+    await page.click('[data-testid="submit-feature"]');
+
+    await expect(page.locator('[data-testid="feature-card"]')).toContainText('User Authentication');
+  });
+});
+```
+
+### Storybook Component Tests
+
+```typescript
+// src/presentation/web/stories/Button.stories.tsx
+import type { Meta, StoryObj } from '@storybook/react';
+import { Button } from '@/components/ui/button';
+
+const meta: Meta<typeof Button> = {
+  title: 'UI/Button',
+  component: Button,
+  parameters: { layout: 'centered' },
+  tags: ['autodocs'],
+};
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {
+  args: { children: 'Button', variant: 'default' },
+};
+```
+
+## Test Utilities
+
+### Factories
+
+```typescript
+// tests/helpers/factories.ts
+export function createFeature(overrides: Partial<FeatureProps> = {}): Feature {
+  return Feature.create({
+    name: 'Test Feature',
+    description: 'Test Description',
+    repoPath: '/test/repo',
+    ...overrides,
+  });
+}
+```
+
+### Mocks
+
+```typescript
+// tests/helpers/mocks.ts
+export function createMockFeatureRepository(): IFeatureRepository {
+  const features = new Map<string, Feature>();
+  return {
+    findById: vi.fn((id) => Promise.resolve(features.get(id) ?? null)),
+    save: vi.fn((feature) => { features.set(feature.id, feature); return Promise.resolve(); }),
+    delete: vi.fn((id) => { features.delete(id); return Promise.resolve(); }),
+  };
+}
+```
+
+### Test Database
+
+```typescript
+// tests/helpers/db.ts
+export function createTestDatabase(): Database {
+  const db = new Database(':memory:');
+  db.pragma('journal_mode = WAL');
+  return db;
+}
+```
+
+## Coverage Requirements
+
+| Layer          | Minimum Coverage |
+| -------------- | ---------------- |
+| Domain         | 90%              |
+| Application    | 85%              |
+| Infrastructure | 75%              |
+| Presentation   | 60%              |
+
+## Continuous Integration
+
+Tests run on every PR. See [CI/CD](/docs/contributing/cicd) for the full pipeline configuration.

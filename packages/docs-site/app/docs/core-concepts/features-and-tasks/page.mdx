@@ -1,0 +1,95 @@
+# Features & Tasks
+
+Everything Shep does is organized around two concepts: **features** and **tasks**.
+
+## Features
+
+A feature is a unit of work. It can be as large as "add user authentication" or as small as "fix the login button color." You describe what you want, and Shep handles the rest.
+
+Every feature has:
+
+- **A name** — a short label like `add-health-endpoint`
+- **A description** — the plain-English explanation you provide when you create it
+- **A branch** — created automatically (e.g., `feat/add-health-endpoint`)
+- **A lifecycle phase** — where the feature currently is in the SDLC process (see [SDLC Lifecycle](/docs/core-concepts/sdlc-lifecycle))
+
+### Creating features
+
+You can create features from the CLI or the web dashboard.
+
+**From the CLI:**
+
+```bash
+shep feat new "add a /health endpoint that returns uptime and version"
+```
+
+**From the web dashboard:**
+
+Open [localhost:4050](http://localhost:4050), click **+ New Feature**, type your description, and click **Implement**.
+
+### Useful flags
+
+When creating a feature from the CLI, you can add flags to control what happens after implementation:
+
+| Flag | What it does |
+| --- | --- |
+| `--push` | Pushes the branch to your remote when the feature finishes |
+| `--pr` | Opens a pull request on GitHub (implies `--push`) |
+| `--fast` | Skips detailed analysis and planning — goes straight to implementation |
+
+You can combine them:
+
+```bash
+shep feat new "fix the broken login form" --push --pr --fast
+```
+
+### Managing features
+
+Shep provides commands to manage your features:
+
+```bash
+# List all features and their current phase
+shep feat ls
+
+# Show details for a specific feature
+shep feat show add-health-endpoint
+
+# Delete a feature and clean up its worktree
+shep feat del add-health-endpoint
+```
+
+### Parallel features
+
+Each feature runs in its own git worktree with its own branch. You can have multiple features running at the same time — they are completely isolated from each other and from your working directory.
+
+```bash
+# Start three features at once
+shep feat new "add user authentication" --pr
+shep feat new "migrate database to postgres" --pr
+shep feat new "add rate limiting to the API" --pr
+```
+
+All three run in parallel. You can monitor their progress in the dashboard or with `shep feat ls`.
+
+## Tasks
+
+Tasks are the steps within a feature's plan. When Shep analyzes your feature request and builds a plan, it breaks the work into a series of tasks that the AI agent executes one by one.
+
+For example, a feature like "add a /health endpoint" might produce tasks like:
+
+1. Create the health controller with uptime and version logic
+2. Add the route to the Express router
+3. Write unit tests for the health endpoint
+4. Update the API documentation
+
+You do not create tasks yourself — Shep generates them during the planning phase. You can view them in the dashboard or with `shep feat show`.
+
+Tasks have a status (pending, in progress, completed, or failed) so you can see exactly where the agent is in the plan.
+
+### Fast mode and tasks
+
+When you use `--fast`, Shep skips the detailed planning phase. The AI agent receives your description and implements it directly without breaking the work into explicit tasks first. This is faster but gives you less visibility into the agent's plan.
+
+## Next steps
+
+- [SDLC Lifecycle](/docs/core-concepts/sdlc-lifecycle) — learn how features move through phases from idea to PR

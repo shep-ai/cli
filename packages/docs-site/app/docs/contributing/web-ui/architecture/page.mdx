@@ -1,0 +1,279 @@
+# UI Architecture
+
+Component architecture patterns and conventions for the Shep AI web interface.
+
+## Four-Tier Component Hierarchy
+
+Components are organized into four tiers with strict dependency direction. Higher tiers may import from lower tiers, but never the reverse.
+
+```
+Tier 0: ui/        → shadcn/ui primitives (CLI-managed, no business logic)
+Tier 1: common/    → Cross-feature composed components (combine ui/ primitives)
+Tier 2: layouts/   → Page shells, structural wrappers (use ui/ + common/)
+Tier 3: features/  → Domain-specific UI bound to routes/data (use all lower tiers)
+```
+
+### Import Rules
+
+| Tier        | Can Import From                     | Cannot Import From                 |
+| ----------- | ----------------------------------- | ---------------------------------- |
+| `ui/`       | External packages only              | `common/`, `layouts/`, `features/` |
+| `common/`   | `ui/`, hooks, external packages     | `layouts/`, `features/`            |
+| `layouts/`  | `ui/`, `common/`, hooks             | `features/`                        |
+| `features/` | `ui/`, `common/`, `layouts/`, hooks | (no restrictions)                  |
+
+## Directory Structure
+
+```
+components/
+├── ui/                           # Tier 0: shadcn/ui primitives (CLI-managed)
+│   ├── accordion.tsx
+│   ├── badge.tsx
+│   ├── button.tsx
+│   └── ...                       # ~28 primitives
+├── common/                       # Tier 1: Cross-feature composed components
+│   ├── index.ts                  # Tier-level barrel
+│   ├── feature-node/             # React Flow feature node
+│   ├── base-drawer/              # Foundation drawer component
+│   ├── page-header/              # Page header with title/actions
+│   ├── empty-state/              # Empty content placeholder
+│   ├── theme-toggle/             # Light/dark/system toggle
+│   └── ...                       # ~40 components total
+├── layouts/                      # Tier 2: Page shells, structural wrappers
+│   ├── index.ts
+│   ├── app-shell/                # Top-level app wrapper
+│   ├── app-sidebar/              # Application sidebar
+│   ├── dashboard-layout/         # Dashboard page shell
+│   └── ...
+└── features/                     # Tier 3: Domain-specific UI
+    ├── index.ts
+    ├── control-center/           # Dashboard control center + state
+    ├── features-canvas/          # React Flow canvas + custom edges
+    ├── settings/                 # Settings page sections + pickers
+    ├── skills/                   # Skills page + cards + drawer
+    ├── tools/                    # Tools page + cards + drawer
+    └── version/                  # Version display page
+```
+
+## Export Pattern
+
+Each component directory uses a per-component `index.ts` barrel export. Additionally, each tier has a tier-level barrel file that re-exports all components in that tier.
+
+```typescript
+// Per-component barrel (e.g., common/page-header/index.ts)
+export { PageHeader } from './page-header';
+export type { PageHeaderProps } from './page-header';
+
+// Tier-level barrel (e.g., common/index.ts)
+export { PageHeader } from './page-header';
+export { ThemeToggle } from './theme-toggle';
+
+// Import from the component directory (preferred)
+import { PageHeader } from '@/components/common/page-header';
+```
+
+## Storybook Categories
+
+| Storybook Title Prefix | Component Tier | Description                         |
+| ---------------------- | -------------- | ----------------------------------- |
+| `Primitives/`          | `ui/`          | shadcn/ui base components           |
+| `Composed/`            | `common/`      | Shared composed components          |
+| `Layout/`              | `layouts/`     | Page shells and structural wrappers |
+| `Features/`            | `features/`    | Domain-specific components          |
+
+## Component Template
+
+Standard pattern for all Tier 1-3 components:
+
+```typescript
+'use client'; // Only if the component uses hooks, event handlers, or browser APIs
+
+import { cn } from '@/lib/utils';
+
+export interface MyComponentProps {
+  /** Brief prop description. */
+  label: string;
+  className?: string;
+}
+
+export function MyComponent({ label, className }: MyComponentProps) {
+  return (
+    <div data-testid="my-component" className={cn('base-classes', className)}>
+      {label}
+    </div>
+  );
+}
+```
+
+### Component Rules
+
+1. **Named exports only** -- no default exports for components.
+2. **`'use client'`** -- add only when the component uses hooks, event handlers, or browser APIs.
+3. **`className` prop** -- accept and merge via `cn()` for composability.
+4. **Props interface** -- always export the interface alongside the component.
+5. **`data-testid`** -- always add on the root element.
+
+## data-testid Convention
+
+Every component MUST include `data-testid` on its root element for test targeting.
+
+### Naming scheme: `kebab-case`, scoped to the component
+
+| Component               | data-testid               |
+| ----------------------- | ------------------------- |
+| `FeatureListItem`       | `feature-list-item`       |
+| `FeatureStatusGroup`    | `feature-status-group`    |
+| `SidebarCollapseToggle` | `sidebar-collapse-toggle` |
+
+### Sub-elements: append a suffix
+
+```typescript
+<div data-testid="feature-list-item">
+  <span data-testid="feature-list-item-label">{name}</span>
+  <span data-testid="feature-list-item-meta">{duration}</span>
+</div>
+```
+
+## Mandatory Storybook Stories
+
+**Every web UI component MUST have a colocated `.stories.tsx` file.**
+
+### Rules
+
+1. **New components**: Must include a `.stories.tsx` file in the same commit
+2. **Modified components**: If behavior or props change, stories must be updated
+3. **All tiers apply**: Tier 0 (`ui/`), Tier 1 (`common/`), Tier 2 (`layouts/`), and Tier 3 (`features/`)
+4. **Story coverage**: Stories should cover all variants, sizes, and key states
+
+### Story Template
+
+```typescript
+import type { Meta, StoryObj } from '@storybook/react';
+import { MyComponent } from './my-component';
+
+const meta: Meta<typeof MyComponent> = {
+  title: 'Composed/MyComponent',
+  component: MyComponent,
+  parameters: { layout: 'padded' },
+  tags: ['autodocs'],
+};
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {
+  args: { label: 'Example' },
+};
+```
+
+### Layout Parameter Guidelines
+
+| Layout       | When to use                                         |
+| ------------ | --------------------------------------------------- |
+| `centered`   | Small, standalone primitives (Button, Badge, Input) |
+| `padded`     | Medium composed components (ListItem, Card, Header) |
+| `fullscreen` | Full-width layouts (Sidebar, Dashboard, Page)       |
+
+## Styling Patterns
+
+### Tailwind + cn() for Conditional Classes
+
+```typescript
+import { cn } from '@/lib/utils';
+
+<div className={cn(
+  'flex items-center gap-2 rounded-md px-2',
+  isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+  className
+)} />
+```
+
+### CVA for Variant-Driven Components
+
+```typescript
+import { cva, type VariantProps } from 'class-variance-authority';
+
+const myVariants = cva('base-classes', {
+  variants: {
+    variant: {
+      default: 'bg-primary text-primary-foreground',
+      outline: 'border bg-background',
+    },
+    size: {
+      default: 'h-9 px-4',
+      sm: 'h-7 px-3 text-xs',
+    },
+  },
+  defaultVariants: { variant: 'default', size: 'default' },
+});
+```
+
+### Design Tokens -- Use Semantic Color Names
+
+```
+bg-background, text-foreground           # Page-level
+bg-primary, text-primary-foreground      # Brand actions
+bg-muted, text-muted-foreground          # De-emphasized
+bg-sidebar-accent                        # Sidebar hover/active
+text-destructive                         # Errors
+```
+
+## DI Integration (Server-Side)
+
+Server components and API routes access the CLI's dependency injection container through a lightweight `resolve()` helper. The CLI bootstrap initializes the tsyringe DI container and places it on `globalThis.__shepContainer`. The web layer reads it back through the helper at `lib/server-container.ts`.
+
+### Usage: Class Tokens (Use Cases)
+
+```typescript
+import { resolve } from '@/lib/server-container';
+import { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
+
+const features = await resolve(ListFeaturesUseCase).execute();
+```
+
+### Usage: String Tokens (Interfaces)
+
+```typescript
+import { resolve } from '@/lib/server-container';
+import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
+
+const repo = resolve<IAgentRunRepository>('IAgentRunRepository');
+```
+
+### Rules
+
+1. **Never import tsyringe directly** in web layer code -- always use `resolve()`.
+2. **Never resolve dependencies in client components** -- `resolve()` only works server-side.
+3. **Always add `export const dynamic = 'force-dynamic'`** to server component pages that call `resolve()`.
+4. **Keep `serverExternalPackages` up to date** in `next.config.ts`.
+
+## Adding New Components
+
+### Add shadcn/ui Component (Tier 0)
+
+```bash
+pnpm dlx shadcn@latest add [component-name]
+```
+
+### Create Common Component (Tier 1)
+
+1. Create subfolder: `components/common/[name]/`
+2. Add component file: `[name].tsx`
+3. Add stories: `[name].stories.tsx`
+4. Add barrel export: `index.ts`
+5. Add to tier-level barrel: `components/common/index.ts`
+
+## Component Checklist
+
+- [ ] Component file created with proper structure
+- [ ] `data-testid` on root element
+- [ ] Props interface exported
+- [ ] `className` prop accepted and merged via `cn()`
+- [ ] Barrel export (`index.ts`) created
+- [ ] Tier-level barrel updated
+- [ ] Storybook stories colocated with all variants covered
+- [ ] Default story has `args` defined
+- [ ] Story title uses correct tier prefix
+- [ ] Unit test created
+- [ ] `pnpm typecheck:web` passes
+- [ ] `pnpm build:storybook` passes

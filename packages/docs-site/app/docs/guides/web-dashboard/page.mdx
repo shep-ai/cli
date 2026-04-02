@@ -1,0 +1,90 @@
+# Web Dashboard
+
+Shep includes a browser-based dashboard for creating features, gathering requirements, and tracking implementation progress.
+
+## Starting the Dashboard
+
+Launch the dashboard with either command:
+
+```bash
+shep ui        # Opens the dashboard directly
+shep           # Starts the daemon, which also serves the dashboard
+```
+
+The dashboard opens at `http://localhost:4050` by default. Override the port with `SHEP_PORT=8080 shep`.
+
+## Dashboard Layout
+
+The dashboard has three areas:
+
+- **Header** -- Shep logo, settings gear icon, and help button.
+- **Sidebar** -- Lists all features in the current repo. Click any feature to view its details. The "New Feature" button sits at the bottom.
+- **Main content** -- Shows the selected feature's current phase: requirements chat, plan view, or implementation progress.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Shep AI                              [Settings] [?]    │
+├────────────────┬────────────────────────────────────────┤
+│ FEATURES       │                                        │
+│                │         Main content area              │
+│ Feature 1      │                                        │
+│ Feature 2      │                                        │
+│                │                                        │
+│ [+ New Feature]│                                        │
+└────────────────┴────────────────────────────────────────┘
+```
+
+## Creating a Feature
+
+1. Click **+ New Feature** in the sidebar.
+2. Shep analyzes your codebase and presents contextual suggestions based on your project. You can pick a suggestion or type your own description.
+3. Click **Continue** to move into requirements gathering.
+
+## Requirements Gathering
+
+Shep opens a chat interface to refine what you want built. It asks targeted questions about scope, constraints, and acceptance criteria.
+
+- **Select options** by clicking them, or type freeform answers.
+- **Review progress** in the requirements counter at the bottom of the chat.
+- **Save a draft** to pause and return later.
+- **Click Done** when you have covered everything. Shep generates a plan from your requirements.
+
+## Viewing the Plan
+
+After requirements gathering, Shep produces a structured plan with three tabs:
+
+| Tab | Content |
+| --- | --- |
+| Tasks | Epics, stories, and subtasks in a collapsible tree. Click any item to see details. |
+| Documentation | Generated artifacts: PRD, technical design, and other docs. |
+| Requirements | The full list of gathered requirements for reference. |
+
+You can expand and collapse stories, click individual tasks for detail, and edit items inline before approving the plan.
+
+## Implementation Progress
+
+Once you approve the plan, Shep assigns agents to work on tasks. The implementation view shows:
+
+- **Progress bar** with completed vs. total tasks.
+- **Current task** with live agent output.
+- **Activity log** showing completed tasks and file changes.
+- **Controls**: Pause (finish current task then stop), View Changes (open a diff), and Cancel (stop all work, requires confirmation).
+
+## Settings
+
+Click the gear icon in the header to open settings:
+
+- **Theme** -- Light, Dark, or System.
+- **Implementation** -- Toggle "require approval before each task" and "auto-commit changes."
+- **Server** -- View or change the port.
+- **Advanced** -- View logs, clear cache, reset configuration.
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl/Cmd + N` | Create a new feature |
+| `Ctrl/Cmd + S` | Save current work |
+| `Ctrl/Cmd + Enter` | Submit message in chat |
+| `Escape` | Close modal or cancel action |
+| `?` | Show all keyboard shortcuts |
