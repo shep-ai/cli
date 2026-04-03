@@ -78,6 +78,10 @@ properties:
     type: boolean
     default: false
     description: "Enable evidence collection after implementation (default: false)"
+  injectSkills:
+    type: boolean
+    default: false
+    description: "Inject curated skills into the feature worktree (default: false)"
   commitEvidence:
     type: boolean
     default: false
@@ -119,6 +123,7 @@ required:
   - commitSpecs
   - ciWatchEnabled
   - enableEvidence
+  - injectSkills
   - commitEvidence
   - approvalGates
 allOf:

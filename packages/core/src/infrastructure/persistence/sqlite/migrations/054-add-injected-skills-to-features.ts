@@ -1,8 +1,8 @@
 /**
- * Migration 051: Add injected_skills column to features table.
+ * Migration 054: Add inject_skills and injected_skills columns to features table.
  *
- * Stores JSON array of skill names that were injected into the
- * feature's worktree at creation time. Nullable for existing features.
+ * inject_skills: boolean flag indicating skill injection was enabled for this feature.
+ * injected_skills: JSON array of skill names that were injected into the worktree.
  */
 
 import type { MigrationParams } from 'umzug';
@@ -12,6 +12,9 @@ export async function up({ context: db }: MigrationParams<Database.Database>): P
   const columns = db.pragma('table_info(features)') as { name: string }[];
   const names = new Set(columns.map((c) => c.name));
 
+  if (!names.has('inject_skills')) {
+    db.exec('ALTER TABLE features ADD COLUMN inject_skills INTEGER NOT NULL DEFAULT 0');
+  }
   if (!names.has('injected_skills')) {
     db.exec('ALTER TABLE features ADD COLUMN injected_skills TEXT');
   }

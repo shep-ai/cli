@@ -267,6 +267,8 @@ export interface FeatureNodeData {
   onAction?: () => void;
   onSettings?: () => void;
   hasChildren?: boolean;
+  /** Whether skill injection was enabled for this feature */
+  injectSkills?: boolean;
   /** Skills that were injected into this feature's worktree */
   injectedSkills?: string[];
   onDelete?: (

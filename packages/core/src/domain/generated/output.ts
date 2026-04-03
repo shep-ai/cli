@@ -1112,6 +1112,10 @@ export type Feature = SoftDeletableEntity & {
    */
   enableEvidence: boolean;
   /**
+   * Inject curated skills into the feature worktree (default: false)
+   */
+  injectSkills: boolean;
+  /**
    * Commit evidence to PR (default: false, requires enableEvidence)
    */
   commitEvidence: boolean;

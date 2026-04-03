@@ -394,6 +394,9 @@ model Feature extends SoftDeletableEntity {
   @doc("Enable evidence collection after implementation (default: false)")
   enableEvidence: boolean = false;
 
+  @doc("Inject curated skills into the feature worktree (default: false)")
+  injectSkills: boolean = false;
+
   @doc("Commit evidence to PR (default: false, requires enableEvidence)")
   commitEvidence: boolean = false;
 

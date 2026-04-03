@@ -180,6 +180,7 @@ export class CreateFeatureUseCase {
       commitSpecs: input.commitSpecs ?? true,
       ciWatchEnabled: input.ciWatchEnabled ?? true,
       enableEvidence: input.enableEvidence ?? false,
+      injectSkills: input.injectSkills ?? false,
       commitEvidence: input.commitEvidence ?? false,
       approvalGates: input.approvalGates ?? {
         allowPrd: false,

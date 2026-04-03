@@ -349,9 +349,7 @@ export function OverviewTab({
       <SettingsBlock data={data} pinnedConfig={pinnedConfig} />
 
       {/* ── Injected Skills ── */}
-      {data.injectedSkills?.length ? (
-        <InjectedSkillsSection skills={data.injectedSkills} />
-      ) : null}
+      {data.injectedSkills?.length ? <InjectedSkillsSection skills={data.injectedSkills} /> : null}
     </div>
   );
 }
@@ -513,7 +511,8 @@ function SettingsBlock({
     data.ciWatchEnabled != null ||
     data.enableEvidence != null ||
     data.forkAndPr != null ||
-    data.commitSpecs != null;
+    data.commitSpecs != null ||
+    data.injectSkills != null;
   const showPinnedConfig = pinnedConfig != null && canSwitchPinnedConfig(data.state);
 
   if (!hasSettings && !showPinnedConfig) return null;
@@ -547,6 +546,16 @@ function SettingsBlock({
                   {data.commitEvidence != null ? (
                     <Flag on={data.commitEvidence} label="Add to PR" />
                   ) : null}
+                </div>
+              </Card>
+            ) : null}
+            {data.injectSkills != null ? (
+              <Card>
+                <div className="text-foreground/40 mb-1.5 flex items-center gap-1 text-[10px] font-medium tracking-wider uppercase">
+                  <Puzzle className="size-3" /> Skills
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <Flag on={data.injectSkills} label="Inject" />
                 </div>
               </Card>
             ) : null}

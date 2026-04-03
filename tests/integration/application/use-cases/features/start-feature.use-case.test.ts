@@ -74,6 +74,7 @@ describe('StartFeatureUseCase (integration)', () => {
     commitSpecs: true,
     ciWatchEnabled: true,
     enableEvidence: false,
+    injectSkills: false,
     commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     specPath: '/wt/feat-test/specs/001-test',
