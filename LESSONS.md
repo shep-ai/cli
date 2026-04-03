@@ -131,6 +131,28 @@ There are multiple code paths that spawn an agent process: create, start, resume
 
 **Rule:** Treat `create-feature.use-case.ts initializeAndSpawn()` as the canonical spawn. When adding a flag, copy its option-passing pattern to all other sites.
 
+## Settings Defaults Must Be Available When DB Has No Persisted Value
+
+When a new settings field (e.g. `skillInjection`) is added with defaults in `createDefaultSettings()`, the DB mapper returns `undefined` for that field until the user explicitly saves it. Any code that reads the field must fall back to the factory defaults, not to an empty/null value.
+
+**What happened:** The skill injector checked `settings.workflow.skillInjection?.skills?.length` — but `skillInjection` was `undefined` from the DB (never persisted). The guard passed (`shouldInject = true` from the UI toggle) but the skills list was empty, so nothing was injected. The skills page had the same bug — it fell back to `{ enabled: false, skills: [] }` instead of the factory defaults with 8 curated skills.
+
+**Rule:** Whenever reading a settings field that has factory defaults:
+```typescript
+const config = settings.workflow.skillInjection ?? createDefaultSettings().workflow.skillInjection!;
+```
+Never fall back to an empty object. The defaults factory exists for exactly this reason.
+
+**Where this bites:** Any code path that reads settings added after the initial DB creation — the migration adds columns with SQL defaults (0/null), and the mapper returns `undefined` when both are at default. The factory defaults are only used for the initial `INSERT`, not for subsequent `SELECT`s.
+
+## New Required Fields on Domain Entities Break All Test Fixtures
+
+Adding a required (non-optional) field to a TypeSpec domain entity (e.g. `injectSkills: boolean = false` on Feature) causes type errors in **every test file** that creates a Feature object — typically 20-30+ files.
+
+**Mitigation:** Before adding a required field, consider whether it can be optional (`?`). If it must be required, use a subagent to bulk-update all test fixtures in one pass. Grep for an existing required field (e.g. `enableEvidence`) to find every fixture that needs updating.
+
+**Gotcha:** Not all objects with `enableEvidence` are Feature objects — some are graph state types or workflow settings. Verify the type before adding the new field. The merge-step-real-git `setup.ts` state factory is a common false positive.
+
 ## Database Migrations Must Be Fully Backward Compatible
 
 **NEVER write a migration that drops or renames a column.** Migrations must be additive-only so that switching branches or rolling back code does not break the database.
