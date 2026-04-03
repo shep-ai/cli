@@ -260,10 +260,13 @@ model StageTimeouts {
   @doc("Timeout for the plan stage (default: 600000)")
   planMs?: int32;
 
-  @doc("Timeout for the implement stage (default: 600000)")
+  @doc("Timeout for the implement stage (default: 1800000)")
   implementMs?: int32;
 
-  @doc("Timeout for the merge stage (default: 600000)")
+  @doc("Timeout for the fast-implement stage (default: 1800000)")
+  fastImplementMs?: int32;
+
+  @doc("Timeout for the merge stage (default: 1800000)")
   mergeMs?: int32;
 }
 

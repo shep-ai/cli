@@ -75,6 +75,7 @@ export const CustomTimeouts: Story = {
           researchMs: 900000,
           planMs: 600000,
           implementMs: 1800000,
+          fastImplementMs: 1800000,
           mergeMs: 600000,
         },
         analyzeRepoTimeouts: {

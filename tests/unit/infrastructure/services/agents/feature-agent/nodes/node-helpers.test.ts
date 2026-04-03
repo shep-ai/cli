@@ -377,6 +377,26 @@ describe('buildExecutorOptions', () => {
     expect(options.timeout).toBe(1_800_000);
   });
 
+  it('uses dedicated fast-implement timeout from settings when set', () => {
+    const settings = createDefaultSettings();
+    settings.workflow.stageTimeouts = { fastImplementMs: 600_000 };
+    initializeSettings(settings);
+
+    const state = { ...baseState, currentNode: 'fast-implement' };
+    const options = buildExecutorOptions(state as any);
+    expect(options.timeout).toBe(600_000);
+  });
+
+  it('falls back to default when fast-implement timeout is not set', () => {
+    const settings = createDefaultSettings();
+    settings.workflow.stageTimeouts = { implementMs: 900_000 };
+    initializeSettings(settings);
+
+    const state = { ...baseState, currentNode: 'fast-implement' };
+    const options = buildExecutorOptions(state as any);
+    expect(options.timeout).toBe(1_800_000);
+  });
+
   it('allows override to take precedence over settings', () => {
     const settings = createDefaultSettings();
     settings.workflow.stageTimeouts = { implementMs: 900_000 };

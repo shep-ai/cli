@@ -56,6 +56,9 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const [implementTimeout, setImplementTimeout] = useState(
     String(Math.round((st?.implementMs ?? 1_800_000) / 1000))
   );
+  const [fastImplementTimeout, setFastImplementTimeout] = useState(
+    String(Math.round((st?.fastImplementMs ?? 1_800_000) / 1000))
+  );
   const [mergeTimeout, setMergeTimeout] = useState(
     String(Math.round((st?.mergeMs ?? 1_800_000) / 1000))
   );
@@ -106,6 +109,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
       researchTimeout?: string;
       planTimeout?: string;
       implementTimeout?: string;
+      fastImplementTimeout?: string;
       mergeTimeout?: string;
       analyzeRepoTimeout?: string;
     } = {}
@@ -132,6 +136,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
           researchMs: secondsToMs(overrides.researchTimeout ?? researchTimeout),
           planMs: secondsToMs(overrides.planTimeout ?? planTimeout),
           implementMs: secondsToMs(overrides.implementTimeout ?? implementTimeout),
+          fastImplementMs: secondsToMs(overrides.fastImplementTimeout ?? fastImplementTimeout),
           mergeMs: secondsToMs(overrides.mergeTimeout ?? mergeTimeout),
         },
         analyzeRepoTimeouts: {
@@ -176,6 +181,7 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
     | 'researchTimeout'
     | 'planTimeout'
     | 'implementTimeout'
+    | 'fastImplementTimeout'
     | 'mergeTimeout'
     | 'analyzeRepoTimeout';
 
@@ -201,6 +207,8 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
   const originalPlanTimeout = st?.planMs != null ? String(Math.round(st.planMs / 1000)) : '';
   const originalImplementTimeout =
     st?.implementMs != null ? String(Math.round(st.implementMs / 1000)) : '';
+  const originalFastImplementTimeout =
+    st?.fastImplementMs != null ? String(Math.round(st.fastImplementMs / 1000)) : '';
   const originalMergeTimeout = st?.mergeMs != null ? String(Math.round(st.mergeMs / 1000)) : '';
   const originalAnalyzeRepoTimeout =
     art?.analyzeMs != null ? String(Math.round(art.analyzeMs / 1000)) : '';
@@ -245,6 +253,14 @@ export function WorkflowSettingsSection({ workflow }: WorkflowSettingsSectionPro
       state: implementTimeout,
       setter: setImplementTimeout,
       original: originalImplementTimeout,
+    },
+    {
+      key: 'fastImplementTimeout' as const,
+      label: 'Fast Implement',
+      defaultSeconds: 1800,
+      state: fastImplementTimeout,
+      setter: setFastImplementTimeout,
+      original: originalFastImplementTimeout,
     },
     {
       key: 'mergeTimeout' as const,

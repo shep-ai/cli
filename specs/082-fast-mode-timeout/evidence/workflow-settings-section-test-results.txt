@@ -1,0 +1,24 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fast-mode-timeout[39m
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders all 5 Switch toggles[33m 592[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders CI numeric inputs[32m 289[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders per-stage timeout inputs for feature agent[32m 200[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders analyze-repo agent timeout input[32m 210[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mdoes not render a save button (auto-saves on change)[32m 137[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders title and description[32m 192[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders switch descriptions[32m 164[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders ci timeout label in seconds[32m 122[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders stage timeout section headers[32m 98[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders approval gates section heading[32m 110[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mrenders hide ci status switch[32m 44[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mhide ci status switch is unchecked when hideCiStatus is false[32m 134[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mhide ci status switch is checked when hideCiStatus is true[32m 73[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mtoggling hide ci status switch calls updateSettingsAction with hideCiStatus: true[32m 181[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/settings/workflow-settings-section.test.tsx[2m > [22mWorkflowSettingsSection[2m > [22mtoggling hide ci status switch off calls updateSettingsAction with hideCiStatus: false[32m 231[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m15 passed[39m[22m[90m (15)[39m
+[2m   Start at [22m 01:03:29
+[2m   Duration [22m 5.66s[2m (transform 410ms, setup 588ms, import 541ms, tests 2.78s, environment 1.51s)[22m
+
