@@ -1,3 +1,10 @@
+# [1.166.0](https://github.com/shep-ai/shep/compare/v1.165.0...v1.166.0) (2026-04-03)
+
+
+### Features
+
+* **config:** add configurable fast-implement stage timeout ([#516](https://github.com/shep-ai/shep/issues/516)) ([1a6523d](https://github.com/shep-ai/shep/commit/1a6523dfc7548fc71e1a71fb1b0434f9e29c595e))
+
 # [1.165.0](https://github.com/shep-ai/shep/compare/v1.164.1...v1.165.0) (2026-04-02)
 
 
