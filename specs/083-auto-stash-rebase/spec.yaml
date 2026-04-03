@@ -1,0 +1,171 @@
+name: auto-stash-rebase
+number: 83
+branch: feat/083-auto-stash-rebase
+oneLiner: "Auto-stash uncommitted changes before rebase and pop after, with agent-powered conflict resolution"
+summary: >
+  When the user clicks \"Rebase on Main\" in the web UI while the working directory has uncommitted
+  changes, the system now automatically stashes those changes before rebasing, pops them after, and
+  delegates any rebase conflicts to an AI agent for resolution with retry logic.
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures:
+  - "080-smart-rebase"
+  - "063-prevent-subprocess-stash"
+
+technologies:
+  - "TypeScript"
+  - "tsyringe (DI)"
+  - "Node.js child_process (git commands)"
+  - "Next.js server actions"
+  - "React (web UI)"
+  - "Vitest (testing)"
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  When a user clicks "Rebase on Main" in the web UI while the working directory has uncommitted
+  changes, the `rebaseOnMain()` method in `GitPrService` throws a `GIT_ERROR` with the message:
+  "Cannot rebase: working directory has uncommitted changes. Please commit or stash your changes
+  before rebasing."
+
+  This is a poor user experience. The system should handle this automatically by stashing
+  uncommitted changes before rebase, performing the rebase (with agent-powered conflict resolution
+  if needed), and then popping the stash to restore the user's work-in-progress.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - `domain/` — Core business logic, TypeSpec-generated models
+  - `application/` — Use cases and output port interfaces
+  - `infrastructure/` — Git service, agent services, repositories, DI container
+  - `presentation/` — CLI, TUI, Web UI (in `src/presentation/`)
+
+  Key directories for this feature:
+
+  | Directory | Purpose |
+  | --------- | ------- |
+  | `packages/core/src/application/use-cases/features/` | Feature use cases including rebase |
+  | `packages/core/src/application/ports/output/services/` | Git service interface |
+  | `packages/core/src/infrastructure/services/git/` | Git service implementation |
+  | `packages/core/src/infrastructure/services/agents/conflict-resolution/` | Agent conflict resolver |
+  | `packages/core/src/infrastructure/di/` | DI container registration |
+  | `src/presentation/web/app/actions/` | Next.js server actions |
+  | `src/presentation/web/components/common/feature-drawer-tabs/` | UI components with rebase button |
+  | `tests/unit/` and `tests/integration/` | Test suites |
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Presentation calls use cases; use cases call port interfaces; infrastructure implements ports
+  - **Dependency Injection**: tsyringe container registers all services and use cases as singletons with factory resolution
+  - **Agent-Agnostic Design**: Conflict resolution uses `IAgentExecutorProvider` — no hardcoded AI provider
+  - **Port/Adapter Pattern**: `IGitPrService` interface defines git operations; `GitPrService` implements them via `execFile`
+  - **Server Actions**: Next.js server actions resolve use cases from DI container and return `{success, error?}` results
+
+  ### Relevant Technologies
+
+  - **Git operations**: Executed via Node.js `execFile` with error parsing for conflict detection
+  - **Agent execution**: `IAgentExecutorProvider.getExecutor()` returns a provider-agnostic agent for conflict resolution
+  - **Prompt engineering**: `buildConflictResolutionPrompt()` builds structured markdown prompts with file contents and retry feedback
+  - **tsyringe DI**: Services registered in `container.ts` with singleton + factory patterns
+
+  ### Implementation Details (Already Implemented in This Branch)
+
+  #### 1. Use Case: RebaseFeatureOnMainUseCase
+  **File**: `packages/core/src/application/use-cases/features/rebase-feature-on-main.use-case.ts`
+
+  Flow:
+  1. Resolve feature by ID or prefix
+  2. Create standalone agent run + phase timing for activity timeline
+  3. Determine working directory (worktree path if exists, else repo root)
+  4. **Stash uncommitted changes** (`gitPrService.stash()`) — returns boolean
+  5. Sync main branch with remote (`gitPrService.syncMain()`)
+  6. Attempt rebase (`gitPrService.rebaseOnMain()`)
+  7. On `REBASE_CONFLICT`, delegate to `ConflictResolutionService.resolve()`
+  8. **Pop stash in `finally` block** — only if stash returned true
+  9. Record phase timing with success/error status
+
+  #### 2. Git Service: Stash Operations
+  **File**: `packages/core/src/infrastructure/services/git/git-pr.service.ts` (lines 955-975)
+
+  - `stash(cwd, message?)`: Runs `git stash push -m <message>`, returns `true` if changes were stashed
+  - `stashPop(cwd)`: Runs `git stash pop` to restore stashed changes
+
+  #### 3. Git Service: Rebase with Dirty Check
+  **File**: `packages/core/src/infrastructure/services/git/git-pr.service.ts` (lines 830-901)
+
+  - `rebaseOnMain()` still checks for dirty worktree (throws `GIT_ERROR`)
+  - The use case pre-stashes, so this check should always pass now
+  - On conflict: throws `REBASE_CONFLICT` with list of conflicted files
+
+  #### 4. Conflict Resolution Service
+  **File**: `packages/core/src/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.ts`
+
+  - Outer loop: handles multi-commit rebases (each commit may conflict)
+  - Inner loop: retries agent resolution up to 3 times per commit
+  - Reads conflicted file contents, builds prompt, executes via agent
+  - Validates no conflict markers remain (`<<<<<<<`, `=======`, `>>>>>>>`)
+  - On success: stages files and continues rebase
+  - On exhaustion: aborts rebase and throws error
+
+  #### 5. Conflict Resolution Prompt
+  **File**: `packages/core/src/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.ts`
+
+  - Pure function building markdown prompts with branch context and file contents
+  - Includes retry feedback with specific line numbers of remaining markers
+  - Instructions: edit conflicted files only, remove all markers, no git commands
+
+  #### 6. Web UI Integration
+  - **Server action**: `src/presentation/web/app/actions/rebase-feature.ts` — resolves use case from DI, calls `execute()`
+  - **Hook**: `src/presentation/web/components/common/feature-drawer/use-feature-actions.ts` — manages rebase loading state
+  - **Button**: `src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx` — renders rebase button in SyncCard
+  - **DI registration**: `packages/core/src/infrastructure/di/container.ts` — both `ConflictResolutionService` and `RebaseFeatureOnMainUseCase` registered
+
+  #### 7. Interface Extensions
+  **File**: `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` (lines 454-472)
+
+  New methods added to `IGitPrService`:
+  - `stash(cwd, message?): Promise<boolean>` — stash with optional message
+  - `stashPop(cwd): Promise<void>` — pop most recent stash
+
+  Plus existing rebase-related methods:
+  - `syncMain()`, `rebaseOnMain()`, `getConflictedFiles()`, `stageFiles()`, `rebaseContinue()`, `rebaseAbort()`
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/use-cases/features/rebase-feature-on-main.use-case.ts` | High | Core orchestration: stash → sync → rebase → conflict resolve → pop |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | New `stash()` and `stashPop()` methods on the port interface |
+  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Implementation of stash/stashPop + existing rebase/sync operations |
+  | `packages/core/src/infrastructure/services/agents/conflict-resolution/` | High | New service + prompt for agent-powered conflict resolution |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | DI registration of ConflictResolutionService and updated use case |
+  | `src/presentation/web/app/actions/rebase-feature.ts` | Low | Server action unchanged — calls same use case |
+  | `src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx` | Low | UI button unchanged — triggers same action |
+  | `tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts` | High | New tests for stash/pop flows, conflict delegation |
+  | `tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts` | High | Tests for stash/stashPop git operations |
+  | `tests/unit/infrastructure/services/agents/conflict-resolution/` | High | Tests for conflict resolution service and prompt builder |
+  | `tests/integration/services/git/git-pr.service.rebase-sync.test.ts` | Medium | Integration tests with real git repos |
+
+  ## Dependencies
+
+  - `IGitPrService` interface — extended with `stash()` and `stashPop()` methods
+  - `IAgentExecutorProvider` — used by ConflictResolutionService for agent-agnostic conflict resolution
+  - `IFeatureRepository` — resolves feature entity by ID/prefix
+  - `IWorktreeService` — determines correct working directory (worktree vs repo root)
+  - `IAgentRunRepository` / `IPhaseTimingRepository` — records rebase activity in timeline
+
+  ## Size Estimate
+
+  **M** — Multiple layers touched (git service interface + implementation, use case orchestration,
+  new conflict resolution service with prompt, DI registration, comprehensive test suites across
+  unit and integration). The implementation is already complete in this branch with full test
+  coverage including stash/pop happy paths, conflict delegation, error propagation, and worktree
+  awareness.
