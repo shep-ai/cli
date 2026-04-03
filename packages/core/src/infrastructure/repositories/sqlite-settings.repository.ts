@@ -68,7 +68,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_github_import, feature_flag_adopt_branch, feature_flag_git_rebase_sync,
         feature_flag_react_file_manager,
         workflow_enable_evidence, workflow_commit_evidence,
-        hide_ci_status, default_fast_mode,
+        hide_ci_status, default_mode,
         interactive_agent_enabled, interactive_agent_auto_timeout_minutes,
         interactive_agent_max_concurrent_sessions,
         auto_archive_delay_minutes
@@ -97,7 +97,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug, @feature_flag_github_import, @feature_flag_adopt_branch, @feature_flag_git_rebase_sync,
         @feature_flag_react_file_manager,
         @workflow_enable_evidence, @workflow_commit_evidence,
-        @hide_ci_status, @default_fast_mode,
+        @hide_ci_status, @default_mode,
         @interactive_agent_enabled, @interactive_agent_auto_timeout_minutes,
         @interactive_agent_max_concurrent_sessions,
         @auto_archive_delay_minutes
@@ -207,7 +207,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         workflow_enable_evidence = @workflow_enable_evidence,
         workflow_commit_evidence = @workflow_commit_evidence,
         hide_ci_status = @hide_ci_status,
-        default_fast_mode = @default_fast_mode,
+        default_mode = @default_mode,
         interactive_agent_enabled = @interactive_agent_enabled,
         interactive_agent_auto_timeout_minutes = @interactive_agent_auto_timeout_minutes,
         interactive_agent_max_concurrent_sessions = @interactive_agent_max_concurrent_sessions,
