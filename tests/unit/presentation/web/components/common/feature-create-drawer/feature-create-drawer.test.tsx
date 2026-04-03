@@ -310,6 +310,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         fast: false,
+        injectSkills: false,
       };
       const { rerender } = render(
         <DrawerCloseGuardProvider>
@@ -410,6 +411,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         fast: false,
+        injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
 
@@ -741,6 +743,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         fast: true,
+        injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
       expect(screen.getByLabelText('Fast Mode')).toBeChecked();
@@ -755,6 +758,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         fast: false,
+        injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
       expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
@@ -770,6 +774,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         fast: false,
+        injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
 
@@ -1355,6 +1360,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         fast: true,
+        injectSkills: false,
       };
       const { rerender } = render(
         <DrawerCloseGuardProvider>

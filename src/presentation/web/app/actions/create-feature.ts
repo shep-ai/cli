@@ -50,6 +50,8 @@ interface CreateFeatureInput {
   model?: string;
   /** Sync main from remote before creating the feature branch (default: true). */
   rebaseBeforeBranch?: boolean;
+  /** Inject curated skills into the feature worktree. */
+  injectSkills?: boolean;
 }
 
 export async function createFeature(
@@ -74,6 +76,7 @@ export async function createFeature(
     agentType,
     model,
     rebaseBeforeBranch,
+    injectSkills,
   } = input;
 
   if (!description?.trim()) {
@@ -113,6 +116,7 @@ export async function createFeature(
       ...(agentType ? { agentType } : {}),
       ...(model ? { model } : {}),
       ...(rebaseBeforeBranch != null ? { rebaseBeforeBranch } : {}),
+      ...(injectSkills != null ? { injectSkills } : {}),
     });
 
     // Phase 2 (background): metadata generation, worktree, spec, agent spawn
@@ -138,6 +142,7 @@ export async function createFeature(
           ...(model ? { model } : {}),
           ...(sessionId ? { sessionId } : {}),
           ...(rebaseBeforeBranch != null ? { rebaseBeforeBranch } : {}),
+          ...(injectSkills != null ? { injectSkills } : {}),
         },
         shouldSpawn
       )

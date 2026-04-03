@@ -348,6 +348,7 @@ const SAMPLE_WORKFLOW_DEFAULTS: WorkflowDefaults = {
   enableEvidence: true,
   commitEvidence: false,
   fast: true,
+  injectSkills: false,
 };
 
 /**
