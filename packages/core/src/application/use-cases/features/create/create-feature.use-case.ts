@@ -34,6 +34,7 @@ import type { IGitPrService } from '../../../ports/output/services/git-pr-servic
 import type { IAgentValidator } from '../../../ports/output/agents/agent-validator.interface.js';
 import type { ISkillInjectorService } from '../../../ports/output/services/skill-injector.interface.js';
 import { getSettings } from '../../../../infrastructure/services/settings.service.js';
+import { createDefaultSettings } from '../../../../domain/factories/settings-defaults.factory.js';
 import { POST_IMPLEMENTATION } from '../../../../domain/lifecycle-gates.js';
 import { AttachmentStorageService } from '../../../../infrastructure/services/attachment-storage.service.js';
 import { MetadataGenerator } from './metadata-generator.js';
@@ -310,11 +311,13 @@ export class CreateFeatureUseCase {
     const settings = getSettings();
     const shouldInject = input.injectSkills ?? settings.workflow.skillInjection?.enabled ?? false;
     let injectedSkillNames: string[] | undefined;
-    if (shouldInject && settings.workflow.skillInjection?.skills?.length) {
+    const skillConfig =
+      settings.workflow.skillInjection ?? createDefaultSettings().workflow.skillInjection!;
+    if (shouldInject && skillConfig.skills?.length) {
       try {
         const result = await this.skillInjector.inject(
           worktreePath,
-          settings.workflow.skillInjection,
+          skillConfig,
           effectiveRepoPath
         );
         injectedSkillNames = [...result.injected, ...result.skipped];
