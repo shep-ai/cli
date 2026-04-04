@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 export type AgentTypeValue =
   | 'claude-code'
   | 'codex-cli'
+  | 'copilot-cli'
   | 'cursor'
   | 'gemini-cli'
   | 'aider'
@@ -92,6 +93,7 @@ DevAgentIcon.displayName = 'DevAgentIcon';
 const agentTypeIconMap: Record<AgentTypeValue, ComponentType<IconProps>> = {
   'claude-code': createBrandIcon('/icons/agents/claude-ai-icon.svg', 'Claude Code'),
   'codex-cli': createBrandIcon('/icons/agents/openai.svg', 'Codex CLI'),
+  'copilot-cli': createBrandIcon('/icons/agents/copilot.svg', 'Copilot CLI'),
   cursor: createBrandIcon('/icons/agents/cursor.jpeg', 'Cursor'),
   'gemini-cli': createBrandIcon('/icons/agents/gemini-cli.jpeg', 'Gemini CLI'),
   aider: createBrandIcon('/icons/agents/aider.png', 'Aider'),
@@ -103,6 +105,7 @@ const agentTypeIconMap: Record<AgentTypeValue, ComponentType<IconProps>> = {
 export const agentTypeLabels: Record<AgentTypeValue, string> = {
   'claude-code': 'Claude Code',
   'codex-cli': 'Codex CLI',
+  'copilot-cli': 'Copilot CLI',
   cursor: 'Cursor',
   'gemini-cli': 'Gemini CLI',
   aider: 'Aider',

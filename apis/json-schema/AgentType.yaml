@@ -4,6 +4,7 @@ type: string
 enum:
   - claude-code
   - codex-cli
+  - copilot-cli
   - gemini-cli
   - aider
   - continue

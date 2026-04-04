@@ -15,6 +15,10 @@
           "name": "Codex CLI",
           "description": "Терминальный агент OpenAI Codex CLI (модели GPT)"
         },
+        "copilotCli": {
+          "name": "Copilot CLI",
+          "description": "GitHub Copilot CLI (по умолчанию: Claude Sonnet 4.5, требуется подписка Copilot)"
+        },
         "cursor": {
           "name": "Cursor",
           "description": "AI-агент для кодирования Cursor"

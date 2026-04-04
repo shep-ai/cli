@@ -19,6 +19,7 @@ export interface AgentModelGroup {
 const AGENT_LABELS: Record<string, string> = {
   'claude-code': 'Claude Code',
   'codex-cli': 'Codex CLI',
+  'copilot-cli': 'Copilot CLI',
   cursor: 'Cursor CLI',
   'gemini-cli': 'Gemini CLI',
   dev: 'Demo',
@@ -28,8 +29,9 @@ const AGENT_LABELS: Record<string, string> = {
 const AGENT_ORDER: Record<string, number> = {
   'claude-code': 0,
   'codex-cli': 1,
-  cursor: 2,
-  'gemini-cli': 3,
+  'copilot-cli': 2,
+  cursor: 3,
+  'gemini-cli': 4,
   dev: 99,
 };
 
