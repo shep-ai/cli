@@ -4,6 +4,33 @@ import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { OverviewTab } from '@/components/common/feature-drawer-tabs/overview-tab';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 
+vi.mock('@/components/features/settings/AgentModelPicker', () => ({
+  AgentModelPicker: ({
+    initialAgentType,
+    initialModel,
+    agentType,
+    model,
+    saveError,
+    saving,
+  }: {
+    initialAgentType: string;
+    initialModel: string;
+    agentType?: string;
+    model?: string;
+    saveError?: string | null;
+    saving?: boolean;
+  }) => (
+    <div
+      data-testid="agent-model-picker"
+      data-agent-type={agentType ?? initialAgentType}
+      data-model-id={model ?? initialModel}
+      data-saving={saving ? 'true' : 'false'}
+    >
+      {saveError ? <p>{saveError}</p> : null}
+    </div>
+  ),
+}));
+
 vi.mock('@/hooks/use-sound-action', () => ({
   useSoundAction: vi.fn(() => ({ play: vi.fn(), stop: vi.fn(), isPlaying: false })),
 }));
@@ -324,6 +351,12 @@ describe('OverviewTab', () => {
   });
 
   describe('settings section', () => {
+    const pinnedConfig = {
+      agentType: 'claude-code',
+      modelId: 'claude-sonnet-4-6',
+      onSave: vi.fn(),
+    };
+
     it('renders settings section when approval gates are provided', () => {
       renderOverviewTab({
         ...defaultData,
@@ -417,6 +450,58 @@ describe('OverviewTab', () => {
         modelId: undefined,
       });
       expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+    });
+
+    it.each(['pending', 'action-required', 'error'] as const)(
+      'renders the pinned config switch for eligible "%s" features',
+      (state) => {
+        render(
+          <OverviewTab
+            data={{ ...defaultData, state, modelId: 'claude-sonnet-4-6' }}
+            pinnedConfig={pinnedConfig}
+          />
+        );
+
+        expect(screen.getByTestId('agent-model-picker')).toBeInTheDocument();
+      }
+    );
+
+    it.each([
+      ['creating', 'implementation'],
+      ['running', 'implementation'],
+      ['blocked', 'implementation'],
+      ['done', 'maintain'],
+    ] as const)(
+      'hides the pinned config switch for ineligible "%s" features',
+      (state, lifecycle) => {
+        render(
+          <OverviewTab
+            data={{
+              ...defaultData,
+              state,
+              lifecycle,
+              modelId: 'claude-sonnet-4-6',
+            }}
+            pinnedConfig={pinnedConfig}
+          />
+        );
+
+        expect(screen.queryByTestId('agent-model-picker')).not.toBeInTheDocument();
+      }
+    );
+
+    it('shows pinned config save errors inline', () => {
+      render(
+        <OverviewTab
+          data={{ ...defaultData, state: 'pending', modelId: 'claude-sonnet-4-6' }}
+          pinnedConfig={{
+            ...pinnedConfig,
+            error: 'Could not save pinned config',
+          }}
+        />
+      );
+
+      expect(screen.getByText('Could not save pinned config')).toBeInTheDocument();
     });
   });
 });

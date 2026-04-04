@@ -55,6 +55,7 @@ import { useTabDataFetch } from './use-tab-data-fetch';
 import type { TabFetchers } from './use-tab-data-fetch';
 import type { FeatureTabKey } from '@/components/common/control-center-drawer/drawer-view';
 import type { BranchSyncData } from '@/hooks/use-branch-sync-status';
+import type { FeatureDrawerPinnedConfig } from './pinned-config-utils';
 
 /** Lazy-loaded tab keys (tabs that fetch data on activation). */
 type LazyTabKey = 'activity' | 'plan';
@@ -169,6 +170,8 @@ export interface FeatureDrawerTabsProps {
   isRejecting?: boolean;
   chatInput?: string;
   onChatInputChange?: (value: string) => void;
+  pinnedConfig?: FeatureDrawerPinnedConfig;
+  continuationActionsDisabled?: boolean;
 
   // Interactive agent
   /** When false, the Chat tab is hidden from the tab bar (FR-17). Defaults to true. */
@@ -229,6 +232,8 @@ export function FeatureDrawerTabs({
   isRejecting,
   chatInput,
   onChatInputChange,
+  pinnedConfig,
+  continuationActionsDisabled = false,
   sseEvents,
   interactiveAgentEnabled = true,
   onRetry,
@@ -531,7 +536,8 @@ export function FeatureDrawerTabs({
                         <button
                           type="button"
                           onClick={() => onStart(featureNode.featureId)}
-                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400"
+                          disabled={continuationActionsDisabled}
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-green-500/10 hover:text-green-600 disabled:pointer-events-none disabled:opacity-50 dark:hover:text-green-400"
                           data-testid="feature-drawer-start-button"
                         >
                           <Play className="size-3.5" /> Start
@@ -540,7 +546,8 @@ export function FeatureDrawerTabs({
                         <button
                           type="button"
                           onClick={() => onRetry(featureNode.featureId)}
-                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400"
+                          disabled={continuationActionsDisabled}
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-red-500/10 hover:text-red-500 disabled:pointer-events-none disabled:opacity-50 dark:hover:text-red-400"
                           data-testid="feature-drawer-retry-button"
                         >
                           <RotateCcw className="size-3.5" /> Retry
@@ -584,6 +591,7 @@ export function FeatureDrawerTabs({
         <TabsContent value="overview" className="mt-0 flex-1 overflow-y-auto">
           <OverviewTab
             data={featureNode}
+            pinnedConfig={pinnedConfig}
             syncStatus={syncStatus}
             syncLoading={syncLoading}
             syncError={syncError}
@@ -629,7 +637,7 @@ export function FeatureDrawerTabs({
                 onSelect={onPrdSelect ?? (() => undefined)}
                 onApprove={onPrdApprove ?? (() => undefined)}
                 onReject={onPrdReject}
-                isProcessing={isPrdLoading}
+                isProcessing={Boolean((isPrdLoading ?? false) || continuationActionsDisabled)}
                 isRejecting={isRejecting}
                 chatInput={chatInput}
                 onChatInputChange={onChatInputChange}
@@ -653,7 +661,7 @@ export function FeatureDrawerTabs({
                 <DrawerActionBarForTech
                   onApprove={onTechApprove ?? (() => undefined)}
                   onReject={onTechReject}
-                  isProcessing={isTechLoading}
+                  isProcessing={Boolean((isTechLoading ?? false) || continuationActionsDisabled)}
                   isRejecting={isRejecting}
                   chatInput={chatInput}
                   onChatInputChange={onChatInputChange}
@@ -693,7 +701,7 @@ export function FeatureDrawerTabs({
                 readOnly={featureNode.lifecycle === 'maintain'}
                 onApprove={onMergeApprove ?? (() => undefined)}
                 onReject={onMergeReject}
-                isProcessing={isMergeLoading}
+                isProcessing={Boolean((isMergeLoading ?? false) || continuationActionsDisabled)}
                 isRejecting={isRejecting}
                 chatInput={chatInput}
                 onChatInputChange={onChatInputChange}

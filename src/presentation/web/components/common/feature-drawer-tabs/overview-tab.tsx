@@ -27,6 +27,7 @@ import { CometSpinner } from '@/components/ui/comet-spinner';
 import { ActionButton } from '@/components/common/action-button';
 import { featureNodeStateConfig } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
+import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import {
   getAgentTypeIcon,
   agentTypeLabels,
@@ -34,6 +35,7 @@ import {
 import { getModelMeta } from '@/lib/model-metadata';
 import { formatDuration } from '@/lib/format-duration';
 import type { BranchSyncData } from '@/hooks/use-branch-sync-status';
+import { canSwitchPinnedConfig, type FeatureDrawerPinnedConfig } from './pinned-config-utils';
 
 // ── Primitives ──────────────────────────────────────────────────────
 
@@ -142,6 +144,7 @@ const prColor: Record<PrStatus, string> = {
 
 export interface OverviewTabProps {
   data: FeatureNodeData;
+  pinnedConfig?: FeatureDrawerPinnedConfig;
   syncStatus?: BranchSyncData | null;
   syncLoading?: boolean;
   syncError?: string | null;
@@ -153,6 +156,7 @@ export interface OverviewTabProps {
 
 export function OverviewTab({
   data,
+  pinnedConfig,
   syncStatus,
   syncLoading,
   syncError,
@@ -340,7 +344,7 @@ export function OverviewTab({
       ) : null}
 
       {/* ── Settings ── */}
-      <SettingsBlock data={data} />
+      <SettingsBlock data={data} pinnedConfig={pinnedConfig} />
     </div>
   );
 }
@@ -447,8 +451,55 @@ function SyncCard({
 
 // ── Settings ────────────────────────────────────────────────────────
 
-function SettingsBlock({ data }: { data: FeatureNodeData }) {
-  const has =
+function PinnedConfigCard({ pinnedConfig }: { pinnedConfig: FeatureDrawerPinnedConfig }) {
+  const AgentIcon = getAgentTypeIcon(pinnedConfig.agentType);
+  const modelName = pinnedConfig.modelId
+    ? getModelMeta(pinnedConfig.modelId).displayName || pinnedConfig.modelId
+    : 'No model selected';
+
+  return (
+    <Card data-testid="feature-pinned-config-card" className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <div className="text-foreground/40 flex items-center gap-1 text-[10px] font-medium tracking-wider uppercase">
+          <Settings className="size-3" /> Pinned Execution
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <AgentIcon className="size-4 shrink-0 opacity-60" />
+          <span className="font-medium">
+            {agentTypeLabels[pinnedConfig.agentType as keyof typeof agentTypeLabels] ??
+              pinnedConfig.agentType}
+          </span>
+          <span className="text-foreground/20">/</span>
+          <span className="text-foreground/60">{modelName}</span>
+        </div>
+        <p className="text-muted-foreground text-xs">
+          Change the pinned agent and model before the next start, approval, or retry.
+        </p>
+      </div>
+
+      <AgentModelPicker
+        initialAgentType={pinnedConfig.agentType}
+        initialModel={pinnedConfig.modelId}
+        agentType={pinnedConfig.agentType}
+        model={pinnedConfig.modelId}
+        onSave={pinnedConfig.onSave}
+        saveError={pinnedConfig.error}
+        saving={pinnedConfig.saving}
+        disabled={pinnedConfig.saving}
+        mode="settings"
+      />
+    </Card>
+  );
+}
+
+function SettingsBlock({
+  data,
+  pinnedConfig,
+}: {
+  data: FeatureNodeData;
+  pinnedConfig?: FeatureDrawerPinnedConfig;
+}) {
+  const hasSettings =
     data.approvalGates != null ||
     data.push != null ||
     data.openPr != null ||
@@ -456,53 +507,63 @@ function SettingsBlock({ data }: { data: FeatureNodeData }) {
     data.enableEvidence != null ||
     data.forkAndPr != null ||
     data.commitSpecs != null;
-  if (!has) return null;
+  const showPinnedConfig = pinnedConfig != null && canSwitchPinnedConfig(data.state);
+
+  if (!hasSettings && !showPinnedConfig) return null;
 
   return (
     <Section icon={Settings} title="Settings">
-      <div className="grid grid-cols-3 gap-2">
-        {data.approvalGates ? (
-          <Card>
-            <div className="text-foreground/40 mb-1.5 flex items-center gap-1 text-[10px] font-medium tracking-wider uppercase">
-              <ShieldCheck className="size-3" /> Approve
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <Flag on={data.approvalGates.allowPrd} label="PRD" />
-              <Flag on={data.approvalGates.allowPlan} label="Plan" />
-              <Flag on={data.approvalGates.allowMerge} label="Merge" />
-            </div>
-          </Card>
-        ) : null}
-        {data.enableEvidence != null ? (
-          <Card>
-            <div className="text-foreground/40 mb-1.5 flex items-center gap-1 text-[10px] font-medium tracking-wider uppercase">
-              <FileSearch className="size-3" /> Evidence
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <Flag on={data.enableEvidence} label="Collect" />
-              {data.commitEvidence != null ? (
-                <Flag on={data.commitEvidence} label="Add to PR" />
-              ) : null}
-            </div>
-          </Card>
-        ) : null}
-        {data.push != null ||
-        data.openPr != null ||
-        data.ciWatchEnabled != null ||
-        data.commitSpecs != null ||
-        data.forkAndPr != null ? (
-          <Card>
-            <div className="text-foreground/40 mb-1.5 flex items-center gap-1 text-[10px] font-medium tracking-wider uppercase">
-              <GitBranch className="size-3" /> Git
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {data.push != null ? <Flag on={data.push} label="Push" /> : null}
-              {data.openPr != null ? <Flag on={data.openPr} label="PR" /> : null}
-              {data.ciWatchEnabled != null ? <Flag on={data.ciWatchEnabled} label="Watch" /> : null}
-              {data.commitSpecs != null ? <Flag on={data.commitSpecs} label="Specs" /> : null}
-              {data.forkAndPr != null ? <Flag on={data.forkAndPr} label="Fork" /> : null}
-            </div>
-          </Card>
+      <div className="flex flex-col gap-2">
+        {showPinnedConfig ? <PinnedConfigCard pinnedConfig={pinnedConfig} /> : null}
+
+        {hasSettings ? (
+          <div className="grid grid-cols-3 gap-2">
+            {data.approvalGates ? (
+              <Card>
+                <div className="text-foreground/40 mb-1.5 flex items-center gap-1 text-[10px] font-medium tracking-wider uppercase">
+                  <ShieldCheck className="size-3" /> Approve
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <Flag on={data.approvalGates.allowPrd} label="PRD" />
+                  <Flag on={data.approvalGates.allowPlan} label="Plan" />
+                  <Flag on={data.approvalGates.allowMerge} label="Merge" />
+                </div>
+              </Card>
+            ) : null}
+            {data.enableEvidence != null ? (
+              <Card>
+                <div className="text-foreground/40 mb-1.5 flex items-center gap-1 text-[10px] font-medium tracking-wider uppercase">
+                  <FileSearch className="size-3" /> Evidence
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <Flag on={data.enableEvidence} label="Collect" />
+                  {data.commitEvidence != null ? (
+                    <Flag on={data.commitEvidence} label="Add to PR" />
+                  ) : null}
+                </div>
+              </Card>
+            ) : null}
+            {data.push != null ||
+            data.openPr != null ||
+            data.ciWatchEnabled != null ||
+            data.commitSpecs != null ||
+            data.forkAndPr != null ? (
+              <Card>
+                <div className="text-foreground/40 mb-1.5 flex items-center gap-1 text-[10px] font-medium tracking-wider uppercase">
+                  <GitBranch className="size-3" /> Git
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  {data.push != null ? <Flag on={data.push} label="Push" /> : null}
+                  {data.openPr != null ? <Flag on={data.openPr} label="PR" /> : null}
+                  {data.ciWatchEnabled != null ? (
+                    <Flag on={data.ciWatchEnabled} label="Watch" />
+                  ) : null}
+                  {data.commitSpecs != null ? <Flag on={data.commitSpecs} label="Specs" /> : null}
+                  {data.forkAndPr != null ? <Flag on={data.forkAndPr} label="Fork" /> : null}
+                </div>
+              </Card>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </Section>
