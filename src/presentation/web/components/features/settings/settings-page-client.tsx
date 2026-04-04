@@ -450,6 +450,9 @@ export function SettingsPageClient({
   const [implementTimeout, setImplementTimeout] = useState(
     String(Math.round((stageTimeoutsConfig?.implementMs ?? 1_800_000) / 1000))
   );
+  const [fastImplementTimeout, setFastImplementTimeout] = useState(
+    String(Math.round((stageTimeoutsConfig?.fastImplementMs ?? 1_800_000) / 1000))
+  );
   const [mergeTimeout, setMergeTimeout] = useState(
     String(Math.round((stageTimeoutsConfig?.mergeMs ?? 1_800_000) / 1000))
   );
@@ -517,6 +520,10 @@ export function SettingsPageClient({
     stageTimeoutsConfig?.implementMs != null
       ? String(Math.round(stageTimeoutsConfig.implementMs / 1000))
       : '';
+  const originalFastImplementTimeout =
+    stageTimeoutsConfig?.fastImplementMs != null
+      ? String(Math.round(stageTimeoutsConfig.fastImplementMs / 1000))
+      : '';
   const originalMergeTimeout =
     stageTimeoutsConfig?.mergeMs != null
       ? String(Math.round(stageTimeoutsConfig.mergeMs / 1000))
@@ -562,6 +569,7 @@ export function SettingsPageClient({
       researchTimeout?: string;
       planTimeout?: string;
       implementTimeout?: string;
+      fastImplementTimeout?: string;
       mergeTimeout?: string;
       analyzeRepoTimeout?: string;
     } = {}
@@ -598,6 +606,7 @@ export function SettingsPageClient({
           researchMs: secondsToMs(overrides.researchTimeout ?? researchTimeout),
           planMs: secondsToMs(overrides.planTimeout ?? planTimeout),
           implementMs: secondsToMs(overrides.implementTimeout ?? implementTimeout),
+          fastImplementMs: secondsToMs(overrides.fastImplementTimeout ?? fastImplementTimeout),
           mergeMs: secondsToMs(overrides.mergeTimeout ?? mergeTimeout),
         },
         analyzeRepoTimeouts: {
@@ -1284,6 +1293,23 @@ export function SettingsPageClient({
                 onBlur={() => {
                   if (implementTimeout !== originalImplementTimeout)
                     save(buildWorkflowPayload({ implementTimeout }));
+                }}
+                defaultSeconds={1800}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label={t('settings.stageTimeouts.fastImplement')}
+              description={t('settings.stageTimeouts.fastImplementDescription')}
+              htmlFor="timeout-fast-implement"
+            >
+              <TimeoutSlider
+                id="timeout-fast-implement"
+                testId="timeout-fast-implement-input"
+                value={fastImplementTimeout}
+                onChange={setFastImplementTimeout}
+                onBlur={() => {
+                  if (fastImplementTimeout !== originalFastImplementTimeout)
+                    save(buildWorkflowPayload({ fastImplementTimeout }));
                 }}
                 defaultSeconds={1800}
               />

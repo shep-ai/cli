@@ -146,6 +146,8 @@
       "planDescription": "Implementation planning timeout",
       "implement": "Implement",
       "implementDescription": "Code implementation timeout",
+      "fastImplement": "Fast Implement",
+      "fastImplementDescription": "Fast mode implementation timeout",
       "merge": "Merge",
       "mergeDescription": "PR creation and merge timeout",
       "hint": "Each agent has independently configurable stage timeouts. When a stage exceeds its timeout, the agent is terminated. Longer timeouts are useful for complex implementations. Feature agent defaults to 30 minutes per stage. Analyze repository agent defaults to 10 minutes."

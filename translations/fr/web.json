@@ -146,6 +146,8 @@
       "planDescription": "Délai de planification de l'implémentation",
       "implement": "Implémenter",
       "implementDescription": "Délai d'implémentation du code",
+      "fastImplement": "Implémentation Rapide",
+      "fastImplementDescription": "Délai d'implémentation en mode rapide",
       "merge": "Fusion",
       "mergeDescription": "Délai de création et fusion de PR",
       "hint": "Chaque agent a des délais par étape configurables indépendamment. Lorsqu'une étape dépasse son délai, l'agent est terminé. Des délais plus longs sont utiles pour les implémentations complexes. L'agent de fonctionnalité a un délai par défaut de 30 minutes par étape. L'agent d'analyse de dépôt a un délai par défaut de 10 minutes."

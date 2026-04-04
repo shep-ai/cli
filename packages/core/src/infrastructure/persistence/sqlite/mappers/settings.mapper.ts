@@ -89,6 +89,7 @@ export interface SettingsRow {
   stage_timeout_research_ms: number | null;
   stage_timeout_plan_ms: number | null;
   stage_timeout_implement_ms: number | null;
+  stage_timeout_fast_implement_ms: number | null;
   stage_timeout_merge_ms: number | null;
 
   // WorkflowConfig analyze-repo timeouts (workflow.analyzeRepoTimeouts.*)
@@ -203,6 +204,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     stage_timeout_research_ms: settings.workflow.stageTimeouts?.researchMs ?? null,
     stage_timeout_plan_ms: settings.workflow.stageTimeouts?.planMs ?? null,
     stage_timeout_implement_ms: settings.workflow.stageTimeouts?.implementMs ?? null,
+    stage_timeout_fast_implement_ms: settings.workflow.stageTimeouts?.fastImplementMs ?? null,
     stage_timeout_merge_ms: settings.workflow.stageTimeouts?.mergeMs ?? null,
 
     // WorkflowConfig analyze-repo timeouts (optional number → INTEGER | null)
@@ -267,6 +269,8 @@ function buildStageTimeoutsFromRow(
   if (row.stage_timeout_plan_ms !== null) entries.push(['planMs', row.stage_timeout_plan_ms]);
   if (row.stage_timeout_implement_ms !== null)
     entries.push(['implementMs', row.stage_timeout_implement_ms]);
+  if (row.stage_timeout_fast_implement_ms !== null)
+    entries.push(['fastImplementMs', row.stage_timeout_fast_implement_ms]);
   if (row.stage_timeout_merge_ms !== null) entries.push(['mergeMs', row.stage_timeout_merge_ms]);
 
   if (entries.length === 0) return {};

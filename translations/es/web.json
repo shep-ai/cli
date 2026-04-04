@@ -146,6 +146,8 @@
       "planDescription": "Tiempo límite de planificación de implementación",
       "implement": "Implementar",
       "implementDescription": "Tiempo límite de implementación de código",
+      "fastImplement": "Implementación Rápida",
+      "fastImplementDescription": "Tiempo límite de implementación en modo rápido",
       "merge": "Fusión",
       "mergeDescription": "Tiempo límite de creación y fusión de PR",
       "hint": "Cada agente tiene tiempos límite de etapa configurables independientemente. Cuando una etapa excede su tiempo límite, el agente es terminado. Tiempos límite más largos son útiles para implementaciones complejas. El agente de funcionalidad tiene un valor predeterminado de 30 minutos por etapa. El agente de análisis de repositorio tiene un valor predeterminado de 10 minutos."

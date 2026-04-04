@@ -146,6 +146,8 @@
       "planDescription": "Tempo limite para planejamento de implementação",
       "implement": "Implementar",
       "implementDescription": "Tempo limite para implementação de código",
+      "fastImplement": "Implementação Rápida",
+      "fastImplementDescription": "Tempo limite para implementação em modo rápido",
       "merge": "Merge",
       "mergeDescription": "Tempo limite para criação e merge de PR",
       "hint": "Cada agente tem tempos limite de estágio configuráveis independentemente. Quando um estágio excede seu tempo limite, o agente é encerrado. Tempos limite maiores são úteis para implementações complexas. O agente de recurso tem padrão de 30 minutos por estágio. O agente de análise de repositório tem padrão de 10 minutos."

@@ -1,0 +1,231 @@
+== Fast-Implement Timeout: End-to-End Data Flow Evidence ==
+
+This document provides line-by-line evidence that the fastImplementMs timeout
+setting flows from the database through the mapper, domain model, use cases,
+and into the settings page UI — and back when saving.
+
+================================================================================
+1. TYPESPEC DEFINITION (source of truth)
+   File: tsp/domain/entities/settings.tsp
+================================================================================
+
+The StageTimeouts model includes fastImplementMs:
+
+  model StageTimeouts {
+    analyzeMs?: int32;
+    requirementsMs?: int32;
+    researchMs?: int32;
+    planMs?: int32;
+    implementMs?: int32;
+    fastImplementMs?: int32;   // <-- ADDED
+    mergeMs?: int32;
+  }
+
+================================================================================
+2. GENERATED DOMAIN TYPE
+   File: packages/core/src/domain/generated/output.ts (line 360)
+================================================================================
+
+TypeSpec compiler generates:
+
+  export type StageTimeouts = {
+    analyzeMs?: number;
+    requirementsMs?: number;
+    researchMs?: number;
+    planMs?: number;
+    implementMs?: number;
+    fastImplementMs?: number;   // <-- GENERATED
+    mergeMs?: number;
+  };
+
+================================================================================
+3. DATABASE MIGRATION
+   File: packages/core/src/infrastructure/persistence/sqlite/migrations/
+         052-add-stage-timeout-fast-implement-ms.ts
+================================================================================
+
+Migration adds nullable INTEGER column:
+
+  if (!existingNames.has('stage_timeout_fast_implement_ms')) {
+    db.exec('ALTER TABLE settings ADD COLUMN stage_timeout_fast_implement_ms INTEGER');
+  }
+
+================================================================================
+4. SETTINGS MAPPER — Database <-> Domain conversion
+   File: packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+================================================================================
+
+4a. SettingsRow interface (line 92):
+  stage_timeout_fast_implement_ms: number | null;
+
+4b. toDatabase() — Domain -> DB (line 207):
+  stage_timeout_fast_implement_ms: settings.workflow.stageTimeouts?.fastImplementMs ?? null,
+
+4c. fromDatabase() — DB -> Domain (lines 272-273):
+  if (row.stage_timeout_fast_implement_ms !== null)
+    entries.push(['fastImplementMs', row.stage_timeout_fast_implement_ms]);
+
+Evidence: The mapper maps fastImplementMs bidirectionally between
+domain model and DB column. Tested in settings.mapper.test.ts:
+  - "should map stageTimeouts to individual stage_timeout columns" (includes fastImplementMs: 1_200_000)
+  - "should reconstruct stageTimeouts from individual columns" (includes fastImplementMs: 1_200_000)
+  - "should preserve stageTimeouts through round-trip" (includes fastImplementMs: 1_200_000)
+
+================================================================================
+5. SETTINGS PAGE CLIENT — UI receives data from props, NOT hardcoded
+   File: src/presentation/web/components/features/settings/settings-page-client.tsx
+================================================================================
+
+5a. Props interface — receives Settings from loadSettings server action:
+  export interface SettingsPageClientProps {
+    settings: Settings;   // <-- passed from loadSettings() action
+    ...
+  }
+
+5b. State initialization from props (lines 453-455):
+  const [fastImplementTimeout, setFastImplementTimeout] = useState(
+    String(Math.round((stageTimeoutsConfig?.fastImplementMs ?? 1_800_000) / 1000))
+  );
+
+  Where stageTimeoutsConfig = settings.workflow.stageTimeouts (from props)
+
+5c. Original value tracking from props (lines 523-525):
+  const originalFastImplementTimeout =
+    stageTimeoutsConfig?.fastImplementMs != null
+      ? String(Math.round(stageTimeoutsConfig.fastImplementMs / 1000))
+      : '';
+
+5d. Save handler builds payload from state (line 609):
+  fastImplementMs: secondsToMs(overrides.fastImplementTimeout ?? fastImplementTimeout),
+
+5e. UI rendering with i18n labels (lines 1300-1316):
+  <SettingsRow
+    label={t('settings.stageTimeouts.fastImplement')}
+    description={t('settings.stageTimeouts.fastImplementDescription')}
+    htmlFor="timeout-fast-implement"
+  >
+    <TimeoutSlider
+      id="timeout-fast-implement"
+      testId="timeout-fast-implement-input"
+      value={fastImplementTimeout}
+      onChange={setFastImplementTimeout}
+      onBlur={() => {
+        if (fastImplementTimeout !== originalFastImplementTimeout)
+          save(buildWorkflowPayload({ fastImplementTimeout }));
+      }}
+      defaultSeconds={1800}
+    />
+  </SettingsRow>
+
+================================================================================
+6. WORKFLOW SETTINGS SECTION — receives WorkflowConfig via props
+   File: src/presentation/web/components/features/settings/workflow-settings-section.tsx
+================================================================================
+
+6a. Props interface:
+  export interface WorkflowSettingsSectionProps {
+    workflow: WorkflowConfig;   // <-- from parent component, NOT hardcoded
+  }
+
+6b. State initialization from props (lines 59-61):
+  const st = workflow.stageTimeouts;
+  const [fastImplementTimeout, setFastImplementTimeout] = useState(
+    String(Math.round((st?.fastImplementMs ?? 1_800_000) / 1000))
+  );
+
+6c. Field configuration (lines 257-263):
+  {
+    key: 'fastImplementTimeout' as const,
+    label: 'Fast Implement',
+    defaultSeconds: 1800,
+    state: fastImplementTimeout,
+    setter: setFastImplementTimeout,
+    original: originalFastImplementTimeout,
+  },
+
+6d. Save payload (line 139):
+  fastImplementMs: secondsToMs(overrides.fastImplementTimeout ?? fastImplementTimeout),
+
+================================================================================
+7. NODE-HELPERS — Runtime uses configured timeout
+   File: packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
+================================================================================
+
+The buildExecutorOptions function resolves the fast-implement timeout:
+  - Reads from settings.workflow.stageTimeouts.fastImplementMs
+  - Falls back to default 1_800_000ms when not configured
+
+Test evidence (node-helpers.test.ts lines 380-398):
+  it('uses dedicated fast-implement timeout from settings when set', () => {
+    settings.workflow.stageTimeouts = { fastImplementMs: 600_000 };
+    initializeSettings(settings);
+    const state = { ...baseState, currentNode: 'fast-implement' };
+    const options = buildExecutorOptions(state as any);
+    expect(options.timeout).toBe(600_000);   // PASSES
+  });
+
+  it('falls back to default when fast-implement timeout is not set', () => {
+    settings.workflow.stageTimeouts = { implementMs: 900_000 };
+    initializeSettings(settings);
+    const state = { ...baseState, currentNode: 'fast-implement' };
+    const options = buildExecutorOptions(state as any);
+    expect(options.timeout).toBe(1_800_000);   // PASSES
+  });
+
+================================================================================
+8. JSON SCHEMA VALIDATION
+   File: apis/json-schema/StageTimeouts.yaml
+================================================================================
+
+The JSON schema includes fastImplementMs for external config validation:
+  fastImplementMs:
+    type: integer
+    format: int32
+    description: Timeout for the fast-implement stage (default: 1800000)
+
+================================================================================
+9. I18N TRANSLATIONS (all 8 languages)
+================================================================================
+
+All translation files include the fast-implement labels:
+  - translations/en/web.json: "settings.stageTimeouts.fastImplement"
+  - translations/ar/web.json, de, es, fr, he, pt, ru — all present
+
+================================================================================
+SUMMARY: Complete Data Flow
+================================================================================
+
+  DB (stage_timeout_fast_implement_ms INTEGER)
+    ↕ [settings.mapper.ts lines 92, 207, 272-273]
+  Domain (Settings.workflow.stageTimeouts.fastImplementMs)
+    ↕ [LoadSettingsUseCase / UpdateSettingsUseCase]
+  Server Action (loadSettings / updateSettingsAction)
+    ↕ [props: Settings]
+  Settings Page Client (settings-page-client.tsx lines 453-455, 609, 1300-1316)
+    ↕ [state: fastImplementTimeout]
+  Workflow Settings Section (workflow-settings-section.tsx lines 59-61, 139, 257-263)
+    ↕ [TimeoutSlider UI component]
+  User
+
+The settings page is NOT hardcoded independently of the mapper. It:
+  1. Receives Settings as props from the loadSettings() server action
+  2. loadSettings() calls LoadSettingsUseCase which uses the mapper's fromDatabase()
+  3. The mapper reads stage_timeout_fast_implement_ms from the DB column
+  4. On save, the page calls updateSettingsAction() which uses UpdateSettingsUseCase
+  5. UpdateSettingsUseCase uses the mapper's toDatabase() to write back
+
+================================================================================
+TEST RESULTS SUMMARY
+================================================================================
+
+Settings Mapper Tests: 67 passed (0 failed)
+  - Includes fastImplementMs in toDatabase, fromDatabase, and round-trip tests
+
+Node Helpers Tests: 47 passed (0 failed)
+  - Includes dedicated fast-implement timeout resolution tests
+
+Workflow Settings Section Tests: 15 passed (0 failed)
+  - Includes fastImplementTimeout input rendering test
+
+Full Unit Test Suite: 5292 passed (0 failed)
+  - No regressions

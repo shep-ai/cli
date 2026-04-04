@@ -67,7 +67,7 @@ const DEFAULT_STAGE_TIMEOUT_MS = 1_800_000;
 
 /**
  * Map from node name to the corresponding StageTimeouts field.
- * `fast-implement` reuses the implement timeout; `evidence` also reuses implement.
+ * `fast-implement` has its own dedicated timeout; `evidence` reuses implement.
  */
 const STAGE_TIMEOUT_KEY: Record<string, string> = {
   analyze: 'analyzeMs',
@@ -75,7 +75,7 @@ const STAGE_TIMEOUT_KEY: Record<string, string> = {
   research: 'researchMs',
   plan: 'planMs',
   implement: 'implementMs',
-  'fast-implement': 'implementMs',
+  'fast-implement': 'fastImplementMs',
   evidence: 'implementMs',
   merge: 'mergeMs',
 };

@@ -1,3 +1,17 @@
+# [1.166.0](https://github.com/shep-ai/shep/compare/v1.165.0...v1.166.0) (2026-04-03)
+
+
+### Features
+
+* **config:** add configurable fast-implement stage timeout ([#516](https://github.com/shep-ai/shep/issues/516)) ([1a6523d](https://github.com/shep-ai/shep/commit/1a6523dfc7548fc71e1a71fb1b0434f9e29c595e))
+
+# [1.165.0](https://github.com/shep-ai/shep/compare/v1.164.1...v1.165.0) (2026-04-02)
+
+
+### Features
+
+* **web:** add create feature button to sidenav repo groups ([#517](https://github.com/shep-ai/shep/issues/517)) ([0405a45](https://github.com/shep-ai/shep/commit/0405a454b9f342f6c33e1864a61edbfbc8ffc1b5))
+
 ## [1.164.1](https://github.com/shep-ai/shep/compare/v1.164.0...v1.164.1) (2026-04-02)
 
 
