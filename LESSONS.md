@@ -145,3 +145,15 @@ There are multiple code paths that spawn an agent process: create, start, resume
 5. **Same rule for renames** — add the new name, copy data, keep the old name.
 
 **Pattern:** Think of migrations like API versioning. Old consumers (branches, rollbacks) must not break when a new migration runs. Two-phase: first add+backfill, later (optionally) drop.
+
+## New Use Cases Accessible From Web MUST Have a String Token Alias
+
+When a use case is called from a web server action via `resolve<T>('StringToken')`, the DI container needs **both**:
+1. `container.registerSingleton(MyUseCase)` — class token (always present)
+2. `container.register('MyUseCase', { useFactory: (c) => c.resolve(MyUseCase) })` — string alias (easy to forget)
+
+**How this fails:** The class token is registered but the string alias is not. The web action resolves by string, gets "Attempted to resolve unregistered dependency token: X", and the feature silently fails at runtime — not at build time.
+
+**Where to add the alias:** The string aliases live in a dedicated block near the bottom of `packages/core/src/infrastructure/di/container.ts` (search for the comment "routes use string tokens instead of class refs"). Add the new alias there, next to similar use cases.
+
+**Prevention:** When adding a use case and wiring a web server action to call it, immediately add the string alias in the container. Never add a `resolve<T>('StringToken')` call in a server action without a matching alias in the container.

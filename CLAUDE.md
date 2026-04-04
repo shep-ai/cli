@@ -78,7 +78,8 @@ See [clean-architecture](./docs/architecture/clean-architecture.md).
 
 ## General
 ### 1. Self-Improvement Loop
-- After ANY correction from the user: update `LESSONS.md` (project root) with the pattern
+- After ANY correction from the user — including bug reports, unexpected behavior reports, and "why didn't X work?" questions — **immediately** update `LESSONS.md` (project root) with the pattern. Do NOT wait to be asked.
+- This includes: bugs you fix, missing wiring you add, patterns you got wrong, anything the user had to tell you that you should have caught yourself.
 - Write rules for yourself that prevent the same mistake
 - Ruthlessly iterate on these lessons until mistake rate drops
 - Review lessons at session start for relevant project
