@@ -38,6 +38,7 @@ describe('ListAgentRunsUseCase', () => {
       findById: vi.fn(),
       findByThreadId: vi.fn(),
       updateStatus: vi.fn(),
+      updatePinnedConfig: vi.fn(),
       findRunningByPid: vi.fn(),
       list: vi.fn().mockResolvedValue([]),
       delete: vi.fn(),

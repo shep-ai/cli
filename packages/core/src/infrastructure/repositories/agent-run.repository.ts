@@ -7,7 +7,10 @@
 
 import type Database from 'better-sqlite3';
 import { injectable } from 'tsyringe';
-import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
+import type {
+  IAgentRunRepository,
+  AgentRunPinnedConfigUpdate,
+} from '../../application/ports/output/agents/agent-run-repository.interface.js';
 import type { AgentRun, AgentRunStatus } from '../../domain/generated/output.js';
 import {
   toDatabase,
@@ -135,6 +138,23 @@ export class SQLiteAgentRunRepository implements IAgentRunRepository {
     const stmt = this.db.prepare(`UPDATE agent_runs SET ${setClauses.join(', ')} WHERE id = @id`);
 
     stmt.run(params);
+  }
+
+  async updatePinnedConfig(id: string, updates: AgentRunPinnedConfigUpdate): Promise<void> {
+    const stmt = this.db.prepare(`
+      UPDATE agent_runs
+      SET agent_type = @agent_type,
+          model_id = @model_id,
+          updated_at = @updated_at
+      WHERE id = @id
+    `);
+
+    stmt.run({
+      id,
+      agent_type: updates.agentType,
+      model_id: updates.modelId ?? null,
+      updated_at: toTimestamp(updates.updatedAt) ?? Date.now(),
+    });
   }
 
   async findRunningByPid(pid: number): Promise<AgentRun[]> {
