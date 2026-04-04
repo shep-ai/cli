@@ -94,6 +94,7 @@ function createMockAgentRunRepo(): IAgentRunRepository {
     findById: vi.fn(),
     findByThreadId: vi.fn(),
     updateStatus: vi.fn(),
+    updatePinnedConfig: vi.fn(),
     findRunningByPid: vi.fn(),
     list: vi.fn(),
     delete: vi.fn(),

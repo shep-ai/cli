@@ -1,0 +1,7 @@
+{
+  "feature_id": "evidence-feature-83-clean",
+  "lifecycle": "Pending",
+  "agent_type": "codex-cli",
+  "model_id": "gpt-5.4",
+  "status": "pending"
+}

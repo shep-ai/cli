@@ -1,0 +1,13 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-model-switch
+
+ ✓ |node| tests/unit/application/use-cases/features/resume-feature.use-case.test.ts (19 tests) 12ms
+ ✓ |node| tests/unit/application/use-cases/features/start-feature.use-case.test.ts (20 tests) 13ms
+ ✓ |node| tests/unit/application/use-cases/agents/approve-agent-run.use-case.test.ts (10 tests) 5ms
+ ✓ |node| tests/unit/application/use-cases/agents/reject-agent-run.use-case.test.ts (10 tests) 5ms
+
+ Test Files  4 passed (4)
+      Tests  59 passed (59)
+   Start at  11:07:50
+   Duration  193ms (transform 309ms, setup 101ms, import 346ms, tests 36ms, environment 0ms)
+

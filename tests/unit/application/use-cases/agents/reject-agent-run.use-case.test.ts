@@ -150,6 +150,33 @@ describe('RejectAgentRunUseCase', () => {
     expect(recordLifecycleEvent).toHaveBeenCalledWith('run:rejected', 'run-001', mockTimingRepo);
   });
 
+  it('should resume the same run with its persisted switched agentType and modelId', async () => {
+    mockRunRepo.findById.mockResolvedValue(
+      createWaitingRun({
+        agentType: 'codex-cli' as any,
+        modelId: 'gpt-5.4',
+        threadId: 'thread-switched',
+      })
+    );
+
+    await useCase.execute('run-001', 'Use the updated executor');
+
+    expect(mockProcessService.spawn).toHaveBeenCalledWith(
+      'feat-001',
+      'run-001',
+      '/test/repo',
+      '/test/repo/.shep/wt/feat-branch',
+      '/computed/worktree/path',
+      expect.objectContaining({
+        resume: true,
+        threadId: 'thread-switched',
+        agentType: 'codex-cli',
+        model: 'gpt-5.4',
+        resumePayload: expect.stringContaining('Use the updated executor'),
+      })
+    );
+  });
+
   it('should return error when run not found', async () => {
     mockRunRepo.findById.mockResolvedValue(null);
 

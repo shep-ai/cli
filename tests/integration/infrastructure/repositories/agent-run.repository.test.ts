@@ -252,6 +252,67 @@ describe('SQLiteAgentRunRepository', () => {
     });
   });
 
+  describe('updatePinnedConfig()', () => {
+    it('should update agent type, model ID, and updatedAt', async () => {
+      const agentRun = createTestAgentRun({
+        agentType: AgentType.ClaudeCode,
+        modelId: 'claude-sonnet-4-6',
+      });
+      await repository.create(agentRun);
+
+      await repository.updatePinnedConfig('run-001', {
+        agentType: AgentType.CodexCli,
+        modelId: 'gpt-5.4',
+        updatedAt: new Date('2025-01-02T00:00:00Z'),
+      });
+
+      const found = await repository.findById('run-001');
+      expect(found?.agentType).toBe(AgentType.CodexCli);
+      expect(found?.modelId).toBe('gpt-5.4');
+      expect((found?.updatedAt as Date).toISOString()).toBe('2025-01-02T00:00:00.000Z');
+    });
+
+    it('should not alter status-oriented or runtime fields when updating pinned config', async () => {
+      const agentRun = createTestAgentRun({
+        status: AgentRunStatus.failed,
+        result: 'node:merge',
+        sessionId: 'session-123',
+        pid: 4321,
+        lastHeartbeat: new Date('2025-01-01T00:45:00Z'),
+        startedAt: new Date('2025-01-01T00:30:00Z'),
+        completedAt: new Date('2025-01-01T01:00:00Z'),
+        error: 'merge conflict',
+        threadId: 'thread-original',
+        modelId: 'claude-sonnet-4-6',
+      });
+      await repository.create(agentRun);
+
+      await repository.updatePinnedConfig('run-001', {
+        agentType: AgentType.Cursor,
+        modelId: 'gpt-5.4-high',
+        updatedAt: new Date('2025-01-03T00:00:00Z'),
+      });
+
+      const row = db.prepare('SELECT * FROM agent_runs WHERE id = ?').get('run-001') as Record<
+        string,
+        unknown
+      >;
+
+      expect(row.agent_type).toBe('cursor');
+      expect(row.model_id).toBe('gpt-5.4-high');
+      expect(row.updated_at).toBe(new Date('2025-01-03T00:00:00Z').getTime());
+      expect(row.status).toBe(AgentRunStatus.failed);
+      expect(row.result).toBe('node:merge');
+      expect(row.session_id).toBe('session-123');
+      expect(row.pid).toBe(4321);
+      expect(row.last_heartbeat).toBe(new Date('2025-01-01T00:45:00Z').getTime());
+      expect(row.started_at).toBe(new Date('2025-01-01T00:30:00Z').getTime());
+      expect(row.completed_at).toBe(new Date('2025-01-01T01:00:00Z').getTime());
+      expect(row.error).toBe('merge conflict');
+      expect(row.thread_id).toBe('thread-original');
+    });
+  });
+
   describe('findRunningByPid()', () => {
     it('should find running agents by PID', async () => {
       const run1 = createTestAgentRun({

@@ -1,0 +1,434 @@
+name: "feature-model-switch"
+summary: >
+  Research confirms that 083-feature-model-switch fits the existing architecture
+  without any Feature schema, TypeSpec, or SQLite migration changes. The clean
+  implementation is a feature-scoped application use case that validates and updates
+  the current AgentRun in place, paired with a web-drawer-only UI flow that reuses
+  the existing agent/model catalog, picker, and metadata stack. No new npm packages
+  are required.
+
+relatedFeatures:
+  - "052-llm-model-selection"
+  - "066-pending-feature-state"
+  - "067-review-resume-from-error"
+  - "077-codex-cli-agent"
+
+technologies:
+  - "TypeScript"
+  - "Next.js 16 / React 19 server actions"
+  - "SQLite / better-sqlite3"
+  - "tsyringe"
+  - "LangGraph"
+  - "Vitest"
+  - "Testing Library"
+  - "Storybook"
+  - "i18next"
+  - "lucide-react"
+
+relatedLinks: []
+
+decisions:
+  - title: "Persistence model and data shape"
+    chosen: "Update the feature's current AgentRun in place and keep Feature, TypeSpec, and SQLite schema unchanged"
+    rejected:
+      - "Add pinnedAgentType or pinnedModelId fields to Feature. This would duplicate state that already lives on agent_runs, require generated model and repository changes, and risk divergence between Feature and AgentRun."
+      - "Create a brand new AgentRun every time the user switches agent or model. That would turn a pure configuration change into history churn, complicate the current-run pointer, and break the requirement that the switch itself does not restart work."
+    rationale: |
+      The existing creation flow already persists the pinned executor on the current run:
+      `CreateFeatureUseCase` writes `agentType` and optional `modelId` to the initial
+      `AgentRun`, `agent-run.mapper.ts` already maps `agent_type` and `model_id`, and
+      the legacy SQLite migrations already added `model_id`. `buildFeatureNodeData()`
+      reads the latest run to surface agent/model in the UI, so the run is already the
+      single source of truth. Updating that row preserves `threadId` continuity and
+      avoids any `Feature` model, TypeSpec, or migration work.
+
+  - title: "Application-layer mutation boundary"
+    chosen: "Add a dedicated feature-scoped use case in the core application layer that accepts featureId, agentType, and modelId, resolves the current run, validates eligibility, and performs the update"
+    rejected:
+      - "Call FeatureRepository, AgentRunRepository, and IAgentExecutorFactory directly from the Next.js server action. That would bypass Clean Architecture, duplicate business rules in presentation code, and make future CLI or TUI reuse harder."
+      - "Expose a run-scoped mutation that accepts agentRunId from the client. That trusts a client-supplied identifier the server can resolve itself and makes stale or forged run IDs easier to submit."
+    rationale: |
+      The repository already follows the pattern where web mutations are thin server
+      actions over application use cases (`start-feature.ts`, `resume-feature.ts`,
+      `approve-feature.ts`, `reject-feature.ts`). The new behavior belongs beside those
+      feature flows in core, not inside the web layer. A feature-scoped use case also
+      matches the spec requirement that the browser submits `featureId`, not `agentRunId`,
+      and lets later CLI or TUI work reuse the same validation and mutation path.
+
+  - title: "Eligibility rule for switching"
+    chosen: "Enforce a combined feature and run-state matrix: allow Pending lifecycle with a pending current run, or a current run in waitingApproval, failed, or interrupted"
+    rejected:
+      - "Allow any non-running state. That would include archived, completed, blocked, cancelled, and other states where the next continuation action either does not exist or is semantically different from start, approve or reject, and retry."
+      - "Gate only in the UI. That would leave the server vulnerable to direct requests that mutate ineligible runs and could create confusing state mismatches."
+    rationale: |
+      The current codebase already defines the continuation states precisely.
+      `deriveNodeState()` maps `feature.lifecycle === Pending` to UI state `pending`,
+      `waitingApproval` to `action-required`, and `failed` or `interrupted` to `error`.
+      `StartFeatureUseCase`, `ApproveAgentRunUseCase`, `RejectAgentRunUseCase`, and
+      `ResumeFeatureUseCase` only support those continuation paths today. The spec YAML
+      contains stale `answer` values that suggest broader support, but the repeated
+      functional requirements, success criteria, and current continuation use cases all
+      converge on the narrower set: pending, action-required, and error only.
+
+  - title: "Repository API design"
+    chosen: "Add a dedicated IAgentRunRepository.updatePinnedConfig(id, { agentType, modelId, updatedAt }) method"
+    rejected:
+      - "Extend updateStatus() to also mutate agentType and modelId. That would blur a status-focused method, make call sites harder to reason about, and increase the chance of unrelated writes riding along with status changes."
+      - "Add a generic update(agentRun) method for the full entity. That would widen the write surface, encourage accidental field overwrites, and make the SQL path less explicit than this small targeted mutation requires."
+    rationale: |
+      `SQLiteAgentRunRepository.updateStatus()` is intentionally narrow today: it builds
+      `SET` clauses only for status-related fields. A dedicated config-update method keeps
+      the mutation precise, aligns with the hardcoded-SQL lesson captured in `LESSONS.md`,
+      and gives the integration test a single SQL path to verify. The SQLite implementation
+      is a simple prepared `UPDATE agent_runs SET agent_type = ?, model_id = ?, updated_at = ? WHERE id = ?`,
+      which is fast, injection-safe, and does not affect status, heartbeat, or result fields.
+
+  - title: "Server-side agent and model validation source"
+    chosen: "Validate the requested pair against IAgentExecutorFactory.getSupportedAgents() and getSupportedModels(agentType)"
+    rejected:
+      - "Validate only the agent type and accept any model string. That would allow the current run to persist unsupported combinations and defer the failure to a later worker spawn."
+      - "Trust the client-side getAllAgentModels() response. That only proves what the browser rendered, not what the server should accept, and it would leave direct requests unvalidated."
+    rationale: |
+      The web layer already exposes the supported catalog through `getAllAgentModels()`,
+      which resolves `IAgentExecutorFactory` from DI and uses the same static model lists
+      that runtime executors depend on. Reusing that factory in the new core use case
+      preserves the agent-agnostic architecture rule, validates pairs at the same source
+      of truth the picker uses, and prevents invalid pinned combinations from being saved.
+
+  - title: "Drawer integration pattern"
+    chosen: "Keep v1 in the existing web feature drawer Overview settings section, with FeatureDrawerClient owning mutation state and OverviewTab rendering the picker"
+    rejected:
+      - "Put the switch in the drawer header near start, approve, reject, and retry. That would crowd the action strip and separate the control from the execution settings that already appear in Overview."
+      - "Create a new drawer tab or duplicate picker-specific UI for feature switching. That adds navigation and component surface area for a single control that already has a natural home in the Overview settings area."
+    rationale: |
+      `FeatureDrawerClient` is already the orchestration point for lifecycle actions and
+      optimistic drawer state. `OverviewTab` already renders agent/model display plus the
+      feature settings block, so the switch belongs there. This choice also resolves the
+      spec inconsistency around v1 surfaces: the summary, affected areas, dependencies,
+      and success criteria are consistently web-drawer-scoped even though one stale
+      `openQuestions.answer` field says otherwise.
+
+  - title: "Picker reuse strategy"
+    chosen: "Generalize AgentModelPicker so feature switching can reuse it with parent-driven value updates and an injected async persistence path"
+    rejected:
+      - "Embed feature-specific persistence logic directly inside AgentModelPicker. That would couple a reusable settings control to one feature drawer workflow and make unrelated uses harder to maintain."
+      - "Reuse override mode exactly as-is and force rollback by remounting with a key hack. That would work around the component's internal state model instead of fixing the real issue: initial props are only read once, so parent-driven rollback is not reliable."
+    rationale: |
+      The current picker supports `settings` mode for global settings and `override` mode
+      for local-only selection, but it keeps `agentType` and `model` in internal state that
+      does not resync when props change. Immediate persistence with rollback requires the
+      parent to own the saved selection, save status, and failure state. Generalizing the
+      picker so the parent can drive value updates and inject an async save function keeps
+      the control reusable across settings, feature create, chat override, and the new
+      feature-switch flow without duplicating catalog or animation logic.
+
+  - title: "Immediate persistence and UI synchronization"
+    chosen: "Persist immediately on selection, disable the picker and continuation actions while saving, patch the local drawer node on success, and roll back to the last saved values with explicit error feedback on failure"
+    rejected:
+      - "Wait for background drawer sync or a manual refresh to show the new values. useDrawerSync() only refreshes on open and every 15 seconds, which is too slow for immediate feedback."
+      - "Call router.refresh() after every save. That would re-render the drawer tree, risk resetting local review or chat state, and add more UI churn than this one-row mutation needs."
+    rationale: |
+      The drawer already keeps a local `view.node` and uses targeted background sync for
+      eventual consistency. That makes the clean path straightforward: when the save succeeds,
+      patch `view.node.agentType` and `view.node.modelId` immediately so the new pinned values
+      appear without waiting for the 15-second sync. When it fails, revert to the previously
+      saved values and surface an explicit error. During the request, both the picker and the
+      continuation actions should be disabled so the user cannot start, approve, reject, or retry
+      against an in-flight configuration mutation.
+
+  - title: "Continuation flow impact"
+    chosen: "Keep the existing worker spawn and resume contracts unchanged; the switch only changes the persisted run config consumed by later continuation actions"
+    rejected:
+      - "Add separate feature-level override arguments to start, approve, reject, and resume actions. That would duplicate the same agent/model data in request payloads even though those use cases already load the current run from persistence."
+      - "Reset threadId or introduce vendor-specific session migration when switching. That would violate the requirement to preserve checkpoint continuity and adds complexity the current runtime contract does not need."
+    rationale: |
+      The current continuation use cases already read from the run. `StartFeatureUseCase`
+      spawns with `agentRun.agentType` and `agentRun.modelId`. `ApproveAgentRunUseCase`
+      and `RejectAgentRunUseCase` resume the same run with `run.agentType` and `run.modelId`.
+      `ResumeFeatureUseCase` clones `lastRun.agentType`, `lastRun.modelId`, and `threadId`
+      into the retry run. `feature-agent-worker.ts` already uses `threadId` to choose the
+      checkpoint database, so changing the pinned config on the current run is enough. The
+      continuation contract itself does not need to change.
+
+  - title: "Library strategy"
+    chosen: "Use existing repository, DI, web, test, and Storybook tooling; add no new npm dependencies"
+    rejected:
+      - "Add zod or another schema-validation package for the server action payload. The payload is three fields, current server actions already use manual validation plus use-case errors, and the important validation belongs in core anyway."
+      - "Add React Query, SWR, XState, or another state-management layer for a single drawer mutation. The drawer already uses local state plus useDrawerSync(), so another client-state dependency would increase complexity without solving a broader problem."
+    rationale: |
+      The required capabilities are already present: `better-sqlite3` for a targeted update,
+      `tsyringe` for a new use case registration, Next.js server actions for the web mutation,
+      `AgentModelPicker` plus `getAllAgentModels()` plus `model-metadata.ts` for the UI,
+      and existing Vitest, Testing Library, and Storybook suites for verification. The feature
+      is a workflow extension, not new infrastructure, so new dependencies would add surface
+      area without creating meaningful leverage.
+
+openQuestions:
+  - question: "Which user surface should own the v1 switching workflow?"
+    resolved: true
+    options:
+      - option: "Web feature drawer only"
+        description: "Implement the feature only in the existing web drawer Overview section. This matches the current picker, server-action, and drawer orchestration seams with the smallest blast radius."
+        selected: true
+      - option: "Web and CLI"
+        description: "Add a new CLI command in the same release. This improves parity, but it expands the UX, validation, and test surface beyond what the current requirement text actually needs."
+        selected: false
+      - option: "Web, CLI, and TUI"
+        description: "Ship full entry-point parity in one pass. This is the broadest user story, but it materially increases scope without changing the underlying persistence model."
+        selected: false
+    selectionRationale: |
+      The spec metadata is inconsistent here: one `answer` field says "Web, CLI, and TUI",
+      but the summary, affected areas, dependencies, size estimate, functional requirements,
+      and success criteria all scope v1 to the web feature drawer. The codebase also already
+      has the correct web seams (`FeatureDrawerClient`, `OverviewTab`, `AgentModelPicker`,
+      and server actions) and no equivalent CLI or TUI switch workflow. Research therefore
+      treats "web drawer only" as the correct implementation scope for this feature.
+
+  - question: "Which persisted states should be eligible for switching?"
+    resolved: true
+    options:
+      - option: "Pending lifecycle plus waitingApproval, failed, and interrupted runs only"
+        description: "Allow switching only before Start, Approve or Reject, or Retry. This lines up exactly with the continuation paths the current use cases already support."
+        selected: true
+      - option: "Any non-running state"
+        description: "Allow switching whenever the worker is not currently active. This sounds flexible, but it includes archived, completed, blocked, and other states with unclear semantics."
+        selected: false
+      - option: "All states"
+        description: "Allow switching regardless of state. This creates ambiguity about whether an active worker should pick up the change and increases the risk of user confusion."
+        selected: false
+    selectionRationale: |
+      `deriveNodeState()` and the continuation use cases define the real technical boundary.
+      Pending features are started through `StartFeatureUseCase`. Waiting approval is resumed
+      through approve or reject. Failed and interrupted runs are retried through
+      `ResumeFeatureUseCase`. Cancelled runs are not resumable today, and completed or archived
+      features have no meaningful continuation action. Although one stale spec answer says
+      "Any non-running state", the code and the repeated FR language point to the narrower rule.
+
+  - question: "Where should save orchestration and rollback live in the web layer?"
+    resolved: true
+    options:
+      - option: "FeatureDrawerClient owns saved state, save status, and rollback; OverviewTab renders the picker"
+        description: "Keep the mutation state near the existing start, approve, reject, and retry handlers so the drawer can disable continuation actions and patch local node data immediately."
+        selected: true
+      - option: "AgentModelPicker owns feature-specific persistence internally"
+        description: "Hide the mutation entirely inside the picker. This reduces parent wiring but makes the picker feature-specific and gives the drawer less control over blocking continuation actions."
+        selected: false
+      - option: "OverviewTab owns everything locally"
+        description: "Keep the change inside the tab component. This avoids parent prop threading, but the tab would need to coordinate with header actions that currently live in FeatureDrawerClient."
+        selected: false
+    selectionRationale: |
+      `FeatureDrawerClient` already owns the canonical drawer view and the lifecycle action
+      handlers. It is the correct place to track whether a save is in flight or has failed,
+      to disable continuation controls accordingly, and to patch `view.node` on success.
+      `OverviewTab` should stay presentation-oriented and receive the current pinned config,
+      save status, and callback props. This keeps the picker reusable and prevents state
+      duplication between the header action bar and the Overview content.
+
+  - question: "How should the repository expose the current-run mutation?"
+    resolved: true
+    options:
+      - option: "Dedicated updatePinnedConfig method on IAgentRunRepository"
+        description: "Add a narrow repository method that updates only agentType, modelId, and updatedAt for an existing run."
+        selected: true
+      - option: "Reuse updateStatus with extra fields"
+        description: "Thread agentType and modelId through the existing status-update API. This keeps the interface smaller but conflates two distinct mutation responsibilities."
+        selected: false
+      - option: "Add a generic AgentRun update method"
+        description: "Expose a wide update surface for the whole entity. This is flexible, but it creates more opportunity for unrelated field changes and less explicit SQL."
+        selected: false
+    selectionRationale: |
+      The repository currently has very explicit write paths: `create()` for inserts and
+      `updateStatus()` for status transitions. A dedicated `updatePinnedConfig()` method keeps
+      the new SQL path equally explicit, is easier to test in isolation, and avoids teaching
+      every caller that `updateStatus()` has hidden configuration semantics. It is the best fit
+      for the small, precise mutation this feature needs.
+
+  - question: "How should the UI show the updated pinned values after a successful save?"
+    resolved: true
+    options:
+      - option: "Patch FeatureDrawerClient local node state immediately and let background sync confirm it later"
+        description: "Show the new pinned values instantly without a full re-render, then rely on existing drawer sync for eventual consistency."
+        selected: true
+      - option: "Call router.refresh() after save"
+        description: "Force a server re-render of the drawer. This guarantees fresh data, but it introduces extra churn and risks resetting local interactive state."
+        selected: false
+      - option: "Wait for the next useDrawerSync refresh"
+        description: "Avoid local state changes and trust the background sync hook. This is the simplest implementation but fails the immediate-feedback requirement."
+        selected: false
+    selectionRationale: |
+      The drawer already stores local node data in `FeatureDrawerClient`, and
+      `useDrawerSync()` intentionally avoids full `router.refresh()` calls so it does not wipe
+      local state such as chat or review selections. Patching the local node immediately fits
+      that design, satisfies FR-7, and keeps the save path a single request-response interaction.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Persistence model and data shape
+
+  **Chosen:** Update the feature's current `AgentRun` in place and keep `Feature`, TypeSpec, and SQLite schema unchanged.
+
+  **Rejected:**
+  - Add feature-level pinned override fields — duplicates the source of truth already stored on `agent_runs` and would force model, repository, and generated-type changes.
+  - Create a new `AgentRun` on each switch — turns a pure config edit into run-history churn and conflicts with the requirement that switching does not itself restart work.
+
+  **Rationale:** The existing creation flow already writes `agentType` and `modelId` onto the run, the SQLite mapper already round-trips those columns, and `buildFeatureNodeData()` already reads agent/model from the latest run. Updating the current run preserves `threadId` continuity and avoids any schema work.
+
+  ### 2. Application-layer mutation boundary
+
+  **Chosen:** Add a new feature-scoped core use case that accepts `featureId`, `agentType`, and `modelId`, resolves the current run, validates, and updates it.
+
+  **Rejected:**
+  - Let the server action call repositories directly — breaks the existing thin-action/use-case pattern.
+  - Accept `agentRunId` from the browser — trusts an identifier the server can derive from repository state.
+
+  **Rationale:** Existing web mutations such as `start-feature.ts`, `resume-feature.ts`, `approve-feature.ts`, and `reject-feature.ts` are thin wrappers over core use cases. The same pattern keeps lifecycle validation in core and makes the behavior reusable later outside the web layer.
+
+  ### 3. Eligibility rule
+
+  **Chosen:** Allow switching only for `Pending` features with a pending current run, or current runs in `waitingApproval`, `failed`, or `interrupted`.
+
+  **Rejected:**
+  - Any non-running state — too broad, includes archived, completed, blocked, and other states with no relevant continuation action.
+  - UI-only gating — unsafe because direct requests could still mutate ineligible runs.
+
+  **Rationale:** The current continuation use cases already define the real technical boundary. Start works only from `Pending`, approval flows work from `waitingApproval`, and retry works from `failed` or `interrupted`. That narrow matrix matches both the intended user workflow and the current code.
+
+  ### 4. Repository API design
+
+  **Chosen:** Add `IAgentRunRepository.updatePinnedConfig(id, { agentType, modelId, updatedAt })`.
+
+  **Rejected:**
+  - Extend `updateStatus()` — overloads a status-specific method with unrelated config semantics.
+  - Add a generic `update(agentRun)` — creates a much wider write surface than needed.
+
+  **Rationale:** `SQLiteAgentRunRepository.updateStatus()` is intentionally narrow today. A dedicated config update method keeps the SQL explicit and the tests focused on a single mutation path.
+
+  ### 5. Validation source
+
+  **Chosen:** Validate the agent/model pair against `IAgentExecutorFactory`.
+
+  **Rejected:**
+  - Validate only the agent and accept any model string — would allow unsupported combinations into persistence.
+  - Trust the web picker response — client output is not an authorization boundary.
+
+  **Rationale:** The existing web catalog action already uses `IAgentExecutorFactory`, and the same factory is the right server-side source of truth for supported agent/model pairs.
+
+  ### 6. Drawer integration pattern
+
+  **Chosen:** Ship v1 in the web feature drawer Overview settings area and let `FeatureDrawerClient` coordinate save state.
+
+  **Rejected:**
+  - Header quick action — crowds lifecycle controls.
+  - Separate settings tab or duplicate feature-specific picker UI — adds unnecessary navigation and surface area.
+
+  **Rationale:** `FeatureDrawerClient` already coordinates start, approve, reject, retry, and local optimistic drawer state. `OverviewTab` is already where execution settings are displayed.
+
+  ### 7. Picker reuse strategy
+
+  **Chosen:** Generalize `AgentModelPicker` for parent-driven value updates and injected persistence.
+
+  **Rejected:**
+  - Hardcode feature-switch save logic inside the picker — over-couples a reusable control to one workflow.
+  - Reuse the current `override` mode unchanged and force rollback with remount hacks — works around the component's internal state model instead of fixing it.
+
+  **Rationale:** The current picker only reads `initialAgentType` and `initialModel` once. Immediate persistence with rollback requires the parent drawer flow to own the saved value, save status, and error state.
+
+  ### 8. Immediate persistence and synchronization
+
+  **Chosen:** Persist immediately, disable the picker and continuation actions while saving, patch local drawer node data on success, and roll back with an explicit error on failure.
+
+  **Rejected:**
+  - Wait for `useDrawerSync()` — too slow for immediate feedback.
+  - Use `router.refresh()` after save — causes unnecessary re-render churn and risks resetting local interactive state.
+
+  **Rationale:** `FeatureDrawerClient` already owns local drawer node state, and `useDrawerSync()` is intentionally background-oriented. Local patching is the best fit for immediate UI feedback.
+
+  ### 9. Continuation flow impact
+
+  **Chosen:** Leave the worker spawn and LangGraph resume contract unchanged.
+
+  **Rejected:**
+  - Add duplicate feature-level override payloads to start, approve, reject, and resume actions.
+  - Reset `threadId` or introduce session-migration logic on switch.
+
+  **Rationale:** Start, approve, reject, and resume already read `agentType` and `modelId` from the persisted run. `ResumeFeatureUseCase` already copies `threadId`, so checkpoint continuity is preserved automatically.
+
+  ### 10. Library strategy
+
+  **Chosen:** Use the existing repository, DI, web, test, and Storybook stack with no new npm dependencies.
+
+  **Rejected:**
+  - Add `zod` for the request payload — unnecessary for a three-field mutation whose important validation still belongs in core.
+  - Add React Query, SWR, XState, or a similar client-state library — overkill for a single drawer mutation already handled by local state plus `useDrawerSync()`.
+
+  **Rationale:** This feature extends existing seams rather than introducing new infrastructure. The current stack already provides everything required.
+
+  ## Library Analysis
+
+  | Library / Module | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `better-sqlite3` | Persist the current run mutation | Use | `SQLiteAgentRunRepository` already uses prepared statements and can add one targeted `UPDATE` by run id. |
+  | `tsyringe` | Register and resolve the new core use case | Use | Matches the existing container pattern for feature use cases and web string-token aliases. |
+  | `IAgentExecutorFactory` | Supported agent/model validation catalog | Use | Already drives `getAllAgentModels()` and keeps validation agent-agnostic. |
+  | `AgentModelPicker` | Reusable agent/model UI | Use with refactor | Already has the right catalog and interaction shell; it only needs a cleaner parent-driven persistence seam. |
+  | `getAllAgentModels()` | Web catalog loading | Use | Already exposes the supported picker options from the DI-resolved factory. |
+  | `model-metadata.ts` and `agent-type-icons.tsx` | Display labels, descriptions, and icons | Use | Existing presentation metadata covers the UI without new assets or libraries. |
+  | `Next.js` server actions | Web mutation entry point | Use | Current feature mutations already use this pattern. |
+  | `Vitest` and `Testing Library` | Unit, integration, and component coverage | Use | Existing tests already cover similar repository, use-case, action, and drawer seams. |
+  | `Storybook` | Eligible-state UI coverage | Use | `OverviewTab` and `AgentModelPicker` already have stories that can be extended. |
+  | `zod` | Request validation | Reject | Would add a dependency without replacing the core validation logic that still must live in the use case. |
+  | `React Query` / `SWR` | Mutation and cache management | Reject | The drawer already owns local view state and background sync; a cache library adds unnecessary complexity. |
+  | `XState` or similar | Save/rollback state machine | Reject | The mutation state is small and already belongs in `FeatureDrawerClient`. |
+
+  ## Security Considerations
+
+  The server must treat `featureId`, `agentType`, and `modelId` as untrusted input. The web action should accept only `featureId`, `agentType`, and `modelId`, then let the core use case resolve the current run from `FeatureRepository` state instead of trusting a client-supplied `agentRunId`.
+
+  Eligibility must be enforced on the server with a combined feature and run-state check. UI gating alone is insufficient because direct requests could otherwise mutate completed, running, or archived work.
+
+  Agent and model validation should use `IAgentExecutorFactory` so only advertised pairs are persisted. This prevents a later worker spawn from failing because the run was saved with an unsupported model string.
+
+  The SQLite write path remains low-risk from an injection perspective because `better-sqlite3` prepared statements are already the repository standard. The mutation should update only `agent_type`, `model_id`, and `updated_at`, leaving status, result, and heartbeat fields unchanged.
+
+  The switch action must not spawn, stop, or restart any process. It changes only the persisted config that future continuation actions consume. Preserving `threadId` and not rewriting session identifiers keeps LangGraph checkpoint continuity intact.
+
+  A residual concurrency risk remains if two browser tabs race a save against a continuation action, because the current architecture does not expose cross-request locking for this workflow. The main mitigation is to disable continuation actions while a save is in flight and to resolve the current run fresh on every request, consistent with the repository-driven design already used elsewhere.
+
+  ## Performance Implications
+
+  The server write is a single-row `UPDATE` by primary key on `agent_runs`, so the mutation is cheap and needs no new migration or index. The feature does not add background jobs, subprocess work, or LangGraph replay.
+
+  Reusing the existing static agent/model catalog avoids subprocess or network discovery on every picker open. `getAllAgentModels()` already resolves the catalog from in-process DI and a static model list, so validation and picker rendering remain fast.
+
+  The UI should patch local drawer state immediately instead of calling `router.refresh()`. That avoids re-rendering the drawer shell and protects local review and chat state while still giving instant visible feedback.
+
+  Disabling the picker and continuation buttons during a save serializes user-triggered writes and avoids duplicate requests. Background sync can continue to provide eventual consistency, but it should not be the primary feedback path because its interval is too coarse for this interaction.
+
+  ## Architecture Notes
+
+  The new core use case should live with other feature workflows, for example under `packages/core/src/application/use-cases/features/`, and be registered in the DI container with the same singleton plus string-token pattern used by `StartFeatureUseCase` and `ResumeFeatureUseCase`.
+
+  `IAgentRunRepository` should gain a narrow config-update method, and `SQLiteAgentRunRepository` should implement it with a prepared statement that writes only `agent_type`, `model_id`, and `updated_at`.
+
+  The new web mutation should live beside the existing feature server actions in `src/presentation/web/app/actions/` and return the same style of `{ ok/error }` or `{ success/error }` object used elsewhere in the web layer.
+
+  `FeatureDrawerClient` should own the saved pinned config, in-flight state, and any save error so it can disable Start, Approve, Reject, and Retry while a config save is unresolved. `OverviewTab` should receive the current pinned values plus save callbacks and render the switch inside the existing settings area.
+
+  `AgentModelPicker` needs a small structural refactor for parent-driven synchronization. The current `override` mode updates internal state correctly for local-only flows, but it does not react to parent prop changes, which makes rollback after a failed feature-scoped save unreliable.
+
+  `getFeatureDrawerData()` plus `buildFeatureNodeData()` already read the latest run and expose `agentType` and `modelId` in drawer data, sidebar data, and node data. That means a successful run update automatically flows through existing refresh paths with no new data model or API shape.
+
+  Continuation use cases already consume the run config:
+  - `StartFeatureUseCase` reads the current run and spawns with `agentRun.agentType` and `agentRun.modelId`.
+  - `ApproveAgentRunUseCase` and `RejectAgentRunUseCase` resume the same run with `run.agentType` and `run.modelId`.
+  - `ResumeFeatureUseCase` clones the current run into a new retry run with the same `agentType`, `modelId`, and `threadId`.
+
+  The required RED-GREEN-REFACTOR test slices are:
+  - Unit tests for the new update use case, including feature-not-found, missing-current-run, invalid-state, invalid-agent, invalid-model, and success cases.
+  - Integration tests for the new repository update SQL path.
+  - Unit tests for the new web server action contract and error handling.
+  - Drawer or Overview component tests covering eligible-state rendering, disabled-in-flight behavior, rollback on failure, and hidden or disabled controls for ineligible states.
+  - Storybook coverage for at least one eligible switch state in any modified component.
+
+  One spec-alignment note should be carried forward into implementation: the spec YAML has inconsistent resolved-answer text for both the v1 surface area and the eligible states. The repeated summary, FR text, affected areas, and current code seams support a web-drawer-only flow gated to pending, action-required, and error paths. The research artifact treats that narrower scope as authoritative.

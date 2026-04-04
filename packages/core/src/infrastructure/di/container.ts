@@ -102,6 +102,7 @@ import { ShowFeatureUseCase } from '../../application/use-cases/features/show-fe
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
 import { StartFeatureUseCase } from '../../application/use-cases/features/start-feature.use-case.js';
+import { UpdateFeaturePinnedConfigUseCase } from '../../application/use-cases/features/update-feature-pinned-config.use-case.js';
 import { AdoptBranchUseCase } from '../../application/use-cases/features/adopt-branch.use-case.js';
 import { GetFeatureArtifactUseCase } from '../../application/use-cases/features/get-feature-artifact.use-case.js';
 import { GetResearchArtifactUseCase } from '../../application/use-cases/features/get-research-artifact.use-case.js';
@@ -381,6 +382,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(DeleteFeatureUseCase);
   container.registerSingleton(ResumeFeatureUseCase);
   container.registerSingleton(StartFeatureUseCase);
+  container.registerSingleton(UpdateFeaturePinnedConfigUseCase);
   container.registerSingleton(AdoptBranchUseCase);
   container.registerSingleton(GetFeatureArtifactUseCase);
   container.registerSingleton(GetResearchArtifactUseCase);
@@ -450,6 +452,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('StartFeatureUseCase', {
     useFactory: (c) => c.resolve(StartFeatureUseCase),
+  });
+  container.register('UpdateFeaturePinnedConfigUseCase', {
+    useFactory: (c) => c.resolve(UpdateFeaturePinnedConfigUseCase),
   });
   container.register('AdoptBranchUseCase', {
     useFactory: (c) => c.resolve(AdoptBranchUseCase),

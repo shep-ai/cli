@@ -11,6 +11,12 @@
 
 import type { AgentRun, AgentRunStatus } from '../../../../domain/generated/output.js';
 
+export interface AgentRunPinnedConfigUpdate {
+  agentType: AgentRun['agentType'];
+  modelId?: AgentRun['modelId'];
+  updatedAt: AgentRun['updatedAt'];
+}
+
 /**
  * Repository interface for AgentRun entity persistence.
  *
@@ -51,6 +57,14 @@ export interface IAgentRunRepository {
    * @param updates - Optional additional fields to update
    */
   updateStatus(id: string, status: AgentRunStatus, updates?: Partial<AgentRun>): Promise<void>;
+
+  /**
+   * Update the pinned executor config for an existing run.
+   *
+   * @param id - The agent run ID
+   * @param updates - The pinned config fields to persist
+   */
+  updatePinnedConfig(id: string, updates: AgentRunPinnedConfigUpdate): Promise<void>;
 
   /**
    * Find all running agent runs for a given process ID.

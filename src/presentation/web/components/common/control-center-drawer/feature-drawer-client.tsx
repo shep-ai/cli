@@ -41,6 +41,12 @@ import type { DrawerView, FeatureTabKey } from './drawer-view';
 import { useArtifactFetch } from './use-artifact-fetch';
 import { useDrawerSync } from './use-drawer-sync';
 import { useBranchSyncStatus } from '@/hooks/use-branch-sync-status';
+import { updateFeaturePinnedConfig } from '@/app/actions/update-feature-pinned-config';
+import {
+  canSwitchPinnedConfig,
+  getPinnedConfigSelection,
+  type PinnedConfigSelection,
+} from '@/components/common/feature-drawer-tabs/pinned-config-utils';
 
 export interface FeatureDrawerClientProps {
   view: DrawerView;
@@ -62,6 +68,15 @@ export function FeatureDrawerClient({
 
   // Track the view locally so SSE events can update the drawer type in real-time
   const [view, setView] = useState(initialView);
+  const [pinnedConfigSelection, setPinnedConfigSelection] = useState<PinnedConfigSelection | null>(
+    () => (initialView.type === 'feature' ? getPinnedConfigSelection(initialView.node) : null)
+  );
+  const [lastSavedPinnedConfig, setLastSavedPinnedConfig] = useState<PinnedConfigSelection | null>(
+    () => (initialView.type === 'feature' ? getPinnedConfigSelection(initialView.node) : null)
+  );
+  const [pinnedConfigSaving, setPinnedConfigSaving] = useState(false);
+  const [pinnedConfigError, setPinnedConfigError] = useState<string | null>(null);
+  const syncedPinnedConfigKeyRef = useRef<string | null>(null);
 
   // Sync when server re-renders with new props (e.g. after navigation).
   // When reopening the SAME feature, merge server data into the existing view
@@ -84,6 +99,28 @@ export function FeatureDrawerClient({
   }, [initialView]);
 
   const featureNode = view.type === 'feature' ? view.node : null;
+  const canSwitchPinnedConfigForFeature = featureNode
+    ? canSwitchPinnedConfig(featureNode.state)
+    : false;
+
+  useEffect(() => {
+    if (view.type !== 'feature' || pinnedConfigSaving) {
+      return;
+    }
+
+    const nextSelection = getPinnedConfigSelection(view.node);
+    const nextKey = nextSelection
+      ? `${view.node.featureId}:${nextSelection.agentType}:${nextSelection.modelId}`
+      : `${view.node.featureId}:none`;
+    const changed = syncedPinnedConfigKeyRef.current !== nextKey;
+
+    syncedPinnedConfigKeyRef.current = nextKey;
+    setPinnedConfigSelection(nextSelection);
+    setLastSavedPinnedConfig(nextSelection);
+    if (changed) {
+      setPinnedConfigError(null);
+    }
+  }, [view, pinnedConfigSaving]);
 
   // SSE: update drawer view when feature state changes
   const { events } = useAgentEventsContext();
@@ -315,7 +352,7 @@ export function FeatureDrawerClient({
       attachments: RejectAttachment[] = [],
       onDone?: () => void
     ) => {
-      if (!featureNode?.featureId) return;
+      if (pinnedConfigSaving || !featureNode?.featureId) return;
       isRejectingRef.current = true;
       setIsRejecting(true);
       try {
@@ -355,7 +392,7 @@ export function FeatureDrawerClient({
         setIsRejecting(false);
       }
     },
-    [featureNode, onClose, rejectSound]
+    [featureNode, onClose, pinnedConfigSaving, rejectSound]
   );
 
   const handlePrdReject = useCallback(
@@ -376,7 +413,7 @@ export function FeatureDrawerClient({
 
   const handleSimpleApprove = useCallback(
     async (label: string) => {
-      if (!featureNode?.featureId) return;
+      if (pinnedConfigSaving || !featureNode?.featureId) return;
       const result = await approveFeature(featureNode.featureId);
       if (!result.approved) {
         toast.error(result.error ?? `Failed to approve ${label.toLowerCase()}`);
@@ -392,12 +429,12 @@ export function FeatureDrawerClient({
       );
       onClose();
     },
-    [featureNode, onClose]
+    [featureNode, onClose, pinnedConfigSaving]
   );
 
   const handlePrdApprove = useCallback(
     async (_actionId: string) => {
-      if (view.type !== 'feature' || !featureNode) return;
+      if (pinnedConfigSaving || view.type !== 'feature' || !featureNode) return;
       let payload: PrdApprovalPayload | undefined;
       if (prdData) {
         const changedSelections: QuestionSelectionChange[] = [];
@@ -426,7 +463,7 @@ export function FeatureDrawerClient({
       setPrdSelections({});
       onClose();
     },
-    [view, featureNode, prdData, prdSelections, onClose]
+    [view, featureNode, pinnedConfigSaving, prdData, prdSelections, onClose]
   );
 
   const handleTechApprove = useCallback(() => handleSimpleApprove('Plan'), [handleSimpleApprove]);
@@ -476,23 +513,27 @@ export function FeatureDrawerClient({
     [router]
   );
 
-  const handleRetry = useCallback(async (featureId: string) => {
-    const result = await resumeFeature(featureId);
-    if (result.error) {
-      toast.error(result.error);
-      return;
-    }
-    toast.success('Feature resumed — agent restarting');
-    window.dispatchEvent(
-      new CustomEvent('shep:feature-approved', {
-        detail: { featureId },
-      })
-    );
-    setView((prev) => {
-      if (prev.type !== 'feature') return prev;
-      return { ...prev, node: { ...prev.node, state: 'running' } };
-    });
-  }, []);
+  const handleRetry = useCallback(
+    async (featureId: string) => {
+      if (pinnedConfigSaving) return;
+      const result = await resumeFeature(featureId);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success('Feature resumed — agent restarting');
+      window.dispatchEvent(
+        new CustomEvent('shep:feature-approved', {
+          detail: { featureId },
+        })
+      );
+      setView((prev) => {
+        if (prev.type !== 'feature') return prev;
+        return { ...prev, node: { ...prev.node, state: 'running' } };
+      });
+    },
+    [pinnedConfigSaving]
+  );
 
   const handleStop = useCallback(async (featureId: string) => {
     const result = await stopFeature(featureId);
@@ -507,19 +548,86 @@ export function FeatureDrawerClient({
     });
   }, []);
 
-  const handleStart = useCallback(async (featureId: string) => {
-    const result = await startFeature(featureId);
-    if (result.error) {
-      toast.error(result.error);
-      return;
-    }
-    toast.success('Feature started');
-    // Optimistically update the drawer view
-    setView((prev) => {
-      if (prev.type !== 'feature') return prev;
-      return { ...prev, node: { ...prev.node, state: 'running' } };
-    });
-  }, []);
+  const handleStart = useCallback(
+    async (featureId: string) => {
+      if (pinnedConfigSaving) return;
+      const result = await startFeature(featureId);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success('Feature started');
+      // Optimistically update the drawer view
+      setView((prev) => {
+        if (prev.type !== 'feature') return prev;
+        return { ...prev, node: { ...prev.node, state: 'running' } };
+      });
+    },
+    [pinnedConfigSaving]
+  );
+
+  const handlePinnedConfigSave = useCallback(
+    async (agentType: string, modelId: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!featureNode) {
+        return { ok: false, error: 'Feature is not loaded' };
+      }
+
+      if (!canSwitchPinnedConfig(featureNode.state)) {
+        return {
+          ok: false,
+          error: 'Pinned execution can only be changed before start, approval, or retry',
+        };
+      }
+
+      const previousSelection = lastSavedPinnedConfig ?? getPinnedConfigSelection(featureNode);
+      const nextSelection: PinnedConfigSelection = {
+        agentType: agentType as PinnedConfigSelection['agentType'],
+        modelId,
+      };
+
+      setPinnedConfigSelection(nextSelection);
+      setPinnedConfigError(null);
+      setPinnedConfigSaving(true);
+
+      try {
+        const result = await updateFeaturePinnedConfig(featureNode.featureId, agentType, modelId);
+        if (!result.ok) {
+          const error = result.error ?? 'Failed to save pinned config';
+          setPinnedConfigSelection(previousSelection);
+          setPinnedConfigError(error);
+          toast.error(error);
+          return { ok: false, error };
+        }
+
+        setLastSavedPinnedConfig(nextSelection);
+        setView((prev) => {
+          if (prev.type !== 'feature' || prev.node.featureId !== featureNode.featureId) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            node: {
+              ...prev.node,
+              agentType: nextSelection.agentType,
+              modelId,
+            },
+          };
+        });
+
+        return { ok: true };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Failed to save pinned config';
+        setPinnedConfigSelection(previousSelection);
+        setPinnedConfigError(message);
+        toast.error(message);
+        return { ok: false, error: message };
+      } finally {
+        setPinnedConfigSaving(false);
+      }
+    },
+    [featureNode, lastSavedPinnedConfig]
+  );
 
   // ── Hooks (always called unconditionally per Rules of Hooks) ──────────
 
@@ -823,6 +931,17 @@ export function FeatureDrawerClient({
         isRejecting={isRejecting}
         chatInput={chatInput}
         onChatInputChange={setChatInput}
+        pinnedConfig={
+          canSwitchPinnedConfigForFeature && pinnedConfigSelection
+            ? {
+                ...pinnedConfigSelection,
+                saving: pinnedConfigSaving,
+                error: pinnedConfigError,
+                onSave: handlePinnedConfigSave,
+              }
+            : undefined
+        }
+        continuationActionsDisabled={pinnedConfigSaving}
         interactiveAgentEnabled={interactiveAgentEnabled}
         onRetry={handleRetry}
         onStop={handleStop}

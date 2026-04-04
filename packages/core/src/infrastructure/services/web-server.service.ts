@@ -36,6 +36,9 @@ const defaultDeps: WebServerDeps = {
  * Development: import.meta.dirname = <root>/packages/core/src/infrastructure/services/
  *   → 5 levels up → <root>/src/presentation/web/
  *
+ * Workspace dist: import.meta.dirname = <root>/dist/packages/core/src/infrastructure/services/
+ *   → 6 levels up → <root>/src/presentation/web/
+ *
  * Production (npm install): import.meta.dirname = <root>/dist/packages/core/src/infrastructure/services/
  *   → 6 levels up → <root>/web/
  */
@@ -45,6 +48,16 @@ export function resolveWebDir(): { dir: string; dev: boolean } {
   const devDir = path.resolve(import.meta.dirname, '../../../../../src/presentation/web');
   if (fs.existsSync(path.join(devDir, 'next.config.ts'))) {
     return { dir: devDir, dev: true };
+  }
+
+  // Dist CLI inside a workspace checkout: the built CLI lives under dist/,
+  // but the source web app still exists at the repository root.
+  const workspaceDevDir = path.resolve(
+    import.meta.dirname,
+    '../../../../../../src/presentation/web'
+  );
+  if (fs.existsSync(path.join(workspaceDevDir, 'next.config.ts'))) {
+    return { dir: workspaceDevDir, dev: true };
   }
 
   // Production: web UI is shipped alongside dist/ in the package
@@ -58,6 +71,7 @@ export function resolveWebDir(): { dir: string; dev: boolean } {
     `Web UI directory not found. Ensure the web UI is built (pnpm build:web).\n` +
       `  Searched:\n` +
       `    dev:  ${devDir} (next.config.ts: ${fs.existsSync(path.join(devDir, 'next.config.ts'))})\n` +
+      `    workspace: ${workspaceDevDir} (next.config.ts: ${fs.existsSync(path.join(workspaceDevDir, 'next.config.ts'))})\n` +
       `    prod: ${prodDir} (.next: ${fs.existsSync(path.join(prodDir, '.next'))})\n` +
       `  import.meta.dirname: ${import.meta.dirname}`
   );
