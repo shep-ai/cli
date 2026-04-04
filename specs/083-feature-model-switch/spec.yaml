@@ -1,0 +1,153 @@
+name: "feature-model-switch"
+number: 83
+branch: "feat/083-feature-model-switch"
+oneLiner: "Allow switching a feature's pinned agent/model before start, approval, or retry"
+summary: >
+  Current per-feature agent/model overrides are captured when a feature is created
+  and then reused from the linked agent run, but there is no way to change that
+  pinned execution config after creation. Repository analysis shows the clean path
+  is to update the current AgentRun for a pending, action-required, or error
+  feature and reuse the existing web picker/model metadata stack, without changing
+  the Feature domain model or database schema.
+phase: "Analysis"
+sizeEstimate: "M"
+relatedFeatures:
+  - "052-llm-model-selection"
+  - "066-pending-feature-state"
+  - "067-review-resume-from-error"
+  - "077-codex-cli-agent"
+technologies:
+  - "TypeScript"
+  - "Next.js 16 / React 19"
+  - "SQLite / better-sqlite3"
+  - "LangGraph"
+  - "tsyringe"
+  - "Vitest / Testing Library"
+  - "Storybook"
+  - "i18next"
+relatedLinks: []
+openQuestions: []
+content: |
+  ## Problem Statement
+
+  Shep already supports per-feature execution overrides at creation time: `CreateFeatureUseCase`
+  writes the selected `agentType` and `modelId` into the feature's linked `AgentRun`, and all
+  later continuation flows reuse that stored config. The current limitation is that once the
+  feature exists, there is no mutation path for that pinned execution config. A user can start
+  a pending feature, approve or reject an action-required feature, or retry an error feature,
+  but cannot switch the feature from one agent/model to another first (for example, Claude Code
+  to Codex CLI).
+
+  In the current codebase, changing global settings is the only built-in way to change the agent
+  or default model after creation, and that affects future work globally rather than the specific
+  feature being resumed. Recreating the feature is the only feature-scoped workaround today, which
+  is unnecessary because the repository already persists `agent_type` and `model_id` on `agent_runs`
+  and already displays those values in the canvas, drawer, and sidebar.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository is a pnpm workspace with three main implementation surfaces:
+
+  - Root package: CLI entrypoints, workspace scripts, shared tests, specs, and top-level docs.
+  - `packages/core/src/`: clean-architecture core split into `domain/`, `application/`,
+    `infrastructure/`, and generated TypeSpec output.
+  - `src/presentation/web/`: Next.js App Router web UI with server actions, hooks, composed
+    components, and Storybook stories.
+
+  Relevant folders for this feature are:
+
+  - `packages/core/src/application/use-cases/features/`: pending start and error retry flows.
+  - `packages/core/src/application/use-cases/agents/`: waiting-approval approve/reject flows.
+  - `packages/core/src/application/ports/output/agents/`: repository and process ports.
+  - `packages/core/src/infrastructure/repositories/`: SQLite persistence for `agent_runs`.
+  - `packages/core/src/infrastructure/services/agents/feature-agent/`: worker spawn and checkpointed resume flow.
+  - `src/presentation/web/app/actions/`: thin server actions used by the drawer.
+  - `src/presentation/web/components/common/control-center-drawer/` and
+    `src/presentation/web/components/common/feature-drawer-tabs/`: feature drawer orchestration.
+  - `src/presentation/web/components/features/settings/AgentModelPicker/`: existing agent/model picker UI.
+  - `tests/unit/` and `tests/integration/`: Vitest coverage for use cases, repositories, and drawer components.
+
+  ### Architecture Patterns
+
+  The code follows Clean Architecture:
+
+  - Presentation depends on Application.
+  - Application depends on Domain types and output ports.
+  - Infrastructure implements the ports and owns SQLite, DI, subprocesses, and LangGraph wiring.
+
+  The important implementation detail for this feature is that the pinned execution config is
+  already stored on the current `AgentRun`, not on the `Feature` entity:
+
+  - `CreateFeatureUseCase` creates a pending `AgentRun` with `agentType` and optional `modelId`.
+  - `build-feature-node-data.ts` and `build-graph-nodes.ts` read `agentType` and `modelId` from
+    the latest run to populate the UI.
+  - `StartFeatureUseCase` starts pending features by reading the existing pending run.
+  - `ResumeFeatureUseCase` clones the last failed/interrupted/waiting-approval run into a new run.
+  - `ApproveAgentRunUseCase` and `RejectAgentRunUseCase` resume the current waiting-approval run in place.
+
+  This means the clean implementation path is to update the feature's current `AgentRun` before
+  the next continuation action. No Feature schema change is required if the scope stays limited to
+  "before start, approval, or retry."
+
+  A second important detail is the resume mechanism. The feature agent worker resumes from a
+  LangGraph checkpoint keyed by `threadId` in `feature-agent-worker.ts`; it does not depend on
+  reusing a vendor-specific CLI session ID when restarting a feature workflow. That substantially
+  lowers complexity for switches like Claude Code -> Codex CLI, because future node executions can
+  use a different executor while keeping the same workflow checkpoint.
+
+  The main architectural gap today is persistence mutability: `IAgentRunRepository` and
+  `SQLiteAgentRunRepository` can create runs and update status metadata, but they do not expose a
+  way to update `agentType` or `modelId` on an existing run. That is the core backend change
+  needed to support this feature cleanly.
+
+  ### Relevant Technologies
+
+  - TypeScript across all layers, with strong domain typing generated from TypeSpec.
+  - Next.js server actions for web-side mutations and drawer refresh flows.
+  - React 19 component architecture with colocated Storybook stories.
+  - SQLite via `better-sqlite3` for persisted `features`, `agent_runs`, and phase timings.
+  - LangGraph for checkpointed feature workflow orchestration.
+  - tsyringe for dependency injection of repositories, services, and use cases.
+  - Vitest and React Testing Library for unit/integration/component coverage.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/ports/output/agents/agent-run-repository.interface.ts` | High | The current port has no mutation method for `agentType` or `modelId`; feature-scoped switching needs a first-class update path for the current run. |
+  | `packages/core/src/infrastructure/repositories/agent-run.repository.ts` | High | SQLite persistence currently updates only status-related fields; the repository must support persisting agent/model changes on an existing run and keep tests in sync. |
+  | `packages/core/src/application/use-cases/features/start-feature.use-case.ts` and `packages/core/src/application/use-cases/features/resume-feature.use-case.ts` | High | Pending start and error retry both consume the current run config when spawning or cloning runs, so the switch must flow through these continuation paths. |
+  | `packages/core/src/application/use-cases/agents/approve-agent-run.use-case.ts` and `packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts` | High | Action-required features resume from the current run, so approval/rejection must continue with the updated pinned config. |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts` and `packages/core/src/application/ports/output/agents/feature-agent-process.interface.ts` | Medium | These files confirm the runtime contract: worker spawn already accepts `agentType` and `model`, so they are central validation points even if the feature likely reuses the existing spawn shape unchanged. |
+  | `src/presentation/web/app/actions/` | Medium | The web drawer uses thin server actions for start, retry, approve, and reject; a new feature-scoped update action should live beside those flows and resolve the feature's current run by `featureId`. |
+  | `src/presentation/web/components/common/control-center-drawer/feature-drawer-client.tsx` | High | This is the orchestration point for lifecycle actions in the feature drawer and the natural place to gate the switch UI to pending, action-required, and error states. |
+  | `src/presentation/web/components/features/settings/AgentModelPicker/index.tsx` | Medium | The picker already knows how to load supported agents/models and render icons/labels; it is the obvious reusable control, but it currently only supports settings persistence or local override mode. |
+  | `src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.tsx` and `src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx` | Medium | The drawer needs a visible, state-aware affordance for changing the pinned agent/model before the user starts, approves, rejects, or retries. |
+  | `tests/unit/application/use-cases/`, `tests/integration/infrastructure/repositories/agent-run.repository.test.ts`, and `tests/unit/presentation/web/components/common/feature-drawer-tabs/` | High | Existing tests already cover start/resume/drawer behavior; this feature needs new RED-GREEN coverage across application, persistence, and web presentation layers. |
+
+  ## Dependencies
+
+  This feature depends primarily on existing internal code rather than new libraries:
+
+  - The `agent_runs` table already stores `agent_type` and `model_id`, and the mapper already
+    round-trips those fields. That strongly suggests no new SQLite migration or TypeSpec change
+    is required for the requested scope.
+  - `getAllAgentModels()`, `AgentExecutorFactory.getSupportedModels()`, `agent-type-icons.tsx`,
+    and `model-metadata.ts` already provide the agent/model catalog and presentation metadata.
+  - `FeatureDrawerClient` already owns the user flows for pending start, action-required
+    approval/rejection, and error retry, so the most direct presentation path is web-only.
+  - `feature-agent-worker.ts` resumes from LangGraph checkpoints via `threadId`, which means
+    agent/model switching affects future node executions without needing executor-session migration.
+  - Existing test patterns are already established in the relevant directories, so the work can
+    follow repository conventions without inventing new harnesses.
+
+  ## Size Estimate
+
+  **M** — The change spans application, infrastructure, and web presentation layers, and it
+  requires careful test coverage because four different continuation flows reuse the same pinned
+  run config. The estimate stays at medium because the repository already has the necessary data
+  model (`agent_runs.agent_type` and `agent_runs.model_id`), existing picker UI, and checkpointed
+  resume architecture; the main work is adding a clean mutation path for the current run and
+  wiring it into the feature drawer without broad schema or workflow changes.
