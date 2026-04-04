@@ -1,0 +1,152 @@
+name: "supply-chain-security"
+number: 83
+branch: "feat/083-supply-chain-security"
+oneLiner: "Add a policy-driven security mode that constrains agent execution, validates dependency and release risk, and exposes security state in CI and the control center."
+summary: >
+  This feature would add a new cross-cutting security subsystem spanning TypeSpec domain models, settings persistence, agent executors, feature-agent runtime, CLI and web surfaces, and GitHub Actions workflows. The repository already has approval gates, CI scans, gh CLI integration, and release automation, but it does not have a centralized policy engine, action-level agent guardrails, provenance enforcement, or security observability. Because current executors default to permissive modes and repo integrations stop at local gh CLI operations, the requested scope is best phased with an MVP around policy parsing, runtime guardrails, CI enforcement, and dashboard alerts.
+phase: "Analysis"
+sizeEstimate: "XL"
+
+relatedFeatures:
+  - "016-hitl-approval-gates"
+  - "062-shep-cicd-pipeline"
+  - "077-codex-cli-agent"
+
+technologies:
+  - "TypeScript"
+  - "TypeSpec"
+  - "Node.js 22"
+  - "LangGraph"
+  - "SQLite (better-sqlite3)"
+  - "Umzug"
+  - "tsyringe"
+  - "Commander"
+  - "Next.js 16 App Router"
+  - "React 19"
+  - "Storybook"
+  - "GitHub Actions"
+  - "semantic-release"
+  - "GitHub CLI (gh)"
+  - "js-yaml"
+  - "Vitest"
+  - "Playwright"
+
+relatedLinks:
+  - title: "Clean Architecture"
+    url: "https://github.com/shep-ai/shep/blob/main/docs/architecture/clean-architecture.md"
+  - title: "Agent System Architecture"
+    url: "https://github.com/shep-ai/shep/blob/main/docs/architecture/agent-system.md"
+  - title: "CI/CD Guide"
+    url: "https://github.com/shep-ai/shep/blob/main/docs/development/cicd.md"
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  Shep already orchestrates repository analysis, feature planning, background agent execution, approval gates, CI watching, GitHub repository import, and automated releases, but there is no unified security layer spanning repo policy, agent runtime, CI enforcement, and package publishing. Security controls today are fragmented across workflow conventions and GitHub Actions jobs rather than being expressed as first-class Shep policy.
+
+  The current implementation is also intentionally permissive at the executor layer: Claude Code is launched with `--dangerously-skip-permissions`, Cursor uses `--yolo`, and Codex uses `--sandbox danger-full-access`. CI has Gitleaks and Semgrep plus semantic-release publishing, but there is no policy-aware `shep security enforce` command, no provenance/signature verification, no dependency risk model, no security event persistence, and no UI for risk, alerts, or release integrity. Full repo enforcement is additionally constrained by the fact that current GitHub integration is `gh` CLI based; there is no GitHub App or webhook ingestion layer for branch protection, CODEOWNERS, or anomaly signals.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository is a pnpm workspace with three main implementation roots:
+
+  ```text
+  .
+  ├── packages/core/src/
+  │   ├── domain/                  # Generated TypeSpec domain types + factories
+  │   ├── application/             # Use cases and output-port interfaces
+  │   └── infrastructure/          # SQLite, DI, agents, git, GitHub, notifications
+  ├── src/presentation/
+  │   ├── cli/                     # Commander CLI bootstrap and commands
+  │   ├── tui/                     # Inquirer-based review/onboarding flows
+  │   └── web/                     # Next.js App Router, server actions, React UI
+  ├── tsp/                         # TypeSpec source of truth for domain/agent models
+  ├── tests/                       # Unit, integration, e2e, manual, fixtures
+  ├── .github/workflows/           # CI, PR checks, Claude workflow, Shep e2e
+  ├── docs/                        # Architecture and development guides
+  └── specs/                       # Spec-driven feature artifacts
+  ```
+
+  Key implementation boundaries for this feature:
+
+  - `tsp/` defines all durable models; generated output in `packages/core/src/domain/generated/output.ts` is not edited directly.
+  - `packages/core/src/infrastructure/services/agents/feature-agent/` contains the long-running LangGraph workflow, detached worker, node state, and approval logic.
+  - `packages/core/src/infrastructure/services/agents/common/executors/` contains the concrete CLI integrations where current sandbox and permission behavior is defined.
+  - `src/presentation/web/app/` and `src/presentation/web/components/` power the existing Control Center and settings UI, with server actions resolving use cases from the shared DI container.
+  - `.github/workflows/ci.yml` plus `release.config.mjs` define the current release path, including semantic-release on `main` and a PR-only dev publish path.
+
+  ### Architecture Patterns
+
+  The codebase follows explicit Clean Architecture:
+
+  - Presentation depends on Application.
+  - Application depends on Domain abstractions and defines ports.
+  - Infrastructure implements ports and points inward.
+  - Domain models are generated from TypeSpec and treated as the source of truth.
+
+  Additional patterns that matter directly for this feature:
+
+  - Settings-driven agent resolution is mandatory. All executor selection flows through `IAgentExecutorProvider`; no node or workflow should hardcode an agent type.
+  - Feature execution is state-driven. Settings and per-feature workflow flags are persisted first, then threaded through use cases, worker CLI args, and LangGraph state annotations.
+  - Human-in-the-loop approvals already exist at phase boundaries (`requirements`, `plan`, `merge`) via LangGraph interrupts, but there is no finer-grained policy gate for actions like dependency installation, CI edits, or publishing.
+  - Persistence is explicit and mechanical. SQLite mappers flatten nested domain objects into snake_case columns, repository SQL has hardcoded `INSERT` and `UPDATE` lists, and migrations are additive via Umzug. New fields must be propagated through TypeSpec, generated output, defaults, mappers, repositories, and migrations.
+  - Web server-side code uses `resolve()` against a DI container attached to `globalThis`, then projects backend state into canvas nodes and drawer DTOs. Control Center UI is projection-driven, not direct DB-driven.
+  - Current GitHub integration is local-tool based. `IGitHubRepositoryService` wraps `gh` CLI for auth, listing, cloning, and permission checks, but there is no GitHub App abstraction, webhook storage, or policy reconciliation service.
+
+  ### Relevant Technologies
+
+  The feature touches almost every major technology already in the repo:
+
+  - TypeScript and TypeSpec for domain schema changes and generated models.
+  - LangGraph for runtime interception and approval/policy flow inside the feature agent.
+  - SQLite with better-sqlite3 and Umzug for settings, security state, and event persistence.
+  - Commander for new CLI entry points such as `shep security enforce`.
+  - Next.js 16, React 19, Storybook, and server actions for the Security Control Center and settings panels.
+  - GitHub Actions and semantic-release for publish-path enforcement and provenance checks.
+  - `gh` CLI for any near-term repository validation done without a GitHub App.
+  - js-yaml for parsing and serializing policy files and spec-like YAML artifacts.
+  - Vitest and Playwright for the required TDD coverage across core, CLI, and web UI.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/settings.tsp` and new TypeSpec security models | High | Security policy, risk reports, security events, and any security-mode defaults must start in TypeSpec because generated domain types are the source of truth. |
+  | `packages/core/src/domain/factories/settings-defaults.factory.ts` | High | New security defaults and opt-in security mode behavior originate here and currently have no equivalent fields. |
+  | `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts`, `packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts`, `packages/core/src/infrastructure/persistence/sqlite/migrations/` | High | Persisted security settings or event data require flattened columns, hardcoded SQL updates, and additive migrations. |
+  | `packages/core/src/application/ports/output/agents/agent-executor.interface.ts` | High | The agent port has no first-class contract for policy evaluation, security violations, sandbox level, or restricted tool execution. |
+  | `packages/core/src/infrastructure/services/agents/common/executors/` | High | Current executor implementations launch agents in permissive modes, so security mode must either wrap or reconfigure these integrations. |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/` | High | Runtime interception, approval requirements for risky actions, policy-aware prompts, and security event emission belong in the worker, graph, nodes, and state channels. |
+  | `packages/core/src/application/use-cases/features/` and `packages/core/src/application/use-cases/agents/` | Medium | Feature creation, start, resume, approve, and reject flows must thread any new security settings and approval context through every spawn/resume path. |
+  | `packages/core/src/infrastructure/services/spec/spec-initializer.service.ts` | Medium | If the MVP scaffolds `shep.security.yaml` or related policy files for new features, this service owns the default template generation. |
+  | `src/presentation/cli/index.ts` and `src/presentation/cli/commands/` | High | The proposed `shep security enforce` flow and any security inspection/configuration commands need new CLI wiring here. |
+  | `src/presentation/web/app/actions/`, `src/presentation/web/app/build-graph-nodes.ts`, `src/presentation/web/components/features/control-center/`, `src/presentation/web/components/features/settings/`, `src/presentation/web/components/common/repository-node/repository-drawer.tsx` | High | The existing Control Center and settings UI are the natural surfaces for security overview, dependency risk, agent activity, alerts, and release integrity. |
+  | `.github/workflows/ci.yml` and `release.config.mjs` | High | CI-only publishing, policy enforcement, provenance verification, and gating release jobs all require workflow and release-path changes. |
+  | `packages/core/src/infrastructure/services/external/github-repository.service.ts` and `packages/core/src/application/ports/output/services/github-repository-service.interface.ts` | Medium | Repo enforcement can reuse current `gh` CLI access for audit-style checks, but full branch protection and CODEOWNERS enforcement will need capabilities that do not yet exist. |
+  | `tests/unit/`, `tests/integration/`, `tests/e2e/` | High | The repository mandates TDD, and this feature spans core services, CLI behavior, workflow execution, CI integration, and new web components. |
+
+  ## Dependencies
+
+  This feature depends heavily on existing infrastructure that is already in place:
+
+  - The TypeSpec-first domain pipeline in `tsp/` and generated output in `packages/core/src/domain/generated/output.ts`.
+  - The global settings singleton plus SQLite-backed repositories and migrations.
+  - The agent abstraction stack: `IAgentExecutorProvider`, executor factory, detached feature-agent worker, LangGraph state, and phase approval logic.
+  - Existing git and GitHub integrations: `IGitPrService`, `IGitHubRepositoryService`, the local `gh` CLI, and repository import/sync flows.
+  - Existing web projections and settings update flow: server actions resolve use cases from DI, then feed the Control Center canvas and drawers.
+  - Existing CI and release automation in GitHub Actions, semantic-release, `RELEASE_TOKEN`, and `NPM_TOKEN`.
+
+  Important dependency gaps are just as relevant:
+
+  - There is no existing policy engine abstraction.
+  - There is no persisted security-event or risk-report model.
+  - There is no GitHub App or webhook ingestion layer for repo enforcement or anomaly detection.
+  - There is no external dependency-intelligence integration today, so maintainer-change, download-count, provenance, or reputation signals would require either new service integrations or a deliberately narrower MVP heuristic set.
+
+  ## Size Estimate
+
+  **XL** — Even a constrained MVP is cross-cutting: it requires new domain models, settings persistence, executor contract changes, feature-agent runtime enforcement, CLI commands, web dashboard work, and CI/release updates. The full requested scope is larger still because current executor defaults are broadly permissive and current GitHub integration stops at local `gh` CLI operations, so branch-protection enforcement, anomaly detection, and publish integrity beyond CI gating will need phased delivery rather than a single implementation pass.
