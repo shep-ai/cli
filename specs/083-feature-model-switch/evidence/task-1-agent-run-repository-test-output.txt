@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-model-switch
+
+ ✓ |node| tests/integration/infrastructure/repositories/agent-run.repository.test.ts (31 tests) 404ms
+
+ Test Files  1 passed (1)
+      Tests  31 passed (31)
+   Start at  11:07:59
+   Duration  621ms (transform 109ms, setup 21ms, import 145ms, tests 404ms, environment 0ms)
+

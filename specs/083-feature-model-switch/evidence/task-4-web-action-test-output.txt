@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-model-switch
+
+ ✓ |web| tests/unit/presentation/web/actions/update-feature-pinned-config.test.ts (7 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  11:08:25
+   Duration  389ms (transform 119ms, setup 261ms, import 48ms, tests 3ms, environment 0ms)
+

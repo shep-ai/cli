@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-model-switch
+
+ ✓ |web| tests/unit/presentation/web/components/common/control-center-drawer/feature-drawer-client.test.tsx (2 tests) 156ms
+ ✓ |web| tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx (45 tests) 184ms
+
+ Test Files  2 passed (2)
+      Tests  47 passed (47)
+   Start at  11:08:25
+   Duration  1.32s (transform 393ms, setup 333ms, import 608ms, tests 340ms, environment 973ms)
+
