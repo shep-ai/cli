@@ -1,3 +1,10 @@
+# [1.167.0](https://github.com/shep-ai/shep/compare/v1.166.1...v1.167.0) (2026-04-04)
+
+
+### Features
+
+* **web:** add feature model switch for per-feature agent configuration ([#521](https://github.com/shep-ai/shep/issues/521)) ([162d4f5](https://github.com/shep-ai/shep/commit/162d4f5764f1955608a42db9ea51018d2868acfd))
+
 ## [1.166.1](https://github.com/shep-ai/shep/compare/v1.166.0...v1.166.1) (2026-04-04)
 
 
