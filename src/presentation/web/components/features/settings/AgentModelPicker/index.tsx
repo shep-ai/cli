@@ -71,9 +71,12 @@ export function AgentModelPicker({
     setModel(controlledModel ?? initialModel);
   }, [controlledModel, initialModel]);
 
-  // Reset drill-down when popover closes
+  // Reset drill-down when popover transitions from open → closed (not on initial mount)
+  const prevOpenRef = React.useRef(open);
   React.useEffect(() => {
-    if (!open) {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (wasOpen && !open) {
       const t = setTimeout(() => {
         setLevel(0);
         setDrillAgent(null);
