@@ -454,6 +454,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('AdoptBranchUseCase', {
     useFactory: (c) => c.resolve(AdoptBranchUseCase),
   });
+  container.register('StopAgentRunUseCase', {
+    useFactory: (c) => c.resolve(StopAgentRunUseCase),
+  });
   container.register('ApproveAgentRunUseCase', {
     useFactory: (c) => c.resolve(ApproveAgentRunUseCase),
   });
