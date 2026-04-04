@@ -165,7 +165,7 @@ export function AppSidebar({
           {featureFlags.inventory ? (
             <SidebarNavItem
               icon={TableProperties}
-              label={t('navigation.features')}
+              label={t('navigation.inventory')}
               href="/features"
               active={pathname === '/features'}
             />

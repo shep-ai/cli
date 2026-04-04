@@ -108,12 +108,13 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Tools')).toBeInTheDocument();
   });
 
-  it('renders Features label in content', () => {
+  it('renders Inventory nav item and Features section header in content', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
-    // "Features" appears both as a nav item and as the sidebar section header
-    const matches = screen.getAllByText('Features');
-    expect(matches.length).toBeGreaterThanOrEqual(1);
+    // "Inventory" appears as the nav item when inventory flag is enabled
+    expect(screen.getByText('Inventory')).toBeInTheDocument();
+    // "Features" appears as the sidebar section header
+    expect(screen.getByText('Features')).toBeInTheDocument();
   });
 
   it('groups features by status into Action Needed, In Progress, and Done sections', () => {
