@@ -3,13 +3,13 @@ number: 83
 branch: "feat/083-feature-model-switch"
 oneLiner: "Allow switching a feature's pinned agent/model before start, approval, or retry"
 summary: >
-  Current per-feature agent/model overrides are captured when a feature is created
-  and then reused from the linked agent run, but there is no way to change that
-  pinned execution config after creation. Repository analysis shows the clean path
-  is to update the current AgentRun for a pending, action-required, or error
-  feature and reuse the existing web picker/model metadata stack, without changing
-  the Feature domain model or database schema.
-phase: "Analysis"
+  Allow a user to change the pinned agent executor and model for an existing
+  feature from the web feature drawer before start, approval/rejection, or
+  retry by updating the feature's current AgentRun and reusing the existing
+  agent/model picker and model metadata stack. The scope stays feature-scoped,
+  avoids Feature schema or database changes, and keeps continuation flows driven
+  by the run's persisted config.
+phase: "Requirements"
 sizeEstimate: "M"
 relatedFeatures:
   - "052-llm-model-selection"
@@ -26,91 +26,246 @@ technologies:
   - "Storybook"
   - "i18next"
 relatedLinks: []
-openQuestions: []
+openQuestions:
+  - question: "Which user surfaces should support feature-scoped pinned agent/model switching in v1?"
+    resolved: true
+    options:
+      - option: "Web drawer only"
+        description: >
+          Ship the capability only in the existing web feature drawer. This
+          reuses the current AgentModelPicker, drawer lifecycle actions, and
+          current codebase seams with the smallest blast radius. Trade-off: CLI
+          and TUI users do not get the switch workflow in this iteration.
+        selected: true
+      - option: "Web and CLI"
+        description: >
+          Add the switch flow to both the web drawer and a new CLI command. This
+          improves parity, but it expands the UX and validation surface for a
+          feature whose current analysis already points to the web drawer as the
+          clean path.
+        selected: false
+      - option: "Web, CLI, and TUI"
+        description: >
+          Deliver full surface parity across all entry points. This is the most
+          complete user story but materially increases scope, testing, and
+          design work with no new backend capability beyond what the web flow
+          already needs.
+        selected: false
+    selectionRationale: >
+      "Web drawer only" is the recommended default because the current request,
+      codebase analysis, and existing picker implementation all converge on the
+      drawer as the fastest correct surface. The backend work is reusable later,
+      so CLI/TUI parity can be added as follow-up work without blocking this
+      feature.
+    answer: "Web drawer only"
+  - question: "Which feature states should allow the pinned agent/model to be changed?"
+    resolved: true
+    options:
+      - option: "Pending, action-required, error"
+        description: >
+          Allow switching only when the next step is an explicit user-controlled
+          continuation action: start, approve/reject, or retry. This matches the
+          feature goal and avoids ambiguity around active or completed work.
+        selected: true
+      - option: "Any non-running state"
+        description: >
+          Allow switching for any feature that is not actively running. This is
+          broader and may feel flexible, but it pulls in blocked, archived, and
+          other states where the switch has little or unclear value.
+        selected: false
+      - option: "All states"
+        description: >
+          Allow switching regardless of lifecycle or activity state. This
+          maximizes flexibility but introduces mid-run ambiguity and raises the
+          risk of user confusion about when the new config takes effect.
+        selected: false
+    selectionRationale: >
+      "Pending, action-required, error" is the recommended default because it
+      exactly matches the promised user value: change the pinned config before
+      the next continuation action. It also keeps the UI rule simple and avoids
+      creating expectations that switching affects already-running work.
+    answer: "Pending, action-required, error"
+  - question: "When should a new pinned agent/model selection become the saved feature config?"
+    resolved: true
+    options:
+      - option: "Persist immediately"
+        description: >
+          Save the new pinned config as soon as the user selects it in the
+          drawer. This keeps the current AgentRun as the single source of truth
+          and makes the visible pinned values update right away. Trade-off: the
+          picker needs loading and rollback behavior.
+        selected: true
+      - option: "Apply on continuation"
+        description: >
+          Treat the picker state as a draft and save it only when the user clicks
+          Start, Approve, Reject, or Retry. This reduces immediate writes but
+          introduces hidden state and complicates continuation flows.
+        selected: false
+      - option: "Explicit save button"
+        description: >
+          Add a separate Save or Apply action next to the picker. This makes the
+          persistence step explicit, but it adds UI friction and a second primary
+          action inside an already action-heavy drawer.
+        selected: false
+    selectionRationale: >
+      "Persist immediately" is the recommended default because it best matches
+      the existing settings picker behavior and keeps the current run's persisted
+      config authoritative before any continuation action is taken. Immediate
+      persistence also avoids hidden draft state and makes refresh behavior more
+      predictable.
+    answer: "Persist immediately"
+  - question: "How should the server validate requested agent/model pairs for this feature?"
+    resolved: true
+    options:
+      - option: "Validate advertised pair"
+        description: >
+          Validate both the requested agent type and model ID against the
+          supported catalog exposed by the existing agent factory. This prevents
+          the feature from being pinned to a combination the UI did not offer.
+        selected: true
+      - option: "Validate agent only"
+        description: >
+          Confirm only that the agent exists and accept any model string for that
+          agent. This is more permissive for newly released models but weakens
+          server-side protection against invalid pinned combinations.
+        selected: false
+      - option: "Accept any string"
+        description: >
+          Trust the client and let the downstream agent fail later if the model
+          is invalid. This minimizes validation code but creates a worse failure
+          mode for a feature-scoped workflow that should remain predictable.
+        selected: false
+    selectionRationale: >
+      "Validate advertised pair" is the recommended default because this feature
+      is intentionally web-drawer-driven and reuses a curated picker. Rejecting
+      invalid combinations at save time prevents a feature from entering a
+      confusing state where the next continuation action fails due to an
+      unsupported selection.
+    answer: "Validate advertised pair"
+  - question: "What should happen if saving the new pinned config fails?"
+    resolved: true
+    options:
+      - option: "Block continuation"
+        description: >
+          Keep the previously saved config, show the error, and require the user
+          to resolve it before continuing. This guarantees that Start, Approve,
+          Reject, or Retry never silently runs with the wrong executor/model.
+        selected: true
+      - option: "Continue with old config"
+        description: >
+          Allow the user to continue immediately using the previously saved
+          config. This avoids blocking, but it creates a high-risk mismatch
+          between what the user selected and what actually runs next.
+        selected: false
+      - option: "Ask on each action"
+        description: >
+          Let the save fail and re-prompt the user when they click the next
+          continuation action. This spreads the failure across multiple steps and
+          makes the overall workflow harder to understand.
+        selected: false
+    selectionRationale: >
+      "Block continuation" is the recommended default because silent fallback to
+      the old pinned config would violate user intent and could send work to the
+      wrong agent. A failed save must be treated as unresolved state, not as a
+      non-blocking warning.
+    answer: "Block continuation"
+  - question: "Where should the drawer surface the pinned agent/model switch?"
+    resolved: true
+    options:
+      - option: "Overview settings section"
+        description: >
+          Place the switch alongside the existing pinned agent/model display in
+          the Overview tab. This keeps the control near the feature's execution
+          context and avoids extra navigation inside the drawer.
+        selected: true
+      - option: "Header quick action"
+        description: >
+          Put the switch in the drawer header next to lifecycle actions. This is
+          prominent, but it adds more density to the header and competes with the
+          primary start/approve/retry controls.
+        selected: false
+      - option: "Separate settings tab"
+        description: >
+          Add a dedicated tab for execution settings. This scales if many more
+          controls arrive later, but it is heavier than needed for a single
+          feature-scoped switch in this iteration.
+        selected: false
+    selectionRationale: >
+      "Overview settings section" is the recommended default because users
+      already look there for the feature's pinned execution details. It keeps the
+      switch discoverable without adding a new navigation concept or crowding the
+      drawer header.
+    answer: "Overview settings section"
 content: |
   ## Problem Statement
 
   Shep already supports per-feature execution overrides at creation time: `CreateFeatureUseCase`
-  writes the selected `agentType` and `modelId` into the feature's linked `AgentRun`, and all
-  later continuation flows reuse that stored config. The current limitation is that once the
-  feature exists, there is no mutation path for that pinned execution config. A user can start
-  a pending feature, approve or reject an action-required feature, or retry an error feature,
-  but cannot switch the feature from one agent/model to another first (for example, Claude Code
-  to Codex CLI).
+  writes the selected `agentType` and optional `modelId` into the feature's linked `AgentRun`,
+  and later lifecycle actions reuse that stored config. The current limitation is that once the
+  feature exists, there is no feature-scoped mutation path for that pinned execution config.
+  A user can start a pending feature, approve or reject an action-required feature, or retry an
+  error feature, but cannot switch the feature from one agent/model to another first.
 
-  In the current codebase, changing global settings is the only built-in way to change the agent
-  or default model after creation, and that affects future work globally rather than the specific
-  feature being resumed. Recreating the feature is the only feature-scoped workaround today, which
-  is unnecessary because the repository already persists `agent_type` and `model_id` on `agent_runs`
-  and already displays those values in the canvas, drawer, and sidebar.
+  The only built-in workaround today is changing global settings, which affects future work
+  globally instead of the specific feature being resumed, or recreating the feature from scratch.
+  Repository analysis shows that both workarounds are unnecessary because the current run already
+  persists `agent_type` and `model_id`, and the web UI already knows how to render agent/model
+  metadata through the existing picker and node display stack.
 
-  ## Codebase Analysis
+  The clean requirement is therefore to make the current `AgentRun` mutable for eligible
+  pre-continuation states and to wire that update into the web feature drawer. This keeps
+  feature history and LangGraph checkpoint continuity intact, avoids changing the `Feature`
+  domain model, and lets future work run on the newly selected executor/model.
 
-  ### Project Structure
+  ## Success Criteria
 
-  The repository is a pnpm workspace with three main implementation surfaces:
+  - [ ] A pending feature can save a new pinned agent/model from the drawer, and the Overview tab shows the updated values after the save succeeds
+  - [ ] Starting a pending feature after switching spawns the worker with the updated `agentType` and `model`, not the original creation-time values or global defaults
+  - [ ] An action-required feature can save a new pinned agent/model before approve or reject, and the resumed worker uses the updated config on that current run
+  - [ ] Retrying an error or interrupted feature after switching creates a new `AgentRun` that copies the updated `agentType`, `modelId`, and existing `threadId`
+  - [ ] The switch control is only available for `pending`, `action-required`, and `error` features and is hidden or disabled for all other states
+  - [ ] Invalid feature IDs, missing current runs, unsupported agents, unsupported models, and disallowed states return clear errors and do not mutate persisted `agent_runs` data
+  - [ ] The feature-switch action itself does not start, stop, or restart any worker process
+  - [ ] No `Feature` schema change, TypeSpec change, or SQLite migration is introduced for this feature
+  - [ ] Unit tests cover application-layer validation and continuation behavior, repository integration tests cover the run-config update SQL path, and drawer/component tests cover state gating plus save feedback
+  - [ ] Any modified drawer or picker component has a colocated Storybook story covering at least one eligible switch state
 
-  - Root package: CLI entrypoints, workspace scripts, shared tests, specs, and top-level docs.
-  - `packages/core/src/`: clean-architecture core split into `domain/`, `application/`,
-    `infrastructure/`, and generated TypeSpec output.
-  - `src/presentation/web/`: Next.js App Router web UI with server actions, hooks, composed
-    components, and Storybook stories.
+  ## Functional Requirements
 
-  Relevant folders for this feature are:
+  - **FR-1**: The system SHALL allow changing a feature's pinned `agentType` and `modelId` only when the feature is awaiting a user-controlled continuation action: `pending` before start, `action-required` before approve/reject, or `error` before retry.
+  - **FR-2**: The application layer SHALL expose a feature-scoped update operation that accepts `featureId`, `agentType`, and `modelId`, resolves the feature's current `agentRunId`, validates eligibility, and updates the current `AgentRun` in place. The feature switch SHALL NOT add override fields to the `Feature` entity or persist the override anywhere except the current run.
+  - **FR-3**: `IAgentRunRepository` and `SQLiteAgentRunRepository` SHALL support updating an existing run's `agentType`, `modelId`, and `updatedAt` without creating a new row or changing unrelated status fields.
+  - **FR-4**: The update operation SHALL validate on the server that the feature exists, the feature has a current run, the current run exists, the current feature/run state is eligible for switching, the requested `agentType` is supported, and the requested `modelId` is advertised for that agent. Failed validation SHALL return a clear error and SHALL NOT persist partial changes.
+  - **FR-5**: The web layer SHALL provide a dedicated server action for this feature-scoped update. The client contract SHALL accept `featureId`, `agentType`, and `modelId`; it SHALL NOT require the browser to submit an `agentRunId`.
+  - **FR-6**: The feature drawer SHALL surface the existing `AgentModelPicker` in the Overview/settings area for eligible features, pre-populated from the current run's pinned `agentType` and `modelId`.
+  - **FR-7**: Selecting a new agent/model in the eligible drawer SHALL persist the change immediately. While the request is in flight, the control SHALL be disabled. On success, the drawer SHALL show the new pinned values; on failure, the UI SHALL roll back to the previously saved values and show an explicit error.
+  - **FR-8**: `StartFeatureUseCase` SHALL read the current run after any successful switch and spawn the worker with the updated `agentType` and `modelId`, not global settings or original create-time defaults.
+  - **FR-9**: `ApproveAgentRunUseCase` and `RejectAgentRunUseCase` SHALL resume the current waiting-approval, failed, or interrupted run with the updated pinned config on that same run so future nodes execute with the newly selected agent/model.
+  - **FR-10**: `ResumeFeatureUseCase` SHALL create the retry run from the current run after any successful switch, copying the updated `agentType`, `modelId`, and existing `threadId` into the new run.
+  - **FR-11**: After a successful switch, any refreshed drawer, sidebar, or canvas node data that already read from the latest run SHALL display the updated pinned agent/model without requiring feature recreation.
+  - **FR-12**: The feature-switch mutation SHALL NOT itself spawn, stop, or restart a worker process; it only changes the pinned config consumed by the next continuation action.
 
-  - `packages/core/src/application/use-cases/features/`: pending start and error retry flows.
-  - `packages/core/src/application/use-cases/agents/`: waiting-approval approve/reject flows.
-  - `packages/core/src/application/ports/output/agents/`: repository and process ports.
-  - `packages/core/src/infrastructure/repositories/`: SQLite persistence for `agent_runs`.
-  - `packages/core/src/infrastructure/services/agents/feature-agent/`: worker spawn and checkpointed resume flow.
-  - `src/presentation/web/app/actions/`: thin server actions used by the drawer.
-  - `src/presentation/web/components/common/control-center-drawer/` and
-    `src/presentation/web/components/common/feature-drawer-tabs/`: feature drawer orchestration.
-  - `src/presentation/web/components/features/settings/AgentModelPicker/`: existing agent/model picker UI.
-  - `tests/unit/` and `tests/integration/`: Vitest coverage for use cases, repositories, and drawer components.
+  ## Non-Functional Requirements
 
-  ### Architecture Patterns
+  - **NFR-1**: The implementation SHALL reuse the existing `agent_runs.agent_type` and `agent_runs.model_id` columns. It SHALL NOT require a new SQLite migration, a TypeSpec change, or a `Feature` domain model change.
+  - **NFR-2**: The solution SHALL remain agent-agnostic. No application or presentation component may hardcode vendor-specific continuation logic beyond consuming the existing supported-agent/model catalog and current worker spawn contract.
+  - **NFR-3**: The save path SHALL be a single request/response drawer interaction with immediate success or failure feedback and no background process start or stop side effects.
+  - **NFR-4**: The system SHALL fail safe: if saving the new config fails, persisted run data must remain unchanged and the user must not be able to continue under the false impression that the new selection was saved.
+  - **NFR-5**: Historical continuity SHALL be preserved. Switching agents/models must keep existing LangGraph checkpoint continuity via `threadId` and must not require migration of vendor-specific CLI session IDs.
+  - **NFR-6**: The implementation SHALL follow RED-GREEN-REFACTOR TDD, with failing tests added first for the application use case, repository persistence, server action behavior, and drawer state gating.
+  - **NFR-7**: Any modified web UI component SHALL keep or add colocated `.stories.tsx` coverage in line with repository rules.
+  - **NFR-8**: Server-side validation SHALL treat all client-supplied values as untrusted and resolve the eligible feature/run from repository state rather than trusting client-side lifecycle or run identifiers.
 
-  The code follows Clean Architecture:
+  ## Product Questions & AI Recommendations
 
-  - Presentation depends on Application.
-  - Application depends on Domain types and output ports.
-  - Infrastructure implements the ports and owns SQLite, DI, subprocesses, and LangGraph wiring.
-
-  The important implementation detail for this feature is that the pinned execution config is
-  already stored on the current `AgentRun`, not on the `Feature` entity:
-
-  - `CreateFeatureUseCase` creates a pending `AgentRun` with `agentType` and optional `modelId`.
-  - `build-feature-node-data.ts` and `build-graph-nodes.ts` read `agentType` and `modelId` from
-    the latest run to populate the UI.
-  - `StartFeatureUseCase` starts pending features by reading the existing pending run.
-  - `ResumeFeatureUseCase` clones the last failed/interrupted/waiting-approval run into a new run.
-  - `ApproveAgentRunUseCase` and `RejectAgentRunUseCase` resume the current waiting-approval run in place.
-
-  This means the clean implementation path is to update the feature's current `AgentRun` before
-  the next continuation action. No Feature schema change is required if the scope stays limited to
-  "before start, approval, or retry."
-
-  A second important detail is the resume mechanism. The feature agent worker resumes from a
-  LangGraph checkpoint keyed by `threadId` in `feature-agent-worker.ts`; it does not depend on
-  reusing a vendor-specific CLI session ID when restarting a feature workflow. That substantially
-  lowers complexity for switches like Claude Code -> Codex CLI, because future node executions can
-  use a different executor while keeping the same workflow checkpoint.
-
-  The main architectural gap today is persistence mutability: `IAgentRunRepository` and
-  `SQLiteAgentRunRepository` can create runs and update status metadata, but they do not expose a
-  way to update `agentType` or `modelId` on an existing run. That is the core backend change
-  needed to support this feature cleanly.
-
-  ### Relevant Technologies
-
-  - TypeScript across all layers, with strong domain typing generated from TypeSpec.
-  - Next.js server actions for web-side mutations and drawer refresh flows.
-  - React 19 component architecture with colocated Storybook stories.
-  - SQLite via `better-sqlite3` for persisted `features`, `agent_runs`, and phase timings.
-  - LangGraph for checkpointed feature workflow orchestration.
-  - tsyringe for dependency injection of repositories, services, and use cases.
-  - Vitest and React Testing Library for unit/integration/component coverage.
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Which user surfaces should support feature-scoped switching in v1? | Web drawer only | The backend work is reusable later, and the current codebase already has the right web picker and drawer seams |
+  | 2 | Which feature states should allow switching? | Pending, action-required, error | This exactly matches "before start, approval/rejection, or retry" and avoids mid-run ambiguity |
+  | 3 | When should the new pinned config be saved? | Persist immediately | It keeps the current `AgentRun` as the source of truth and avoids hidden draft state |
+  | 4 | How should the server validate the selection? | Validate advertised pair | The switch is picker-driven, so server-side pair validation prevents invalid pinned combinations |
+  | 5 | What should happen if save fails? | Block continuation | Silent fallback to the old executor/model would violate user intent |
+  | 6 | Where should the switch appear in the drawer? | Overview settings section | It keeps the control close to the pinned execution details without adding new drawer navigation |
 
   ## Affected Areas
 
@@ -131,23 +286,17 @@ content: |
 
   This feature depends primarily on existing internal code rather than new libraries:
 
-  - The `agent_runs` table already stores `agent_type` and `model_id`, and the mapper already
-    round-trips those fields. That strongly suggests no new SQLite migration or TypeSpec change
-    is required for the requested scope.
-  - `getAllAgentModels()`, `AgentExecutorFactory.getSupportedModels()`, `agent-type-icons.tsx`,
-    and `model-metadata.ts` already provide the agent/model catalog and presentation metadata.
-  - `FeatureDrawerClient` already owns the user flows for pending start, action-required
-    approval/rejection, and error retry, so the most direct presentation path is web-only.
-  - `feature-agent-worker.ts` resumes from LangGraph checkpoints via `threadId`, which means
-    agent/model switching affects future node executions without needing executor-session migration.
-  - Existing test patterns are already established in the relevant directories, so the work can
-    follow repository conventions without inventing new harnesses.
+  - The `agent_runs` table already stores `agent_type` and `model_id`, and the mapper already round-trips those fields. That strongly suggests no new SQLite migration or TypeSpec change is required for the requested scope.
+  - `getAllAgentModels()`, `AgentExecutorFactory.getSupportedModels()`, `agent-type-icons.tsx`, and `model-metadata.ts` already provide the agent/model catalog and presentation metadata.
+  - `FeatureDrawerClient` already owns the user flows for pending start, action-required approval/rejection, and error retry, so the most direct presentation path is web-only.
+  - `feature-agent-worker.ts` resumes from LangGraph checkpoints via `threadId`, which means agent/model switching affects future node executions without needing executor-session migration.
+  - Existing test patterns are already established in the relevant directories, so the work can follow repository conventions without inventing new harnesses.
+  - No new npm packages are expected; the feature reuses existing repositories, server actions, picker components, and metadata utilities.
 
   ## Size Estimate
 
-  **M** — The change spans application, infrastructure, and web presentation layers, and it
-  requires careful test coverage because four different continuation flows reuse the same pinned
-  run config. The estimate stays at medium because the repository already has the necessary data
-  model (`agent_runs.agent_type` and `agent_runs.model_id`), existing picker UI, and checkpointed
-  resume architecture; the main work is adding a clean mutation path for the current run and
-  wiring it into the feature drawer without broad schema or workflow changes.
+  **M** — The change still spans application, infrastructure, and web presentation layers, but
+  the requirements keep scope controlled by limiting the first UX to the web drawer and reusing
+  the existing picker/catalog stack. No schema, TypeSpec, or migration work is required; the main
+  effort is adding a safe current-run mutation path, wiring it into state-gated drawer behavior,
+  and covering the new paths with tests and Storybook updates.
