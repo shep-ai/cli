@@ -1,3 +1,10 @@
+## [1.166.1](https://github.com/shep-ai/shep/compare/v1.166.0...v1.166.1) (2026-04-04)
+
+
+### Bug Fixes
+
+* **config:** register StopAgentRunUseCase string token alias in DI container ([#520](https://github.com/shep-ai/shep/issues/520)) ([2b7621a](https://github.com/shep-ai/shep/commit/2b7621a3c08c2222ffe5db0bdaefcb183cf22bff))
+
 # [1.166.0](https://github.com/shep-ai/shep/compare/v1.165.0...v1.166.0) (2026-04-03)
 
 
