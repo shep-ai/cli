@@ -1,0 +1,183 @@
+name: "feature-model-switch"
+summary: "6 tasks across 4 phases: backend mutation foundation, continuation regression hardening, web mutation and picker refactor, then drawer integration with save blocking, rollback, and Storybook coverage."
+
+relatedFeatures:
+  - "052-llm-model-selection"
+  - "066-pending-feature-state"
+  - "067-review-resume-from-error"
+  - "077-codex-cli-agent"
+technologies:
+  - "TypeScript"
+  - "Next.js 16 / React 19 server actions"
+  - "SQLite / better-sqlite3"
+  - "tsyringe"
+  - "Vitest / Testing Library"
+  - "Storybook"
+relatedLinks: []
+
+tasks:
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Add a narrow AgentRun pinned-config mutation"
+    description: "Extend the agent run repository contract with `updatePinnedConfig` and implement the SQLite write path that only changes `agent_type`, `model_id`, and `updated_at`."
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "IAgentRunRepository exposes `updatePinnedConfig(id, { agentType, modelId, updatedAt })` as a first-class mutation."
+      - "SQLiteAgentRunRepository persists `agent_type`, `model_id`, and `updated_at` without altering status, result, PID, heartbeat, or thread fields."
+      - "Integration tests cover switching to a new pair and prove unrelated persisted columns remain unchanged."
+    tdd:
+      red:
+        - "Add repository integration tests that fail until `updatePinnedConfig()` updates only the pinned-config columns."
+        - "Add an assertion that status-oriented fields previously written to the row do not change after the pinned-config mutation."
+      green:
+        - "Add `updatePinnedConfig()` to `IAgentRunRepository`."
+        - "Implement the prepared `UPDATE agent_runs SET agent_type = ?, model_id = ?, updated_at = ? WHERE id = ?` path in `SQLiteAgentRunRepository` using the existing timestamp helper."
+      refactor:
+        - "Keep the new SQL path separate from `updateStatus()` so repository responsibilities remain explicit."
+        - "Reuse the existing timestamp normalization helper rather than duplicating date conversion logic."
+    estimatedEffort: "45min"
+
+  - id: "task-2"
+    phaseId: "phase-1"
+    title: "Implement the feature-scoped pinned-config update use case"
+    description: "Add `UpdateFeaturePinnedConfigUseCase` so the core layer resolves the current run from `featureId`, validates eligibility and supported pairs, persists the new config, and exposes the behavior through DI."
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "The use case accepts `featureId`, `agentType`, and `modelId` and never trusts a client-supplied `agentRunId`."
+      - "Validation rejects feature-not-found, missing current-run references, ineligible lifecycle or run states, unsupported agent types, and unsupported models with clear errors."
+      - "Successful execution updates only the current run and returns the saved pinned config needed for UI synchronization."
+      - "The use case is registered in the core container and exposed through a string-token alias for the web layer."
+    tdd:
+      red:
+        - "Add unit tests for feature-not-found, missing `agentRunId`, missing run row, ineligible state, unsupported agent, unsupported model, and success cases."
+        - "Add a test that proves the use case validates the pair through `IAgentExecutorFactory.getSupportedAgents()` and `getSupportedModels(agentType)`."
+        - "Add a test that proves only pending, waiting-approval, failed, and interrupted continuation states are accepted."
+      green:
+        - "Create `UpdateFeaturePinnedConfigUseCase` with injected feature repository, agent run repository, and agent executor factory."
+        - "Implement feature resolution, eligibility checks, pair validation, and the call to `updatePinnedConfig()`."
+        - "Register the use case as both a class singleton and a web string-token alias in the DI container."
+      refactor:
+        - "Extract the eligibility matrix into a named helper so the state rules stay readable and reusable."
+        - "Centralize trimmed input and nullable `modelId` normalization before validation."
+    estimatedEffort: "1h30min"
+
+  - id: "task-3"
+    phaseId: "phase-2"
+    title: "Harden continuation flows with switched-config regression coverage"
+    description: "Prove that start, approval, rejection, and retry continue to read agent and model data from the persisted run after a successful switch, and only adjust core code if the new assertions expose a gap."
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "StartFeatureUseCase tests assert worker spawn uses the current run's `agentType` and `modelId`."
+      - "ApproveAgentRunUseCase and RejectAgentRunUseCase tests assert resume workers use the updated run config on the same run."
+      - "ResumeFeatureUseCase tests assert retry runs copy the updated `agentType`, `modelId`, and `threadId` into the new run and its spawn options."
+      - "No new feature-level override payloads are introduced into the continuation APIs."
+    tdd:
+      red:
+        - "Extend the existing start, approve, reject, and resume use-case tests to assert `modelId` propagation alongside `agentType`."
+        - "Add a regression test that retry cloning preserves the switched `modelId` on the newly created `AgentRun`."
+      green:
+        - "Adjust the relevant continuation use cases only if the new regression tests reveal missing `agentType` or `modelId` propagation."
+        - "Keep the existing worker spawn contract unchanged and continue reading config from persisted runs."
+      refactor:
+        - "Factor duplicated run builders or spawn-option assertions out of the updated tests."
+        - "Keep the assertions anchored on persisted-run fields rather than global settings fallbacks."
+    estimatedEffort: "1h15min"
+
+  - id: "task-4"
+    phaseId: "phase-3"
+    title: "Expose the mutation through a thin web server action"
+    description: "Create a dedicated feature-scoped server action that accepts `featureId`, `agentType`, and `modelId`, performs only transport-level validation, and delegates all business rules to the new core use case."
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "The action resolves `UpdateFeaturePinnedConfigUseCase` from the web DI token map."
+      - "The browser contract uses `featureId`, `agentType`, and `modelId` only and never requires an `agentRunId`."
+      - "Validation failures and thrown errors return explicit error payloads with no partial success state."
+    tdd:
+      red:
+        - "Add server-action tests for empty `featureId`, empty `agentType`, use-case rejection, thrown `Error`, and success."
+        - "Add a test that proves the action forwards `featureId`, `agentType`, and `modelId` directly to the use case."
+      green:
+        - "Create `update-feature-pinned-config.ts` beside the existing start, resume, approve, and reject actions."
+        - "Implement minimal request normalization and the use-case call."
+      refactor:
+        - "Align the response shape and error wording with the existing drawer actions."
+        - "Keep action-level validation limited to transport concerns so lifecycle rules stay in core."
+    estimatedEffort: "45min"
+
+  - id: "task-5"
+    phaseId: "phase-3"
+    title: "Refactor AgentModelPicker for parent-driven save and rollback"
+    description: "Generalize `AgentModelPicker` so the drawer can own the saved selection, loading state, and rollback behavior while existing settings, feature-create, and chat usages stay supported."
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "AgentModelPicker re-syncs when parent-supplied agent or model values change after initial render."
+      - "The component supports an injected async persistence path or parent-owned save callback without hardcoding feature-drawer behavior into the picker."
+      - "The picker can be disabled while a save is in flight and can surface explicit save errors from the caller."
+      - "Existing settings-page, feature-create, and chat override flows remain supported through a backward-compatible API."
+      - "AgentModelPicker Storybook coverage includes at least one parent-driven or saving-focused variant."
+    tdd:
+      red:
+        - "Add a dedicated AgentModelPicker component test covering prop re-sync, disabled interaction, and rollback to parent-supplied values after a failed save."
+        - "Add a test that override usage still emits `onAgentModelChange` without attempting persistence."
+      green:
+        - "Introduce the minimal controlled-value and async-save API needed for parent-driven synchronization."
+        - "Update the internal state flow so displayed agent and model values respond to prop changes instead of only the initial props."
+      refactor:
+        - "Preserve backward-compatible defaults for existing callers wherever possible to limit blast radius."
+        - "Fold duplicated save and error handling into small helpers rather than branching by caller."
+        - "Update `AgentModelPicker.stories.tsx` to document the new controlled and saving states."
+    estimatedEffort: "1h45min"
+
+  - id: "task-6"
+    phaseId: "phase-4"
+    title: "Integrate the switch into the feature drawer Overview flow"
+    description: "Wire the new server action into `FeatureDrawerClient`, `FeatureDrawerTabs`, and `OverviewTab` so eligible features can switch pinned config in the Overview settings area with immediate save, rollback, and continuation blocking."
+    state: "Todo"
+    dependencies:
+      - "task-3"
+      - "task-5"
+    acceptanceCriteria:
+      - "OverviewTab renders the switch only for `pending`, `action-required`, and `error` feature states and keeps it out of ineligible states."
+      - "FeatureDrawerClient owns the saved pinned values, save-in-flight state, and last-known-good values so success patches the local drawer node and failure rolls back cleanly."
+      - "Start, approve, reject, and retry controls are disabled while the pinned-config save is unresolved."
+      - "Successful saves update the visible pinned agent and model immediately without `router.refresh()`."
+      - "Failures surface explicit feedback and preserve the previously saved pinned config."
+      - "Storybook coverage includes at least one eligible drawer state with the switch visible."
+    tdd:
+      red:
+        - "Extend `overview-tab.test.tsx` for eligible versus ineligible switch rendering and error display."
+        - "Add `feature-drawer-client.test.tsx` coverage for save-in-flight action blocking and rollback after a failed pinned-config update."
+        - "Add a happy-path drawer test that verifies local node data patches to the new agent and model after a successful save."
+      green:
+        - "Pass pinned-config props and callbacks from `FeatureDrawerClient` through `FeatureDrawerTabs` into `OverviewTab`."
+        - "Invoke the new feature-scoped server action on selection, disable continuation handlers while saving, patch `view.node` on success, and restore the previous values on failure."
+        - "Place the picker in the Overview settings area using the existing metadata and icon helpers."
+      refactor:
+        - "Keep state-gating logic in small helpers so `OverviewTab` and `FeatureDrawerClient` do not duplicate the eligibility matrix."
+        - "Update `overview-tab.stories.tsx` to cover the eligible switch state and the saving or error presentation."
+    estimatedEffort: "2h30min"
+
+totalEstimate: "8h30min"
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The work starts at the persistence seam so the feature has a safe, explicit way
+  to mutate the current run without touching the Feature model or database schema.
+  Once that backend contract exists, the plan adds the core use case and proves
+  that every continuation path still consumes the persisted run config after a
+  switch. Only then does it add the thin web action and refactor the picker for
+  parent-driven synchronization, which is the prerequisite for reliable rollback.
+  The final step wires the flow into the Overview tab, blocks continuation while a
+  save is unresolved, and finishes the required component and Storybook coverage
+  for the eligible drawer experience.

@@ -1,0 +1,169 @@
+name: "feature-model-switch"
+summary: "Implement feature-scoped pinned agent/model switching by mutating the current AgentRun in place, exposing a dedicated core use case plus thin web action, and reusing the existing drawer/picker stack with immediate persistence, rollback, and continuation guards."
+
+relatedFeatures:
+  - "052-llm-model-selection"
+  - "066-pending-feature-state"
+  - "067-review-resume-from-error"
+  - "077-codex-cli-agent"
+technologies:
+  - "TypeScript"
+  - "Next.js 16 / React 19 server actions"
+  - "SQLite / better-sqlite3"
+  - "tsyringe"
+  - "LangGraph"
+  - "Vitest / Testing Library"
+  - "Storybook"
+  - "i18next"
+relatedLinks: []
+
+phases:
+  - id: "phase-1"
+    name: "Current Run Mutation Foundation"
+    description: "Add the narrow AgentRun persistence mutation and the feature-scoped core use case so pinned config changes can be validated and saved without changing Feature, TypeSpec, or SQLite schema."
+    parallel: false
+  - id: "phase-2"
+    name: "Continuation Contract Hardening"
+    description: "Lock down start, approval, rejection, and retry behavior with regression coverage so every continuation path consumes the persisted run config after a successful switch."
+    parallel: false
+  - id: "phase-3"
+    name: "Web Mutation and Picker Refactor"
+    description: "Expose the core mutation through a thin web action and refactor AgentModelPicker so parent components can drive saved values, saving state, and rollback."
+    parallel: false
+  - id: "phase-4"
+    name: "Drawer Integration and UX Safeguards"
+    description: "Integrate the switch into the Overview settings area, gate it to eligible states, block continuation while saving, and extend component and Storybook coverage for the new drawer flow."
+    parallel: false
+
+filesToCreate:
+  - "packages/core/src/application/use-cases/features/update-feature-pinned-config.use-case.ts"
+  - "src/presentation/web/app/actions/update-feature-pinned-config.ts"
+  - "tests/unit/application/use-cases/features/update-feature-pinned-config.use-case.test.ts"
+  - "tests/unit/presentation/web/actions/update-feature-pinned-config.test.ts"
+  - "tests/unit/presentation/web/components/features/settings/AgentModelPicker.test.tsx"
+  - "tests/unit/presentation/web/components/common/control-center-drawer/feature-drawer-client.test.tsx"
+
+filesToModify:
+  - "packages/core/src/application/ports/output/agents/agent-run-repository.interface.ts"
+  - "packages/core/src/infrastructure/repositories/agent-run.repository.ts"
+  - "packages/core/src/infrastructure/di/container.ts"
+  - "packages/core/src/application/use-cases/features/start-feature.use-case.ts"
+  - "packages/core/src/application/use-cases/features/resume-feature.use-case.ts"
+  - "packages/core/src/application/use-cases/agents/approve-agent-run.use-case.ts"
+  - "packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts"
+  - "src/presentation/web/components/features/settings/AgentModelPicker/index.tsx"
+  - "src/presentation/web/components/features/settings/AgentModelPicker/AgentModelPicker.stories.tsx"
+  - "src/presentation/web/components/common/control-center-drawer/feature-drawer-client.tsx"
+  - "src/presentation/web/components/common/feature-drawer-tabs/feature-drawer-tabs.tsx"
+  - "src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx"
+  - "src/presentation/web/components/common/feature-drawer-tabs/overview-tab.stories.tsx"
+  - "tests/integration/infrastructure/repositories/agent-run.repository.test.ts"
+  - "tests/unit/application/use-cases/features/start-feature.use-case.test.ts"
+  - "tests/unit/application/use-cases/features/resume-feature.use-case.test.ts"
+  - "tests/unit/application/use-cases/agents/approve-agent-run.use-case.test.ts"
+  - "tests/unit/application/use-cases/agents/reject-agent-run.use-case.test.ts"
+  - "tests/unit/presentation/web/components/common/feature-drawer-tabs/overview-tab.test.tsx"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature fits the existing Clean Architecture without introducing a new
+  `Feature` field, TypeSpec change, or SQLite migration. The persisted source of
+  truth remains the current `AgentRun`: `agent_runs.agent_type` and
+  `agent_runs.model_id` already exist, already flow into drawer/node data, and
+  are already consumed by the continuation use cases that spawn or resume work.
+
+  The new backend seam is a feature-scoped `UpdateFeaturePinnedConfigUseCase`
+  under the core feature workflows. It resolves `featureId` to the feature's
+  current run, validates the state matrix and requested agent/model pair, then
+  calls a narrow `IAgentRunRepository.updatePinnedConfig()` mutation. This keeps
+  business rules in core, keeps the write surface explicit, and avoids trusting a
+  client-supplied `agentRunId`.
+
+  Existing continuation flows stay intact. `StartFeatureUseCase`,
+  `ApproveAgentRunUseCase`, `RejectAgentRunUseCase`, and
+  `ResumeFeatureUseCase` already read `agentType` and `modelId` from persisted
+  runs, so the switch feature changes only the data they consume, not the worker
+  contract. Retry still clones `threadId`, which preserves LangGraph checkpoint
+  continuity.
+
+  In the web layer, the new server action lives beside `start-feature`,
+  `resume-feature`, `approve-feature`, and `reject-feature`. The drawer stays the
+  only v1 surface. `FeatureDrawerClient` owns the saved pinned values, save
+  status, and rollback behavior; `FeatureDrawerTabs` forwards the necessary props;
+  `OverviewTab` renders the switch in the settings area; and `AgentModelPicker`
+  is generalized so parent components can drive value changes after initial render.
+
+  ## Key Design Decisions
+
+  ### 1. Keep the current AgentRun as the single source of truth
+
+  The implementation updates the current `AgentRun` in place instead of adding
+  feature-level override fields or creating a new run for every switch. That
+  matches the existing persistence model, avoids state duplication, and preserves
+  `threadId` continuity for later continuation actions.
+
+  ### 2. Add a feature-scoped core use case plus a dedicated repository method
+
+  The mutation boundary belongs in core, not in the Next.js action. A dedicated
+  `UpdateFeaturePinnedConfigUseCase` keeps validation reusable and testable, while
+  `IAgentRunRepository.updatePinnedConfig()` keeps the SQL write path explicit and
+  separate from `updateStatus()`. This follows the researched recommendation to
+  keep the mutation narrow and agent-agnostic.
+
+  ### 3. Enforce the narrow eligibility matrix on the server
+
+  The implementation should honor the repeated functional requirements and the
+  code-backed research rather than the stale resolved-answer text in the raw spec
+  metadata. V1 is web-drawer-only, and switching is allowed only before the
+  existing continuation actions: pending start, action-required approval or
+  rejection, and error retry. UI gating is necessary but not sufficient; the
+  server must reject direct requests against other states.
+
+  ### 4. Validate agent/model pairs through `IAgentExecutorFactory`
+
+  The server must treat `featureId`, `agentType`, and `modelId` as untrusted.
+  Validation should use the same factory-backed catalog that powers the picker so
+  only supported agent/model pairs are persisted. This prevents a later worker
+  spawn from failing because an unsupported combination was saved.
+
+  ### 5. Use immediate persistence with local drawer patching
+
+  The switch should save immediately on selection. `FeatureDrawerClient` should
+  optimistically patch local drawer node data on success so the user sees the new
+  pinned values without `router.refresh()`. On failure, it must restore the last
+  saved values and surface explicit feedback. Continuation actions remain blocked
+  while the save is unresolved to prevent running the wrong config.
+
+  ### 6. Refactor `AgentModelPicker` for parent-driven synchronization
+
+  The picker already has the correct catalog, labels, and icon stack, but it only
+  reads its initial props once. The drawer flow needs reliable rollback and
+  parent-owned save state, so the picker should support parent-driven value
+  changes and an injected persistence path while remaining compatible with
+  settings-page, feature-create, and chat-override usage.
+
+  ## Implementation Strategy
+
+  Phase 1 establishes the persistence and use-case foundation first because every
+  later layer depends on a safe, validated current-run mutation. Phase 2 adds
+  regression coverage around the existing continuation flows before UI work begins
+  so any hidden propagation gaps are caught early. Phase 3 adds the thin web
+  action and picker refactor needed for parent-driven save and rollback. Phase 4
+  wires the flow into the drawer Overview section, blocks conflicting actions
+  while saving, and rounds out component and Storybook coverage. The ordering
+  keeps the highest-risk logic server-side and verified before presentation
+  orchestration is touched.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Spec metadata conflicts with the researched scope | Implement the researched web-drawer-only flow and the narrow pending/action-required/error eligibility matrix, and keep the core use case reusable for later CLI or TUI follow-up work. |
+  | The picker drifts from the last saved value after a failed save | Move saved-value ownership to `FeatureDrawerClient` and make `AgentModelPicker` re-sync from parent props instead of relying on initial props only. |
+  | A continuation action fires while a config save is in flight | Disable start, approve, reject, and retry controls whenever the pinned-config mutation is unresolved in the drawer client. |
+  | Unsupported agent/model pairs reach persistence | Validate both values against `IAgentExecutorFactory.getSupportedAgents()` and `getSupportedModels(agentType)` before calling `updatePinnedConfig()`. |
+  | The new SQL path accidentally mutates status-oriented fields | Use a dedicated repository method and integration tests that assert status, result, PID, heartbeat, and thread fields remain unchanged. |
+  | Multiple tabs race save, refresh, and continuation requests | Resolve the feature and current run fresh on every request, keep the server authoritative, and use local patching only for immediate UI feedback. |
