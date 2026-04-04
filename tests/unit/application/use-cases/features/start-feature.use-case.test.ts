@@ -367,6 +367,32 @@ describe('StartFeatureUseCase', () => {
     );
   });
 
+  it('should spawn using the current run agentType and modelId after a config switch', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature());
+    runRepo.findById.mockResolvedValue(
+      createTestRun({
+        agentType: 'codex-cli' as any,
+        modelId: 'gpt-5.4',
+        threadId: 'thread-switched',
+      })
+    );
+
+    await useCase.execute('feat-001');
+
+    expect(processService.spawn).toHaveBeenCalledWith(
+      'feat-001',
+      'run-001',
+      '/test/repo',
+      '/wt/feat-test/specs/001-test-feature',
+      '/wt/feat-test',
+      expect.objectContaining({
+        threadId: 'thread-switched',
+        agentType: 'codex-cli',
+        model: 'gpt-5.4',
+      })
+    );
+  });
+
   it('should pass model from agentRun to spawn', async () => {
     featureRepo.findById.mockResolvedValue(createTestFeature());
     runRepo.findById.mockResolvedValue(createTestRun({ modelId: 'claude-opus-4-6' }));
