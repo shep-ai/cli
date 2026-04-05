@@ -16,6 +16,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CheckAndUnblockFeaturesUseCase } from '@/application/use-cases/features/check-and-unblock-features.use-case.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
+import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type { IWorktreeService } from '@/application/ports/output/services/worktree-service.interface.js';
 import { SdlcLifecycle } from '@/domain/generated/output.js';
 import type { Feature } from '@/domain/generated/output.js';
 
@@ -61,6 +63,8 @@ describe('CheckAndUnblockFeaturesUseCase', () => {
   let useCase: CheckAndUnblockFeaturesUseCase;
   let mockFeatureRepo: IFeatureRepository;
   let mockAgentProcess: IFeatureAgentProcessService;
+  let mockGitPrService: IGitPrService;
+  let mockWorktreeService: IWorktreeService;
 
   const parentId = 'parent-001';
 
@@ -84,7 +88,54 @@ describe('CheckAndUnblockFeaturesUseCase', () => {
       checkAndMarkCrashed: vi.fn(),
     };
 
-    useCase = new CheckAndUnblockFeaturesUseCase(mockFeatureRepo, mockAgentProcess);
+    mockGitPrService = {
+      rebaseOnMain: vi.fn().mockResolvedValue(undefined),
+      syncMain: vi.fn().mockResolvedValue(undefined),
+      getDefaultBranch: vi.fn().mockResolvedValue('main'),
+      hasRemote: vi.fn().mockResolvedValue(true),
+      getRemoteUrl: vi.fn().mockResolvedValue(null),
+      revParse: vi.fn().mockResolvedValue('abc123'),
+      hasUncommittedChanges: vi.fn().mockResolvedValue(false),
+      commitAll: vi.fn().mockResolvedValue('abc123'),
+      push: vi.fn().mockResolvedValue(undefined),
+      createPr: vi.fn().mockResolvedValue({ url: '', number: 1 }),
+      mergePr: vi.fn().mockResolvedValue(undefined),
+      mergeBranch: vi.fn().mockResolvedValue(undefined),
+      getCiStatus: vi.fn().mockResolvedValue({ status: 'success' }),
+      watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
+      deleteBranch: vi.fn().mockResolvedValue(undefined),
+      getPrDiffSummary: vi
+        .fn()
+        .mockResolvedValue({ filesChanged: 0, additions: 0, deletions: 0, commitCount: 0 }),
+      getFileDiffs: vi.fn().mockResolvedValue([]),
+      listPrStatuses: vi.fn().mockResolvedValue([]),
+      verifyMerge: vi.fn().mockResolvedValue(true),
+      localMergeSquash: vi.fn().mockResolvedValue(undefined),
+      getMergeableStatus: vi.fn().mockResolvedValue(true),
+      getFailureLogs: vi.fn().mockResolvedValue(''),
+      getConflictedFiles: vi.fn().mockResolvedValue([]),
+      stageFiles: vi.fn().mockResolvedValue(undefined),
+      rebaseContinue: vi.fn().mockResolvedValue(undefined),
+      rebaseAbort: vi.fn().mockResolvedValue(undefined),
+      stash: vi.fn().mockResolvedValue(false),
+      stashPop: vi.fn().mockResolvedValue(undefined),
+      getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
+    } as unknown as IGitPrService;
+
+    mockWorktreeService = {
+      exists: vi.fn().mockResolvedValue(true),
+      getWorktreePath: vi.fn().mockReturnValue('/worktrees/test-feature'),
+      create: vi.fn().mockResolvedValue(undefined),
+      remove: vi.fn().mockResolvedValue(undefined),
+      ensureGitRepository: vi.fn().mockResolvedValue(undefined),
+    } as unknown as IWorktreeService;
+
+    useCase = new CheckAndUnblockFeaturesUseCase(
+      mockFeatureRepo,
+      mockAgentProcess,
+      mockGitPrService,
+      mockWorktreeService
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -329,5 +380,75 @@ describe('CheckAndUnblockFeaturesUseCase', () => {
     // Should still update lifecycle but NOT call spawn
     expect(mockFeatureRepo.update).toHaveBeenCalledOnce();
     expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Auto-rebase onto parent branch
+  // -------------------------------------------------------------------------
+
+  it('should auto-rebase child branch onto parent branch before spawning', async () => {
+    const parent = makeFeature({
+      id: parentId,
+      lifecycle: SdlcLifecycle.Implementation,
+      branch: 'feat/parent-feature',
+    });
+    const blockedChild = makeFeature({
+      id: 'child-001',
+      lifecycle: SdlcLifecycle.Blocked,
+      branch: 'feat/child-feature',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(parent);
+    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([blockedChild]);
+
+    await useCase.execute(parentId);
+
+    expect(mockGitPrService.rebaseOnMain).toHaveBeenCalledWith(
+      '/worktrees/test-feature',
+      'feat/child-feature',
+      'feat/parent-feature'
+    );
+    expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
+  });
+
+  it('should still spawn child agent if auto-rebase fails', async () => {
+    const parent = makeFeature({
+      id: parentId,
+      lifecycle: SdlcLifecycle.Implementation,
+      branch: 'feat/parent-feature',
+    });
+    const blockedChild = makeFeature({
+      id: 'child-001',
+      lifecycle: SdlcLifecycle.Blocked,
+      branch: 'feat/child-feature',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(parent);
+    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([blockedChild]);
+    mockGitPrService.rebaseOnMain = vi.fn().mockRejectedValue(new Error('rebase conflict'));
+
+    await useCase.execute(parentId);
+
+    // Rebase failed but child should still be unblocked and spawned
+    expect(mockFeatureRepo.update).toHaveBeenCalledOnce();
+    expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
+  });
+
+  it('should skip rebase when parent has no branch', async () => {
+    const parent = makeFeature({
+      id: parentId,
+      lifecycle: SdlcLifecycle.Implementation,
+      branch: '',
+    });
+    const blockedChild = makeFeature({
+      id: 'child-001',
+      lifecycle: SdlcLifecycle.Blocked,
+      branch: 'feat/child-feature',
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(parent);
+    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([blockedChild]);
+
+    await useCase.execute(parentId);
+
+    expect(mockGitPrService.rebaseOnMain).not.toHaveBeenCalled();
+    expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
   });
 });
