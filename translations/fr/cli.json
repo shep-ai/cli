@@ -565,6 +565,8 @@
       "alreadyUpToDate": "Déjà à jour (v{{version}})",
       "upgradingFromTo": "Mise à jour de v{{current}} vers v{{latest}}",
       "upgradingToLatest": "Mise à jour de v{{current}} vers la dernière version",
+      "downloadingPackage": "Téléchargement de la nouvelle version...",
+      "downloadFailed": "Le pré-téléchargement n'a pas abouti — poursuite de l'installation",
       "stoppingDaemon": "Arrêt du démon avant la mise à jour...",
       "restartingDaemon": "Redémarrage du démon...",
       "daemonRestarted": "Démon redémarré avec succès.",

@@ -565,6 +565,8 @@
       "alreadyUpToDate": "Уже актуальная версия (v{{version}})",
       "upgradingFromTo": "Обновление с v{{current}} до v{{latest}}",
       "upgradingToLatest": "Обновление с v{{current}} до последней версии",
+      "downloadingPackage": "Загрузка новой версии...",
+      "downloadFailed": "Предварительная загрузка не завершена — продолжение установки",
       "stoppingDaemon": "Остановка демона перед обновлением...",
       "restartingDaemon": "Перезапуск демона...",
       "daemonRestarted": "Демон успешно перезапущен.",

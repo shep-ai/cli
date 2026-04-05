@@ -102,18 +102,90 @@ describe('UpgradeCliUseCase', () => {
     });
   });
 
-  describe('successful upgrade', () => {
-    it('should return upgraded status on successful install', async () => {
+  describe('pre-download', () => {
+    it('should spawn npm cache add before npm install', async () => {
       const promise = useCase.execute();
 
-      // npm view returns newer version
+      // npm view
       await vi.waitFor(() => expect(processes.length).toBe(1));
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm install succeeds
+      // npm cache add
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      expect(processes[1].cmd).toBe('npm');
+      expect(processes[1].args).toEqual(['cache', 'add', '@shepai/cli@latest']);
+      processes[1].proc.emit('close', 0);
+
+      // npm install
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
+
+      await promise;
+    });
+
+    it('should stream download message via onOutput', async () => {
+      const chunks: string[] = [];
+      const promise = useCase.execute((data) => chunks.push(data));
+
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
+
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
+
+      await promise;
+
+      expect(chunks.some((c) => c.includes('Downloading'))).toBe(true);
+    });
+
+    it('should continue to install even when pre-download fails', async () => {
+      const chunks: string[] = [];
+      const promise = useCase.execute((data) => chunks.push(data));
+
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      // npm cache add fails
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('close', 1);
+
+      // npm install should still run
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
+
+      const result = await promise;
+
+      expect(result.status).toBe('upgraded');
+      expect(chunks.some((c) => c.includes('Pre-download did not complete'))).toBe(true);
+    });
+  });
+
+  describe('successful upgrade', () => {
+    /** Complete version check + pre-download steps */
+    async function completePreSteps() {
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      // npm cache add
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('close', 0);
+    }
+
+    it('should return upgraded status on successful install', async () => {
+      const promise = useCase.execute();
+
+      await completePreSteps();
+
+      // npm install succeeds
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
 
       const result = await promise;
 
@@ -128,13 +200,11 @@ describe('UpgradeCliUseCase', () => {
 
       const promise = useCase.execute(onOutput);
 
-      await vi.waitFor(() => expect(processes.length).toBe(1));
-      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      processes[0].proc.emit('close', 0);
+      await completePreSteps();
 
-      await vi.waitFor(() => expect(processes.length).toBe(2));
-      (processes[1].proc as any).stdout.emit('data', Buffer.from('added 1 package\n'));
-      processes[1].proc.emit('close', 0);
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      (processes[2].proc as any).stdout.emit('data', Buffer.from('added 1 package\n'));
+      processes[2].proc.emit('close', 0);
 
       await promise;
 
@@ -144,30 +214,37 @@ describe('UpgradeCliUseCase', () => {
     it('should call npm install with correct arguments', async () => {
       const promise = useCase.execute();
 
-      await vi.waitFor(() => expect(processes.length).toBe(1));
-      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      processes[0].proc.emit('close', 0);
+      await completePreSteps();
 
-      await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('close', 0);
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
 
       await promise;
 
-      expect(processes[1].cmd).toBe('npm');
-      expect(processes[1].args).toEqual(['i', '-g', '@shepai/cli@latest']);
+      expect(processes[2].cmd).toBe('npm');
+      expect(processes[2].args).toEqual(['i', '-g', '@shepai/cli@latest']);
     });
   });
 
   describe('error handling', () => {
-    it('should return error status on non-zero exit', async () => {
-      const promise = useCase.execute();
-
+    /** Complete version check + pre-download steps */
+    async function completePreSteps() {
       await vi.waitFor(() => expect(processes.length).toBe(1));
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
+      // npm cache add
       await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('close', 1);
+      processes[1].proc.emit('close', 0);
+    }
+
+    it('should return error status on non-zero exit', async () => {
+      const promise = useCase.execute();
+
+      await completePreSteps();
+
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 1);
 
       const result = await promise;
 
@@ -178,12 +255,10 @@ describe('UpgradeCliUseCase', () => {
     it('should return error status when npm install spawn fails', async () => {
       const promise = useCase.execute();
 
-      await vi.waitFor(() => expect(processes.length).toBe(1));
-      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      processes[0].proc.emit('close', 0);
+      await completePreSteps();
 
-      await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('error', new Error('spawn npm ENOENT'));
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('error', new Error('spawn npm ENOENT'));
 
       const result = await promise;
 
@@ -197,8 +272,13 @@ describe('UpgradeCliUseCase', () => {
       await vi.waitFor(() => expect(processes.length).toBe(1));
       processes[0].proc.emit('error', new Error('spawn npm ENOENT'));
 
+      // npm cache add
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
+
+      // npm install
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
 
       const result = await promise;
 
@@ -215,8 +295,13 @@ describe('UpgradeCliUseCase', () => {
       // Advance past timeout
       vi.advanceTimersByTime(11_000);
 
+      // npm cache add
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
+
+      // npm install
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
 
       const result = await promise;
 

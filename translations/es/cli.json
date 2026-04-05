@@ -565,6 +565,8 @@
       "alreadyUpToDate": "Ya está actualizado (v{{version}})",
       "upgradingFromTo": "Actualizando de v{{current}} a v{{latest}}",
       "upgradingToLatest": "Actualizando de v{{current}} a la última versión",
+      "downloadingPackage": "Descargando nueva versión...",
+      "downloadFailed": "La descarga previa no se completó — continuando con la instalación",
       "stoppingDaemon": "Deteniendo el demonio antes de actualizar...",
       "restartingDaemon": "Reiniciando el demonio...",
       "daemonRestarted": "Demonio reiniciado exitosamente.",
