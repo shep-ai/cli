@@ -103,7 +103,7 @@ describe('UpgradeCliUseCase', () => {
   });
 
   describe('pre-download', () => {
-    it('should spawn npm cache add before npm install', async () => {
+    it('should spawn npm install in temp dir before global npm install', async () => {
       const promise = useCase.execute();
 
       // npm view
@@ -111,10 +111,12 @@ describe('UpgradeCliUseCase', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add
+      // pre-download (npm install --prefix <tmpdir> --ignore-scripts)
       await vi.waitFor(() => expect(processes.length).toBe(2));
       expect(processes[1].cmd).toBe('npm');
-      expect(processes[1].args).toEqual(['cache', 'add', '@shepai/cli@latest']);
+      expect(processes[1].args).toEqual(
+        expect.arrayContaining(['install', '--ignore-scripts', '@shepai/cli@latest'])
+      );
       processes[1].proc.emit('close', 0);
 
       // npm install
@@ -151,7 +153,7 @@ describe('UpgradeCliUseCase', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add fails
+      // pre-download fails
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 1);
 
@@ -173,7 +175,7 @@ describe('UpgradeCliUseCase', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
     }
@@ -222,7 +224,7 @@ describe('UpgradeCliUseCase', () => {
       await promise;
 
       expect(processes[2].cmd).toBe('npm');
-      expect(processes[2].args).toEqual(['i', '-g', '@shepai/cli@latest']);
+      expect(processes[2].args).toEqual(['i', '-g', '@shepai/cli@latest', '--prefer-offline']);
     });
   });
 
@@ -233,7 +235,7 @@ describe('UpgradeCliUseCase', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
     }
@@ -272,7 +274,7 @@ describe('UpgradeCliUseCase', () => {
       await vi.waitFor(() => expect(processes.length).toBe(1));
       processes[0].proc.emit('error', new Error('spawn npm ENOENT'));
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
 
@@ -295,7 +297,7 @@ describe('UpgradeCliUseCase', () => {
       // Advance past timeout
       vi.advanceTimersByTime(11_000);
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
 

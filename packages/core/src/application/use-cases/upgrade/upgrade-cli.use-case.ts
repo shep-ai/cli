@@ -13,6 +13,9 @@
 
 import { injectable, inject } from 'tsyringe';
 import { spawn, type ChildProcess } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { IVersionService } from '../../ports/output/services/version-service.interface.js';
 import type { IDaemonService } from '../../ports/output/services/daemon-service.interface.js';
 
@@ -125,17 +128,37 @@ export class UpgradeCliUseCase {
   }
 
   private preDownloadPackage(): Promise<boolean> {
+    let tmpDir: string;
+    try {
+      tmpDir = mkdtempSync(join(tmpdir(), 'shep-upgrade-'));
+    } catch {
+      return Promise.resolve(false);
+    }
+
+    const cleanup = () => {
+      try {
+        rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        /* best-effort */
+      }
+    };
+
     return new Promise((resolve) => {
       let settled = false;
 
-      const child: ChildProcess = spawn('npm', ['cache', 'add', '@shepai/cli@latest'], {
-        stdio: ['ignore', 'ignore', 'pipe'],
-      });
+      const child: ChildProcess = spawn(
+        'npm',
+        ['install', '--prefix', tmpDir, '--ignore-scripts', '@shepai/cli@latest'],
+        {
+          stdio: ['ignore', 'ignore', 'pipe'],
+        }
+      );
 
       const timeout = setTimeout(() => {
         if (!settled) {
           settled = true;
           child.kill();
+          cleanup();
           resolve(false);
         }
       }, NPM_CACHE_ADD_TIMEOUT_MS);
@@ -144,6 +167,7 @@ export class UpgradeCliUseCase {
         if (!settled) {
           settled = true;
           clearTimeout(timeout);
+          cleanup();
           resolve(code === 0);
         }
       });
@@ -152,6 +176,7 @@ export class UpgradeCliUseCase {
         if (!settled) {
           settled = true;
           clearTimeout(timeout);
+          cleanup();
           resolve(false);
         }
       });
@@ -192,7 +217,7 @@ export class UpgradeCliUseCase {
 
   private runNpmInstall(onOutput?: (data: string) => void): Promise<number> {
     return new Promise((resolve, reject) => {
-      const child = spawn('npm', ['i', '-g', '@shepai/cli@latest'], {
+      const child = spawn('npm', ['i', '-g', '@shepai/cli@latest', '--prefer-offline'], {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 

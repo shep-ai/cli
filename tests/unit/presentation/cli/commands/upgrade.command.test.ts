@@ -185,7 +185,7 @@ describe('Upgrade Command', () => {
   });
 
   describe('pre-download', () => {
-    it('should spawn npm cache add before npm install', async () => {
+    it('should spawn npm install in temp dir before global npm install', async () => {
       const { spawnFn, processes } = createMockSpawn();
       const cmd = createUpgradeCommand(spawnFn as any);
 
@@ -196,11 +196,11 @@ describe('Upgrade Command', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add spawned
+      // pre-download spawned (npm install --prefix <tmpdir> --ignore-scripts)
       await vi.waitFor(() => expect(processes.length).toBe(2));
       expect(spawnFn).toHaveBeenCalledWith(
         'npm',
-        ['cache', 'add', '@shepai/cli@latest'],
+        expect.arrayContaining(['install', '--ignore-scripts', '@shepai/cli@latest']),
         expect.any(Object)
       );
       processes[1].proc.emit('close', 0);
@@ -224,7 +224,7 @@ describe('Upgrade Command', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add fails
+      // pre-download fails
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 1);
 
@@ -250,7 +250,7 @@ describe('Upgrade Command', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add spawn errors
+      // pre-download spawn errors
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('error', new Error('spawn npm ENOENT'));
 
@@ -273,7 +273,7 @@ describe('Upgrade Command', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
     }
@@ -312,7 +312,7 @@ describe('Upgrade Command', () => {
       // Check that npm install was called with inherit
       expect(spawnFn).toHaveBeenCalledWith(
         'npm',
-        ['i', '-g', '@shepai/cli@latest'],
+        ['i', '-g', '@shepai/cli@latest', '--prefer-offline'],
         expect.objectContaining({ stdio: 'inherit' })
       );
     });
@@ -348,7 +348,7 @@ describe('Upgrade Command', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
 
@@ -372,7 +372,7 @@ describe('Upgrade Command', () => {
       await vi.waitFor(() => expect(processes.length).toBe(1));
       processes[0].proc.emit('error', new Error('spawn npm ENOENT'));
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
 
@@ -398,7 +398,7 @@ describe('Upgrade Command', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
 
@@ -424,7 +424,7 @@ describe('Upgrade Command', () => {
       // Advance past the 10-second timeout
       vi.advanceTimersByTime(11_000);
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
 
@@ -463,7 +463,7 @@ describe('Upgrade Command', () => {
       return daemonService;
     }
 
-    /** Run the full upgrade flow: npm view → npm cache add → npm install. */
+    /** Run the full upgrade flow: npm view → pre-download → npm install. */
     async function runUpgradeFlow(
       spawnFn: ReturnType<typeof createMockSpawn>['spawnFn'],
       processes: ReturnType<typeof createMockSpawn>['processes'],
@@ -476,7 +476,7 @@ describe('Upgrade Command', () => {
       (viewProc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       viewProc.emit('close', 0);
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
 
@@ -565,7 +565,7 @@ describe('Upgrade Command', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add (pre-download) — stopDaemon should NOT have been called yet
+      // pre-download — stopDaemon should NOT have been called yet
       await vi.waitFor(() => expect(processes.length).toBe(2));
       expect(callOrder).not.toContain('stopDaemon');
       processes[1].proc.emit('close', 0);
@@ -629,7 +629,7 @@ describe('Upgrade Command', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // npm cache add
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
 

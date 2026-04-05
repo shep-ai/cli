@@ -9,6 +9,9 @@
 
 import { Command } from 'commander';
 import { spawn as defaultSpawn, type ChildProcess } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { container } from '@/infrastructure/di/container.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
@@ -76,23 +79,44 @@ function getLatestVersion(spawnFn: SpawnFn): Promise<string | null> {
 }
 
 /**
- * Pre-download the package into npm's cache so the subsequent install is fast.
- * Uses `npm cache add` which downloads without installing.
- * Returns true if the cache add succeeded, false otherwise (fail-open).
+ * Pre-download the package AND all transitive dependencies into npm's cache.
+ * Uses `npm install --prefix <tmpdir>` which resolves the full dependency tree
+ * and populates the cache. The temp directory is cleaned up afterwards.
+ * Returns true if the pre-download succeeded, false otherwise (fail-open).
  */
 function preDownloadPackage(spawnFn: SpawnFn): Promise<boolean> {
+  let tmpDir: string;
+  try {
+    tmpDir = mkdtempSync(join(tmpdir(), 'shep-upgrade-'));
+  } catch {
+    return Promise.resolve(false);
+  }
+
+  const cleanup = () => {
+    try {
+      rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
+  };
+
   return new Promise((resolve) => {
     let settled = false;
 
-    const child: ChildProcess = spawnFn('npm', ['cache', 'add', '@shepai/cli@latest'], {
-      stdio: ['ignore', 'ignore', 'pipe'],
-      ...(IS_WINDOWS && { shell: true }),
-    });
+    const child: ChildProcess = spawnFn(
+      'npm',
+      ['install', '--prefix', tmpDir, '--ignore-scripts', '@shepai/cli@latest'],
+      {
+        stdio: ['ignore', 'ignore', 'pipe'],
+        ...(IS_WINDOWS && { shell: true }),
+      }
+    );
 
     const timeout = setTimeout(() => {
       if (!settled) {
         settled = true;
         child.kill();
+        cleanup();
         resolve(false);
       }
     }, NPM_CACHE_ADD_TIMEOUT_MS);
@@ -101,6 +125,7 @@ function preDownloadPackage(spawnFn: SpawnFn): Promise<boolean> {
       if (!settled) {
         settled = true;
         clearTimeout(timeout);
+        cleanup();
         resolve(code === 0);
       }
     });
@@ -109,6 +134,7 @@ function preDownloadPackage(spawnFn: SpawnFn): Promise<boolean> {
       if (!settled) {
         settled = true;
         clearTimeout(timeout);
+        cleanup();
         resolve(false);
       }
     });
@@ -121,7 +147,7 @@ function preDownloadPackage(spawnFn: SpawnFn): Promise<boolean> {
  */
 function runNpmInstall(spawnFn: SpawnFn): Promise<number> {
   return new Promise((resolve, reject) => {
-    const child = spawnFn('npm', ['i', '-g', '@shepai/cli@latest'], {
+    const child = spawnFn('npm', ['i', '-g', '@shepai/cli@latest', '--prefer-offline'], {
       stdio: 'inherit',
       ...(IS_WINDOWS && { shell: true }),
     });
