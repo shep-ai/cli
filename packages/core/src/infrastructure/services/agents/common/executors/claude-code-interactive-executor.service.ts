@@ -32,6 +32,9 @@
  *   errors when shep itself is running inside a Claude Code session.
  * - SDK message types are mapped to our own InteractiveAgentEvent to
  *   keep the application layer decoupled from SDK specifics.
+ * - AskUserQuestion is intercepted via the SDK's `canUseTool` callback,
+ *   which pauses the stream until the user responds. The callback delegates
+ *   to the `onUserQuestion` option provided by the session service.
  */
 
 import {
@@ -44,6 +47,8 @@ import type {
   InteractiveAgentOptions,
   InteractiveAgentSessionHandle,
   InteractiveAgentEvent,
+  ToolResultMessage,
+  UserQuestion,
 } from '../../../../../application/ports/output/agents/interactive-agent-executor.interface.js';
 
 /** Default model used when options.model is not specified. */
@@ -107,9 +112,39 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
   private buildSdkOptions(options: InteractiveAgentOptions) {
     // Strip CLAUDECODE env var to prevent nested-session detection errors.
     const { CLAUDECODE: _, ...cleanEnv } = process.env;
+
+    // Build the canUseTool callback that intercepts AskUserQuestion.
+    // When the agent calls AskUserQuestion, this callback:
+    // 1. Delegates to onUserQuestion (which notifies the UI and waits for user response)
+    // 2. Returns { behavior: 'allow', updatedInput } with the user's answers injected
+    // 3. The SDK passes the updated input to AskUserQuestion, which sees pre-filled answers
+    //
+    // For ALL other tools: auto-allow (same effect as bypassPermissions).
+    const canUseTool = options.onUserQuestion
+      ? async (toolName: string, input: Record<string, unknown>, opts: { toolUseID: string }) => {
+          if (toolName === 'AskUserQuestion') {
+            const questions = (input.questions as UserQuestion[]) ?? [];
+            const answers = await options.onUserQuestion!({
+              toolCallId: opts.toolUseID,
+              questions,
+            });
+            // Inject answers into the tool input so the SDK treats it as already answered
+            return {
+              behavior: 'allow' as const,
+              updatedInput: { ...input, answers },
+            };
+          }
+          // Auto-allow all other tools
+          return { behavior: 'allow' as const };
+        }
+      : undefined;
+
     return {
       model: options.model ?? DEFAULT_MODEL,
-      permissionMode: 'bypassPermissions' as const,
+      // When onUserQuestion is provided, use canUseTool to intercept AskUserQuestion
+      // while auto-allowing everything else (replaces bypassPermissions).
+      // When not provided, use bypassPermissions for backward compatibility.
+      ...(canUseTool ? { canUseTool } : { permissionMode: 'bypassPermissions' as const }),
       env: cleanEnv,
       // Forward system prompt using preset+append pattern
       ...(options.systemPrompt && {
@@ -132,6 +167,23 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
         return resolvedSessionId;
       },
       send: (message: string) => sdkSession.send(message),
+      sendToolResult: (toolResult: ToolResultMessage) =>
+        sdkSession.send({
+          type: 'user',
+          session_id: sdkSession.sessionId,
+          parent_tool_use_id: toolResult.toolCallId,
+          tool_use_result: toolResult.result,
+          message: {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: toolResult.toolCallId,
+                content: JSON.stringify(toolResult.result),
+              },
+            ],
+          },
+        } as Parameters<SDKSession['send']>[0]),
       stream: () => this.mapStream(sdkSession, (id) => (resolvedSessionId = id)),
       close: async () => sdkSession.close(),
       abort: () => {
@@ -227,11 +279,16 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
                 });
               }
             } else if (block.type === 'tool_use') {
-              events.push({
-                type: 'tool_use',
-                label: block.name,
-                detail: JSON.stringify(block.input ?? {}),
-              });
+              // AskUserQuestion is handled by canUseTool callback — don't emit as tool_use
+              if (block.name === 'AskUserQuestion') {
+                // Silently skip — the canUseTool callback already handled this
+              } else {
+                events.push({
+                  type: 'tool_use',
+                  label: block.name,
+                  detail: JSON.stringify(block.input ?? {}),
+                });
+              }
             }
           }
         }

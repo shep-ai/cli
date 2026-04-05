@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import '@xyflow/react/dist/base.css';
-import '@cubone/react-file-manager/dist/style.css';
 import './globals.css';
 import { AppShell } from '@/components/layouts/app-shell';
 import { Toaster } from '@/components/ui/sonner';

@@ -111,6 +111,8 @@ interface FakeHandle {
   endStream: () => void;
   /** Access the send mock */
   sendMock: ReturnType<typeof vi.fn>;
+  /** Access the sendToolResult mock */
+  sendToolResultMock: ReturnType<typeof vi.fn>;
   /** Access the close mock */
   closeMock: ReturnType<typeof vi.fn>;
 }
@@ -157,17 +159,20 @@ function makeFakeHandle(sessionId = 'claude-session-abc'): FakeHandle {
     }
   }
 
+  const sendToolResultMock = vi.fn();
+
   const handle: InteractiveAgentSessionHandle = {
     get sessionId() {
       return sessionId;
     },
     send: sendMock,
+    sendToolResult: sendToolResultMock,
     stream,
     close: closeMock,
     abort: () => closeMock(),
   };
 
-  return { handle, pushEvent, endStream, sendMock, closeMock };
+  return { handle, pushEvent, endStream, sendMock, sendToolResultMock, closeMock };
 }
 
 /**

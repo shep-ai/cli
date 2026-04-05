@@ -7,6 +7,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InteractiveMessage } from '@shepai/core/domain/generated/output';
 import { InteractiveMessageRole } from '@shepai/core/domain/generated/output';
 
+/** Shape matching UserInteractionData from the agent executor interface. */
+export interface InteractionData {
+  toolCallId: string;
+  questions: {
+    question: string;
+    header: string;
+    options: { label: string; description: string; preview?: string }[];
+    multiSelect: boolean;
+  }[];
+}
+
 /** Chat state returned by the backend — matches ChatState from service interface */
 interface ChatState {
   messages: InteractiveMessage[];
@@ -14,6 +25,7 @@ interface ChatState {
   streamingText: string | null;
   sessionInfo: SessionInfo | null;
   turnStatus?: string;
+  pendingInteraction?: InteractionData | null;
 }
 
 interface SessionInfo {
@@ -183,6 +195,20 @@ export function useChatRuntime(
   const awaitingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // ── Interaction state (AskUserQuestion) ─────────────────────────────
+  const [pendingInteraction, setPendingInteraction] = useState<InteractionData | null>(null);
+
+  // Sync pending interaction from backend polling (fallback for missed SSE)
+  useEffect(() => {
+    const backendInteraction = chatState?.pendingInteraction ?? null;
+    if (backendInteraction) {
+      setPendingInteraction(backendInteraction);
+    } else if (!backendInteraction && pendingInteraction) {
+      // Backend cleared it (e.g. agent continued) — clear local state
+      setPendingInteraction(null);
+    }
+  }, [chatState?.pendingInteraction, pendingInteraction]);
+
   // Delayed awaiting — only show Thinking bubble after 600ms to avoid flash
   const startAwaiting = useCallback(() => {
     if (awaitingTimerRef.current) clearTimeout(awaitingTimerRef.current);
@@ -250,10 +276,24 @@ export function useChatRuntime(
       }
     });
 
+    es.addEventListener('interaction', (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data as string) as { interaction: InteractionData };
+        if (data.interaction) {
+          cancelAwaiting();
+          setPendingInteraction(data.interaction);
+        }
+      } catch {
+        // Ignore
+      }
+    });
+
     es.addEventListener('done', () => {
       setStatusLog(null);
       cancelAwaiting();
       pushDebug('turn_done');
+      // Agent turn completed — clear any lingering interaction state
+      setPendingInteraction(null);
       // Refetch first, THEN clear local streaming state so there's no gap
       void queryClient.invalidateQueries({ queryKey: chatQueryKey(featureId) }).then(() => {
         setStreamingText('');
@@ -436,6 +476,7 @@ export function useChatRuntime(
     setDebugEvents([]);
     setStatusLog(null);
     cancelAwaiting();
+    setPendingInteraction(null);
     void queryClient.invalidateQueries({ queryKey: chatQueryKey(featureId) });
   }, [featureId, queryClient, cancelAwaiting]);
 
@@ -449,6 +490,35 @@ export function useChatRuntime(
     cancelAwaiting();
     void queryClient.invalidateQueries({ queryKey: chatQueryKey(featureId) });
   }, [featureId, queryClient, cancelAwaiting]);
+
+  // ── Respond to interaction (AskUserQuestion) ───────────────────────────
+  const respondToInteraction = useCallback(
+    async (answers: Record<string, string>) => {
+      // Clear the bubble and status log immediately — answers are persisted as
+      // a user message by the backend, shown in conversation history on refetch.
+      setPendingInteraction(null);
+      setStatusLog(null);
+
+      try {
+        const res = await fetch(`/api/interactive/chat/${featureId}/respond`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers }),
+        });
+        if (!res.ok) {
+          // eslint-disable-next-line no-console
+          console.error(`[respondToInteraction] failed: ${res.status}`);
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[respondToInteraction] error:', err);
+      }
+
+      // Refetch to show the persisted user message with answers
+      void queryClient.invalidateQueries({ queryKey: chatQueryKey(featureId) });
+    },
+    [featureId, queryClient]
+  );
 
   // ── Build assistant-ui runtime ──────────────────────────────────────────
   const runtime = useExternalStoreRuntime({
@@ -464,5 +534,14 @@ export function useChatRuntime(
     }, [cancelAwaiting]),
   });
 
-  return { runtime, status, clearChat, stopAgent, sessionInfo, isChatLoading };
+  return {
+    runtime,
+    status,
+    clearChat,
+    stopAgent,
+    sessionInfo,
+    isChatLoading,
+    pendingInteraction,
+    respondToInteraction,
+  };
 }

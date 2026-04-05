@@ -108,7 +108,10 @@ describe('DeleteRepositoryUseCase', () => {
 
     await useCase.execute('repo-abc-123');
 
-    expect(mockFeatureRepo.list).toHaveBeenCalledWith({ repositoryPath: sampleRepo.path });
+    expect(mockFeatureRepo.list).toHaveBeenCalledWith({
+      includeArchived: true,
+      repositoryPath: sampleRepo.path,
+    });
     expect(mockDeleteFeature.execute).toHaveBeenCalledWith('feat-1');
     expect(mockDeleteFeature.execute).toHaveBeenCalledWith('feat-2');
     expect(mockRepo.softDelete).toHaveBeenCalledWith('repo-abc-123');
@@ -120,7 +123,10 @@ describe('DeleteRepositoryUseCase', () => {
 
     await useCase.execute('repo-abc-123');
 
-    expect(mockFeatureRepo.list).toHaveBeenCalledWith({ repositoryPath: sampleRepo.path });
+    expect(mockFeatureRepo.list).toHaveBeenCalledWith({
+      includeArchived: true,
+      repositoryPath: sampleRepo.path,
+    });
     expect(mockDeleteFeature.execute).not.toHaveBeenCalled();
     expect(mockRepo.softDelete).toHaveBeenCalledWith('repo-abc-123');
   });

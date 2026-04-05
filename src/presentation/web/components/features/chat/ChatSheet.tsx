@@ -416,7 +416,11 @@ export function GlobalChatPopup() {
             'transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95',
             isOpen
               ? 'bg-violet-600 text-white hover:bg-violet-500'
-              : 'bg-violet-500 text-white hover:bg-violet-400 dark:bg-violet-500 dark:hover:bg-violet-400'
+              : 'bg-violet-500 text-white hover:bg-violet-400 dark:bg-violet-500 dark:hover:bg-violet-400',
+            // Animated states when chat is closed
+            !isOpen && globalChatTurnStatus === 'processing' && 'chat-fab-spinning',
+            !isOpen && globalChatTurnStatus === 'unread' && 'chat-fab-glow-unread',
+            !isOpen && globalChatTurnStatus === 'awaiting_input' && 'chat-fab-glow-awaiting'
           )}
         >
           <MessageSquare
