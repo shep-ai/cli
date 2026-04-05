@@ -1,0 +1,130 @@
+# Component Catalog
+
+Reference for all available UI components in the Shep AI web interface.
+
+## Tier 0: UI Primitives (`components/ui/`)
+
+shadcn/ui primitives managed by the shadcn CLI. Most have colocated `.stories.tsx` files.
+
+| Component    | File                | Description                                                                   |
+| ------------ | ------------------- | ----------------------------------------------------------------------------- |
+| Accordion    | `accordion.tsx`     | Collapsible content sections                                                  |
+| AlertDialog  | `alert-dialog.tsx`  | Confirmation dialogs for destructive actions                                  |
+| Alert        | `alert.tsx`         | Feedback messages with semantic variants (`default`, `destructive`)           |
+| Badge        | `badge.tsx`         | Status indicators (`default`, `secondary`, `outline`, `destructive`)          |
+| Button       | `button.tsx`        | Action buttons (`default`, `destructive`, `outline`, `ghost`, `link` + sizes) |
+| Card         | `card.tsx`          | Container with header, content, footer sections                               |
+| Checkbox     | `checkbox.tsx`      | Single checkbox input                                                         |
+| CometSpinner | `comet-spinner.tsx` | Animated comet-style loading spinner                                          |
+| Command      | `command.tsx`       | Command palette / combobox primitive                                          |
+| Dialog       | `dialog.tsx`        | Modal dialogs for focused interactions                                        |
+| Drawer       | `drawer.tsx`        | Slide-out drawer panel                                                        |
+| DropdownMenu | `dropdown-menu.tsx` | Dropdown menu with items                                                      |
+| Input        | `input.tsx`         | Text input fields                                                             |
+| Label        | `label.tsx`         | Accessible form field labels                                                  |
+| Popover      | `popover.tsx`       | Floating content panels                                                       |
+| ScrollArea   | `scroll-area.tsx`   | Custom scrollable container                                                   |
+| Select       | `select.tsx`        | Dropdown selection                                                            |
+| Separator    | `separator.tsx`     | Visual divider                                                                |
+| Sidebar      | `sidebar.tsx`       | Sidebar primitive (shadcn sidebar component)                                  |
+| Skeleton     | `skeleton.tsx`      | Loading placeholder skeleton                                                  |
+| Sonner       | `sonner.tsx`        | Toast notifications (via `sonner` library)                                    |
+| Spinner      | `spinner.tsx`       | Loading spinner                                                               |
+| Switch       | `switch.tsx`        | Toggle switch                                                                 |
+| Tabs         | `tabs.tsx`          | Tabbed content navigation                                                     |
+| Textarea     | `textarea.tsx`      | Multi-line text input                                                         |
+| Tooltip      | `tooltip.tsx`       | Hover tooltip                                                                 |
+
+### Usage
+
+```typescript
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+```
+
+### Adding New Primitives
+
+```bash
+pnpm dlx shadcn@latest add [component-name]
+```
+
+## Tier 1: Common Components (`components/common/`)
+
+Cross-feature composed components built from ui/ primitives. Each lives in its own subfolder with colocated stories and `index.ts` barrel export.
+
+### Key Components
+
+| Component           | Path                            | Description                               |
+| ------------------- | ------------------------------- | ----------------------------------------- |
+| ActionButton        | `common/action-button/`         | Styled action button with icon support    |
+| BaseDrawer          | `common/base-drawer/`           | Foundation drawer for all drawer variants |
+| CiStatusBadge       | `common/ci-status-badge/`       | CI/CD pipeline status badge               |
+| ControlCenterDrawer | `common/control-center-drawer/` | Drawer view orchestrator                  |
+| DeleteFeatureDialog | `common/delete-feature-dialog/` | Delete confirmation dialog                |
+| ElapsedTime         | `common/elapsed-time/`          | Live-updating elapsed time                |
+| EmptyState          | `common/empty-state/`           | No-content placeholder                    |
+| FeatureCreateDrawer | `common/feature-create-drawer/` | Create feature form drawer                |
+| FeatureDrawer       | `common/feature-drawer/`        | Feature detail drawer with tabs           |
+| FeatureListItem     | `common/feature-list-item/`     | Sidebar feature list item                 |
+| FeatureNode         | `common/feature-node/`          | React Flow canvas node for features       |
+| FeatureStatusBadges | `common/feature-status-badges/` | Lifecycle status badges                   |
+| FeatureStatusGroup  | `common/feature-status-group/`  | Grouped features by status                |
+| LoadingSkeleton     | `common/loading-skeleton/`      | Loading placeholders                      |
+| MergeReview         | `common/merge-review/`          | Merge review UI                           |
+| PageHeader          | `common/page-header/`           | Consistent page header                    |
+| PrdQuestionnaire    | `common/prd-questionnaire/`     | PRD questionnaire form                    |
+| RepositoryNode      | `common/repository-node/`       | React Flow repository node                |
+| ServerLogViewer     | `common/server-log-viewer/`     | Log viewer                                |
+| ShepLogo            | `common/shep-logo/`             | Branding logo                             |
+| SidebarNavItem      | `common/sidebar-nav-item/`      | Sidebar navigation item                   |
+| TaskProgressView    | `common/task-progress-view/`    | Task progress display                     |
+| ThemeToggle         | `common/theme-toggle/`          | Light/dark/system toggle                  |
+| VersionBadge        | `common/version-badge/`         | Version display badge                     |
+
+## Tier 2: Layout Components (`components/layouts/`)
+
+| Component       | Path                        | Description                                    |
+| --------------- | --------------------------- | ---------------------------------------------- |
+| AppShell        | `layouts/app-shell/`        | Top-level app wrapper with sidebar and content |
+| AppSidebar      | `layouts/app-sidebar/`      | Application sidebar with navigation            |
+| DashboardLayout | `layouts/dashboard-layout/` | Dashboard page shell with React Flow canvas    |
+| Header          | `layouts/header/`           | Top navigation bar                             |
+| Sidebar         | `layouts/sidebar/`          | Base sidebar layout                            |
+
+## Tier 3: Feature Components (`components/features/`)
+
+Domain-specific UI components organized by bounded context.
+
+### control-center/
+
+Main control center orchestrating the dashboard view: `ControlCenter`, `ControlCenterInner`, `ControlCenterEmptyState`, `useControlCenterState` hook.
+
+### features-canvas/
+
+React Flow canvas: `FeaturesCanvas`, `DependencyEdge` custom edge component.
+
+### settings/
+
+Settings page sections: `SettingsPageClient`, `AgentSettingsSection`, `DatabaseSettingsSection`, `EnvironmentSettingsSection`, `FeatureFlagsSettingsSection`, `NotificationSettingsSection`, `WorkflowSettingsSection`, `AgentModelPicker`, `ModelPicker`.
+
+### skills/
+
+`SkillsPageClient`, `SkillList`, `SkillCard`, `SkillDetailDrawer`, `CategoryFilter`.
+
+### tools/
+
+`ToolsPageClient`, `ToolCard`, `ToolDetailDrawer`.
+
+### version/
+
+`VersionPageClient` -- Client-side version display page.
+
+## Storybook
+
+View all components with interactive examples:
+
+```bash
+pnpm dev:storybook
+```
+
+Opens at http://localhost:6006 with all component variants, accessibility testing, and responsive viewport testing.

@@ -1,0 +1,90 @@
+# How Shep Works
+
+Shep turns a one-line description into a working pull request. You stay on your main branch the entire time — Shep handles branching, coding, committing, and pushing in the background.
+
+## The big picture
+
+When you run `shep`, three things happen:
+
+1. **A daemon starts** — it manages your features, coordinates AI agents, and watches for new work.
+2. **A web dashboard opens** at [localhost:4050](http://localhost:4050) — you can create features, monitor progress, and review results here.
+3. **Your terminal stays yours** — you can keep coding, run tests, or create more features from the CLI.
+
+## What happens when you create a feature
+
+```
+You: "add a /health endpoint that returns uptime and version"
+```
+
+Shep takes it from there:
+
+```
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐     ┌────────────┐
+│  You create │     │ Shep creates │     │  AI agent    │     │  Shep      │
+│  a feature  │────▶│  a worktree  │────▶│  writes code │────▶│  commits   │
+│             │     │  + branch    │     │  + tests     │     │  + pushes  │
+└─────────────┘     └──────────────┘     └──────────────┘     └────────────┘
+                                                                     │
+                                                                     ▼
+                                                              ┌────────────┐
+                                                              │  PR opens  │
+                                                              │  for review│
+                                                              └────────────┘
+```
+
+## Worktree isolation
+
+This is the key idea that makes Shep different from running an AI agent in your working directory.
+
+Each feature gets its own **git worktree** — a separate copy of your repo with its own branch. This means:
+
+- **No branch switching.** You never leave your current branch.
+- **No stashing.** Your uncommitted work is never touched.
+- **No conflicts.** Each feature works in its own isolated directory.
+- **Parallel execution.** Multiple features can run at the same time, each in its own worktree.
+
+Worktrees are lightweight — they share the same `.git` directory as your main repo, so they take almost no extra disk space.
+
+## AI agents do the coding
+
+Shep does not contain its own AI coding engine. Instead, it coordinates external AI agents that you already use:
+
+- **Claude Code** (recommended)
+- **Cursor**
+- **Gemini CLI**
+
+You choose your agent during first-run setup. Shep handles launching the agent, feeding it context about your repo and the feature, and collecting its output.
+
+The agent reads your code, understands your conventions, writes the implementation, and creates tests. Shep tracks the agent's progress and updates the dashboard in real time.
+
+## The web dashboard
+
+The dashboard at [localhost:4050](http://localhost:4050) gives you a live view of everything Shep is doing:
+
+- **Feature list** — see all active features and their current phase
+- **Live logs** — watch the AI agent's output as it works
+- **Feature details** — review the plan, requirements, and tasks for each feature
+- **Create features** — start new work without touching the terminal
+
+You can also do everything from the CLI if you prefer. The dashboard and CLI are two views of the same system.
+
+## Parallel execution
+
+You can run multiple features at the same time. Each one gets its own worktree, its own branch, and its own AI agent process. There is no shared state between features, so they cannot interfere with each other.
+
+This is the main advantage of Shep over running an AI agent manually — you describe three features, and Shep works on all three simultaneously while you do something else.
+
+## Results
+
+When a feature finishes, Shep has:
+
+- **Created a branch** with a clean commit history
+- **Pushed to your remote** (if you used `--push`)
+- **Opened a pull request** (if you used `--pr`)
+
+You review the PR like any other — the code is real, the tests run, and the branch is ready to merge.
+
+## Next steps
+
+- [Features & Tasks](/docs/core-concepts/features-and-tasks) — learn about the units of work Shep manages
+- [SDLC Lifecycle](/docs/core-concepts/sdlc-lifecycle) — understand how features progress through phases

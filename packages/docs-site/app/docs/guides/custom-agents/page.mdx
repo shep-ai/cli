@@ -1,0 +1,73 @@
+# Custom Agents
+
+Shep is agent-agnostic. It coordinates AI coding tools rather than being tied to a single one. You choose which agent Shep launches, and you can switch at any time.
+
+## Available Agents
+
+| Agent       | Status      | Notes                                                      |
+| ----------- | ----------- | ---------------------------------------------------------- |
+| Claude Code | Available   | Recommended. Best support for Shep's full feature set.     |
+| Cursor CLI  | Available   | Uses the `agent` binary. Good for teams already on Cursor. |
+| Gemini CLI  | Coming soon | Google's coding agent.                                     |
+
+## Switching Agents
+
+Run the agent settings wizard:
+
+```bash
+shep settings agent
+```
+
+Or set the agent directly:
+
+```bash
+shep settings agent --agent claude-code
+shep settings agent --agent cursor
+```
+
+Your selection persists globally and applies to all repos until you change it.
+
+## How Agents Work with Shep
+
+When you create a feature, Shep handles the orchestration:
+
+1. **Creates a git worktree** -- Each feature gets an isolated branch and working directory so agents never conflict with your main code.
+2. **Launches the agent** -- Shep starts the configured agent with a detailed prompt containing the task, context from your codebase, and any constraints.
+3. **Monitors output** -- Shep watches the agent's progress, captures logs, and updates the dashboard in real time.
+4. **Manages lifecycle** -- Shep handles pause, resume, approval gates, and cleanup when the agent finishes.
+
+You interact with Shep. Shep interacts with the agent.
+
+## Agent Capabilities
+
+Not every agent supports every feature. Here is the current matrix:
+
+| Capability                | Claude Code | Cursor CLI | Gemini CLI |
+| ------------------------- | ----------- | ---------- | ---------- |
+| Feature implementation    | Yes         | Yes        | Planned    |
+| Requirements gathering    | Yes         | Yes        | Planned    |
+| Plan generation           | Yes         | Yes        | Planned    |
+| Multi-file edits          | Yes         | Yes        | Planned    |
+| Approval gates            | Yes         | Yes        | Planned    |
+| Streaming output          | Yes         | Partial    | Planned    |
+| Session auth (no API key) | Yes         | No         | TBD        |
+
+## Tips for Best Results
+
+### Claude Code
+
+- Make sure you have an active Claude session (`claude` should work in your terminal).
+- Claude Code handles complex multi-step tasks well. Use the full SDLC workflow (`shep feat new`) rather than `--fast` for best results on large features.
+- For smaller changes, `--fast` mode works great.
+
+### Cursor CLI
+
+- Ensure the `agent` binary is on your PATH (installed with Cursor).
+- Cursor works best with its own project context. Keep your `.cursorrules` file up to date.
+- Token-based auth is required. The settings wizard prompts you for credentials.
+
+### General
+
+- Write clear, specific feature descriptions. The more detail you give, the better the agent performs.
+- Use `shep feat logs <id>` to monitor what the agent is doing if the dashboard is not open.
+- If an agent gets stuck, use `shep agent stop <id>` and `shep feat resume <id>` to retry.

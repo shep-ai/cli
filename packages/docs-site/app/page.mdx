@@ -1,0 +1,55 @@
+# Ship features while you sleep
+
+Shep runs AI coding agents in parallel — each in its own git worktree — so you can develop 10+ features simultaneously. One command creates a branch, runs an agent, commits, pushes, and opens a PR.
+
+## Quick start
+
+```bash
+npx @shepai/cli        # install and run
+shep                   # launches dashboard at localhost:4050
+shep feat new "add a /health endpoint" --push --pr
+```
+
+## How it works
+
+You describe a feature in plain English. Shep creates an isolated worktree, assigns an AI agent, and manages the entire lifecycle — coding, committing, pushing, and opening a pull request. Run as many as you want at the same time.
+
+Shep supports **Claude Code** (recommended), **Cursor CLI**, and **Gemini CLI** (coming soon).
+
+## Explore the docs
+
+---
+
+**[Getting Started](/docs/getting-started)**
+
+Set up Shep and create your first feature in under 2 minutes.
+
+---
+
+**[Core Concepts](/docs/core-concepts)**
+
+Understand features, tasks, and the SDLC lifecycle.
+
+---
+
+**[Guides](/docs/guides)**
+
+Step-by-step guides for common workflows.
+
+---
+
+**[CLI Commands](/docs/guides/cli-commands)**
+
+Every command, flag, and option.
+
+---
+
+**[Web Dashboard](/docs/guides/web-dashboard)**
+
+Manage features visually from your browser.
+
+---
+
+**[Contributing](/docs/contributing)**
+
+Architecture, testing, and how to contribute.

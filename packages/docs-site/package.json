@@ -1,0 +1,24 @@
+{
+  "name": "@shepai/docs-site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "NEXTRA_EXPORT=1 next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "16.1.6",
+    "nextra": "4.6.1",
+    "nextra-theme-docs": "4.6.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^25.2.0",
+    "@types/react": "^19.2.10",
+    "typescript": "^5.3.0"
+  }
+}

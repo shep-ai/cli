@@ -1,0 +1,92 @@
+# SDLC Lifecycle
+
+Every feature in Shep moves through a series of phases, from the moment you create it to the moment a pull request is ready for review. This is the SDLC (Software Development Lifecycle) that Shep automates for you.
+
+## The phases
+
+```
+Started ──▶ Analyze ──▶ Requirements ──▶ Research ──▶ Planning ──▶ Implementation ──▶ Review ──▶ Maintain
+                                                                        │
+                                              ◀── Blocked (from any phase)
+```
+
+Here is what happens in each phase:
+
+### Started
+
+The feature has been created but work has not begun. Shep is setting up the worktree and branch.
+
+### Analyze
+
+Shep examines your codebase to understand the architecture, dependencies, and conventions relevant to the feature. This gives the AI agent the context it needs to write code that fits your project.
+
+### Requirements
+
+Shep turns your description into a structured set of requirements. This ensures nothing is missed and gives you a chance to review what will be built before any code is written.
+
+### Research
+
+Shep investigates the best approach — evaluating libraries, checking for existing patterns in your codebase, and identifying potential challenges. This phase prevents the agent from jumping into code with a bad plan.
+
+### Planning
+
+Shep breaks the work into concrete tasks with clear acceptance criteria. Each task becomes a step the AI agent will execute during implementation. You can review the plan in the dashboard.
+
+### Implementation
+
+The AI agent executes the plan, task by task. It writes code, creates tests, and commits its work. You can watch this happen in real time through the dashboard's live logs.
+
+### Review
+
+Shep verifies the implementation — running tests, checking that requirements are met, and ensuring the code is ready for human review. If you used `--push` or `--pr`, Shep pushes the branch and opens a pull request at this point.
+
+### Maintain
+
+The feature is complete and merged. Shep tracks it in case follow-up work is needed.
+
+### Blocked
+
+A feature can enter the blocked state from any phase. This happens when Shep encounters something it cannot resolve on its own — a merge conflict, a failing test it cannot fix, or a question that needs your input. Blocked features appear highlighted in the dashboard so you can unblock them.
+
+## Fast mode
+
+When you create a feature with `--fast`, Shep skips the Analyze, Requirements, Research, and Planning phases. The AI agent receives your description and jumps straight to implementation.
+
+```
+Started ──▶ Implementation ──▶ Review ──▶ Maintain
+```
+
+Fast mode is good for small, well-defined changes where detailed planning would be overkill — a bug fix, a config change, or a feature you can describe precisely in one sentence.
+
+For larger features, the full lifecycle produces better results because the agent has a structured plan to follow rather than figuring everything out on the fly.
+
+## Approval gates
+
+By default, Shep runs through all phases automatically. If you want more control, you can configure approval gates that pause the feature at specific phase transitions and wait for your approval before continuing.
+
+This is useful when you want to:
+
+- **Review requirements** before any code is written
+- **Review the plan** before the agent starts implementing
+- **Review the code** before Shep pushes or opens a PR
+
+You configure approval gates in your Shep settings. When a feature hits a gate, it pauses and notifies you in the dashboard. You review the output and click **Approve** to continue or **Reject** to send the feature back for revisions.
+
+## Monitoring progress
+
+You can see a feature's current phase at any time:
+
+```bash
+# See all features and their phases
+shep feat ls
+
+# See detailed phase info for one feature
+shep feat show add-health-endpoint
+```
+
+The web dashboard also shows the phase for every feature, along with a visual indicator of progress through the lifecycle.
+
+## Next steps
+
+- [Getting Started](/docs/getting-started) — install Shep and create your first feature
+- [Features & Tasks](/docs/core-concepts/features-and-tasks) — learn about the units of work Shep manages

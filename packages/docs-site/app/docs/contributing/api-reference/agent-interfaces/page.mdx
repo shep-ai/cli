@@ -1,0 +1,111 @@
+# Agent Interfaces
+
+Technical specifications for the agent system interfaces. These are the actual implemented interfaces in `packages/core/src/application/ports/output/agents/`.
+
+## Core Interfaces
+
+### IAgentExecutor
+
+The primary interface for executing prompts against AI coding agents.
+
+```typescript
+export interface AgentExecutionOptions {
+  cwd?: string;
+  sessionId?: string;
+}
+
+export interface AgentExecutionResult {
+  result: string;
+}
+
+export interface IAgentExecutor {
+  execute(prompt: string, options?: AgentExecutionOptions): Promise<AgentExecutionResult>;
+}
+```
+
+### IAgentExecutorFactory
+
+Creates executor instances for specific agent types.
+
+```typescript
+export interface IAgentExecutorFactory {
+  createExecutor(agentType: AgentType, config: AgentConfig): IAgentExecutor;
+}
+```
+
+### IAgentExecutorProvider
+
+Resolves the current agent executor from settings. This is the primary entry point for getting an executor -- all code should use this rather than calling the factory directly.
+
+```typescript
+export interface IAgentExecutorProvider {
+  getExecutor(): IAgentExecutor;
+}
+```
+
+> **ARCHITECTURAL RULE:** The `settings.agent.type` field is the single source of truth for which agent executor runs. All code paths that need an `IAgentExecutor` MUST go through `IAgentExecutorProvider.getExecutor()`.
+
+### IAgentRegistry
+
+Registers and discovers agent definitions.
+
+### IAgentRunner
+
+Runs agent workflows with lifecycle management.
+
+### IAgentValidator
+
+Validates that an AI coding tool is available on the system.
+
+### IFeatureAgentProcessService
+
+Manages feature agent background processes (start, stop, heartbeat monitoring).
+
+### IStructuredAgentCaller
+
+Makes structured (typed) calls to agents with schema validation.
+
+## Repository Interfaces
+
+### IAgentRunRepository
+
+Persists agent execution run records.
+
+### IPhaseTimingRepository
+
+Tracks SDLC phase durations per agent run.
+
+### IAgentSessionRepository
+
+Manages agent sessions.
+
+```typescript
+export interface IAgentSessionRepository {
+  list(options?: ListSessionsOptions): Promise<AgentSession[]>;
+  get(options: GetSessionOptions): Promise<AgentSession | null>;
+}
+```
+
+## Exported Types Summary
+
+From `packages/core/src/application/ports/output/agents/index.ts`:
+
+```typescript
+export type {
+  IAgentExecutor,
+  AgentExecutionResult,
+  AgentExecutionStreamEvent,
+  AgentExecutionOptions,
+};
+export type { IAgentExecutorFactory, AgentCliInfo };
+export type { IAgentExecutorProvider };
+export type { IAgentRegistry, AgentDefinitionWithFactory };
+export type { IAgentRunner, AgentRunOptions };
+export type { IAgentRunRepository };
+export type { IPhaseTimingRepository };
+export type { IAgentValidator, AgentValidationResult };
+export type { IFeatureAgentProcessService };
+export type { IStructuredAgentCaller, StructuredCallOptions };
+export { StructuredCallError };
+export type { IAgentSessionRepository, ListSessionsOptions, GetSessionOptions };
+```

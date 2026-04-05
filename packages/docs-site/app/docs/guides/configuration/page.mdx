@@ -1,0 +1,188 @@
+# Configuration
+
+Shep stores settings at two levels: global (applies to all repos) and per-repo (overrides for a specific project). This guide covers both, plus environment variables and example configs.
+
+## Global Settings
+
+Global settings live in a SQLite database at `~/.shep/data`. Configure them with the interactive wizard:
+
+```bash
+shep settings          # Full interactive wizard
+shep settings show     # Print current settings
+shep settings init     # First-time setup
+```
+
+Or configure individual sections:
+
+```bash
+shep settings agent      # AI coding agent selection and auth
+shep settings ide        # IDE preference (VS Code, Cursor, etc.)
+shep settings workflow   # Approval requirements, auto-commit
+shep settings model      # AI model preferences for planning
+```
+
+## Per-Repo Settings
+
+Create `.shep/config.json` in your repository root to override global settings for that project:
+
+```json
+{
+  "analysis": {
+    "additionalExcludes": ["**/generated/**"],
+    "reanalyzeOnChange": true
+  },
+  "agents": {
+    "implementation": {
+      "requireApproval": true
+    }
+  }
+}
+```
+
+## Agent Selection
+
+Shep is agent-agnostic. Choose which AI coding tool it launches:
+
+```bash
+shep settings agent
+shep settings agent --agent claude-code
+shep settings agent --agent cursor
+```
+
+| Agent       | Status                  |
+| ----------- | ----------------------- |
+| Claude Code | Available (recommended) |
+| Cursor CLI  | Available               |
+| Gemini CLI  | Coming soon             |
+
+Your selection persists in global settings and applies to all subsequent commands.
+
+## Authentication
+
+Authentication depends on the agent you selected:
+
+- **Session-based** -- For Claude Code, Shep detects your existing authenticated session automatically. No extra setup needed.
+- **Token-based** -- For agents that require API keys, the settings wizard prompts you during `shep settings agent`.
+
+## Port Configuration
+
+The default port is **4050**. Override it with an environment variable:
+
+```bash
+SHEP_PORT=8080 shep
+```
+
+## Analysis Settings
+
+Control how Shep analyzes your codebase in `.shep/config.json`:
+
+```json
+{
+  "analysis": {
+    "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/.git/**"],
+    "additionalExcludes": ["**/vendor/**", "**/generated/**"],
+    "maxFileSize": 1048576,
+    "maxFiles": 10000,
+    "perspectives": [
+      "architecture",
+      "dependencies",
+      "patterns",
+      "conventions",
+      "tech-stack",
+      "documentation"
+    ]
+  }
+}
+```
+
+- **excludePatterns** -- Glob patterns to skip during analysis.
+- **additionalExcludes** -- Extra patterns added on top of defaults.
+- **maxFileSize** -- Skip files larger than this (bytes). Default: 1 MB.
+- **maxFiles** -- Stop analysis after this many files. Default: 10,000.
+- **perspectives** -- Which analysis types to run. Remove a perspective to skip it.
+
+## Agent Settings
+
+```json
+{
+  "agents": {
+    "maxConcurrentAgents": 4,
+    "timeoutMs": 300000,
+    "retryAttempts": 3,
+    "implementation": {
+      "requireApproval": true,
+      "maxParallelTasks": 2,
+      "autoCommit": false
+    }
+  }
+}
+```
+
+- **maxConcurrentAgents** -- How many agents can run in parallel. Lower this on constrained machines.
+- **timeoutMs** -- Maximum time per agent operation (milliseconds).
+- **retryAttempts** -- How many times to retry a failed agent operation.
+- **requireApproval** -- Pause before each implementation task for your approval.
+- **autoCommit** -- Automatically commit changes after each task.
+
+## Environment Variables
+
+| Variable         | Description                                      | Default     |
+| ---------------- | ------------------------------------------------ | ----------- |
+| `SHEP_PORT`      | Server port                                      | `4050`      |
+| `SHEP_HOST`      | Server host                                      | `localhost` |
+| `SHEP_API_KEY`   | API key for token-based auth                     | --          |
+| `SHEP_LOG_LEVEL` | Log verbosity (`debug`, `info`, `warn`, `error`) | `info`      |
+| `DEBUG`          | Enable verbose debug logging                     | --          |
+
+```bash
+SHEP_PORT=8080 SHEP_LOG_LEVEL=debug shep
+```
+
+## Configuration Precedence
+
+Settings resolve from highest to lowest priority:
+
+1. **CLI arguments** -- Flags passed directly to a command.
+2. **Environment variables** -- `SHEP_PORT`, `SHEP_LOG_LEVEL`, etc.
+3. **Repo config** -- `.shep/config.json` in the repository root.
+4. **Global settings** -- `~/.shep/data` SQLite database.
+5. **Built-in defaults** -- Hardcoded fallback values.
+
+## Example Configurations
+
+### Minimal
+
+No config file needed. Run `shep settings init` and accept the defaults.
+
+### Team Project
+
+Require approval before every task and disable auto-commit so changes go through code review:
+
+```json
+{
+  "agents": {
+    "implementation": {
+      "requireApproval": true,
+      "autoCommit": false
+    }
+  }
+}
+```
+
+### Large Monorepo
+
+Limit analysis scope and reduce concurrency to keep resource usage manageable:
+
+```json
+{
+  "analysis": {
+    "additionalExcludes": ["**/vendor/**", "**/*.generated.*"],
+    "maxFileSize": 524288,
+    "maxFiles": 5000,
+    "perspectives": ["architecture", "dependencies", "tech-stack"]
+  },
+  "agents": {
+    "maxConcurrentAgents": 2
+  }
+}
+```

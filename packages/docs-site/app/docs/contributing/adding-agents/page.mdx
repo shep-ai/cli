@@ -1,0 +1,320 @@
+# Adding New Agent Nodes
+
+> **Implementation Status**
+>
+> The **FeatureAgent LangGraph graph** is implemented at `packages/core/src/infrastructure/services/agents/feature-agent/`. This guide describes how to extend the agent system with new nodes. The code examples below use import paths referencing the feature-agent directory.
+
+---
+
+## Settings-Driven Agent Resolution (MANDATORY)
+
+> **Before adding any new node or agent capability, understand this rule:** The agent executor used by any node, graph, or worker is ALWAYS resolved from `getSettings().agent.type` via `AgentExecutorFactory.createExecutor()`. Nodes receive the executor as a dependency -- they never create or choose an executor themselves.
+
+---
+
+## Overview
+
+Shep's agent system is built on LangGraph StateGraphs. Adding new capabilities involves:
+
+1. Defining state fields for node inputs/outputs
+2. Creating the node function
+3. Adding the node to a graph
+4. Connecting with edges
+5. Writing tests (TDD)
+
+## Prerequisites
+
+Before adding a new node, understand:
+
+- [Agent System Architecture](/docs/contributing/architecture/agent-system) -- Full architecture
+- Settings-driven agent resolution -- How agent executors are resolved
+
+## Step-by-Step Guide
+
+### Step 1: Define State Fields
+
+First, determine what state your node needs to read and write.
+
+```typescript
+// src/infrastructure/agents/langgraph/state.ts
+
+import { Annotation } from '@langchain/langgraph';
+
+export const FeatureState = Annotation.Root({
+  // Existing fields...
+  repoPath: Annotation<string>,
+  repoAnalysis: Annotation<RepoAnalysis | null>,
+
+  // NEW: Add your node's output field
+  myNodeOutput: Annotation<MyOutputType | null>,
+
+  // For arrays, use reducers
+  myItems: Annotation<MyItem[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+});
+
+export type FeatureStateType = typeof FeatureState.State;
+```
+
+**State Field Guidelines:**
+
+| Pattern            | Use Case            | Example                                       |
+| ------------------ | ------------------- | --------------------------------------------- |
+| Simple field       | Single value output | `analysis: Annotation<Analysis \| null>`      |
+| Array with reducer | Accumulating items  | `tasks: Annotation<Task[]>({ reducer: ... })` |
+| Status/phase field | Tracking progress   | `currentPhase: Annotation<SdlcLifecycle>`     |
+| Error field        | Error handling      | `error: Annotation<string \| null>`           |
+
+### Step 2: Create the Node Function
+
+```typescript
+// src/infrastructure/agents/langgraph/nodes/my-node.node.ts
+
+import { ChatAnthropic } from '@langchain/anthropic';
+import { FeatureStateType } from '../state';
+
+const model = new ChatAnthropic({
+  modelName: 'claude-sonnet-4-20250514',
+});
+
+/**
+ * MyNode - Brief description of what this node does.
+ *
+ * Inputs (from state):
+ * - repoAnalysis: Repository context
+ * - requirements: Gathered requirements
+ *
+ * Outputs (state updates):
+ * - myNodeOutput: The processed result
+ * - currentPhase: Updated lifecycle phase
+ */
+export async function myNode(state: FeatureStateType): Promise<Partial<FeatureStateType>> {
+  const { repoAnalysis, requirements } = state;
+
+  if (!repoAnalysis) {
+    return { error: 'Repository analysis required before this step' };
+  }
+
+  const result = await processData(repoAnalysis, requirements);
+
+  return {
+    myNodeOutput: result,
+    currentPhase: SdlcLifecycle.NextPhase,
+  };
+}
+```
+
+**Node Function Rules:**
+
+1. **Pure inputs**: Only read from `state` parameter
+2. **Partial outputs**: Return only changed fields
+3. **No side effects**: Avoid modifying external state
+4. **Error handling**: Return error in state, don't throw
+5. **Document I/O**: Comment inputs and outputs
+
+### Step 3: Add Node to Graph
+
+```typescript
+import { StateGraph, START, END } from '@langchain/langgraph';
+import { FeatureState } from '../state';
+import { myNode } from '../nodes/my-node.node';
+
+export function createFeatureGraph() {
+  return (
+    new StateGraph(FeatureState)
+      .addNode('analyze', analyzeNode)
+      .addNode('requirements', requirementsNode)
+      .addNode('myNode', myNode) // NEW
+      .addNode('plan', planNode)
+      .addNode('implement', implementNode)
+      .addEdge(START, 'analyze')
+      // ...
+      .compile()
+  );
+}
+```
+
+### Step 4: Connect with Edges
+
+#### Direct Edge (Always A -> B)
+
+```typescript
+graph.addEdge('analyze', 'myNode');
+graph.addEdge('myNode', 'requirements');
+```
+
+#### Conditional Edge (Dynamic Routing)
+
+```typescript
+graph.addConditionalEdges('myNode', (state) => {
+  if (state.error) return 'error_handler';
+  if (needsMoreWork(state)) return 'myNode'; // Loop back
+  return 'next_step';
+});
+```
+
+### Step 5: Write Tests (TDD)
+
+#### Unit Test (Node Function)
+
+```typescript
+describe('myNode', () => {
+  it('should process analysis and return output', async () => {
+    const state = {
+      repoPath: '/test/repo',
+      repoAnalysis: {
+        /* mock data */
+      },
+      requirements: [{ id: '1', text: 'Requirement' }],
+      myNodeOutput: null,
+      currentPhase: SdlcLifecycle.Requirements,
+    };
+
+    const result = await myNode(state);
+
+    expect(result.myNodeOutput).toBeDefined();
+    expect(result.currentPhase).toBe(SdlcLifecycle.NextPhase);
+  });
+
+  it('should return error when analysis missing', async () => {
+    const state = { repoPath: '/test/repo', repoAnalysis: null, requirements: [] };
+    const result = await myNode(state);
+    expect(result.error).toContain('Repository analysis required');
+  });
+});
+```
+
+#### Integration Test (Graph Flow)
+
+```typescript
+describe('FeatureGraph with myNode', () => {
+  it('should execute myNode in correct order', async () => {
+    const graph = createFeatureGraph();
+    const executedNodes: string[] = [];
+
+    const stream = await graph.stream({
+      repoPath: './test-fixtures/sample-repo',
+      featureDescription: 'Test feature',
+    });
+
+    for await (const event of stream) {
+      executedNodes.push(event.node);
+    }
+
+    const analyzeIndex = executedNodes.indexOf('analyze');
+    const myNodeIndex = executedNodes.indexOf('myNode');
+    expect(myNodeIndex).toBeGreaterThan(analyzeIndex);
+  });
+});
+```
+
+## Adding Tools to Nodes
+
+### Creating a New Tool
+
+```typescript
+import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
+
+export const myTool = tool(
+  async ({ param1, param2 }) => {
+    const result = await doSomething(param1, param2);
+    return JSON.stringify(result);
+  },
+  {
+    name: 'my_tool',
+    description: 'Clear description of what this tool does and when to use it',
+    schema: z.object({
+      param1: z.string().describe('Description of param1'),
+      param2: z.number().optional().describe('Optional numeric parameter'),
+    }),
+  }
+);
+```
+
+## Common Patterns
+
+### Looping Node
+
+```typescript
+export async function gatheringNode(state: FeatureStateType) {
+  const newItems = await gatherMore(state);
+  return {
+    items: newItems,
+    gatheringComplete: newItems.length === 0,
+  };
+}
+
+graph.addConditionalEdges('gathering', (state) => (state.gatheringComplete ? 'next' : 'gathering'));
+```
+
+### Human-in-the-Loop
+
+```typescript
+import { interrupt } from '@langchain/langgraph';
+
+export async function approvalNode(state: FeatureStateType) {
+  const approved = await interrupt({
+    type: 'approval_required',
+    message: 'Please review the plan',
+    data: state.plan,
+  });
+
+  if (!approved) return { error: 'Plan rejected by user' };
+  return { approved: true };
+}
+```
+
+### Error Recovery
+
+```typescript
+export async function safeNode(state: FeatureStateType) {
+  try {
+    const result = await riskyOperation(state);
+    return { result, error: null };
+  } catch (error) {
+    return {
+      result: null,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      currentPhase: SdlcLifecycle.Error,
+    };
+  }
+}
+
+graph.addConditionalEdges('safeNode', (state) => (state.error ? 'error_handler' : 'next'));
+```
+
+## File Organization
+
+```
+src/infrastructure/services/agents/feature-agent/
+├── state.ts                    # State schema (modify for new fields)
+├── nodes/
+│   ├── node-helpers.ts         # Shared node utilities
+│   ├── analyze.node.ts
+│   ├── requirements.node.ts
+│   ├── research.node.ts
+│   ├── plan.node.ts
+│   ├── implement.node.ts
+│   ├── schemas/                # Validation schemas for nodes
+│   └── my-node.node.ts        # NEW: Your node
+├── feature-agent-graph.ts      # Graph factory (wires nodes)
+├── feature-agent-process.service.ts # Background process management
+├── feature-agent-worker.ts     # Detached worker entry point
+└── heartbeat.ts                # Node heartbeat reporting
+```
+
+## Checklist
+
+Before submitting your new node:
+
+- [ ] State fields defined with appropriate types
+- [ ] Node function created with clear I/O documentation
+- [ ] Node added to graph with correct edges
+- [ ] Unit tests written (TDD - wrote tests first)
+- [ ] Integration tests verify graph flow
+- [ ] Error cases handled gracefully
+- [ ] Tools created if needed (with Zod schemas)
+- [ ] Exports updated in index.ts files

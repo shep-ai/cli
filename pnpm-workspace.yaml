@@ -7,3 +7,5 @@ packages:
   - 'packages/core'
   # Web UI package
   - 'src/presentation/web'
+  # Documentation site (Nextra)
+  - 'packages/docs-site'

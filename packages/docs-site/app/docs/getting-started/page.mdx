@@ -1,0 +1,103 @@
+# Getting Started
+
+After this guide, you'll have Shep installed and your first feature PR open — in about five minutes.
+
+## Install Shep
+
+```bash
+npm install -g @shepai/cli
+```
+
+Or try it without installing:
+
+```bash
+npx @shepai/cli
+```
+
+**Prerequisites:** Node.js 18+
+
+## Start Shep
+
+```bash
+cd your-project
+shep
+```
+
+On your first run, Shep launches a setup wizard. You pick your AI agent (Claude Code is recommended, but Cursor and Gemini CLI are also supported), authenticate, and you're done.
+
+Shep then analyzes your repo — it learns your architecture, dependencies, and conventions. This runs once and is cached for future sessions.
+
+When analysis finishes, Shep opens the web dashboard at [localhost:4050](http://localhost:4050).
+
+## Create your first feature
+
+You can start a feature from the terminal or the web dashboard.
+
+**From the terminal:**
+
+```bash
+shep feat new "add a /health endpoint that returns uptime and version" --push --pr
+```
+
+**From the web dashboard:**
+
+Open [localhost:4050](http://localhost:4050), click **+ New Feature**, describe what you want, and click **Implement**.
+
+Either way, Shep:
+
+1. Creates a git worktree and branch
+2. Runs your AI agent to write the code
+3. Commits the changes
+4. Pushes and opens a PR
+
+You review the PR like any other — approve, request changes, or merge.
+
+## Go parallel
+
+Shep runs each feature in its own git worktree, so you can launch multiple features at once:
+
+```bash
+shep feat new "add stripe payments" --push --pr
+shep feat new "add dark mode" --push --pr
+shep feat new "refactor auth" --push --pr
+```
+
+All three run simultaneously. No conflicts, no context switching. Each agent works in complete isolation.
+
+## What's next
+
+- [Core Concepts](/docs/core-concepts) — How features, tasks, and the lifecycle work
+- [Web Dashboard](/docs/guides/web-dashboard) — Visual feature management
+- [Configuration](/docs/guides/configuration) — Customize agents, ports, and analysis
+- [CLI Reference](/docs/guides/cli-commands) — Every command and flag
+
+## Troubleshooting
+
+**Authentication failed**
+
+Check that your API key or session is valid for your chosen agent. Reconfigure with:
+
+```bash
+shep settings agent
+```
+
+**Port 4050 already in use**
+
+Start the dashboard on a different port:
+
+```bash
+shep ui --port 4051
+```
+
+**Repository analysis is slow**
+
+Large repos take longer on the first run. You can exclude heavy directories:
+
+```json
+// .shep/config.json
+{
+  "analysis": {
+    "additionalExcludes": ["**/large-folder/**"]
+  }
+}
+```
