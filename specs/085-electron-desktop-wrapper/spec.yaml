@@ -1,21 +1,22 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
-name: electron-desktop-wrapper
+name: "electron-desktop-wrapper"
 number: 85
 branch: "feat/085-electron-desktop-wrapper"
 oneLiner: "Package shep web UI as a native desktop app using Electron"
-summary: >
+summary: |
   Wrap the existing shep Next.js web UI in an Electron shell to provide a native desktop application
-  experience. The Electron app embeds the existing web server (Next.js) in a BrowserWindow,
-  manages the backend lifecycle (DI container, database, watchers), and distributes as platform-specific
+  experience. The Electron app embeds the existing web server (Next.js) in a BrowserWindow, manages
+  the backend lifecycle (DI container, database, watchers), and distributes as platform-specific
   installers for macOS, Windows, and Linux. Users get a dock/taskbar icon, system tray, native
   notifications, and auto-update — no terminal or Node.js installation required.
-phase: Requirements
-sizeEstimate: L
 
+  CRITICAL DESIGN PRINCIPLE: Full backward compatibility. The existing CLI, web UI, and daemon MUST
+  continue to work exactly as they do today with ZERO changes to their behavior. Electron-specific
+  functionality (native notifications, window management, tray) is injected via the DI container
+  at bootstrap time — never by modifying core service implementations. The Electron wrapper is a
+  new presentation layer that consumes the same core APIs as the CLI and web UI.
+phase: "Requirements"
+sizeEstimate: "L"
 relatedFeatures: []
-
 technologies:
   - "Electron"
   - "electron-builder"
@@ -25,7 +26,6 @@ technologies:
   - "better-sqlite3 (native addon)"
   - "tsyringe (DI container)"
   - "pnpm workspaces"
-
 relatedLinks:
   - title: "Electron Documentation"
     url: "https://www.electronjs.org/docs/latest"
@@ -35,7 +35,6 @@ relatedLinks:
     url: "https://www.electronjs.org/docs/latest/tutorial/examples"
   - title: "Rebuilding native modules for Electron"
     url: "https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules"
-
 openQuestions:
   - question: "Which Electron packaging tool should we use?"
     resolved: true
@@ -48,19 +47,20 @@ openQuestions:
         selected: false
     selectionRationale: "electron-builder is the safer choice for a first Electron integration. It has broader community adoption, better documentation for native module rebuilding (critical for better-sqlite3), built-in auto-update support via electron-updater, and simpler YAML-based configuration. Electron Forge is catching up but adds complexity we don't need for an initial release."
     answer: "electron-builder"
-
-  - question: "Should the Electron app replace node-notifier with Electron's native Notification API?"
+  - question: "How should the Electron app handle desktop notifications?"
     resolved: true
     options:
-      - option: "Replace with Electron Notification API"
-        description: "Use Electron's built-in Notification class in the main process. Eliminates the node-notifier native dependency, reduces build complexity, and provides consistent behavior across platforms. Requires IPC bridge from renderer to main for triggering notifications."
+      - option: "Conditional adapter via DI — Electron Notification API when in Electron, existing behavior otherwise"
+        description: "Create a new IDesktopNotifier port interface and an ElectronDesktopNotifier adapter that uses Electron's built-in Notification class. Register it in the DI container only when running inside Electron. The existing DesktopNotifier (node-notifier) and NotificationService remain completely untouched. If node-notifier is disabled in settings, it stays disabled — the Electron adapter simply provides an alternative implementation that is available when running in the Electron context. Full backward compatibility: CLI and web UI behavior is unchanged."
         selected: true
-      - option: "Keep node-notifier"
-        description: "Continue using node-notifier alongside Electron. Simpler code change (no refactoring) but adds an unnecessary native dependency that must also be rebuilt for Electron. node-notifier is already disabled in the current codebase."
+      - option: "Replace node-notifier globally with Electron Notification API"
+        description: "Remove node-notifier entirely and use Electron Notification API everywhere. Breaks backward compatibility — CLI and non-Electron contexts lose the desktop notification capability (even if currently disabled). Couples core to Electron."
         selected: false
-    selectionRationale: "node-notifier is already disabled in the codebase (replaced by in-app toasts). For the Electron build, using the built-in Notification API eliminates a native dependency rebuild, reduces binary size, and provides better integration with OS notification centers. The web UI's in-app toast system (notification bus + SSE) continues to work unchanged."
-    answer: "Replace with Electron Notification API"
-
+      - option: "Keep node-notifier unchanged, no Electron integration"
+        description: "Do not integrate Electron's Notification API at all. Desktop notifications remain disabled in all contexts. Misses the opportunity to provide native notifications in the Electron app where they work out of the box."
+        selected: false
+    selectionRationale: "The user explicitly requires full backward compatibility. The correct approach is a conditional adapter pattern: create a port interface (IDesktopNotifier), keep the existing node-notifier-based DesktopNotifier as the default implementation, and register an ElectronDesktopNotifier adapter only when the app detects it is running inside Electron. This follows the existing DI/port pattern in the codebase and ensures zero changes to CLI or web behavior. If node-notifier is disabled in settings, it stays disabled — the Electron adapter is simply an alternative that the Electron bootstrap can opt into."
+    answer: "Conditional adapter via DI — Electron Notification API when in Electron, existing behavior otherwise"
   - question: "What is the scope of auto-update for the initial release?"
     resolved: true
     options:
@@ -75,7 +75,6 @@ openQuestions:
         selected: false
     selectionRationale: "Full auto-update requires code signing on all platforms (Apple Developer Program $99/yr, Windows EV certificate ~$400/yr) and adds significant implementation complexity. For the initial release, a version-check notification that directs users to download the latest release from GitHub is a pragmatic middle ground — it provides update awareness without the signing infrastructure. Auto-update can be added in a follow-up feature once signing is established."
     answer: "Manual download with update notification"
-
   - question: "Should the Electron package live as a new pnpm workspace package or a top-level directory?"
     resolved: true
     options:
@@ -87,7 +86,6 @@ openQuestions:
         selected: false
     selectionRationale: "The project already uses pnpm workspaces with packages/core/ and src/presentation/web/ as workspace members. Adding packages/electron/ follows the established pattern, keeps Electron-specific dependencies isolated (electron, electron-builder don't pollute the root), and allows clean workspace imports of @shepai/core."
     answer: "New workspace package at packages/electron/"
-
   - question: "Which platforms should be supported in the initial release?"
     resolved: true
     options:
@@ -99,7 +97,6 @@ openQuestions:
         selected: true
     selectionRationale: "Shep targets developers, and Linux has significant share among this audience. electron-builder supports all three platforms with minimal additional configuration. The CI cost is one extra build target. Shipping all three from the start avoids community complaints and demonstrates first-class cross-platform support."
     answer: "macOS, Windows, and Linux"
-
   - question: "Should the app include a system tray icon with background mode?"
     resolved: true
     options:
@@ -111,7 +108,6 @@ openQuestions:
         selected: false
     selectionRationale: "Shep runs background watchers (PR sync, notifications, auto-archive) that users expect to continue running. A system tray icon with 'minimize to tray on close' is the standard pattern for long-running desktop apps. Quitting on window close would stop all watchers and break the 'always monitoring' experience that the daemon model currently provides."
     answer: "System tray with background mode"
-
   - question: "How should code signing be handled for the initial release?"
     resolved: true
     options:
@@ -123,7 +119,6 @@ openQuestions:
         selected: false
     selectionRationale: "Code signing requires paid certificates (Apple Developer Program $99/yr, Windows EV cert ~$400/yr) and complex CI secrets management. For an initial release targeting early adopters (developers comfortable with Gatekeeper bypass), skipping signing is pragmatic. The Gatekeeper/SmartScreen warnings are a known friction point but acceptable for a v1. Signing should be added before any broader distribution push."
     answer: "No code signing initially"
-
   - question: "Should the Electron app coexist with the CLI daemon or replace it?"
     resolved: true
     options:
@@ -135,7 +130,20 @@ openQuestions:
         selected: false
     selectionRationale: "The Electron app and CLI are separate distribution channels for different user preferences. They share the same ~/.shep/ data directory and SQLite database. SQLite with WAL mode already supports concurrent readers, and the existing daemon model already handles single-writer semantics. Keeping them independent means users can run either without conflict, and the CLI remains fully functional without Electron installed."
     answer: "Coexist independently"
-
+  - question: "How should Electron-specific service implementations be wired in?"
+    resolved: true
+    options:
+      - option: "Conditional DI registration with environment detection"
+        description: "Detect the Electron runtime at DI container initialization time (e.g., checking for process.versions.electron or a bootstrap flag). Register Electron-specific adapters (ElectronDesktopNotifier, ElectronBrowserOpener) only in that context. Default registrations remain unchanged for CLI and web. Zero modifications to existing service implementations."
+        selected: true
+      - option: "Runtime if/else checks inside existing services"
+        description: "Add Electron detection inside existing services (e.g., if (isElectron) { use Electron API } else { existing behavior }). Simpler to implement initially but violates Clean Architecture — infrastructure services become aware of multiple contexts. Harder to test and maintain."
+        selected: false
+      - option: "Separate container initialization for Electron"
+        description: "Create a completely separate initializeElectronContainer() that duplicates the container setup with Electron-specific services. Avoids changing the existing container but introduces duplication and drift risk."
+        selected: false
+    selectionRationale: "Conditional DI registration is the cleanest approach and follows the existing codebase pattern. The DI container already supports factory-based registration with runtime decisions. Adding an optional 'context' parameter or post-initialization override step lets the Electron bootstrap swap in Electron-specific adapters without touching any existing code. This preserves full backward compatibility — CLI and web see exactly the same container they always have."
+    answer: "Conditional DI registration with environment detection"
 content: |
   ## Problem Statement
 
@@ -149,6 +157,23 @@ content: |
   Next.js server, DI container, and background watchers that the CLI daemon runs, but packages them as a
   single installable binary with platform-native UX.
 
+  ## Backward Compatibility Principle
+
+  **This feature MUST NOT change any existing behavior.** The Electron wrapper is a new presentation layer
+  that sits alongside the CLI and web UI. All Electron-specific behavior is injected via the DI container
+  at bootstrap time using adapter pattern — never by modifying existing service implementations.
+
+  Specific guarantees:
+  - The CLI (`shep` commands) works exactly as before with zero code changes
+  - The web UI (`shep ui` / `shep start`) works exactly as before
+  - The existing `DesktopNotifier` (node-notifier) is NOT removed or modified — if it's disabled, it stays disabled
+  - The existing `BrowserOpenerService` is NOT modified — Electron provides its own adapter
+  - The DI container initialization (`initializeContainer()`) remains unchanged for non-Electron contexts
+  - No new runtime dependencies are added to the CLI or web packages
+  - All Electron-specific code lives exclusively in `packages/electron/`
+  - Core services gain port interfaces where needed (e.g., `IDesktopNotifier`, `IBrowserOpener`) but
+    existing concrete implementations are the default — Electron adapters are opt-in overrides
+
   ## Success Criteria
 
   - [ ] Electron app launches and displays the shep web UI in a BrowserWindow on macOS, Windows, and Linux
@@ -157,42 +182,87 @@ content: |
   - [ ] Background watchers (PR sync, notifications, auto-archive) start on app launch and continue while minimized to tray
   - [ ] System tray icon is visible with context menu (Show Window, Quit) on all three platforms
   - [ ] Closing the main window minimizes to tray instead of quitting the app
-  - [ ] Native OS notifications fire via Electron Notification API when notification events occur
+  - [ ] Native OS notifications fire via Electron Notification API when notification events occur in Electron context
+  - [ ] Existing CLI and web UI continue to work identically — no behavioral regressions
+  - [ ] Existing `DesktopNotifier` (node-notifier) is untouched; if disabled in settings, it remains disabled
+  - [ ] Electron-specific adapters are registered via DI only when running inside Electron
   - [ ] App checks for updates on launch and shows a notification with download link when a new version is available
   - [ ] Platform-specific installers are produced: .dmg (macOS), .exe NSIS (Windows), .AppImage (Linux)
   - [ ] CI pipeline builds and uploads Electron installers as GitHub Release assets on tagged releases
   - [ ] Electron app coexists with CLI — both can run (not simultaneously) sharing the same ~/.shep/ data directory
   - [ ] App gracefully shuts down on quit: stops web server, closes database connections, cancels watchers
   - [ ] packages/electron/ workspace package exists with its own package.json, tsconfig, and electron-builder config
+  - [ ] All existing tests (unit, integration, e2e) pass without modification
 
   ## Functional Requirements
 
-  - **FR-1**: The Electron main process MUST initialize the DI container (`initializeContainer()`), settings, and all background watchers before creating the BrowserWindow — mirroring the bootstrap sequence of the `_serve` CLI command.
-  - **FR-2**: The Electron main process MUST start the Next.js web server (via `WebServerService`) on a dynamically allocated port and load the resulting URL in a BrowserWindow.
-  - **FR-3**: The app MUST resolve the bundled Next.js web directory correctly in both development mode (source directory) and production mode (packaged ASAR/resources path).
+  ### Bootstrap & Lifecycle
+
+  - **FR-1**: The Electron main process MUST initialize the DI container (`initializeContainer()`), settings, and all background watchers before creating the BrowserWindow — mirroring the bootstrap sequence of the `_serve` CLI command. The existing `initializeContainer()` function MUST NOT be modified; Electron-specific adapter registration MUST happen as a post-initialization override step.
+  - **FR-2**: The Electron main process MUST start the Next.js web server (via `WebServerService`) on a dynamically allocated port and load the resulting URL in a BrowserWindow. The existing `WebServerService` implementation MUST NOT be modified.
+  - **FR-3**: The app MUST resolve the bundled Next.js web directory correctly in both development mode (source directory) and production mode (packaged ASAR/resources path). Path resolution logic for Electron MUST live in `packages/electron/`, not in the core `resolveWebDir()` function.
+  - **FR-6**: The app MUST perform a graceful shutdown sequence on quit: stop background watchers, stop the web server, close SQLite database connections, then exit.
+
+  ### System Tray & Window Management
+
   - **FR-4**: The app MUST display a system tray icon on all platforms with a context menu containing at minimum: "Show Window" and "Quit" actions.
   - **FR-5**: Closing the main window (red X / Cmd+W) MUST minimize the app to the system tray instead of quitting. The Quit action (tray menu or Cmd+Q) MUST fully exit the app.
-  - **FR-6**: The app MUST perform a graceful shutdown sequence on quit: stop background watchers, stop the web server, close SQLite database connections, then exit.
-  - **FR-7**: The app MUST use Electron's native Notification API to deliver desktop notifications when notification events are emitted by the notification bus, replacing the disabled node-notifier dependency.
-  - **FR-8**: The app MUST check GitHub Releases for newer versions on startup and display an in-app notification with a download link when an update is available.
+  - **FR-14**: The app MUST set a proper application name, icon, and metadata (description, copyright) that appear in the OS dock/taskbar, About dialog, and installer.
+
+  ### Notifications (Backward Compatible)
+
+  - **FR-7**: A new `IDesktopNotifier` port interface MUST be created in `packages/core/src/application/ports/`. The existing `DesktopNotifier` class (node-notifier based) MUST implement this interface without any behavioral changes. A new `ElectronDesktopNotifier` adapter MUST be created in `packages/electron/` that uses Electron's native Notification API. The Electron adapter is registered in the DI container ONLY when running inside Electron. When NOT running in Electron, the existing DesktopNotifier remains the default (and remains disabled per current settings). If node-notifier is disabled in user settings, it stays disabled — the Electron adapter provides an independent notification channel.
+  - **FR-7a**: The existing `NotificationService` MUST NOT be modified to add Electron awareness. It continues to call whatever `IDesktopNotifier` implementation the DI container provides. In Electron context, that happens to be the Electron adapter; in CLI context, it remains the node-notifier adapter (disabled or not).
+
+  ### Browser Opener (Backward Compatible)
+
+  - **FR-13**: A new `IBrowserOpener` port interface MUST be created. The existing `BrowserOpenerService` MUST implement this interface without behavioral changes. A new `ElectronBrowserOpener` adapter MUST be created in `packages/electron/` that focuses the existing BrowserWindow instead of launching an external browser. The adapter is registered in the DI container ONLY when running inside Electron. CLI and web contexts continue to use the existing `BrowserOpenerService` unchanged.
+
+  ### IPC & Security
+
+  - **FR-12**: The app MUST expose a preload script that bridges any required IPC between the renderer (web UI) and main process (e.g., native notifications, window controls, version info). All IPC MUST go through contextBridge — no nodeIntegration.
+
+  ### Packaging & Distribution
+
   - **FR-9**: The app MUST rebuild better-sqlite3 against Electron's Node.js ABI during the build process using @electron/rebuild.
   - **FR-10**: The app MUST produce platform-specific installers: .dmg for macOS, NSIS .exe for Windows, and .AppImage for Linux via electron-builder.
   - **FR-11**: The Electron app MUST coexist with the CLI installation — both use the same ~/.shep/ data directory and SQLite database. The app MUST detect if a daemon is already running on the target port and either show an error or connect to the existing server.
-  - **FR-12**: The app MUST expose a preload script that bridges any required IPC between the renderer (web UI) and main process (e.g., native notifications, window controls, version info).
-  - **FR-13**: The browser-opener service MUST be replaced or stubbed in the Electron context so that "open in browser" actions focus the existing BrowserWindow instead of launching an external browser.
-  - **FR-14**: The app MUST set a proper application name, icon, and metadata (description, copyright) that appear in the OS dock/taskbar, About dialog, and installer.
+
+  ### Update Notification
+
+  - **FR-8**: The app MUST check GitHub Releases for newer versions on startup and display an in-app notification with a download link when an update is available.
 
   ## Non-Functional Requirements
+
+  ### Performance
 
   - **NFR-1**: Cold start time (app launch to web UI visible) MUST be under 5 seconds on modern hardware (SSD, 8GB RAM). The Next.js server startup is the bottleneck — a loading splash screen MUST be shown while the server initializes.
   - **NFR-2**: Memory usage of the Electron app at idle (web UI loaded, no active features) MUST stay under 300MB RSS. Electron's baseline (~150MB) plus the Next.js server and SQLite should fit within this budget.
   - **NFR-3**: The Electron package MUST NOT exceed 250MB compressed installer size per platform. This includes Electron runtime (~120MB), Node.js, the web UI bundle, and native addons.
+
+  ### Security
+
   - **NFR-4**: The Electron main process MUST NOT expose Node.js integration to the renderer via `nodeIntegration: true`. All main-process access MUST go through a contextBridge preload script to maintain Electron security best practices.
+
+  ### Architecture & Backward Compatibility
+
   - **NFR-5**: The Electron package MUST be structured as a pnpm workspace package at `packages/electron/` following the existing monorepo conventions, with its own `package.json` and `tsconfig.json`.
-  - **NFR-6**: The CI build for Electron installers MUST run in parallel with existing CI jobs (lint, test, build) and MUST NOT increase the total CI wall-clock time by more than 10 minutes per platform.
+  - **NFR-11**: All Electron-specific code MUST live in `packages/electron/`. No Electron imports, Electron runtime checks, or Electron-conditional logic may be added to `packages/core/` or `src/presentation/web/`. The only changes allowed in core are new port interfaces (e.g., `IDesktopNotifier`, `IBrowserOpener`) that existing implementations adopt without behavioral changes.
+  - **NFR-12**: The existing test suites (unit, integration, e2e) MUST pass without any modifications after this feature is implemented. If a test needs updating, it indicates a backward-compatibility violation.
+  - **NFR-13**: New port interfaces added to core (IDesktopNotifier, IBrowserOpener) MUST be backward compatible — existing concrete classes implement them with zero behavioral changes. Default DI registration MUST remain the existing implementations.
+
+  ### Data & Storage
+
   - **NFR-7**: The Electron app MUST handle SQLite database migrations on startup the same way the CLI does — running pending migrations before the web server starts. Database file locking MUST prevent concurrent write access if both CLI and Electron attempt to write simultaneously.
   - **NFR-8**: The app MUST support the existing `~/.shep/` data directory conventions — settings, database, logs, and feature data MUST be read from and written to the same locations the CLI uses.
   - **NFR-9**: The app window MUST remember its position and size across restarts using electron-store or equivalent persistent state, respecting multi-monitor setups.
+
+  ### CI/CD
+
+  - **NFR-6**: The CI build for Electron installers MUST run in parallel with existing CI jobs (lint, test, build) and MUST NOT increase the total CI wall-clock time by more than 10 minutes per platform.
+
+  ### Offline
+
   - **NFR-10**: The Electron app MUST work without an internet connection for all local functionality (viewing features, browsing history, settings). Network-dependent features (PR sync, update check) MUST degrade gracefully with appropriate UI feedback.
 
   ## Product Questions & AI Recommendations
@@ -200,24 +270,26 @@ content: |
   | # | Question | AI Recommendation | Rationale |
   | - | -------- | ----------------- | --------- |
   | 1 | Which packaging tool? | electron-builder | Mature, native module support, built-in auto-update, YAML config |
-  | 2 | Replace node-notifier? | Yes, use Electron Notification API | node-notifier already disabled; eliminates a native dep rebuild |
+  | 2 | How to handle notifications? | Conditional adapter via DI | Electron Notification API in Electron context; existing node-notifier untouched; full backward compat |
   | 3 | Auto-update scope? | Manual download with update notification | Full auto-update requires paid code signing certificates |
   | 4 | Package structure? | New workspace at packages/electron/ | Follows existing monorepo conventions |
   | 5 | Platform support? | macOS, Windows, and Linux | Developers use all three; electron-builder handles natively |
   | 6 | System tray? | Yes, with background mode | Watchers need to run continuously like the daemon model |
   | 7 | Code signing? | Skip for initial release | $500+/yr cost; early adopters can bypass OS warnings |
   | 8 | CLI coexistence? | Coexist independently | Separate distribution channels sharing same data directory |
+  | 9 | How to wire Electron adapters? | Conditional DI registration | Detect Electron at bootstrap, override adapters; zero changes to existing container |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | New: `packages/electron/` | High | New Electron main process, preload scripts, build config, and electron-builder YAML |
-  | `packages/core/src/infrastructure/services/web-server.service.ts` | Medium | Path resolution needs an Electron-aware branch for packaged app resources |
-  | `packages/core/src/infrastructure/services/browser-opener.service.ts` | Medium | Must be stubbed or replaced in Electron context to focus BrowserWindow |
-  | `packages/core/src/infrastructure/services/notifications/desktop-notifier.ts` | Medium | Electron build uses Electron Notification API instead of node-notifier |
-  | `packages/core/src/infrastructure/di/container.ts` | Low | DI initialization reused from Electron main process, no changes expected |
-  | `packages/core/src/infrastructure/persistence/sqlite/` | Medium | better-sqlite3 native addon must be rebuilt for Electron's Node.js ABI |
+  | New: `packages/electron/` | High | New Electron main process, preload scripts, build config, electron-builder YAML, Electron-specific adapters (ElectronDesktopNotifier, ElectronBrowserOpener) |
+  | New: `packages/core/src/application/ports/i-desktop-notifier.ts` | Low | New port interface — existing DesktopNotifier implements it with zero behavioral changes |
+  | New: `packages/core/src/application/ports/i-browser-opener.ts` | Low | New port interface — existing BrowserOpenerService implements it with zero behavioral changes |
+  | `packages/core/src/infrastructure/services/notifications/desktop-notifier.ts` | Low | Adds `implements IDesktopNotifier` — no logic changes, no behavioral changes |
+  | `packages/core/src/infrastructure/services/browser-opener.service.ts` | Low | Adds `implements IBrowserOpener` — no logic changes, no behavioral changes. May need to become DI-injectable (register in container) |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register default IDesktopNotifier and IBrowserOpener bindings. Add optional override mechanism for Electron context. No changes to existing registrations. |
+  | `packages/core/src/infrastructure/persistence/sqlite/` | Medium | better-sqlite3 native addon must be rebuilt for Electron's Node.js ABI (build-time only, no code changes) |
   | `src/presentation/web/next.config.ts` | Low | May need `output: 'standalone'` for optimized Electron bundling |
   | `pnpm-workspace.yaml` | Low | Add `packages/electron` to workspace members |
   | `.github/workflows/ci.yml` | Medium | New job for building Electron installers on macOS, Windows, and Linux runners |
@@ -226,16 +298,19 @@ content: |
 
   ## Dependencies
 
-  **Existing code dependencies:**
+  **Existing code dependencies (consumed, NOT modified):**
   - `initializeContainer()` from `@shepai/core` — bootstraps the entire backend DI container
   - `WebServerService` — manages the Next.js server lifecycle (start/stop)
   - `InitializeSettingsUseCase` — settings initialization on first run
-  - `resolveWebDir()` — resolves the Next.js web directory (needs Electron-aware path)
+  - `resolveWebDir()` — resolves the Next.js web directory (Electron provides its own wrapper for packaged paths)
   - Notification bus (globalThis singleton) — EventEmitter for notification events
+  - `NotificationService` — dispatches notifications to configured channels (unchanged)
+  - `DesktopNotifier` — node-notifier wrapper (unchanged, gains interface only)
+  - `BrowserOpenerService` — platform-specific browser launch (unchanged, gains interface only)
   - Notification, PR-sync, and auto-archive watcher services — background tasks
   - SQLite migration runner — must execute before web server starts
 
-  **New external dependencies:**
+  **New external dependencies (packages/electron/ ONLY):**
   - `electron` (~33.x) — the Electron framework
   - `electron-builder` (~25.x) — packaging and distribution
   - `@electron/rebuild` — rebuilding native addons for Electron's Node.js version
@@ -243,7 +318,7 @@ content: |
 
   **Native addon concerns:**
   - `better-sqlite3` must be compiled against Electron's Node.js headers via @electron/rebuild
-  - `node-notifier` is NOT needed in Electron build (replaced by Electron Notification API)
+  - `node-notifier` is NOT removed, NOT modified, NOT rebuilt for Electron — it stays as-is
   - Platform-specific builds: macOS (.dmg), Windows (.exe NSIS), Linux (.AppImage)
 
   ## Size Estimate
@@ -256,10 +331,17 @@ content: |
   5. CI pipeline additions for building and publishing platform-specific installers
   6. System tray implementation with background mode across three platforms
   7. Update notification system (GitHub Releases version check)
-  8. Replacing browser-opener with Electron-native window management
-  9. Preload script and IPC bridge for secure renderer-main communication
-  10. Window state persistence and splash screen during server startup
+  8. New port interfaces (IDesktopNotifier, IBrowserOpener) with Electron adapters
+  9. Conditional DI registration mechanism for Electron-specific adapters
+  10. Preload script and IPC bridge for secure renderer-main communication
+  11. Window state persistence and splash screen during server startup
+  12. Backward compatibility verification — all existing tests must pass unchanged
 
   ---
 
   _Requirements defined — proceed with research_
+rejectionFeedback:
+  - iteration: 1
+    message: "We should be fully backward compatible, example: Electron Notifcation Api should be used when working from electron. (if node notifier is disabled just ignore)"
+    phase: "requirements"
+    timestamp: "2026-04-05T21:02:21.889Z"
