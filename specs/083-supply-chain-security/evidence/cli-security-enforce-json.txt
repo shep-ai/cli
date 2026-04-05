@@ -9,7 +9,7 @@
   "policy": {
     "mode": "Advisory",
     "source": "settings-default",
-    "evaluatedAt": "2026-04-05T16:56:40.173Z",
+    "evaluatedAt": "2026-04-05T18:03:45.766Z",
     "actionDispositions": [
       {
         "category": "DependencyInstall",
@@ -136,4 +136,3 @@
   ],
   "totalFindings": 8
 }
-Exit code: 

@@ -1,32 +1,10 @@
 
 [1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-supply-chain-security[39m
 
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mclassifyNodeAction[2m > [22mshould return null for read-only nodes (requirements, research, plan, analyze)[32m 1[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mclassifyNodeAction[2m > [22mshould classify implement as PackageScriptExec[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mclassifyNodeAction[2m > [22mshould classify fast-implement as PackageScriptExec[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mclassifyNodeAction[2m > [22mshould classify merge as CiWorkflowModify[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mclassifyNodeAction[2m > [22mshould classify ci-fix as CiWorkflowModify[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mclassifyNodeAction[2m > [22mshould classify evidence as PackageScriptExec[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mclassifyNodeAction[2m > [22mshould return null for unknown node names[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mcheckSecurityDisposition[2m > [22mshould return "skip" when securityMode is Disabled[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mcheckSecurityDisposition[2m > [22mshould return "skip" for read-only nodes regardless of mode[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mcheckSecurityDisposition[2m > [22mshould return "allow" when disposition is Allowed[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mcheckSecurityDisposition[2m > [22mshould return "deny" when disposition is Denied in Enforce mode[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mcheckSecurityDisposition[2m > [22mshould return "warn" when disposition is Denied in Advisory mode[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mcheckSecurityDisposition[2m > [22mshould return "approval_required" when disposition is ApprovalRequired in Enforce mode[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mcheckSecurityDisposition[2m > [22mshould return "warn" when disposition is ApprovalRequired in Advisory mode[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mcheckSecurityDisposition[2m > [22mshould return "allow" when no disposition is set for the category[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts[2m > [22mcheckSecurityDisposition[2m > [22mshould handle ci-fix node mapping to CiWorkflowModify[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/executors/security-constraint-validator.test.ts[2m > [22mvalidateSecurityConstraints[2m > [22mreturns undefined when no constraints are provided[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/executors/security-constraint-validator.test.ts[2m > [22mvalidateSecurityConstraints[2m > [22mreturns undefined when mode is Disabled[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/executors/security-constraint-validator.test.ts[2m > [22mvalidateSecurityConstraints[2m > [22mreturns undefined when sandbox level is permissive (no conflict)[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/executors/security-constraint-validator.test.ts[2m > [22mvalidateSecurityConstraints[2m > [22mreturns undefined when executor supports strict sandbox[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/executors/security-constraint-validator.test.ts[2m > [22mvalidateSecurityConstraints[2m > [22mthrows SecurityViolationError in Enforce mode with incompatible sandbox[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/executors/security-constraint-validator.test.ts[2m > [22mvalidateSecurityConstraints[2m > [22mreturns warning string in Advisory mode with incompatible sandbox[32m 0[2mms[22m[39m
- [32m✓[39m tests/unit/infrastructure/services/agents/executors/security-constraint-validator.test.ts[2m > [22mvalidateSecurityConstraints[2m > [22mdoes not throw in Advisory mode with incompatible sandbox[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 2[2mms[22m[39m
 
-[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
-[2m      Tests [22m [1m[32m23 passed[39m[22m[90m (23)[39m
-[2m   Start at [22m 20:57:24
-[2m   Duration [22m 109ms[2m (transform 62ms, setup 45ms, import 47ms, tests 4ms, environment 0ms)[22m
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+[2m   Start at [22m 21:02:57
+[2m   Duration [22m 92ms[2m (transform 30ms, setup 21ms, import 19ms, tests 2ms, environment 0ms)[22m
 
