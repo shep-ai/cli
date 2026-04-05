@@ -1,10 +1,10 @@
-       [33m[2m✓[22m[39m shows empty state message when no repos match search [33m 348[2mms[22m[39m
-       [33m[2m✓[22m[39m shows check icon for selected repository [33m 371[2mms[22m[39m
-       [33m[2m✓[22m[39m clicking "Add new repository..." opens folder picker and adds repo [33m 491[2mms[22m[39m
-       [33m[2m✓[22m[39m can submit feature after adding new repo via combobox [33m 389[2mms[22m[39m
+Full Unit Test Suite Summary
+============================
 
-[2m Test Files [22m [1m[32m378 passed[39m[22m[90m (378)[39m
-[2m      Tests [22m [1m[32m5340 passed[39m[22m[90m (5340)[39m
-[2m   Start at [22m 16:39:49
-[2m   Duration [22m 32.69s[2m (transform 12.57s, setup 40.91s, import 50.05s, tests 88.94s, environment 65.72s)[22m
+ Test Files  378 passed (378)
+      Tests  5340 passed (5340)
+   Start at  16:47:00
+   Duration  35.10s (transform 13.19s, setup 44.32s, import 54.67s, tests 91.14s, environment 74.70s)
 
+All 5340 unit tests across 378 test files pass with zero failures.
+No regressions from pre-download upgrade implementation.
