@@ -1,3 +1,10 @@
+# [1.171.0](https://github.com/shep-ai/shep/compare/v1.170.0...v1.171.0) (2026-04-05)
+
+
+### Features
+
+* **cli:** pre-download upgrade package before stopping daemon ([#524](https://github.com/shep-ai/shep/issues/524)) ([4124dfb](https://github.com/shep-ai/shep/commit/4124dfbef0e445aa3269dfaa30a7c99a260f5813))
+
 # [1.170.0](https://github.com/shep-ai/shep/compare/v1.169.1...v1.170.0) (2026-04-05)
 
 
