@@ -61,6 +61,9 @@ function createMockGitPrService(): IGitPrService {
     getFailureLogs: vi.fn(),
     syncMain: vi.fn(),
     rebaseOnMain: vi.fn(),
+    stash: vi.fn().mockResolvedValue(false),
+    stashPop: vi.fn().mockResolvedValue(undefined),
+    stashDrop: vi.fn().mockResolvedValue(undefined),
   } as unknown as IGitPrService;
 }
 
@@ -239,5 +242,52 @@ describe('ConflictResolutionService', () => {
       expect.any(String),
       expect.objectContaining({ cwd: '/my/worktree' })
     );
+  });
+
+  describe('resolveStashPop', () => {
+    it('should resolve stash pop conflicts — invokes agent, validates, stages', async () => {
+      vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue(['src/index.ts']);
+
+      mockedReadFileSync
+        // Read for prompt
+        .mockReturnValueOnce('<<<<<<< HEAD\nbase\n=======\nstashed\n>>>>>>> stash' as never)
+        // Validation — clean
+        .mockReturnValueOnce('merged content' as never);
+
+      await service.resolveStashPop('/repo', 'feat/x', 'main');
+
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+      // Prompt should mention stash pop context
+      expect(mockExecutor.execute).toHaveBeenCalledWith(
+        expect.stringContaining('stash pop'),
+        expect.objectContaining({ cwd: '/repo' })
+      );
+      expect(mockGitPrService.stageFiles).toHaveBeenCalledWith('/repo', ['src/index.ts']);
+    });
+
+    it('should throw clear error after 3 failed stash pop resolution attempts', async () => {
+      vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue(['src/index.ts']);
+
+      // All reads return file with conflict markers
+      mockedReadFileSync.mockReturnValue(
+        '<<<<<<< HEAD\nbase\n=======\nstashed\n>>>>>>> stash' as never
+      );
+
+      const error = await service.resolveStashPop('/repo', 'feat/x', 'main').catch((e) => e);
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toContain('git stash pop');
+      expect(error.message).toContain('3 attempts');
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(3);
+    });
+
+    it('should return immediately when no conflicted files from stash pop', async () => {
+      vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue([]);
+
+      await service.resolveStashPop('/repo', 'feat/x', 'main');
+
+      expect(mockExecutor.execute).not.toHaveBeenCalled();
+      expect(mockGitPrService.stageFiles).not.toHaveBeenCalled();
+    });
   });
 });

@@ -438,6 +438,25 @@ describe('GitPrService — Rebase & Sync', () => {
   });
 
   // -----------------------------------------------------------------------
+  // stashDrop
+  // -----------------------------------------------------------------------
+  describe('stashDrop', () => {
+    it('should call git stash drop', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({ stdout: '', stderr: '' });
+
+      await service.stashDrop('/repo');
+
+      expect(mockExec).toHaveBeenCalledWith('git', ['stash', 'drop'], { cwd: '/repo' });
+    });
+
+    it('should throw GitPrError on failure', async () => {
+      vi.mocked(mockExec).mockRejectedValueOnce(new Error('No stash entries found'));
+
+      await expect(service.stashDrop('/repo')).rejects.toThrow(GitPrError);
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // parseGitError extensions (regression + new patterns)
   // -----------------------------------------------------------------------
   describe('parseGitError — rebase/sync error classification', () => {

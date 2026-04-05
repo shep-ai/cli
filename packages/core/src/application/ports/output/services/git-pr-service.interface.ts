@@ -472,6 +472,15 @@ export interface IGitPrService {
   stashPop(cwd: string): Promise<void>;
 
   /**
+   * Drop the most recent stash entry without applying it.
+   * Runs `git stash drop`.
+   *
+   * @param cwd - Working directory path
+   * @throws GitPrError with GIT_ERROR code on failure (e.g., no stash entries)
+   */
+  stashDrop(cwd: string): Promise<void>;
+
+  /**
    * Get the sync status (ahead/behind counts) between a feature branch
    * and a base branch's remote-tracking ref.
    *

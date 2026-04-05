@@ -57,6 +57,7 @@ function createMockGitPrService(): IGitPrService {
     rebaseAbort: vi.fn(),
     stash: vi.fn().mockResolvedValue(false),
     stashPop: vi.fn().mockResolvedValue(undefined),
+    stashDrop: vi.fn().mockResolvedValue(undefined),
   } as unknown as IGitPrService;
 }
 
