@@ -6,6 +6,7 @@
  * Uses `gh` CLI for all GitHub API interactions.
  */
 
+import { basename } from 'node:path';
 import { injectable, inject } from 'tsyringe';
 import type { IGitForkService } from '../../../application/ports/output/services/git-fork-service.interface.js';
 import type { UpstreamPrResult } from '../../../application/ports/output/services/git-fork-service.interface.js';
@@ -55,10 +56,54 @@ export class GitForkService implements IGitForkService {
           err instanceof Error ? err : undefined
         );
       }
+
+      // Fallback: when fork fails because there are no remotes (e.g. freshly-init'd repo),
+      // create a new GitHub repository instead.
+      if (message.includes('unable to determine base repository')) {
+        await this.createRepositoryFallback(cwd);
+        return;
+      }
+
       throw new GitForkError(
         `Failed to fork repository: ${message}`,
         GitForkErrorCode.FORK_FAILED,
         err instanceof Error ? err : undefined
+      );
+    }
+  }
+
+  /**
+   * Fallback when gh repo fork fails due to missing remotes.
+   * Creates a new private GitHub repository and sets it as origin.
+   */
+  private async createRepositoryFallback(cwd: string): Promise<void> {
+    const { stdout: ghUser } = await this.execFile('gh', ['api', 'user', '--jq', '.login'], {
+      cwd,
+    });
+    const username = ghUser.trim();
+    const repoName = basename(cwd);
+
+    try {
+      await this.execFile(
+        'gh',
+        [
+          'repo',
+          'create',
+          `${username}/${repoName}`,
+          '--source',
+          '.',
+          '--remote',
+          'origin',
+          '--private',
+        ],
+        { cwd }
+      );
+    } catch (createErr) {
+      const createMessage = createErr instanceof Error ? createErr.message : String(createErr);
+      throw new GitForkError(
+        `Failed to create repository: ${createMessage}`,
+        GitForkErrorCode.FORK_FAILED,
+        createErr instanceof Error ? createErr : undefined
       );
     }
   }

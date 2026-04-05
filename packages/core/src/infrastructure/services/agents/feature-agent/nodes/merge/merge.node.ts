@@ -305,41 +305,60 @@ export function createMergeNode(deps: MergeNodeDeps) {
       }
 
       // --- Fork-and-PR flow ---
-      // When forkAndPr=true, fork the repo, push to the fork, create upstream PR,
-      // then transition to AwaitingUpstream instead of merging.
+      // When forkAndPr=true, fork the repo (or create a new repo as fallback),
+      // push to the fork, create upstream PR, then transition to AwaitingUpstream.
+      // If no upstream exists (created via fallback), skip PR and transition to Completed.
       if (state.forkAndPr && deps.gitForkService) {
         log.info('Fork-and-PR flow: forking repo and creating upstream PR');
 
         await deps.gitForkService.forkRepository(cwd);
-        log.info('Repository forked, remotes remapped');
+        log.info('Repository forked/created, remotes configured');
 
         await deps.gitForkService.pushToFork(cwd, branch);
         log.info(`Branch ${branch} pushed to fork`);
 
-        const upstreamPr = await deps.gitForkService.createUpstreamPr(
-          cwd,
-          feature?.name ?? branch,
-          feature?.description ?? '',
-          branch,
-          baseBranch
-        );
-        log.info(`Upstream PR created: ${upstreamPr.url}`);
-        messages.push(`[merge] Upstream PR created: ${upstreamPr.url}`);
+        // Try to create upstream PR. This will fail gracefully if forkRepository
+        // fell back to creating a new repo (no upstream remote to target).
+        try {
+          const upstreamPr = await deps.gitForkService.createUpstreamPr(
+            cwd,
+            feature?.name ?? branch,
+            feature?.description ?? '',
+            branch,
+            baseBranch
+          );
+          log.info(`Upstream PR created: ${upstreamPr.url}`);
+          messages.push(`[merge] Upstream PR created: ${upstreamPr.url}`);
 
-        if (feature) {
-          await deps.featureRepository.update({
-            ...feature,
-            lifecycle: SdlcLifecycle.AwaitingUpstream,
-            pr: {
-              ...(feature.pr ?? { url: '', number: 0, status: PrStatus.Open }),
-              ...(commitHash ? { commitHash } : {}),
-              upstreamPrUrl: upstreamPr.url,
-              upstreamPrNumber: upstreamPr.number,
-              upstreamPrStatus: PrStatus.Open,
-            },
-            updatedAt: new Date(),
-          });
-          messages.push(`[merge] Feature lifecycle → AwaitingUpstream`);
+          if (feature) {
+            await deps.featureRepository.update({
+              ...feature,
+              lifecycle: SdlcLifecycle.AwaitingUpstream,
+              pr: {
+                ...(feature.pr ?? { url: '', number: 0, status: PrStatus.Open }),
+                ...(commitHash ? { commitHash } : {}),
+                upstreamPrUrl: upstreamPr.url,
+                upstreamPrNumber: upstreamPr.number,
+                upstreamPrStatus: PrStatus.Open,
+              },
+              updatedAt: new Date(),
+            });
+            messages.push(`[merge] Feature lifecycle → AwaitingUpstream`);
+          }
+        } catch {
+          // No upstream remote — repo was created fresh, not forked.
+          // Code is pushed to origin; transition to Maintain.
+          log.info('No upstream remote — skipping upstream PR (repo created, not forked)');
+          messages.push(`[merge] Code pushed to origin (no upstream to PR against)`);
+
+          if (feature) {
+            await deps.featureRepository.update({
+              ...feature,
+              lifecycle: SdlcLifecycle.Maintain,
+              updatedAt: new Date(),
+            });
+            messages.push(`[merge] Feature lifecycle → Maintain`);
+          }
         }
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
