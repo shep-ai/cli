@@ -64,6 +64,8 @@ export interface UseGraphStateReturn {
   endMutation: (cooldownMs?: number) => void;
   /** Whether a mutation is currently in-flight (for polling skip logic). */
   isMutating: () => boolean;
+  /** Update a feature's parentNodeId (re-parent for dependency edges). */
+  updateFeatureParentNode: (featureNodeId: string, parentNodeId: string | undefined) => void;
 }
 
 /** Parse initialNodes + initialEdges into domain Maps. */
@@ -559,6 +561,20 @@ export function useGraphState(
 
   const isMutating = useCallback(() => mutationCountRef.current > 0, []);
 
+  const updateFeatureParentNode = useCallback(
+    (featureNodeId: string, parentNodeId: string | undefined) => {
+      setFeatureMap((prev) => {
+        const entry = prev.get(featureNodeId);
+        if (!entry) return prev;
+        if (entry.parentNodeId === parentNodeId) return prev;
+        const next = new Map(prev);
+        next.set(featureNodeId, { ...entry, parentNodeId });
+        return next;
+      });
+    },
+    []
+  );
+
   // Cleanup cooldown timers on unmount
   useEffect(() => {
     const timers = mutationTimersRef.current;
@@ -587,5 +603,6 @@ export function useGraphState(
     beginMutation,
     endMutation,
     isMutating,
+    updateFeatureParentNode,
   };
 }

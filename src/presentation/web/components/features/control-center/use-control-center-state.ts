@@ -21,6 +21,7 @@ import { unarchiveFeature } from '@/app/actions/unarchive-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { getFeatureMetadata } from '@/app/actions/get-feature-metadata';
+import { updateFeatureParent } from '@/app/actions/update-feature-parent';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { createLogger } from '@/lib/logger';
@@ -110,6 +111,7 @@ export function useControlCenterState(
     beginMutation,
     endMutation,
     isMutating,
+    updateFeatureParentNode,
   } = useGraphState(initialNodes, initialEdges, showArchived);
 
   // Refs for stable access to latest nodes/edges without callback recreation
@@ -308,9 +310,47 @@ export function useControlCenterState(
     // Intentional no-op: domain Maps are the source of truth.
   }, []);
 
-  const handleConnect = useCallback((_connection: Connection) => {
-    // Connections are managed via domain operations, not direct edge manipulation.
-  }, []);
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      // A connection from source (parent) → target (child) sets a dependency.
+      // Both must be feature nodes (prefixed with "feat-").
+      const { source, target } = connection;
+      if (!source || !target) return;
+      if (!source.startsWith('feat-') || !target.startsWith('feat-')) return;
+
+      // Prevent self-connection
+      if (source === target) return;
+
+      // Extract feature IDs from node IDs ("feat-<uuid>" → "<uuid>")
+      const parentFeatureId = source.slice(5);
+      const childFeatureId = target.slice(5);
+
+      // Optimistic update: move the child under the parent in the graph
+      const prevParentNodeId = nodesRef.current.find((n) => n.id === target)
+        ? edgesRef.current.find((e) => e.target === target && e.type === 'dependencyEdge')?.source
+        : undefined;
+
+      beginMutation();
+      updateFeatureParentNode(target, source);
+
+      updateFeatureParent(childFeatureId, parentFeatureId)
+        .then((result) => {
+          if (!result.success) {
+            // Rollback
+            updateFeatureParentNode(target, prevParentNodeId);
+            toast.error(result.error ?? 'Failed to set dependency');
+          } else {
+            toast.success('Dependency created');
+          }
+        })
+        .catch(() => {
+          updateFeatureParentNode(target, prevParentNodeId);
+          toast.error('Failed to set dependency');
+        })
+        .finally(() => endMutation());
+    },
+    [updateFeatureParentNode, beginMutation, endMutation]
+  );
 
   const createFeatureNode = useCallback(
     (

@@ -139,8 +139,8 @@ export function FeatureNode({
         <Handle
           type="target"
           position={targetHandlePos}
-          isConnectable={false}
-          className="opacity-0!"
+          isConnectable={true}
+          className="!border-primary/50 !bg-background hover:!border-primary hover:!bg-primary/20 !h-3 !w-3 !border-2 transition-colors"
           style={{ top: 70 }}
         />
       ) : null}
@@ -727,8 +727,8 @@ export function FeatureNode({
         <Handle
           type="source"
           position={sourceHandlePos}
-          isConnectable={false}
-          className="opacity-0!"
+          isConnectable={true}
+          className="!border-primary/50 !bg-background hover:!border-primary hover:!bg-primary/20 !h-3 !w-3 !border-2 transition-colors"
           style={{ top: 70 }}
         />
       ) : null}

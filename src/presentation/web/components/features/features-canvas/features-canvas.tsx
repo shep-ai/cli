@@ -158,7 +158,7 @@ export function FeaturesCanvas({
         onMoveEnd={onMoveEnd}
         defaultViewport={defaultViewport ?? FALLBACK_VIEWPORT}
         nodesDraggable={false}
-        nodesConnectable={false}
+        nodesConnectable={true}
         elementsSelectable={false}
         proOptions={{ hideAttribution: true }}
         className="[&_.react-flow__pane]:!cursor-default"
