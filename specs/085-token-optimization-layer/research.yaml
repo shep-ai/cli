@@ -1,0 +1,628 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: token-optimization-layer
+summary: >
+  Technical research for the Token Optimization Layer feature. Evaluated five optimization
+  capabilities (command output filtering, skill routing, delta-context diffing, semantic
+  compression, alias compression) against existing codebase architecture. Key decisions:
+  single interceptor in executeNode() at line 571 between buildPrompt() and executor.execute(),
+  no external libraries needed (all capabilities use TypeScript stdlib), new TypeSpec models
+  for settings and metrics, additive-only DB migration, and module-level context singleton
+  pattern matching phase-timing-context.ts for optimizer state.
+
+relatedFeatures: []
+
+technologies:
+  - "TypeScript"
+  - "LangGraph (state graph annotations and reducers)"
+  - "tsyringe (dependency injection with @injectable/@inject decorators)"
+  - "TypeSpec (domain model generation via tsp/ files)"
+  - "better-sqlite3 (persistence via umzug migrations)"
+  - "Node.js crypto (SHA-256 hashing for delta-context)"
+
+relatedLinks:
+  - title: "Caveman Claude - Token-Cutting Skill (60-75% output savings via rule-based compression)"
+    url: "https://dev.to/onsen/caveman-claude-the-token-cutting-skill-thats-changing-ai-workflows-4hmc"
+  - title: "RTK - CLI proxy reducing LLM token consumption (80% avg session savings)"
+    url: "https://github.com/rtk-ai/rtk"
+  - title: "SkillReducer - Optimizing LLM Agent Skills for Token Efficiency (75% per-task reduction)"
+    url: "https://arxiv.org/abs/2603.29919"
+  - title: "Lossless Token Sequence Compression via Meta-Tokens (15-27% lossless reduction)"
+    url: "https://arxiv.org/abs/2506.00307"
+  - title: "Dynamic Toolsets - Reducing MCP token usage by 100x (Speakeasy)"
+    url: "https://www.speakeasy.com/blog/how-we-reduced-token-usage-by-100x-dynamic-toolsets-v2"
+  - title: "LLM Token Optimization Best Practices 2026 (Redis)"
+    url: "https://redis.io/blog/llm-token-optimization-speed-up-apps/"
+
+decisions:
+  - title: "Optimization Layer Insertion Point"
+    chosen: "Single interceptor in executeNode() between buildPrompt() and executor.execute() (node-helpers.ts line 571-584)"
+    rejected:
+      - "Per-prompt-builder integration — would require modifying all 13 prompt builder files (analyze, requirements, research, plan, implement, fast-implement, merge, evidence, repair, validate), increases coupling, and each builder would need to import optimization dependencies"
+      - "Executor decorator/proxy pattern — StreamingExecutorProxy already wraps the executor; adding another layer would obscure the optimization boundary, make debugging harder, and prevent access to phase context (nodeName, state) needed for intelligent optimization"
+      - "LangGraph middleware/interceptor — LangGraph does not expose a native pre-execution hook; faking one via a synthetic graph node would add graph complexity and serialization overhead"
+    rationale: |
+      The executeNode() helper is the single choke point between prompt assembly and LLM invocation
+      for all simple nodes (analyze, requirements, research, plan, merge). Line 571 assembles the
+      prompt via `resumePrefix + buildPrompt(state, log)` and line 584 sends it via
+      `executor.execute(prompt, options)`. Inserting the optimizer between these two lines:
+      (1) centralizes optimization in one place, (2) requires no changes to any of the 13 prompt
+      builder files, (3) has full access to state context for intelligent decisions, and
+      (4) can be bypassed per-node if needed. For the implement node (which does not use
+      executeNode()), the same optimizer is called before retryExecute() in implement.node.ts.
+      This matches the existing pattern where executeNode() already handles phase timing,
+      approval gating, and error recording centrally.
+
+  - title: "Optimizer Service Architecture"
+    chosen: "Composable pipeline of five independent capability services behind a unified IPromptOptimizerService facade"
+    rejected:
+      - "Monolithic optimizer class with all capabilities inline — violates single responsibility, makes individual capabilities untestable, and prevents independent toggling"
+      - "Chain of responsibility pattern — adds unnecessary complexity for a fixed set of five capabilities; ordering is deterministic and known at compile time, not dynamic"
+    rationale: |
+      Each of the five capabilities (output filter, skill router, delta-context, semantic
+      compressor, alias engine) is an independent transformation that can be enabled/disabled
+      via settings. Implementing each as a separate service with its own port interface:
+      (1) allows independent unit testing with mocked dependencies, (2) follows the existing
+      pattern where services like ISkillInjectorService have their own interface, (3) enables
+      per-capability toggle via settings, and (4) keeps each service under 200 lines. The
+      IPromptOptimizerService facade orchestrates the pipeline: output filter -> skill router
+      -> delta-context -> semantic compressor -> alias engine. This ordering ensures that
+      aliasing runs last (after all text changes) and output filtering runs first (removing
+      the most tokens early).
+
+  - title: "Command Output Filtering Strategy"
+    chosen: "Regex-based filter policies with preserve-on-error-keyword safety rule, applied within the prompt string"
+    rejected:
+      - "RTK-style external CLI proxy — RTK intercepts at the tool execution level via PreToolUse hooks, but Shep does not control what tools the agent calls; the agent runs in its own process and Shep only sees the final prompt sent to the executor. RTK's approach is incompatible with Shep's architecture where prompts are assembled server-side."
+      - "LLM-based summarization of command output — adds latency (500ms+ per summarization call), cost (a second LLM invocation per phase), and non-determinism. The spec explicitly chose rule-based compression over LLM-based for Phase 1."
+    rationale: |
+      The command output filtering operates on prompt text that already contains embedded
+      command output (test results, build logs, git diffs). The filter scans the prompt for
+      recognizable output blocks (fenced code blocks after command descriptions, lines matching
+      test runner patterns like PASS/FAIL, build output patterns, git diff headers) and applies
+      policies: remove passing test lines (keep failures), truncate long diffs (keep first/last
+      N lines), collapse repeated blank lines, and summarize passing sections with counts.
+      The safety rule preserves any line containing error-related keywords (error, fail, warn,
+      ENOENT, exception, stack, panic, timeout, denied, undefined, null, NaN, syntax, type error)
+      verbatim. This is deterministic, adds <5ms latency for typical prompts, and requires no
+      external dependencies. RTK achieves 70-90% savings on tool output; our in-prompt filter
+      targets 50%+ since we operate on already-assembled prompts rather than raw tool output.
+
+  - title: "Skill Routing Implementation"
+    chosen: "Phase-aware routing table injected as a directive section in the prompt, using the existing skill injection infrastructure"
+    rejected:
+      - "Filesystem-level skill pruning (remove/symlink skills per phase) — agents read .claude/skills/ independently from disk; Shep cannot control what files the agent scans. Filesystem manipulation creates race conditions with worktree operations and git status."
+      - "Dynamic MCP tool registration per phase — Speakeasy's 100x reduction via dynamic toolsets is compelling but requires MCP server infrastructure that Shep does not have. The agent processes (Claude Code, Cursor) manage their own tool discovery."
+    rationale: |
+      The optimization layer adds a routing directive section to the prompt that lists which
+      skills are relevant for the current phase. This leverages the existing skill injection
+      system (ISkillInjectorService) which copies skills into the worktree at feature creation
+      time. The router does not remove skills from disk — it adds prompt guidance like:
+      "For this [plan] phase, prioritize: architecture-reviewer, tdd-guide,
+      implementation-guide. Other skills are available but less relevant." This is the safest
+      approach because it cannot break skill availability. The routing table is configurable
+      via settings and maps each phase to a relevance-ordered skill list. Expected savings
+      come from agents spending fewer tokens reading irrelevant skills, not from physically
+      removing them. SkillReducer research shows 75% per-task token reduction from skill
+      pruning; our directive-based approach is more conservative but zero-risk.
+
+  - title: "Delta-Context State Storage"
+    chosen: "Hash-based change detection stored in LangGraph state channels via new specFileHashes annotation"
+    rejected:
+      - "SQLite-persisted file snapshots — adds DB write overhead per phase per file, requires a new table and migration for snapshot storage, and the data is only useful within a single agent run (not across runs)"
+      - "In-memory module-level cache (like phase-timing-context.ts pattern) — would work but loses state on process restart; LangGraph state is already serialized and restored on resume, making it the more resilient choice"
+    rationale: |
+      LangGraph state channels are the natural storage for per-run metadata that flows between
+      graph nodes. Adding a `specFileHashes: Record<string, string>` channel (with a last-write
+      reducer) stores SHA-256 hashes of spec file contents. Each node computes current hashes
+      and compares against the state. Unchanged files get replaced with a compact summary:
+      "[file unchanged since {previousPhase} - {lineCount} lines, hash {shortHash}]".
+      This follows the existing pattern where state channels carry per-run data like
+      `ciFixHistory`, `evidence`, and `messages`. The reducer pattern is `{ reducer: (_, next) => next }`
+      (last-write-wins) since only the most recent hashes matter. This approach requires no
+      external storage, survives graph serialization/deserialization for resume, and adds
+      minimal overhead (SHA-256 of a typical spec file takes <1ms).
+
+  - title: "Semantic Text Compression Approach"
+    chosen: "Rule-based deterministic compression with protected-region detection (code blocks, URLs, YAML, quoted strings)"
+    rejected:
+      - "LLM-based summarization — explicitly deferred to Phase 3 per spec; adds latency, cost, and non-determinism that is inappropriate for a transparent optimization layer"
+      - "Template-based deduplication only — limited to boilerplate sections and misses the 25%+ savings available from natural language compression of instructions and constraints"
+    rationale: |
+      Caveman Claude demonstrates 60-75% savings from rule-based text compression on output.
+      Applied to prompt instructions (which are author-controlled natural language, not
+      user-provided content), conservative rules achieve 25%+ savings:
+      (1) Remove articles (a, an, the) outside protected regions,
+      (2) Shorten phrases: "you must" -> "must", "make sure to" -> "ensure",
+         "in order to" -> "to", "as well as" -> "and",
+      (3) Remove filler words: just, simply, basically, actually, really, currently,
+      (4) Collapse whitespace: multiple blank lines -> single blank line,
+      (5) Abbreviate terms: repository -> repo, configuration -> config,
+         implementation -> impl, specification -> spec.
+      Protected regions (code fences, URLs, file paths, YAML blocks, quoted strings) are
+      detected via regex and excluded from compression. The compressor operates on the
+      instruction/constraint sections of the prompt, not on spec file content that the
+      agent needs to read verbatim. This is deterministic, reversible (the original prompt
+      is stored in phase timing), and adds <10ms latency.
+
+  - title: "Alias/Meta-Token Compression Design"
+    chosen: "Session dictionary with $A1..$AN aliases for repeated long strings (3+ occurrences, 20+ chars), prepended as a header"
+    rejected:
+      - "LZ77-inspired meta-token compression (arXiv:2506.00307) — requires model fine-tuning to learn meta-token vocabulary, only achieves 15-27% lossless reduction, and cannot generate meta-tokens in output (distribution shift problem). Too complex for practical deployment."
+      - "Cross-phase persistent dictionary — would require serializing the dictionary in LangGraph state or DB, and stale aliases from previous phases could confuse the agent if context changes. Per-prompt dictionaries are simpler and always consistent."
+    rationale: |
+      The alias engine scans the prompt for strings appearing 3+ times that are 20+ characters
+      long (file paths, enum values, repeated policy phrases). Each qualifying string gets an
+      alias ($A1, $A2, etc.) and a dictionary header is prepended: "## Aliases\n$A1 = \"path\"\n".
+      A net-positive check ensures the dictionary header size is smaller than the total savings.
+      This is inspired by the meta-token paper but uses a much simpler approach: plain text
+      substitution that any LLM can understand without fine-tuning. The aliases are
+      self-documenting (the dictionary is right at the top of the prompt) and apply only within
+      a single prompt (no cross-phase confusion). Expected savings: 20%+ on prompts with
+      repeated paths, which is common in implement phases that reference the same files
+      multiple times.
+
+  - title: "Optimization Metrics Storage"
+    chosen: "New columns on existing phase_timings table via additive-only migration"
+    rejected:
+      - "Separate optimization_metrics table with foreign key to phase_timings — adds join complexity, a new repository interface, and a new mapper; the metrics are 1:1 with phase timing records so a separate table is unnecessary"
+      - "JSON blob column on phase_timings — loses queryability (cannot aggregate savings_percent across features) and makes the schema opaque"
+    rationale: |
+      The phase_timings table already tracks per-phase execution data (tokens, cost, duration).
+      Adding optimization-specific columns follows the established pattern from migrations
+      038-054 which progressively added columns to settings and phase_timings. New columns:
+      original_token_estimate (INTEGER), optimized_token_estimate (INTEGER),
+      savings_percent (REAL), capabilities_applied (TEXT as JSON array),
+      output_filter_lines_removed (INTEGER), delta_context_files_skipped (INTEGER),
+      compression_ratio (REAL), aliases_created (INTEGER). All nullable with no defaults,
+      backward-compatible with existing records. The existing IPhaseTimingRepository.update()
+      method accepts Partial<PhaseTiming> so adding new optional fields requires no interface
+      changes — just extending the PhaseTiming TypeSpec model and regenerating.
+
+  - title: "Settings Model Design"
+    chosen: "New tokenOptimization section on WorkflowConfig with master toggle + per-capability booleans, following the skillInjection pattern"
+    rejected:
+      - "Top-level tokenOptimization on Settings — breaks the existing organization where workflow-related configs live under settings.workflow (alongside ciWatchEnabled, skillInjection, etc.)"
+      - "Feature flags instead of settings — feature flags are for experimental features that may be removed; token optimization is a permanent capability with user-configurable behavior"
+    rationale: |
+      The existing SkillInjectionConfig pattern on WorkflowConfig is the exact model to follow:
+      a nested config object with an `enabled` boolean and capability-specific fields. The new
+      TokenOptimizationConfig will have: enabled (boolean, default true for gradual rollout),
+      outputFiltering (boolean, default true), skillRouting (boolean, default true),
+      deltaContext (boolean, default true), semanticCompression (boolean, default true),
+      aliasCompression (boolean, default true). This maps to DB columns:
+      token_opt_enabled (INTEGER DEFAULT 1), token_opt_output_filtering (INTEGER DEFAULT 1),
+      etc. The settings mapper follows the same pattern as skill_injection_enabled /
+      skill_injection_skills. Factory defaults in createDefaultSettings() set all to true.
+      Per-feature override follows the existing pattern where Feature entity can carry
+      override flags that take precedence over global settings.
+
+  - title: "DI Registration Pattern"
+    chosen: "String token registration for all six new services (IPromptOptimizerService, ICommandOutputFilterService, ISkillRouterService, IDeltaContextService, ISemanticCompressorService, IAliasCompressionService)"
+    rejected:
+      - "Class token only (no string tokens) — would work for infrastructure-internal use but the optimizer is called from node-helpers.ts which resolves dependencies from the container; string tokens are the established pattern for port interfaces"
+      - "Single registration for the facade only — would hide the sub-services from the DI container, preventing direct injection into tests or future consumers that need individual capabilities"
+    rationale: |
+      Following the exact pattern of ISkillInjectorService, IVersionService, IGitPrService, etc.,
+      each new service gets a string token registration in container.ts:
+      container.registerSingleton<IPromptOptimizerService>('IPromptOptimizerService', PromptOptimizerService).
+      The facade (PromptOptimizerService) receives the five capability services via constructor
+      injection: @inject('ICommandOutputFilterService'), @inject('ISkillRouterService'), etc.
+      This enables: (1) individual capability testing by resolving single services, (2) swapping
+      implementations for testing, (3) consistent resolution pattern across the codebase.
+      No web route string aliases are needed since the optimizer is not called from server actions.
+
+  - title: "Token Count Estimation Method"
+    chosen: "Character-based estimation (chars / 4) for pre/post optimization metrics"
+    rejected:
+      - "tiktoken or gpt-tokenizer library — adds a dependency for a feature that only needs approximate counts; exact tokenization varies by model and the optimization layer is agent-agnostic"
+      - "No estimation (rely on post-execution usage metrics only) — misses the pre-optimization baseline needed to calculate savings_percent; the executor reports actual tokens but we need the counterfactual 'what would it have been without optimization'"
+    rationale: |
+      The optimization layer needs to estimate token counts before and after optimization to
+      calculate savings_percent. Since the layer is agent-agnostic (it does not know the
+      downstream model's tokenizer), an approximate estimation is appropriate. The industry
+      standard heuristic of characters/4 provides a reasonable estimate for English text and
+      code. The exact token counts from the executor (inputTokens in AgentExecutionResult.usage)
+      are the source of truth for cost tracking; the estimates are only used for the
+      optimization metrics (savings_percent). This avoids adding any external dependency.
+
+  - title: "Implement Node Integration Strategy"
+    chosen: "Call optimizer before retryExecute() in implement.node.ts for each sub-phase prompt"
+    rejected:
+      - "Only optimize in executeNode(), skip implement node — would miss the highest-token-consuming phases (implement has multi-phase execution with full spec content in each sub-phase prompt)"
+      - "Wrap retryExecute() with optimization — would re-optimize on every retry attempt, potentially causing different prompts across retries which complicates debugging"
+    rationale: |
+      The implement node (implement.node.ts) does not use executeNode() — it manually builds
+      prompts via buildImplementPhasePrompt() and calls retryExecute() directly. Each sub-phase
+      prompt includes full spec.yaml, research.yaml, and plan.yaml content, making it the
+      highest-value optimization target. The optimizer is called once before retryExecute()
+      so that all retry attempts use the same optimized prompt. This matches the pattern where
+      the prompt is built once and reused: `const prompt = buildImplementPhasePrompt(...)` then
+      `const optimizedPrompt = await optimizer.optimize(prompt, context)` then
+      `await retryExecute(executor, optimizedPrompt, options)`. The optimizer receives the
+      sub-phase context (phase.id, phaseIndex) for intelligent delta-context decisions.
+
+openQuestions:
+  - question: "Should the optimizer be injected into executeNode() via function parameter or resolved from a module-level context?"
+    resolved: true
+    options:
+      - option: "Module-level context singleton (like phase-timing-context.ts)"
+        description: "Set the optimizer instance via setOptimizerContext() during worker initialization, then read it in executeNode() via getOptimizerContext(). Follows the exact same pattern as setPhaseTimingContext(). No signature changes to executeNode() or any node creation functions."
+        selected: true
+      - option: "Function parameter on executeNode()"
+        description: "Add optimizer as a parameter to executeNode() signature. Requires updating all 8+ call sites (createAnalyzeNode, createRequirementsNode, etc.) and the node creation factories in graph-builder.ts."
+        selected: false
+      - option: "Graph state channel carrying the optimizer instance"
+        description: "Store the optimizer in LangGraph state so nodes can access it. But state channels should carry serializable data, not service instances. This violates LangGraph conventions."
+        selected: false
+    selectionRationale: |
+      The module-level context singleton pattern is already established by phase-timing-context.ts
+      (setPhaseTimingContext/clearPhaseTimingContext). The optimizer follows the same pattern:
+      setOptimizerContext(optimizer) called during worker bootstrap, getOptimizerContext() called
+      in executeNode(). This requires zero changes to node creation signatures, graph builder,
+      or any existing call sites. The optimizer is set once per agent run and cleared on
+      completion. If the context is not set (null), executeNode() skips optimization (graceful
+      degradation). This is the lowest-risk integration approach.
+
+  - question: "How should the optimizer handle the resume prefix (buildResumeContext output)?"
+    resolved: true
+    options:
+      - option: "Exclude resume prefix from optimization entirely"
+        description: "The resume prefix contains critical context about why the agent is resuming (error, approval, timeout). Compressing or aliasing this text risks the agent misunderstanding the resume context. Pass only the buildPrompt() output through the optimizer, then prepend the unmodified resume prefix."
+        selected: true
+      - option: "Optimize the entire prompt including resume prefix"
+        description: "Treat the resume prefix as part of the prompt and optimize it. Simpler code (one optimize call) but risks degrading the critical resume context information."
+        selected: false
+      - option: "Optimize resume prefix with a different (conservative) profile"
+        description: "Apply only safe optimizations (whitespace collapse) to the resume prefix while fully optimizing the main prompt. Adds complexity for minimal gain since resume prefixes are typically short (under 500 chars)."
+        selected: false
+    selectionRationale: |
+      The spec explicitly states: "The resume prefix itself MUST NOT be compressed." The cleanest
+      implementation splits the optimization: `const optimizedBody = await optimizer.optimize(
+      buildPrompt(state, log), context)` then `const prompt = resumePrefix + optimizedBody`.
+      This ensures the resume prefix (which is short and critical) is never touched by any
+      optimization capability. The resume prefix is typically under 500 chars, so skipping it
+      has negligible impact on total savings.
+
+  - question: "Should delta-context hash comparison use the full file content or a normalized version?"
+    resolved: true
+    options:
+      - option: "Hash full raw file content (byte-for-byte comparison)"
+        description: "SHA-256 of the exact file bytes read from disk. Simple, deterministic, catches any change including whitespace and formatting. May trigger false 'changed' for formatting-only edits."
+        selected: true
+      - option: "Hash normalized content (stripped whitespace, sorted keys)"
+        description: "Normalize YAML before hashing: sort keys, strip comments, normalize whitespace. Catches only semantic changes. More complex, requires YAML parsing, and may miss intentional formatting changes."
+        selected: false
+      - option: "Hash a structural digest (parse YAML, serialize canonical form)"
+        description: "Parse YAML to object, JSON.stringify with sorted keys, hash the canonical form. Most robust against formatting noise but adds YAML parsing overhead and risks masking structural changes."
+        selected: false
+    selectionRationale: |
+      Raw byte hashing is the simplest and most correct approach. The spec files are written
+      by the agent and read back by the next phase. If any byte changed, the next phase should
+      see the updated content. Formatting-only changes are rare (the agent writes structured
+      YAML) and even if they trigger a false positive (file marked as 'changed'), the cost is
+      including the full file — which is the safe default. YAML parsing adds complexity and
+      can fail on malformed files. SHA-256 of a 10KB file takes <0.1ms, well within the 50ms
+      latency budget.
+
+  - question: "How should the skill routing table be structured for extensibility?"
+    resolved: true
+    options:
+      - option: "Static mapping object in the SkillRouterService with settings override"
+        description: "A hardcoded Record<PhaseType, string[]> defining default skill relevance per phase, overridable via a settings field (tokenOptimization.skillRoutingOverrides). Simple, fast, easily testable."
+        selected: true
+      - option: "Database-backed routing table"
+        description: "Store phase-to-skill mappings in SQLite. Supports runtime updates without code changes. But adds DB reads per phase and a new table/migration for data that rarely changes."
+        selected: false
+      - option: "Skill metadata annotations (skills declare their own relevance)"
+        description: "Each skill SKILL.md includes a 'phases: [plan, implement]' metadata field. The router reads skill metadata at runtime. Self-documenting but requires updating all skill definitions and parsing SKILL.md files."
+        selected: false
+    selectionRationale: |
+      A static mapping with settings override provides the right balance. The default mapping
+      is known at development time (architecture-reviewer is relevant for analyze/plan,
+      tdd-guide for implement, etc.) and rarely changes. Storing it in code means zero DB
+      overhead and instant access. The settings override field allows users to customize
+      routing without code changes, following the pattern where skillInjection.skills is
+      configurable. This is extensible: adding a new phase or skill just requires updating
+      the static mapping. Database-backed routing is over-engineering for a configuration
+      that changes at deployment cadence, not runtime cadence.
+
+  - question: "What is the pipeline ordering for the five optimization capabilities?"
+    resolved: true
+    options:
+      - option: "Output filter -> Skill router -> Delta-context -> Semantic compressor -> Alias engine"
+        description: "Output filter runs first to remove the most tokens early (reducing work for downstream stages). Skill router adds the routing directive. Delta-context replaces unchanged files. Semantic compressor compresses remaining natural language. Alias engine runs last to find repeated strings in the final text."
+        selected: true
+      - option: "Delta-context -> Output filter -> Semantic compressor -> Skill router -> Alias engine"
+        description: "Delta-context first to reduce file content, then filter output, then compress. But delta-context needs to run after output filtering because raw output within prompts could contain file references."
+        selected: false
+      - option: "Parallel execution of all five capabilities on separate prompt sections"
+        description: "Split the prompt into sections (instructions, file content, output), run capabilities in parallel on their respective sections, then reassemble. Higher complexity, potential section boundary errors, and alias engine needs the final assembled text."
+        selected: false
+    selectionRationale: |
+      Sequential pipeline with output filter first and alias engine last is optimal because:
+      (1) Output filter removes the most raw text (test/build output), reducing the input
+      for all downstream stages. (2) Skill router adds a small directive section (net addition,
+      not reduction). (3) Delta-context replaces unchanged files with summaries, reducing
+      repetitive content. (4) Semantic compressor operates on the remaining natural language
+      sections. (5) Alias engine runs last because it needs the final text to find repeated
+      strings — if it ran earlier, subsequent stages might modify the aliased text.
+      The pipeline is synchronous within a single optimize() call. Each stage receives the
+      output of the previous stage. Total latency is the sum of all stages, but each stage
+      targets <10ms for a net total well under the 50ms budget.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Optimization Layer Insertion Point
+
+  **Chosen:** Single interceptor in executeNode() between buildPrompt() and executor.execute() (node-helpers.ts line 571-584)
+
+  **Rejected:**
+  - Per-prompt-builder integration — requires modifying all 13 prompt builder files, increases coupling
+  - Executor decorator/proxy — StreamingExecutorProxy already wraps the executor; another layer obscures boundaries
+  - LangGraph middleware — no native pre-execution hook; synthetic node adds graph complexity
+
+  **Rationale:** executeNode() is the single choke point for all simple nodes. Line 571 assembles the prompt, line 584 sends it. Inserting between them centralizes optimization with full state access and zero prompt builder changes. The implement node calls the same optimizer before retryExecute().
+
+  ### 2. Optimizer Service Architecture
+
+  **Chosen:** Composable pipeline of five independent capability services behind IPromptOptimizerService facade
+
+  **Rejected:**
+  - Monolithic optimizer — violates SRP, untestable capabilities, no independent toggling
+  - Chain of responsibility — unnecessary complexity for a fixed, compile-time-known pipeline
+
+  **Rationale:** Each capability is independently toggleable and testable. The facade orchestrates: output filter -> skill router -> delta-context -> semantic compressor -> alias engine. Each service gets its own port interface in application/ports/output/services/.
+
+  ### 3. Command Output Filtering Strategy
+
+  **Chosen:** Regex-based filter policies with preserve-on-error-keyword safety rule
+
+  **Rejected:**
+  - RTK-style external CLI proxy — Shep doesn't control agent tool execution; operates on assembled prompts
+  - LLM-based summarization — adds latency/cost/non-determinism; deferred to Phase 3
+
+  **Rationale:** The filter operates on embedded command output within the prompt. Safety rule preserves any line containing error keywords (error, fail, warn, ENOENT, etc.) verbatim. Deterministic, <5ms latency, no dependencies. Targets 50%+ savings.
+
+  ### 4. Phase-Aware Skill Routing
+
+  **Chosen:** Static routing table with settings override, injected as prompt directive
+
+  **Rejected:**
+  - Filesystem-level skill pruning — agents read .claude/skills/ independently; race conditions with worktrees
+  - Dynamic MCP tool registration — requires MCP server infrastructure Shep doesn't have
+
+  **Rationale:** Adds a prompt section listing phase-relevant skills. Leverages existing skill injection infrastructure. Zero-risk approach that cannot break skill availability.
+
+  ### 5. Delta-Context State Storage
+
+  **Chosen:** SHA-256 hash-based change detection in LangGraph state channels (specFileHashes annotation)
+
+  **Rejected:**
+  - SQLite snapshots — overhead for data only useful within a single run
+  - Module-level cache — loses state on process restart; LangGraph state survives resume
+
+  **Rationale:** Follows existing state channel patterns (ciFixHistory, evidence, messages). Last-write-wins reducer. <1ms per file hash. Unchanged files replaced with compact summary.
+
+  ### 6. Semantic Compression Approach
+
+  **Chosen:** Rule-based deterministic compression with protected-region detection
+
+  **Rejected:**
+  - LLM-based summarization — deferred to Phase 3 per spec
+  - Template deduplication only — misses 25%+ savings from natural language compression
+
+  **Rationale:** Five rule categories: remove articles, shorten phrases, remove fillers, collapse whitespace, abbreviate terms. Protected regions (code, URLs, YAML, quotes) excluded via regex. Caveman Claude validates 60-75% output savings; we target 25%+ on prompt instructions.
+
+  ### 7. Alias/Meta-Token Compression
+
+  **Chosen:** Per-prompt session dictionary with $A1..$AN aliases (3+ occurrences, 20+ chars)
+
+  **Rejected:**
+  - LZ77-inspired meta-tokens (arXiv:2506.00307) — requires model fine-tuning, only 15-27% lossless, output generation broken
+  - Cross-phase persistent dictionary — stale aliases risk agent confusion
+
+  **Rationale:** Simple text substitution that any LLM understands. Self-documenting header. Net-positive check ensures dictionary doesn't exceed savings. Per-prompt scope avoids cross-phase confusion.
+
+  ### 8. Metrics Storage
+
+  **Chosen:** New columns on existing phase_timings table (additive migration)
+
+  **Rejected:**
+  - Separate optimization_metrics table — unnecessary for 1:1 relationship with phase_timings
+  - JSON blob column — loses queryability for aggregate analysis
+
+  **Rationale:** Follows migration pattern from 038-054. New nullable columns: original_token_estimate, optimized_token_estimate, savings_percent, capabilities_applied, etc. Extends existing PhaseTiming TypeSpec model.
+
+  ### 9. Settings Model
+
+  **Chosen:** TokenOptimizationConfig nested under WorkflowConfig (mirroring SkillInjectionConfig)
+
+  **Rejected:**
+  - Top-level Settings field — workflow configs belong under workflow
+  - Feature flags — this is a permanent capability, not experimental
+
+  **Rationale:** Exact mirror of SkillInjectionConfig pattern: enabled boolean + per-capability toggles. DB columns: token_opt_enabled, token_opt_output_filtering, etc. Factory defaults all true.
+
+  ### 10. Token Count Estimation
+
+  **Chosen:** Character-based estimation (chars / 4)
+
+  **Rejected:**
+  - tiktoken library — adds dependency for approximate counts; model-specific
+  - No estimation — misses pre-optimization baseline for savings calculation
+
+  **Rationale:** Agent-agnostic heuristic. Exact counts come from executor usage metrics. Estimates only used for optimization savings reporting.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | tiktoken / gpt-tokenizer | Exact token counting | Reject | Adds dependency for approximate metrics; chars/4 sufficient for savings estimates; layer is agent-agnostic |
+  | js-yaml | YAML parsing for delta-context | Reject | Raw byte hashing is simpler and more correct; no need to parse YAML for hash comparison |
+  | lz-string / pako | Text compression | Reject | Binary compression not applicable; LLMs need readable text, not compressed binary |
+  | Node.js crypto (built-in) | SHA-256 hashing | Use | Already available in Node.js stdlib; zero new dependencies |
+  | Node.js path (built-in) | File path handling for delta-context | Use | Already used throughout codebase |
+  | tsyringe (existing) | DI for new services | Use | Already the project's DI framework; @injectable/@inject decorators |
+  | TypeSpec (existing) | Domain model generation | Use | Required for new settings and metrics types |
+  | better-sqlite3 (existing) | Migration for new columns | Use | Existing DB engine; additive ALTER TABLE |
+  | No new external libraries needed | — | — | All five capabilities use TypeScript stdlib (RegExp, crypto, string manipulation) |
+
+  ## Security Considerations
+
+  ### Prompt Injection via Alias Manipulation
+  The alias engine replaces repeated strings with short tokens ($A1, $A2). A malicious spec file could theoretically include text designed to create aliases that, when dereferenced, produce harmful instructions. **Mitigation:** Aliases only replace exact repeated strings — they cannot create new content. The dictionary is deterministic and auditable (logged at debug level). The original prompt is stored in phase_timings.prompt for forensic review.
+
+  ### Information Loss in Command Output Filtering
+  Aggressive filtering of command output could hide security-relevant warnings (dependency vulnerabilities, permission errors). **Mitigation:** The safety rule preserves any line containing security-relevant keywords (denied, unauthorized, vulnerability, CVE, advisory). The keyword list is comprehensive and biased toward preservation (when in doubt, keep the line).
+
+  ### Spec File Content Integrity
+  Delta-context replaces unchanged files with summaries. If a file was maliciously modified between phases but the hash was not updated (bypass scenario), the agent would not see the change. **Mitigation:** Hashes are computed fresh on each phase from disk reads — they cannot be spoofed without modifying the LangGraph state, which requires process access.
+
+  ### Settings Override Safety
+  Per-feature optimization overrides could disable all safety checks. **Mitigation:** The safety keyword preservation list in the output filter is hardcoded and not configurable — it cannot be disabled via settings. Settings only toggle optimization capabilities on/off; they cannot weaken the safety rules.
+
+  ## Performance Implications
+
+  ### Latency Budget: <50ms Total
+
+  | Capability | Expected Latency | Notes |
+  | ---------- | ---------------- | ----- |
+  | Command output filter | <5ms | Regex scan of prompt, typically <100KB |
+  | Skill router | <1ms | Static lookup + string concatenation |
+  | Delta-context | <2ms | SHA-256 of 5 files (spec, research, plan, tasks, feature) |
+  | Semantic compressor | <10ms | Multi-pass regex replacement on instruction sections |
+  | Alias engine | <10ms | Frequency analysis + string replacement |
+  | **Total** | **<28ms** | Well within 50ms budget |
+
+  ### Memory Overhead
+  - Alias dictionary: O(n) where n = number of aliases, typically <50
+  - Hash storage in state: 5 SHA-256 hashes (320 bytes total)
+  - No persistent memory allocations; all per-prompt scratch space
+
+  ### Scalability
+  - All operations are O(n) in prompt length
+  - No network calls, no DB reads during optimization
+  - Settings read once at start of optimize(), not per-capability
+
+  ## Architecture Notes
+
+  ### Clean Architecture Compliance
+
+  ```
+  application/ports/output/services/
+    prompt-optimizer.interface.ts        # IPromptOptimizerService
+    command-output-filter.interface.ts   # ICommandOutputFilterService
+    skill-router.interface.ts            # ISkillRouterService
+    delta-context.interface.ts           # IDeltaContextService
+    semantic-compressor.interface.ts     # ISemanticCompressorService
+    alias-compression.interface.ts       # IAliasCompressionService
+
+  infrastructure/services/optimization/
+    prompt-optimizer.service.ts          # PromptOptimizerService (facade)
+    command-output-filter.service.ts     # CommandOutputFilterService
+    skill-router.service.ts              # SkillRouterService
+    delta-context.service.ts             # DeltaContextService
+    semantic-compressor.service.ts       # SemanticCompressorService
+    alias-compression.service.ts         # AliasCompressionService
+    optimizer-context.ts                 # Module-level context (setOptimizerContext/getOptimizerContext)
+
+  infrastructure/di/container.ts         # 6 new string token registrations
+  ```
+
+  ### Integration Points
+
+  1. **executeNode() in node-helpers.ts** — Primary insertion point (line 571-584)
+  2. **implement.node.ts** — Secondary insertion point (before retryExecute)
+  3. **phase-timing-context.ts** — Extended to accept optimization metrics
+  4. **state.ts** — New specFileHashes channel for delta-context
+  5. **settings-defaults.factory.ts** — New tokenOptimization defaults
+  6. **container.ts** — DI registration for 6 new services
+
+  ### Data Flow
+
+  ```
+  Worker bootstrap:
+    setOptimizerContext(container.resolve<IPromptOptimizerService>('IPromptOptimizerService'))
+
+  executeNode() flow:
+    1. buildResumeContext(state.resumeReason) -> resumePrefix (NOT optimized)
+    2. buildPrompt(state, log) -> rawPrompt
+    3. getOptimizerContext()?.optimize(rawPrompt, { nodeName, state }) -> { prompt: optimizedPrompt, metrics }
+    4. prompt = resumePrefix + optimizedPrompt
+    5. recordPhaseStart(nodeName, { prompt, ... })
+    6. executor.execute(prompt, options)
+    7. recordPhaseEnd(timingId, durationMs, { ...usageMetrics, ...optimizationMetrics })
+  ```
+
+  ### TypeSpec Changes
+
+  New models in `tsp/domain/entities/settings.tsp`:
+  ```
+  model TokenOptimizationConfig {
+    enabled: boolean = true;
+    outputFiltering: boolean = true;
+    skillRouting: boolean = true;
+    deltaContext: boolean = true;
+    semanticCompression: boolean = true;
+    aliasCompression: boolean = true;
+  }
+  ```
+
+  New fields in `tsp/agents/phase-timing.tsp`:
+  ```
+  originalTokenEstimate?: int64;
+  optimizedTokenEstimate?: int64;
+  savingsPercent?: float64;
+  capabilitiesApplied?: string;  // JSON array
+  outputFilterLinesRemoved?: int32;
+  deltaContextFilesSkipped?: int32;
+  compressionRatio?: float64;
+  aliasesCreated?: int32;
+  ```
+
+  ### Database Migration (migration 055)
+
+  ```sql
+  -- Settings table: token optimization config
+  ALTER TABLE settings ADD COLUMN token_opt_enabled INTEGER DEFAULT 1;
+  ALTER TABLE settings ADD COLUMN token_opt_output_filtering INTEGER DEFAULT 1;
+  ALTER TABLE settings ADD COLUMN token_opt_skill_routing INTEGER DEFAULT 1;
+  ALTER TABLE settings ADD COLUMN token_opt_delta_context INTEGER DEFAULT 1;
+  ALTER TABLE settings ADD COLUMN token_opt_semantic_compression INTEGER DEFAULT 1;
+  ALTER TABLE settings ADD COLUMN token_opt_alias_compression INTEGER DEFAULT 1;
+
+  -- Phase timings table: optimization metrics
+  ALTER TABLE phase_timings ADD COLUMN original_token_estimate INTEGER;
+  ALTER TABLE phase_timings ADD COLUMN optimized_token_estimate INTEGER;
+  ALTER TABLE phase_timings ADD COLUMN savings_percent REAL;
+  ALTER TABLE phase_timings ADD COLUMN capabilities_applied TEXT;
+  ALTER TABLE phase_timings ADD COLUMN output_filter_lines_removed INTEGER;
+  ALTER TABLE phase_timings ADD COLUMN delta_context_files_skipped INTEGER;
+  ALTER TABLE phase_timings ADD COLUMN compression_ratio REAL;
+  ALTER TABLE phase_timings ADD COLUMN aliases_created INTEGER;
+  ```
+
+  All columns nullable, no NOT NULL, no renames, no drops. Fully backward-compatible.
+
+  ### Phased Implementation
+
+  **Phase 1 (Highest ROI — target 30-50% total savings):**
+  - IPromptOptimizerService facade + optimizer context
+  - CommandOutputFilterService with default policies (Jest, TS build, git)
+  - SkillRouterService with default phase-to-skill mapping
+  - DeltaContextService with hash-based change detection
+  - Settings model + migration + factory defaults
+  - Metrics tracking integration with phase timing
+
+  **Phase 2 (Additional 10-20% savings):**
+  - SemanticCompressorService with protected-region detection
+  - AliasCompressionService with net-positive check
+  - Per-feature override support
+
+  **Phase 3 (Deferred):**
+  - Token budget enforcement with degradation ladder
+  - LLM-based summarization for deep compression
+  - Dynamic skill body restructuring (SkillReducer approach)
