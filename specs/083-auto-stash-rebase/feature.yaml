@@ -1,0 +1,40 @@
+feature:
+  id: "083-auto-stash-rebase"
+  name: "auto-stash-rebase"
+  number: 83
+  branch: "feat/083-auto-stash-rebase"
+  lifecycle: "research"
+  createdAt: "2026-04-03T12:26:50Z"
+status:
+  phase: "implementation-complete"
+  progress:
+    completed: 9
+    total: 9
+    percentage: 100
+  currentTask: null
+  lastUpdated: "2026-04-05T15:01:44.351Z"
+  lastUpdatedBy: "feature-agent:implement"
+  completedPhases:
+    - "analyze"
+    - "requirements"
+    - "research"
+    - "plan"
+    - "phase-1"
+    - "phase-2"
+    - "phase-3"
+    - "evidence"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-04-03T12:26:50Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []
