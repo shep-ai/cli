@@ -1,0 +1,50 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-auto-stash-rebase
+
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > syncMain > should use git fetch origin main when on a feature branch 1ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > syncMain > should use git pull --ff-only when on the main branch 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > syncMain > should succeed silently when main is already up-to-date 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > syncMain > should throw GitPrError with SYNC_FAILED when local main has diverged (non-fast-forward) 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > syncMain > should throw GitPrError with SYNC_FAILED when branch has diverged 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > syncMain > should include actionable guidance in diverged error message 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > syncMain > should throw GitPrError with GIT_ERROR on generic git failure 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should throw GIT_ERROR when worktree is dirty 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should include guidance about committing or stashing in dirty worktree error 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should succeed on clean rebase (no conflicts) 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should throw REBASE_CONFLICT when rebase encounters conflicts 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should include conflicted file list in REBASE_CONFLICT error message 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should detect "could not apply" as rebase conflict 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should throw BRANCH_NOT_FOUND when feature branch does not exist 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should checkout the feature branch before rebasing 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should call git rebase with origin/<baseBranch> as target 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseOnMain > should still throw REBASE_CONFLICT even if getConflictedFiles fails 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > getConflictedFiles > should return list of conflicted files from git diff output 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > getConflictedFiles > should return empty array when no conflicts exist 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > getConflictedFiles > should return empty array when stdout is empty string 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > getConflictedFiles > should normalize backslashes to forward slashes for cross-platform support 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > getConflictedFiles > should throw GitPrError on git failure 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > stageFiles > should call git add for the provided file paths 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > stageFiles > should throw GitPrError on failure 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseContinue > should call git rebase --continue with GIT_EDITOR=true 1ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseContinue > should throw REBASE_CONFLICT when continue encounters new conflicts 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseContinue > should throw GitPrError on generic failure 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseAbort > should call git rebase --abort 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > rebaseAbort > should throw GitPrError on failure 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > stash > should return true when changes are stashed 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > stash > should return false when no local changes to save 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > stash > should throw GitPrError on failure 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > stashPop > should call git stash pop 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > stashPop > should throw GitPrError on failure 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > stashDrop > should call git stash drop 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > stashDrop > should throw GitPrError on failure 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > parseGitError — rebase/sync error classification > should classify "non-fast-forward" error as SYNC_FAILED via syncMain 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > parseGitError — rebase/sync error classification > should classify "diverged" error as SYNC_FAILED via syncMain 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > parseGitError — rebase/sync error classification > should still classify "rejected" as MERGE_CONFLICT (regression) 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > parseGitError — rebase/sync error classification > should still classify auth errors correctly (regression) 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — Rebase & Sync > parseGitError — rebase/sync error classification > should classify generic errors as GIT_ERROR (regression) 0ms
+
+ Test Files  1 passed (1)
+      Tests  41 passed (41)
+   Start at  17:41:59
+   Duration  140ms (transform 55ms, setup 22ms, import 57ms, tests 7ms, environment 0ms)
+
