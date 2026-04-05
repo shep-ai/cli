@@ -66,6 +66,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     edges,
     onNodesChange,
     handleConnect,
+    handleEdgesDelete,
     handleAddRepository,
     handleArchiveFeature,
     handleDeleteFeature,
@@ -514,6 +515,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         defaultViewport={defaultViewport}
         onNodesChange={onNodesChange}
         onConnect={handleConnect}
+        onEdgesDelete={handleEdgesDelete}
         onAddFeature={handleAddFeature}
         onNodeClick={handleNodeClick}
         onPaneClick={handleClearDrawers}
