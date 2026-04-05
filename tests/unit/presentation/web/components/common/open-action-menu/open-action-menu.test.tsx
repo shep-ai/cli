@@ -23,14 +23,14 @@ const defaultActions: FeatureActionsState = {
 };
 
 describe('OpenActionMenu', () => {
-  it('renders toolbar buttons for IDE, terminal, folder, and copy', () => {
+  it('renders all action buttons as inline icon buttons', () => {
     render(<OpenActionMenu actions={defaultActions} repositoryPath="/home/user/repo" showSpecs />);
 
-    expect(screen.getByRole('button', { name: 'Open in IDE' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open terminal' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open folder' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open specs' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Copy path' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /open in ide/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /open terminal/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /open folder/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /open specs/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy path/i })).toBeInTheDocument();
   });
 
   it('calls openInIde when IDE button is clicked', async () => {
@@ -38,37 +38,37 @@ describe('OpenActionMenu', () => {
     const user = userEvent.setup();
     render(<OpenActionMenu actions={actions} repositoryPath="/home/user/repo" showSpecs />);
 
-    await user.click(screen.getByRole('button', { name: 'Open in IDE' }));
+    await user.click(screen.getByRole('button', { name: /open in ide/i }));
 
     expect(actions.openInIde).toHaveBeenCalledTimes(1);
   });
 
-  it('calls openInShell when terminal button is clicked', async () => {
+  it('calls openInShell when Terminal button is clicked', async () => {
     const actions = { ...defaultActions, openInShell: vi.fn() };
     const user = userEvent.setup();
     render(<OpenActionMenu actions={actions} repositoryPath="/home/user/repo" showSpecs />);
 
-    await user.click(screen.getByRole('button', { name: 'Open terminal' }));
+    await user.click(screen.getByRole('button', { name: /open terminal/i }));
 
     expect(actions.openInShell).toHaveBeenCalledTimes(1);
   });
 
-  it('calls openFolder when folder button is clicked', async () => {
+  it('calls openFolder when Folder button is clicked', async () => {
     const actions = { ...defaultActions, openFolder: vi.fn() };
     const user = userEvent.setup();
     render(<OpenActionMenu actions={actions} repositoryPath="/home/user/repo" showSpecs />);
 
-    await user.click(screen.getByRole('button', { name: 'Open folder' }));
+    await user.click(screen.getByRole('button', { name: /open folder/i }));
 
     expect(actions.openFolder).toHaveBeenCalledTimes(1);
   });
 
-  it('calls openSpecsFolder when specs button is clicked', async () => {
+  it('calls openSpecsFolder when Specs button is clicked', async () => {
     const actions = { ...defaultActions, openSpecsFolder: vi.fn() };
     const user = userEvent.setup();
     render(<OpenActionMenu actions={actions} repositoryPath="/home/user/repo" showSpecs />);
 
-    await user.click(screen.getByRole('button', { name: 'Open specs' }));
+    await user.click(screen.getByRole('button', { name: /open specs/i }));
 
     expect(actions.openSpecsFolder).toHaveBeenCalledTimes(1);
   });
@@ -82,15 +82,15 @@ describe('OpenActionMenu', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Open in IDE' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /open in ide/i })).toBeDisabled();
   });
 
-  it('hides specs button when showSpecs is false', () => {
+  it('does not render Specs button when showSpecs is false', () => {
     render(
       <OpenActionMenu actions={defaultActions} repositoryPath="/home/user/repo" showSpecs={false} />
     );
 
-    expect(screen.queryByRole('button', { name: 'Open specs' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /open specs/i })).not.toBeInTheDocument();
   });
 
   it('copies repositoryPath when worktreePath is not provided', async () => {
@@ -98,7 +98,7 @@ describe('OpenActionMenu', () => {
     const user = userEvent.setup();
     render(<OpenActionMenu actions={defaultActions} repositoryPath="/home/user/repo" showSpecs />);
 
-    await user.click(screen.getByRole('button', { name: 'Copy path' }));
+    await user.click(screen.getByRole('button', { name: /copy path/i }));
 
     expect(writeText).toHaveBeenCalledWith('/home/user/repo');
     writeText.mockRestore();
@@ -116,7 +116,7 @@ describe('OpenActionMenu', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Copy path' }));
+    await user.click(screen.getByRole('button', { name: /copy path/i }));
 
     expect(writeText).toHaveBeenCalledWith('/home/user/repo/.worktrees/feature-login');
     writeText.mockRestore();

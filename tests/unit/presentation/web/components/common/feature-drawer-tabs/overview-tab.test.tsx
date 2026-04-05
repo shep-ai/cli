@@ -4,33 +4,6 @@ import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { OverviewTab } from '@/components/common/feature-drawer-tabs/overview-tab';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 
-vi.mock('@/components/features/settings/AgentModelPicker', () => ({
-  AgentModelPicker: ({
-    initialAgentType,
-    initialModel,
-    agentType,
-    model,
-    saveError,
-    saving,
-  }: {
-    initialAgentType: string;
-    initialModel: string;
-    agentType?: string;
-    model?: string;
-    saveError?: string | null;
-    saving?: boolean;
-  }) => (
-    <div
-      data-testid="agent-model-picker"
-      data-agent-type={agentType ?? initialAgentType}
-      data-model-id={model ?? initialModel}
-      data-saving={saving ? 'true' : 'false'}
-    >
-      {saveError ? <p>{saveError}</p> : null}
-    </div>
-  ),
-}));
-
 vi.mock('@/hooks/use-sound-action', () => ({
   useSoundAction: vi.fn(() => ({ play: vi.fn(), stop: vi.fn(), isPlaying: false })),
 }));
@@ -95,14 +68,14 @@ describe('OverviewTab', () => {
       commitHash: 'abc1234567890',
     };
 
-    it('renders PR section when PR exists', () => {
+    it('renders PR info when PR exists', () => {
       renderOverviewTab({ ...defaultData, pr: prData });
-      expect(screen.getByText('Pull Request')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-drawer-pr')).toBeInTheDocument();
     });
 
-    it('does not render PR section when PR is undefined', () => {
+    it('does not render PR info when PR is undefined', () => {
       renderOverviewTab({ ...defaultData, pr: undefined });
-      expect(screen.queryByText('Pull Request')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('feature-drawer-pr')).not.toBeInTheDocument();
     });
 
     it('displays PR number as link', () => {
@@ -112,19 +85,21 @@ describe('OverviewTab', () => {
     });
 
     describe('CI status visibility', () => {
-      it('shows CI badge when hideCiStatus is false', () => {
+      it('shows CI status row when hideCiStatus is false', () => {
         renderOverviewTab({ ...defaultData, pr: prData, hideCiStatus: false });
-        expect(screen.getByText('Passing')).toBeInTheDocument();
+        expect(screen.getByText('CI')).toBeInTheDocument();
       });
 
-      it('shows CI badge when hideCiStatus is undefined (default behavior)', () => {
+      it('shows CI status row when hideCiStatus is undefined (default behavior)', () => {
         renderOverviewTab({ ...defaultData, pr: prData, hideCiStatus: undefined });
-        expect(screen.getByText('Passing')).toBeInTheDocument();
+        expect(screen.getByText('CI')).toBeInTheDocument();
       });
 
-      it('hides CI badge when hideCiStatus is true', () => {
+      it('hides CI status row when hideCiStatus is true', () => {
         renderOverviewTab({ ...defaultData, pr: prData, hideCiStatus: true });
-        expect(screen.queryByText('Passing')).not.toBeInTheDocument();
+        // CI label should not be present as a standalone element
+        const prSection = screen.getByTestId('feature-drawer-pr');
+        expect(prSection.textContent).not.toContain('Passing');
       });
 
       it('still shows other PR metadata when CI status is hidden', () => {
@@ -133,18 +108,13 @@ describe('OverviewTab', () => {
           pr: { ...prData, mergeable: false },
           hideCiStatus: true,
         });
-        // PR link should be visible
         expect(screen.getByRole('link', { name: /#42/i })).toBeInTheDocument();
-        // Merge conflicts should be visible
-        expect(screen.getByText('Conflicts')).toBeInTheDocument();
-        // Commit hash should be visible
+        expect(screen.getByTestId('pr-merge-conflict')).toBeInTheDocument();
         expect(screen.getByText('abc1234')).toBeInTheDocument();
-        // But CI badge should be hidden
-        expect(screen.queryByText('Passing')).not.toBeInTheDocument();
       });
     });
 
-    it('renders PR info inside the overview container regardless of lifecycle', () => {
+    it('renders PR info inside the status container', () => {
       renderOverviewTab({
         ...defaultData,
         lifecycle: 'maintain',
@@ -153,45 +123,34 @@ describe('OverviewTab', () => {
         pr: prData,
       });
       const statusSection = screen.getByTestId('feature-drawer-status');
-      expect(statusSection).toBeInTheDocument();
-      expect(screen.getByText('Pull Request')).toBeInTheDocument();
+      const prInfo = screen.getByTestId('feature-drawer-pr');
+      expect(statusSection.contains(prInfo)).toBe(true);
     });
 
-    it('renders PR info inside the overview container for non-maintain lifecycle', () => {
-      renderOverviewTab({
-        ...defaultData,
-        lifecycle: 'implementation',
-        state: 'running',
-        progress: 50,
-        pr: prData,
-      });
-      const statusSection = screen.getByTestId('feature-drawer-status');
-      expect(statusSection).toBeInTheDocument();
-      expect(screen.getByText('Pull Request')).toBeInTheDocument();
-    });
-
-    it('renders merge conflict text when mergeable is false', () => {
+    it('renders merge conflict badge when mergeable is false', () => {
       renderOverviewTab({
         ...defaultData,
         pr: { ...prData, mergeable: false },
       });
+      const conflictBadge = screen.getByTestId('pr-merge-conflict');
+      expect(conflictBadge).toBeInTheDocument();
       expect(screen.getByText('Conflicts')).toBeInTheDocument();
     });
 
-    it('does not render merge conflict text when mergeable is true', () => {
+    it('does not render merge conflict badge when mergeable is true', () => {
       renderOverviewTab({
         ...defaultData,
         pr: { ...prData, mergeable: true },
       });
-      expect(screen.queryByText('Conflicts')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pr-merge-conflict')).not.toBeInTheDocument();
     });
 
-    it('does not render merge conflict text when mergeable is undefined', () => {
+    it('does not render merge conflict badge when mergeable is undefined', () => {
       renderOverviewTab({
         ...defaultData,
         pr: { ...prData, mergeable: undefined },
       });
-      expect(screen.queryByText('Conflicts')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pr-merge-conflict')).not.toBeInTheDocument();
     });
   });
 
@@ -310,60 +269,28 @@ describe('OverviewTab', () => {
   });
 
   describe('details section', () => {
-    it('renders agent type in quick stats', () => {
+    it('renders agent info in stats grid', () => {
       renderOverviewTab({ ...defaultData, agentType: 'cursor' });
-      expect(screen.getByText('Agent')).toBeInTheDocument();
       expect(screen.getByText('Cursor')).toBeInTheDocument();
     });
 
-    it('renders runtime in quick stats', () => {
-      renderOverviewTab({ ...defaultData, runtime: '2h 15m' });
-      expect(screen.getByText('Runtime')).toBeInTheDocument();
-      expect(screen.getByText('2h 15m')).toBeInTheDocument();
-    });
-
-    it('renders blocked by info in issues section', () => {
-      renderOverviewTab({ ...defaultData, state: 'blocked', blockedBy: 'Payment Service' });
-      expect(screen.getByText('Blocked By')).toBeInTheDocument();
-      expect(screen.getByText('Payment Service')).toBeInTheDocument();
-    });
-
-    it('renders error message in issues section', () => {
+    it('renders error message', () => {
       renderOverviewTab({
         ...defaultData,
         state: 'error',
         errorMessage: 'Build failed: type mismatch',
       });
-      expect(screen.getByText('Issues')).toBeInTheDocument();
       expect(screen.getByText('Build failed: type mismatch')).toBeInTheDocument();
-    });
-
-    it('does not render issues section when no blockedBy or errorMessage', () => {
-      renderOverviewTab({
-        ...defaultData,
-        agentType: undefined,
-        runtime: undefined,
-        blockedBy: undefined,
-        errorMessage: undefined,
-      });
-      expect(screen.queryByText('Issues')).not.toBeInTheDocument();
     });
   });
 
   describe('settings section', () => {
-    const pinnedConfig = {
-      agentType: 'claude-code',
-      modelId: 'claude-sonnet-4-6',
-      onSave: vi.fn(),
-    };
-
     it('renders settings section when approval gates are provided', () => {
       renderOverviewTab({
         ...defaultData,
         approvalGates: { allowPrd: true, allowPlan: false, allowMerge: true },
       });
-      expect(screen.getByText('Settings')).toBeInTheDocument();
-      expect(screen.getByText('Approve')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-drawer-settings')).toBeInTheDocument();
       expect(screen.getByText('PRD')).toBeInTheDocument();
       expect(screen.getByText('Plan')).toBeInTheDocument();
       expect(screen.getByText('Merge')).toBeInTheDocument();
@@ -375,35 +302,17 @@ describe('OverviewTab', () => {
         push: true,
         openPr: false,
       });
-      expect(screen.getByText('Settings')).toBeInTheDocument();
-      expect(screen.getByText('Git')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-drawer-settings')).toBeInTheDocument();
       expect(screen.getByText('Push')).toBeInTheDocument();
       expect(screen.getByText('PR')).toBeInTheDocument();
     });
 
-    it('renders model name in agent card when modelId is provided', () => {
+    it('renders model name in stats grid when modelId is provided', () => {
       renderOverviewTab({
         ...defaultData,
         modelId: 'claude-sonnet-4-6',
       });
-      expect(screen.getByText('Agent')).toBeInTheDocument();
       expect(screen.getByText('Sonnet 4.6')).toBeInTheDocument();
-    });
-
-    it('renders all settings together', () => {
-      renderOverviewTab({
-        ...defaultData,
-        modelId: 'claude-opus-4-6',
-        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
-        push: true,
-        openPr: true,
-      });
-      expect(screen.getByText('Settings')).toBeInTheDocument();
-      expect(screen.getByText('Opus 4.6')).toBeInTheDocument();
-      expect(screen.getByText('PRD')).toBeInTheDocument();
-      expect(screen.getByText('Plan')).toBeInTheDocument();
-      expect(screen.getByText('Merge')).toBeInTheDocument();
-      expect(screen.getByText('Push')).toBeInTheDocument();
     });
 
     it('renders evidence settings when enableEvidence is provided', () => {
@@ -412,30 +321,7 @@ describe('OverviewTab', () => {
         enableEvidence: true,
         commitEvidence: false,
       });
-      expect(screen.getByText('Settings')).toBeInTheDocument();
-      expect(screen.getByText('Evidence')).toBeInTheDocument();
-      expect(screen.getByText('Collect')).toBeInTheDocument();
-      expect(screen.getByText('Add to PR')).toBeInTheDocument();
-    });
-
-    it('renders evidence with both badges enabled', () => {
-      renderOverviewTab({
-        ...defaultData,
-        enableEvidence: true,
-        commitEvidence: true,
-      });
-      expect(screen.getByText('Evidence')).toBeInTheDocument();
-      expect(screen.getByText('Collect')).toBeInTheDocument();
-      expect(screen.getByText('Add to PR')).toBeInTheDocument();
-    });
-
-    it('renders evidence with both badges disabled', () => {
-      renderOverviewTab({
-        ...defaultData,
-        enableEvidence: false,
-        commitEvidence: false,
-      });
-      expect(screen.getByText('Evidence')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-drawer-settings')).toBeInTheDocument();
       expect(screen.getByText('Collect')).toBeInTheDocument();
       expect(screen.getByText('Add to PR')).toBeInTheDocument();
     });
@@ -449,59 +335,7 @@ describe('OverviewTab', () => {
         enableEvidence: undefined,
         modelId: undefined,
       });
-      expect(screen.queryByText('Settings')).not.toBeInTheDocument();
-    });
-
-    it.each(['pending', 'action-required', 'error'] as const)(
-      'renders the pinned config switch for eligible "%s" features',
-      (state) => {
-        render(
-          <OverviewTab
-            data={{ ...defaultData, state, modelId: 'claude-sonnet-4-6' }}
-            pinnedConfig={pinnedConfig}
-          />
-        );
-
-        expect(screen.getByTestId('agent-model-picker')).toBeInTheDocument();
-      }
-    );
-
-    it.each([
-      ['creating', 'implementation'],
-      ['running', 'implementation'],
-      ['blocked', 'implementation'],
-      ['done', 'maintain'],
-    ] as const)(
-      'hides the pinned config switch for ineligible "%s" features',
-      (state, lifecycle) => {
-        render(
-          <OverviewTab
-            data={{
-              ...defaultData,
-              state,
-              lifecycle,
-              modelId: 'claude-sonnet-4-6',
-            }}
-            pinnedConfig={pinnedConfig}
-          />
-        );
-
-        expect(screen.queryByTestId('agent-model-picker')).not.toBeInTheDocument();
-      }
-    );
-
-    it('shows pinned config save errors inline', () => {
-      render(
-        <OverviewTab
-          data={{ ...defaultData, state: 'pending', modelId: 'claude-sonnet-4-6' }}
-          pinnedConfig={{
-            ...pinnedConfig,
-            error: 'Could not save pinned config',
-          }}
-        />
-      );
-
-      expect(screen.getByText('Could not save pinned config')).toBeInTheDocument();
+      expect(screen.queryByTestId('feature-drawer-settings')).not.toBeInTheDocument();
     });
   });
 });

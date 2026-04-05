@@ -30,10 +30,18 @@ export interface GitRemoteInfo {
   url: string;
 }
 
+export interface GitFileEntry {
+  status: 'staged' | 'modified' | 'untracked';
+  /** Two-char status code from git, e.g. 'M ', ' M', '??' */
+  code: string;
+  path: string;
+}
+
 export interface GitWorkingTreeStatus {
   staged: number;
   modified: number;
   untracked: number;
+  files: GitFileEntry[];
 }
 
 export interface GitDiffStats {
@@ -66,7 +74,7 @@ export async function getGitRepoInfo(
     stashCount: 0,
     currentBranch: '',
     diffStats: null,
-    workingTree: { staged: 0, modified: 0, untracked: 0 },
+    workingTree: { staged: 0, modified: 0, untracked: 0, files: [] },
   };
 
   if (!repositoryPath.trim()) {
@@ -151,15 +159,30 @@ export async function getGitRepoInfo(
   // Stash count
   const stashCount = val(5).split('\n').filter(Boolean).length;
 
-  // Working tree status
+  // Working tree status + file list
   const statusLines = val(6).split('\n').filter(Boolean);
-  const workingTree: GitWorkingTreeStatus = { staged: 0, modified: 0, untracked: 0 };
+  const workingTree: GitWorkingTreeStatus = { staged: 0, modified: 0, untracked: 0, files: [] };
   for (const line of statusLines) {
     const x = line[0];
     const y = line[1];
-    if (x === '?' && y === '?') workingTree.untracked++;
-    else if (x !== ' ' && x !== '?') workingTree.staged++;
-    if (y !== ' ' && y !== '?') workingTree.modified++;
+    const filePath = line.slice(3);
+    const code = line.slice(0, 2);
+    if (x === '?' && y === '?') {
+      workingTree.untracked++;
+      workingTree.files.push({ status: 'untracked', code, path: filePath });
+    } else {
+      if (x !== ' ' && x !== '?') {
+        workingTree.staged++;
+        workingTree.files.push({ status: 'staged', code, path: filePath });
+      }
+      if (y !== ' ' && y !== '?') {
+        workingTree.modified++;
+        // Avoid duplicate entry if both staged and modified
+        if (x === ' ' || x === '?') {
+          workingTree.files.push({ status: 'modified', code, path: filePath });
+        }
+      }
+    }
   }
 
   // Diff stats

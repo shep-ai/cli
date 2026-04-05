@@ -13,6 +13,7 @@ export type FeatureTabKey =
   | 'tech-decisions'
   | 'product-decisions'
   | 'merge-review'
+  | 'git'
   | 'chat';
 
 /** All valid tab key values — used for URL param validation. */
@@ -25,6 +26,7 @@ export const VALID_TAB_KEYS: ReadonlySet<string> = new Set<FeatureTabKey>([
   'tech-decisions',
   'product-decisions',
   'merge-review',
+  'git',
   'chat',
 ]);
 

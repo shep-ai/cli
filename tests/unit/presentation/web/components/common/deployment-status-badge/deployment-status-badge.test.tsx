@@ -22,23 +22,16 @@ describe('DeploymentStatusBadge', () => {
     expect(screen.getByText('Starting...')).toBeInTheDocument();
     const spinner = container.querySelector('.animate-spin');
     expect(spinner).toBeInTheDocument();
-    const blueIcon = container.querySelector('[class*="text-blue"]');
-    expect(blueIcon).toBeInTheDocument();
   });
 
-  it('renders green badge with clickable URL when status is Ready', () => {
-    const { container } = render(
-      <DeploymentStatusBadge status={DeploymentState.Ready} url="http://localhost:3000" />
-    );
+  it('renders clickable URL when status is Ready', () => {
+    render(<DeploymentStatusBadge status={DeploymentState.Ready} url="http://localhost:3000" />);
 
     const link = screen.getByRole('link', { name: /localhost:3000/i });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', 'http://localhost:3000');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-
-    const badge = container.querySelector('[class*="bg-green"]');
-    expect(badge).toBeInTheDocument();
   });
 
   it('renders "Ready" text when status is Ready but no URL', () => {

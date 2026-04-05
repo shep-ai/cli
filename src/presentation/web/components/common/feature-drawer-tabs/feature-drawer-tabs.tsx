@@ -13,6 +13,7 @@ import {
   FileCheck,
   Cpu,
   Package,
+  GitBranch,
   GitMerge,
   MessageSquare,
   Play,
@@ -50,12 +51,12 @@ import { ActivityTab } from './activity-tab';
 import { LogTab } from './log-tab';
 import { PlanTab } from './plan-tab';
 import { ChatTab } from '@/components/features/chat/ChatTab';
+import { GitOverview } from '@/components/common/git-overview';
 import { useFeatureLogs } from '@/hooks/use-feature-logs';
 import { useTabDataFetch } from './use-tab-data-fetch';
 import type { TabFetchers } from './use-tab-data-fetch';
 import type { FeatureTabKey } from '@/components/common/control-center-drawer/drawer-view';
 import type { BranchSyncData } from '@/hooks/use-branch-sync-status';
-import type { FeatureDrawerPinnedConfig } from './pinned-config-utils';
 
 /** Lazy-loaded tab keys (tabs that fetch data on activation). */
 type LazyTabKey = 'activity' | 'plan';
@@ -77,6 +78,7 @@ const ALL_TABS: TabDef[] = [
   { key: 'tech-decisions', label: 'Tech Decisions', icon: Cpu },
   { key: 'product-decisions', label: 'Product', icon: Package },
   { key: 'merge-review', label: 'Merge Review', icon: GitMerge },
+  { key: 'git', label: 'Git', icon: GitBranch },
   { key: 'chat', label: 'Chat', icon: MessageSquare },
 ];
 
@@ -105,6 +107,11 @@ function computeVisibleTabs(
   }
   if (node.lifecycle === 'maintain' && node.pr) {
     tabs.push('merge-review');
+  }
+
+  // Git tab is visible when feature has a worktree or repository path
+  if (node.worktreePath || node.repositoryPath) {
+    tabs.push('git');
   }
 
   // Chat tab is visible for ALL lifecycle phases when interactive agent is enabled
@@ -170,8 +177,6 @@ export interface FeatureDrawerTabsProps {
   isRejecting?: boolean;
   chatInput?: string;
   onChatInputChange?: (value: string) => void;
-  pinnedConfig?: FeatureDrawerPinnedConfig;
-  continuationActionsDisabled?: boolean;
 
   // Interactive agent
   /** When false, the Chat tab is hidden from the tab bar (FR-17). Defaults to true. */
@@ -232,8 +237,6 @@ export function FeatureDrawerTabs({
   isRejecting,
   chatInput,
   onChatInputChange,
-  pinnedConfig,
-  continuationActionsDisabled = false,
   sseEvents,
   interactiveAgentEnabled = true,
   onRetry,
@@ -536,8 +539,7 @@ export function FeatureDrawerTabs({
                         <button
                           type="button"
                           onClick={() => onStart(featureNode.featureId)}
-                          disabled={continuationActionsDisabled}
-                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-green-500/10 hover:text-green-600 disabled:pointer-events-none disabled:opacity-50 dark:hover:text-green-400"
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400"
                           data-testid="feature-drawer-start-button"
                         >
                           <Play className="size-3.5" /> Start
@@ -546,8 +548,7 @@ export function FeatureDrawerTabs({
                         <button
                           type="button"
                           onClick={() => onRetry(featureNode.featureId)}
-                          disabled={continuationActionsDisabled}
-                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-red-500/10 hover:text-red-500 disabled:pointer-events-none disabled:opacity-50 dark:hover:text-red-400"
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400"
                           data-testid="feature-drawer-retry-button"
                         >
                           <RotateCcw className="size-3.5" /> Retry
@@ -591,7 +592,6 @@ export function FeatureDrawerTabs({
         <TabsContent value="overview" className="mt-0 flex-1 overflow-y-auto">
           <OverviewTab
             data={featureNode}
-            pinnedConfig={pinnedConfig}
             syncStatus={syncStatus}
             syncLoading={syncLoading}
             syncError={syncError}
@@ -637,7 +637,7 @@ export function FeatureDrawerTabs({
                 onSelect={onPrdSelect ?? (() => undefined)}
                 onApprove={onPrdApprove ?? (() => undefined)}
                 onReject={onPrdReject}
-                isProcessing={Boolean((isPrdLoading ?? false) || continuationActionsDisabled)}
+                isProcessing={isPrdLoading}
                 isRejecting={isRejecting}
                 chatInput={chatInput}
                 onChatInputChange={onChatInputChange}
@@ -661,7 +661,7 @@ export function FeatureDrawerTabs({
                 <DrawerActionBarForTech
                   onApprove={onTechApprove ?? (() => undefined)}
                   onReject={onTechReject}
-                  isProcessing={Boolean((isTechLoading ?? false) || continuationActionsDisabled)}
+                  isProcessing={isTechLoading}
                   isRejecting={isRejecting}
                   chatInput={chatInput}
                   onChatInputChange={onChatInputChange}
@@ -701,7 +701,7 @@ export function FeatureDrawerTabs({
                 readOnly={featureNode.lifecycle === 'maintain'}
                 onApprove={onMergeApprove ?? (() => undefined)}
                 onReject={onMergeReject}
-                isProcessing={Boolean((isMergeLoading ?? false) || continuationActionsDisabled)}
+                isProcessing={isMergeLoading}
                 isRejecting={isRejecting}
                 chatInput={chatInput}
                 onChatInputChange={onChatInputChange}
@@ -720,6 +720,15 @@ export function FeatureDrawerTabs({
             )}
           </TabsContent>
         ) : null}
+
+        {/* Git tab */}
+        <TabsContent value="git" className="mt-0 flex-1 overflow-y-auto">
+          <GitOverview
+            gitPath={featureNode.worktreePath ?? featureNode.repositoryPath}
+            mode="feature"
+            sourceBranch={featureNode.baseBranch}
+          />
+        </TabsContent>
 
         {/* Chat tab — always visible when interactive agent is enabled (FR-1, FR-17) */}
         {visibleTabs.includes('chat') ? (
