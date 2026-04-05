@@ -61,6 +61,14 @@ import { SecurityPolicyService } from '../services/security/security-policy.serv
 import { SecurityPolicyFileReader } from '../services/security/security-policy-file-reader.js';
 import { SecurityPolicyValidator } from '../services/security/security-policy-validator.js';
 import { SQLiteSecurityEventRepository } from '../repositories/sqlite-security-event.repository.js';
+import { DependencyRiskEvaluator } from '../services/security/dependency-risk-evaluator.js';
+import { ReleaseIntegrityEvaluator } from '../services/security/release-integrity-evaluator.js';
+
+// Security use cases
+import { EnforceSecurityUseCase } from '../../application/use-cases/security/enforce-security.use-case.js';
+import { EvaluateSecurityPolicyUseCase } from '../../application/use-cases/security/evaluate-security-policy.use-case.js';
+import { GetSecurityStateUseCase } from '../../application/use-cases/security/get-security-state.use-case.js';
+import { RecordSecurityEventUseCase } from '../../application/use-cases/security/record-security-event.use-case.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -376,6 +384,49 @@ export async function initializeContainer(): Promise<typeof container> {
       const database = c.resolve<Database.Database>('Database');
       return new SQLiteSecurityEventRepository(database);
     },
+  });
+
+  container.register('DependencyRiskEvaluator', {
+    useFactory: () => new DependencyRiskEvaluator(),
+  });
+
+  container.register('ReleaseIntegrityEvaluator', {
+    useFactory: () => new ReleaseIntegrityEvaluator(),
+  });
+
+  // Register security use cases
+  container.register(EnforceSecurityUseCase, {
+    useFactory: (c) =>
+      new EnforceSecurityUseCase(
+        c.resolve<ISecurityPolicyService>('ISecurityPolicyService'),
+        c.resolve<ISecurityEventRepository>('ISecurityEventRepository'),
+        c.resolve<ISettingsRepository>('ISettingsRepository'),
+        c.resolve<DependencyRiskEvaluator>('DependencyRiskEvaluator'),
+        c.resolve<ReleaseIntegrityEvaluator>('ReleaseIntegrityEvaluator')
+      ),
+  });
+
+  container.register(EvaluateSecurityPolicyUseCase, {
+    useFactory: (c) =>
+      new EvaluateSecurityPolicyUseCase(
+        c.resolve<ISecurityPolicyService>('ISecurityPolicyService'),
+        c.resolve<ISettingsRepository>('ISettingsRepository')
+      ),
+  });
+
+  container.register(GetSecurityStateUseCase, {
+    useFactory: (c) =>
+      new GetSecurityStateUseCase(
+        c.resolve<ISecurityEventRepository>('ISecurityEventRepository'),
+        c.resolve<ISettingsRepository>('ISettingsRepository')
+      ),
+  });
+
+  container.register(RecordSecurityEventUseCase, {
+    useFactory: (c) =>
+      new RecordSecurityEventUseCase(
+        c.resolve<ISecurityEventRepository>('ISecurityEventRepository')
+      ),
   });
 
   // Register notification services
