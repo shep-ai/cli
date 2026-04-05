@@ -7,6 +7,7 @@ import {
 import {
   PrStatus,
   SdlcLifecycle,
+  FeatureMode,
   type Feature,
   type Attachment,
 } from '@/domain/generated/output.js';
@@ -40,7 +41,8 @@ function createTestFeature(overrides: Partial<Feature> = {}): Feature {
     enableEvidence: false,
     injectSkills: false,
     commitEvidence: false,
-    fast: false,
+    mode: FeatureMode.Regular,
+    iterationCount: 0,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date('2026-03-08T10:00:00Z'),
     updatedAt: new Date('2026-03-08T10:00:00Z'),
@@ -89,7 +91,9 @@ function createTestRow(overrides: Partial<FeatureRow> = {}): FeatureRow {
     pr_mergeable: null,
     parent_id: null,
     previous_lifecycle: null,
-    fast: 0,
+    mode: 'Regular',
+    iteration_count: 0,
+    max_iterations: null,
     attachments: '[]',
     injected_skills: null,
     inject_skills: 0,
@@ -99,6 +103,113 @@ function createTestRow(overrides: Partial<FeatureRow> = {}): FeatureRow {
     ...overrides,
   };
 }
+
+describe('Feature Mapper — mode field', () => {
+  describe('toDatabase()', () => {
+    it('maps FeatureMode.Fast to string "Fast"', () => {
+      const feature = createTestFeature({ mode: FeatureMode.Fast });
+      const row = toDatabase(feature);
+      expect(row.mode).toBe('Fast');
+    });
+
+    it('maps FeatureMode.Regular to string "Regular"', () => {
+      const feature = createTestFeature({ mode: FeatureMode.Regular });
+      const row = toDatabase(feature);
+      expect(row.mode).toBe('Regular');
+    });
+
+    it('maps FeatureMode.Exploration to string "Exploration"', () => {
+      const feature = createTestFeature({ mode: FeatureMode.Exploration });
+      const row = toDatabase(feature);
+      expect(row.mode).toBe('Exploration');
+    });
+  });
+
+  describe('fromDatabase()', () => {
+    it('casts string "Fast" to FeatureMode.Fast', () => {
+      const row = createTestRow({ mode: 'Fast' });
+      const feature = fromDatabase(row);
+      expect(feature.mode).toBe(FeatureMode.Fast);
+    });
+
+    it('casts string "Regular" to FeatureMode.Regular', () => {
+      const row = createTestRow({ mode: 'Regular' });
+      const feature = fromDatabase(row);
+      expect(feature.mode).toBe(FeatureMode.Regular);
+    });
+
+    it('casts string "Exploration" to FeatureMode.Exploration', () => {
+      const row = createTestRow({ mode: 'Exploration' });
+      const feature = fromDatabase(row);
+      expect(feature.mode).toBe(FeatureMode.Exploration);
+    });
+  });
+});
+
+describe('Feature Mapper — iteration tracking', () => {
+  describe('toDatabase()', () => {
+    it('maps iterationCount to iteration_count', () => {
+      const feature = createTestFeature({ iterationCount: 5 });
+      const row = toDatabase(feature);
+      expect(row.iteration_count).toBe(5);
+    });
+
+    it('maps maxIterations to max_iterations', () => {
+      const feature = createTestFeature({ maxIterations: 10 });
+      const row = toDatabase(feature);
+      expect(row.max_iterations).toBe(10);
+    });
+
+    it('maps undefined maxIterations to null', () => {
+      const feature = createTestFeature();
+      const row = toDatabase(feature);
+      expect(row.max_iterations).toBeNull();
+    });
+  });
+
+  describe('fromDatabase()', () => {
+    it('maps iteration_count to iterationCount', () => {
+      const row = createTestRow({ iteration_count: 7 });
+      const feature = fromDatabase(row);
+      expect(feature.iterationCount).toBe(7);
+    });
+
+    it('defaults iterationCount to 0 when iteration_count is null', () => {
+      const row = createTestRow();
+      (row as unknown as Record<string, unknown>).iteration_count = null;
+      const feature = fromDatabase(row);
+      expect(feature.iterationCount).toBe(0);
+    });
+
+    it('maps non-null max_iterations to maxIterations', () => {
+      const row = createTestRow({ max_iterations: 15 });
+      const feature = fromDatabase(row);
+      expect(feature.maxIterations).toBe(15);
+    });
+
+    it('omits maxIterations when max_iterations is null', () => {
+      const row = createTestRow({ max_iterations: null });
+      const feature = fromDatabase(row);
+      expect(feature.maxIterations).toBeUndefined();
+    });
+  });
+
+  describe('round-trip', () => {
+    it('preserves mode and iteration fields through toDatabase → fromDatabase', () => {
+      const feature = createTestFeature({
+        mode: FeatureMode.Exploration,
+        iterationCount: 3,
+        maxIterations: 10,
+      });
+      const row = toDatabase(feature);
+      const restored = fromDatabase(row);
+
+      expect(restored.mode).toBe(FeatureMode.Exploration);
+      expect(restored.iterationCount).toBe(3);
+      expect(restored.maxIterations).toBe(10);
+    });
+  });
+});
 
 describe('Feature Mapper — attachments', () => {
   describe('toDatabase()', () => {

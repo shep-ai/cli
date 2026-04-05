@@ -495,9 +495,13 @@ export type WorkflowConfig = {
    */
   hideCiStatus?: boolean;
   /**
-   * Default new features to fast mode (default: true)
+   * Default feature mode for new features: 'Regular', 'Fast', or 'Exploration' (default: 'Fast')
    */
-  defaultFastMode: boolean;
+  defaultMode: string;
+  /**
+   * Maximum exploration feedback iterations (default: 10, 0 = unlimited)
+   */
+  explorationMaxIterations?: number;
   /**
    * Minutes after completion before auto-archiving a feature (default: 10, 0 = disabled)
    */
@@ -884,9 +888,15 @@ export enum SdlcLifecycle {
   Maintain = 'Maintain',
   Blocked = 'Blocked',
   Pending = 'Pending',
+  Exploring = 'Exploring',
   Deleting = 'Deleting',
   AwaitingUpstream = 'AwaitingUpstream',
   Archived = 'Archived',
+}
+export enum FeatureMode {
+  Regular = 'Regular',
+  Fast = 'Fast',
+  Exploration = 'Exploration',
 }
 
 /**
@@ -1084,9 +1094,9 @@ export type Feature = SoftDeletableEntity & {
    */
   repositoryId?: UUID;
   /**
-   * When true, SDLC phases were skipped and the feature was implemented directly from the prompt
+   * Execution mode determining the workflow: Regular (full SDLC), Fast (direct implementation), or Exploration (iterative prototyping)
    */
-  fast: boolean;
+  mode: FeatureMode;
   /**
    * Push branch to remote after implementation (default: false)
    */
@@ -1127,6 +1137,14 @@ export type Feature = SoftDeletableEntity & {
    * Absolute path to the git worktree for this feature
    */
   worktreePath?: string;
+  /**
+   * Current feedback iteration count in exploration mode (0 when not exploring)
+   */
+  iterationCount: number;
+  /**
+   * Maximum allowed iterations for exploration mode (only set when mode is Exploration)
+   */
+  maxIterations?: number;
   /**
    * Pull request data (null until PR created)
    */

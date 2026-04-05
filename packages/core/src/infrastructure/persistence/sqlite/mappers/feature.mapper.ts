@@ -16,6 +16,7 @@
 
 import type { Feature } from '../../../../domain/generated/output.js';
 import type { SdlcLifecycle, PrStatus, CiStatus } from '../../../../domain/generated/output.js';
+import type { FeatureMode } from '../../../../domain/generated/output.js';
 
 /**
  * Database row type matching the features table schema.
@@ -35,8 +36,11 @@ export interface FeatureRow {
   related_artifacts: string;
   agent_run_id: string | null;
   spec_path: string | null;
-  // Fast mode flag
-  fast: number;
+  // Feature mode
+  mode: string;
+  // Iteration tracking
+  iteration_count: number;
+  max_iterations: number | null;
   // Workflow configuration (flat columns)
   push: number;
   open_pr: number;
@@ -101,8 +105,11 @@ export function toDatabase(feature: Feature): FeatureRow {
     related_artifacts: JSON.stringify(feature.relatedArtifacts),
     agent_run_id: feature.agentRunId ?? null,
     spec_path: feature.specPath ?? null,
-    // Fast mode flag
-    fast: feature.fast ? 1 : 0,
+    // Feature mode
+    mode: feature.mode,
+    // Iteration tracking
+    iteration_count: feature.iterationCount,
+    max_iterations: feature.maxIterations ?? null,
     // Flatten workflow flags to individual columns
     push: feature.push ? 1 : 0,
     open_pr: feature.openPr ? 1 : 0,
@@ -173,8 +180,11 @@ export function fromDatabase(row: FeatureRow): Feature {
     ...(row.plan != null && { plan: JSON.parse(row.plan) }),
     ...(row.agent_run_id != null && { agentRunId: row.agent_run_id }),
     ...(row.spec_path != null && { specPath: row.spec_path }),
-    // Fast mode flag
-    fast: row.fast === 1,
+    // Feature mode
+    mode: row.mode as FeatureMode,
+    // Iteration tracking
+    iterationCount: row.iteration_count ?? 0,
+    ...(row.max_iterations != null && { maxIterations: row.max_iterations }),
     // Assemble workflow flags from flat columns
     push: row.push === 1,
     openPr: row.open_pr === 1,

@@ -15,7 +15,13 @@ import type { IWorktreeService } from '@/application/ports/output/services/workt
 import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
-import { AgentRunStatus, AgentType, PrStatus, SdlcLifecycle } from '@/domain/generated/output.js';
+import {
+  AgentRunStatus,
+  AgentType,
+  PrStatus,
+  SdlcLifecycle,
+  FeatureMode,
+} from '@/domain/generated/output.js';
 import type { Feature, AgentRun } from '@/domain/generated/output.js';
 
 function createMockFeature(overrides?: Partial<Feature>): Feature {
@@ -30,7 +36,8 @@ function createMockFeature(overrides?: Partial<Feature>): Feature {
     lifecycle: SdlcLifecycle.Implementation,
     messages: [],
     relatedArtifacts: [],
-    fast: false,
+    mode: FeatureMode.Regular,
+    iterationCount: 0,
     push: false,
     openPr: false,
     forkAndPr: false,
@@ -755,6 +762,75 @@ describe('DeleteFeatureUseCase', () => {
         (call: unknown[]) => (call[0] as Feature)?.pr?.status === PrStatus.Closed
       );
       expect(prUpdateCall).toBeUndefined();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Exploration feature deletion
+  // -------------------------------------------------------------------------
+
+  describe('exploration feature deletion', () => {
+    it('should delete an exploration feature in Exploring lifecycle', async () => {
+      const feature = createMockFeature({
+        mode: FeatureMode.Exploration,
+        lifecycle: SdlcLifecycle.Exploring,
+        iterationCount: 5,
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+      const result = await useCase.execute('feat-123-full-uuid');
+
+      expect(result.id).toBe('feat-123-full-uuid');
+      expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
+      expect(mockWorktreeService.remove).toHaveBeenCalled();
+    });
+
+    it('should transition Exploring to Deleting during deletion', async () => {
+      const feature = createMockFeature({
+        mode: FeatureMode.Exploration,
+        lifecycle: SdlcLifecycle.Exploring,
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+      await useCase.execute('feat-123-full-uuid');
+
+      expect(mockFeatureRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'feat-123-full-uuid',
+          lifecycle: SdlcLifecycle.Deleting,
+        })
+      );
+    });
+
+    it('should cancel running agent on exploration feature', async () => {
+      const feature = createMockFeature({
+        mode: FeatureMode.Exploration,
+        lifecycle: SdlcLifecycle.Exploring,
+        agentRunId: 'explore-run-1',
+      });
+      const run = createMockAgentRun({ id: 'explore-run-1', status: AgentRunStatus.running });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+      mockRunRepo.findById = vi.fn().mockResolvedValue(run);
+
+      await useCase.execute('feat-123-full-uuid');
+
+      expect(mockRunRepo.updateStatus).toHaveBeenCalledWith(
+        'explore-run-1',
+        AgentRunStatus.cancelled
+      );
+    });
+
+    it('should still work for regular features (no regression)', async () => {
+      const feature = createMockFeature({
+        mode: FeatureMode.Regular,
+        lifecycle: SdlcLifecycle.Implementation,
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+
+      const result = await useCase.execute('feat-123-full-uuid');
+
+      expect(result.id).toBe('feat-123-full-uuid');
+      expect(mockFeatureRepo.softDelete).toHaveBeenCalledWith('feat-123-full-uuid');
     });
   });
 });

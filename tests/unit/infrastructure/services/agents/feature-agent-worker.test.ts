@@ -10,7 +10,7 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentRunStatus } from '@/domain/generated/output.js';
+import { AgentRunStatus, FeatureMode } from '@/domain/generated/output.js';
 import type { AgentRun } from '@/domain/generated/output.js';
 
 // Use vi.hoisted so mock fns are available when vi.mock factories run
@@ -19,16 +19,20 @@ const {
   mockResolve,
   mockGraphInvoke,
   mockFastGraphInvoke,
+  mockExplorationGraphInvoke,
   mockCreateFeatureAgentGraph,
   mockCreateFastFeatureAgentGraph,
+  mockCreateExplorationAgentGraph,
   mockCreateCheckpointer,
 } = vi.hoisted(() => ({
   mockInitializeContainer: vi.fn(),
   mockResolve: vi.fn(),
   mockGraphInvoke: vi.fn(),
   mockFastGraphInvoke: vi.fn(),
+  mockExplorationGraphInvoke: vi.fn(),
   mockCreateFeatureAgentGraph: vi.fn(),
   mockCreateFastFeatureAgentGraph: vi.fn(),
+  mockCreateExplorationAgentGraph: vi.fn(),
   mockCreateCheckpointer: vi.fn().mockReturnValue({}),
 }));
 
@@ -43,6 +47,10 @@ vi.mock('@/infrastructure/services/agents/feature-agent/feature-agent-graph.js',
 
 vi.mock('@/infrastructure/services/agents/feature-agent/fast-feature-agent-graph.js', () => ({
   createFastFeatureAgentGraph: (...args: unknown[]) => mockCreateFastFeatureAgentGraph(...args),
+}));
+
+vi.mock('@/infrastructure/services/agents/feature-agent/exploration-agent-graph.js', () => ({
+  createExplorationAgentGraph: (...args: unknown[]) => mockCreateExplorationAgentGraph(...args),
 }));
 
 vi.mock('@/infrastructure/services/agents/common/checkpointer.js', () => ({
@@ -137,7 +145,9 @@ describe('parseWorkerArgs', () => {
       commitEvidence: false,
       resumePayload: undefined,
       agentType: undefined,
-      fast: false,
+      mode: FeatureMode.Regular,
+      model: undefined,
+      resumeReason: undefined,
     });
   });
 
@@ -273,7 +283,7 @@ describe('parseWorkerArgs', () => {
     expect(parsed.resumeFromInterrupt).toBe(true);
   });
 
-  it('should parse optional --fast flag', () => {
+  it('should parse optional --mode flag', () => {
     const args = [
       '--feature-id',
       'feat-123',
@@ -283,14 +293,15 @@ describe('parseWorkerArgs', () => {
       '/path/to/repo',
       '--spec-dir',
       '/path/to/specs',
-      '--fast',
+      '--mode',
+      'Fast',
     ];
 
     const parsed = parseWorkerArgs(args);
-    expect(parsed.fast).toBe(true);
+    expect(parsed.mode).toBe(FeatureMode.Fast);
   });
 
-  it('should default fast to false when not provided', () => {
+  it('should default mode to Regular when not provided', () => {
     const args = [
       '--feature-id',
       'feat-123',
@@ -303,7 +314,7 @@ describe('parseWorkerArgs', () => {
     ];
 
     const parsed = parseWorkerArgs(args);
-    expect(parsed.fast).toBe(false);
+    expect(parsed.mode).toBe(FeatureMode.Regular);
   });
 });
 
@@ -345,6 +356,23 @@ describe('runWorker', () => {
     });
     mockCreateFastFeatureAgentGraph.mockReturnValue({
       invoke: mockFastGraphInvoke,
+    });
+    mockExplorationGraphInvoke.mockResolvedValue({
+      currentNode: 'prototype-generate',
+      messages: ['[prototype-generate] done'],
+      error: null,
+      __interrupt__: [
+        {
+          value: {
+            node: 'prototype-generate',
+            message: 'Prototype iteration 1 complete.',
+            iterationCount: 1,
+          },
+        },
+      ],
+    });
+    mockCreateExplorationAgentGraph.mockReturnValue({
+      invoke: mockExplorationGraphInvoke,
     });
   });
 
@@ -618,7 +646,7 @@ describe('runWorker', () => {
       runId: 'run-1',
       repo: '/repo',
       specDir: '/specs',
-      fast: true,
+      mode: FeatureMode.Fast,
     });
 
     expect(mockCreateFastFeatureAgentGraph).toHaveBeenCalledWith(
@@ -634,7 +662,7 @@ describe('runWorker', () => {
       runId: 'run-1',
       repo: '/repo',
       specDir: '/specs',
-      fast: false,
+      mode: FeatureMode.Regular,
     });
 
     expect(mockCreateFeatureAgentGraph).toHaveBeenCalledWith(expect.anything(), expect.anything());
@@ -659,7 +687,7 @@ describe('runWorker', () => {
       runId: 'run-1',
       repo: '/repo',
       specDir: '/specs',
-      fast: true,
+      mode: FeatureMode.Fast,
       worktreePath: '/wt/path',
     });
 
@@ -680,7 +708,7 @@ describe('runWorker', () => {
       runId: 'run-1',
       repo: '/repo',
       specDir: '/specs',
-      fast: true,
+      mode: FeatureMode.Fast,
     });
 
     expect(mockRunRepo.updateStatus).toHaveBeenCalledWith(
@@ -688,6 +716,46 @@ describe('runWorker', () => {
       AgentRunStatus.completed,
       expect.objectContaining({
         completedAt: expect.any(Date),
+      })
+    );
+  });
+
+  it('should select exploration graph for mode=Exploration', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      mode: FeatureMode.Exploration,
+    });
+
+    expect(mockCreateExplorationAgentGraph).toHaveBeenCalled();
+    expect(mockCreateFeatureAgentGraph).not.toHaveBeenCalled();
+    expect(mockCreateFastFeatureAgentGraph).not.toHaveBeenCalled();
+  });
+
+  it('should invoke exploration graph and handle interrupt as waiting_approval', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      mode: FeatureMode.Exploration,
+    });
+
+    expect(mockExplorationGraphInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        featureId: 'feat-1',
+      }),
+      expect.anything()
+    );
+
+    // Exploration graph interrupts — worker should mark as waitingApproval
+    expect(mockRunRepo.updateStatus).toHaveBeenCalledWith(
+      'run-1',
+      AgentRunStatus.waitingApproval,
+      expect.objectContaining({
+        updatedAt: expect.any(Date),
       })
     );
   });

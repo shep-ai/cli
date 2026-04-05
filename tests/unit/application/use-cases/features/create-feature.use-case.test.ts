@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const { mockGetSettings } = vi.hoisted(() => ({
   mockGetSettings: vi.fn().mockReturnValue({
     agent: { type: 'claude-code' },
-    workflow: {},
+    workflow: { explorationMaxIterations: 10 },
   }),
 }));
 
@@ -32,7 +32,7 @@ import type { IRepositoryRepository } from '@/application/ports/output/repositor
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IAgentValidator } from '@/application/ports/output/agents/agent-validator.interface.js';
 import type { ISkillInjectorService } from '@/application/ports/output/services/skill-injector.interface.js';
-import { SdlcLifecycle, SkillSourceType } from '@/domain/generated/output.js';
+import { SdlcLifecycle, FeatureMode, SkillSourceType } from '@/domain/generated/output.js';
 import type { Feature } from '@/domain/generated/output.js';
 import type { MetadataGenerator } from '@/application/use-cases/features/create/metadata-generator.js';
 import type { SlugResolver } from '@/application/use-cases/features/create/slug-resolver.js';
@@ -63,7 +63,8 @@ function makeParentFeature(overrides?: Partial<Feature>): Feature {
     lifecycle: SdlcLifecycle.Implementation,
     messages: [],
     relatedArtifacts: [],
-    fast: false,
+    mode: FeatureMode.Regular,
+    iterationCount: 0,
     push: false,
     openPr: false,
     forkAndPr: false,
@@ -549,13 +550,13 @@ describe('CreateFeatureUseCase', () => {
 
   describe('fast mode', () => {
     it('should set lifecycle to Implementation when fast=true', async () => {
-      const result = await useCase.execute({ ...baseInput, fast: true });
+      const result = await useCase.execute({ ...baseInput, mode: FeatureMode.Fast });
 
       expect(result.feature.lifecycle).toBe(SdlcLifecycle.Implementation);
     });
 
     it('should set lifecycle to Requirements when fast=false', async () => {
-      const result = await useCase.execute({ ...baseInput, fast: false });
+      const result = await useCase.execute({ ...baseInput, mode: FeatureMode.Regular });
 
       expect(result.feature.lifecycle).toBe(SdlcLifecycle.Requirements);
     });
@@ -567,7 +568,7 @@ describe('CreateFeatureUseCase', () => {
     });
 
     it('should pass fast flag to specInitializer.initialize() as mode', async () => {
-      await useCase.execute({ ...baseInput, fast: true });
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Fast });
 
       expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
         expect.any(String),
@@ -579,7 +580,7 @@ describe('CreateFeatureUseCase', () => {
     });
 
     it('should not pass mode to specInitializer.initialize() when fast is false', async () => {
-      await useCase.execute({ ...baseInput, fast: false });
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Regular });
 
       expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
         expect.any(String),
@@ -591,7 +592,7 @@ describe('CreateFeatureUseCase', () => {
     });
 
     it('should pass fast=true to agentProcess.spawn() options', async () => {
-      await useCase.execute({ ...baseInput, fast: true });
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Fast });
 
       expect(mockAgentProcess.spawn).toHaveBeenCalledWith(
         expect.any(String),
@@ -599,12 +600,12 @@ describe('CreateFeatureUseCase', () => {
         expect.any(String),
         expect.any(String),
         expect.any(String),
-        expect.objectContaining({ fast: true })
+        expect.objectContaining({ mode: FeatureMode.Fast })
       );
     });
 
     it('should not include fast in spawn options when fast is false', async () => {
-      await useCase.execute({ ...baseInput, fast: false });
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Regular });
 
       const spawnCall = (mockAgentProcess.spawn as ReturnType<typeof vi.fn>).mock.calls[0];
       const options = spawnCall[5];
@@ -618,11 +619,105 @@ describe('CreateFeatureUseCase', () => {
       const result = await useCase.execute({
         ...baseInput,
         parentId: 'parent-id',
-        fast: true,
+        mode: FeatureMode.Fast,
       });
 
       expect(result.feature.lifecycle).toBe(SdlcLifecycle.Blocked);
       expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Exploration mode
+  // -------------------------------------------------------------------------
+
+  describe('exploration mode', () => {
+    it('should set lifecycle to Exploring when mode is Exploration', async () => {
+      const result = await useCase.execute({ ...baseInput, mode: FeatureMode.Exploration });
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Exploring);
+    });
+
+    it('should pass exploration mode to specInitializer.initialize()', async () => {
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Exploration });
+
+      expect(mockSpecInitializer.initialize).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(Number),
+        expect.any(String),
+        'exploration'
+      );
+    });
+
+    it('should pass mode=Exploration to agentProcess.spawn() options', async () => {
+      await useCase.execute({ ...baseInput, mode: FeatureMode.Exploration });
+
+      expect(mockAgentProcess.spawn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({ mode: FeatureMode.Exploration })
+      );
+    });
+
+    it('should set feature mode to Exploration on the created feature', async () => {
+      const result = await useCase.execute({ ...baseInput, mode: FeatureMode.Exploration });
+
+      expect(result.feature.mode).toBe(FeatureMode.Exploration);
+    });
+
+    it('should still set lifecycle to Blocked for exploration child when parent is Blocked', async () => {
+      const parent = makeParentFeature({ lifecycle: SdlcLifecycle.Blocked });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(parent);
+
+      const result = await useCase.execute({
+        ...baseInput,
+        parentId: 'parent-id',
+        mode: FeatureMode.Exploration,
+      });
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Blocked);
+      expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+    });
+
+    it('should set lifecycle to Pending when pending=true and mode is Exploration', async () => {
+      const result = await useCase.execute({
+        ...baseInput,
+        pending: true,
+        mode: FeatureMode.Exploration,
+      });
+
+      expect(result.feature.lifecycle).toBe(SdlcLifecycle.Pending);
+      expect(mockAgentProcess.spawn).not.toHaveBeenCalled();
+    });
+
+    it('should set maxIterations from settings when mode is Exploration', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: { explorationMaxIterations: 15 },
+      });
+      const result = await useCase.execute({ ...baseInput, mode: FeatureMode.Exploration });
+
+      expect(result.feature.maxIterations).toBe(15);
+    });
+
+    it('should default maxIterations to 10 when settings omit explorationMaxIterations', async () => {
+      mockGetSettings.mockReturnValue({
+        agent: { type: 'claude-code' },
+        workflow: {},
+      });
+      const result = await useCase.execute({ ...baseInput, mode: FeatureMode.Exploration });
+
+      expect(result.feature.maxIterations).toBe(10);
+    });
+
+    it('should not set maxIterations for non-Exploration modes', async () => {
+      const result = await useCase.execute({ ...baseInput, mode: FeatureMode.Fast });
+
+      expect(result.feature.maxIterations).toBeUndefined();
     });
   });
 
@@ -697,7 +792,7 @@ describe('CreateFeatureUseCase', () => {
     });
 
     it('should set fast feature to Pending lifecycle when pending=true and fast=true', async () => {
-      const result = await useCase.execute({ ...baseInput, pending: true, fast: true });
+      const result = await useCase.execute({ ...baseInput, pending: true, mode: FeatureMode.Fast });
 
       expect(result.feature.lifecycle).toBe(SdlcLifecycle.Pending);
       expect(mockAgentProcess.spawn).not.toHaveBeenCalled();

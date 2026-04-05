@@ -114,6 +114,7 @@ import "../../common/base.tsp";
 import "../../common/scalars.tsp";
 import "../../common/enums/lifecycle.tsp";
 import "../../common/enums/workflow.tsp";
+import "../../common/enums/feature-mode.tsp";
 import "./message.tsp";
 import "./plan.tsp";
 import "./artifact.tsp";
@@ -373,8 +374,8 @@ model Feature extends SoftDeletableEntity {
 
   // ── Workflow Configuration ──────────────────────────────────
 
-  @doc("When true, SDLC phases were skipped and the feature was implemented directly from the prompt")
-  fast: boolean = false;
+  @doc("Execution mode determining the workflow: Regular (full SDLC), Fast (direct implementation), or Exploration (iterative prototyping)")
+  mode: FeatureMode = FeatureMode.Regular;
 
   @doc("Push branch to remote after implementation (default: false)")
   push: boolean = false;
@@ -405,6 +406,14 @@ model Feature extends SoftDeletableEntity {
 
   @doc("Absolute path to the git worktree for this feature")
   worktreePath?: string;
+
+  // ── Exploration Mode ─────────────────────────────────────
+
+  @doc("Current feedback iteration count in exploration mode (0 when not exploring)")
+  iterationCount: int32 = 0;
+
+  @doc("Maximum allowed iterations for exploration mode (only set when mode is Exploration)")
+  maxIterations?: int32;
 
   // ── Pull Request Tracking ──────────────────────────────────
 

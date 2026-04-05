@@ -208,7 +208,8 @@ export function createDefaultSettings(): Settings {
     ciWatchEnabled: true,
     enableEvidence: false,
     commitEvidence: false,
-    defaultFastMode: true,
+    defaultMode: 'Fast',
+    explorationMaxIterations: 10,
     autoArchiveDelayMinutes: 10,
     skillInjection,
   };

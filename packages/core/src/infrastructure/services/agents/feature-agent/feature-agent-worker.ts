@@ -18,6 +18,8 @@ import { createFeatureAgentGraph } from './feature-agent-graph.js';
 import type { FeatureAgentGraphDeps } from './feature-agent-graph.js';
 import { createFastFeatureAgentGraph } from './fast-feature-agent-graph.js';
 import type { FastFeatureAgentGraphDeps } from './fast-feature-agent-graph.js';
+import { createExplorationAgentGraph } from './exploration-agent-graph.js';
+import type { ExplorationAgentGraphDeps } from './exploration-agent-graph.js';
 import { createCheckpointer } from '../common/checkpointer.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
@@ -25,7 +27,12 @@ import type { IAgentExecutorFactory } from '@/application/ports/output/agents/ag
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IGitForkService } from '@/application/ports/output/services/git-fork-service.interface.js';
-import { AgentRunStatus, SdlcLifecycle, type AgentType } from '@/domain/generated/output.js';
+import {
+  AgentRunStatus,
+  SdlcLifecycle,
+  FeatureMode,
+  type AgentType,
+} from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
@@ -57,7 +64,7 @@ export interface WorkerArgs {
   commitEvidence?: boolean;
   resumePayload?: string;
   agentType?: AgentType;
-  fast?: boolean;
+  mode?: FeatureMode;
   model?: string;
   resumeReason?: string;
 }
@@ -99,7 +106,11 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const ciWatchEnabled = !args.includes('--no-ci-watch');
   const enableEvidence = args.includes('--enable-evidence');
   const commitEvidence = args.includes('--commit-evidence');
-  const fast = args.includes('--fast');
+  const modeIdx = args.indexOf('--mode');
+  const mode: FeatureMode =
+    modeIdx !== -1 && modeIdx + 1 < args.length
+      ? (args[modeIdx + 1] as FeatureMode)
+      : FeatureMode.Regular;
   const threadIdx = args.indexOf('--thread-id');
   const threadId =
     threadIdx !== -1 && threadIdx + 1 < args.length ? args[threadIdx + 1] : undefined;
@@ -144,7 +155,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     commitEvidence,
     resumePayload,
     agentType,
-    fast,
+    mode,
     model,
     resumeReason,
   };
@@ -211,7 +222,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
     ...(args.commitSpecs === false ? ['--no-commit-specs'] : []),
     ...(args.resumePayload ? ['--resume-payload', args.resumePayload] : []),
     ...(args.agentType ? ['--agent-type', args.agentType] : []),
-    ...(args.fast ? ['--fast'] : []),
+    ...(args.mode && args.mode !== FeatureMode.Regular ? ['--mode', args.mode] : []),
     ...(args.model ? ['--model', args.model] : []),
   ];
   log(`Starting worker — full command:`);
@@ -279,15 +290,23 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   const checkpointPath = join(homedir(), '.shep', 'checkpoints', `${checkpointId}.db`);
   log(`Creating checkpointer at ${checkpointPath} (thread: ${checkpointId})`);
   const checkpointer = createCheckpointer(checkpointPath);
-  // Both graph factories return compiled graphs with identical FeatureAgentAnnotation
+  // All graph factories return compiled graphs with identical FeatureAgentAnnotation
   // state shape and invoke() interface. Cast through unknown because the compiled
   // graphs have different node name types but share the same runtime contract.
-  const graph = args.fast
-    ? (createFastFeatureAgentGraph(
-        graphDeps as FastFeatureAgentGraphDeps,
-        checkpointer
-      ) as unknown as ReturnType<typeof createFeatureAgentGraph>)
-    : createFeatureAgentGraph(graphDeps, checkpointer);
+  let graph: ReturnType<typeof createFeatureAgentGraph>;
+  if (args.mode === FeatureMode.Exploration) {
+    graph = createExplorationAgentGraph(
+      { executor } as ExplorationAgentGraphDeps,
+      checkpointer
+    ) as unknown as ReturnType<typeof createFeatureAgentGraph>;
+  } else if (args.mode === FeatureMode.Fast) {
+    graph = createFastFeatureAgentGraph(
+      graphDeps as FastFeatureAgentGraphDeps,
+      checkpointer
+    ) as unknown as ReturnType<typeof createFeatureAgentGraph>;
+  } else {
+    graph = createFeatureAgentGraph(graphDeps, checkpointer);
+  }
 
   // Mark the run as running with our PID
   const now = new Date();

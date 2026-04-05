@@ -10,7 +10,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StartFeatureUseCase } from '@/application/use-cases/features/start-feature.use-case.js';
-import { SdlcLifecycle, AgentRunStatus } from '@/domain/generated/output.js';
+import { SdlcLifecycle, AgentRunStatus, FeatureMode } from '@/domain/generated/output.js';
 import type { Feature, AgentRun } from '@/domain/generated/output.js';
 
 function createMockFeatureRepo() {
@@ -69,7 +69,8 @@ function createTestFeature(overrides?: Partial<Feature>): Feature {
     lifecycle: SdlcLifecycle.Pending,
     messages: [],
     relatedArtifacts: [],
-    fast: false,
+    mode: FeatureMode.Regular,
+    iterationCount: 0,
     push: false,
     openPr: false,
     forkAndPr: false,
@@ -189,7 +190,7 @@ describe('StartFeatureUseCase', () => {
   // -------------------------------------------------------------------------
 
   it('should transition fast Pending feature to Implementation', async () => {
-    featureRepo.findById.mockResolvedValue(createTestFeature({ fast: true }));
+    featureRepo.findById.mockResolvedValue(createTestFeature({ mode: FeatureMode.Fast }));
     runRepo.findById.mockResolvedValue(createTestRun());
 
     const result = await useCase.execute('feat-001');
@@ -254,7 +255,7 @@ describe('StartFeatureUseCase', () => {
   });
 
   it('should transition fast feature with satisfied parent to Implementation', async () => {
-    const feature = createTestFeature({ parentId: 'parent-id', fast: true });
+    const feature = createTestFeature({ parentId: 'parent-id', mode: FeatureMode.Fast });
     const parent = createTestFeature({
       id: 'parent-id',
       lifecycle: SdlcLifecycle.Maintain,
@@ -353,7 +354,7 @@ describe('StartFeatureUseCase', () => {
   });
 
   it('should pass fast flag to spawn when feature is fast', async () => {
-    featureRepo.findById.mockResolvedValue(createTestFeature({ fast: true }));
+    featureRepo.findById.mockResolvedValue(createTestFeature({ mode: FeatureMode.Fast }));
     runRepo.findById.mockResolvedValue(createTestRun());
 
     await useCase.execute('feat-001');
@@ -364,7 +365,7 @@ describe('StartFeatureUseCase', () => {
       expect.any(String),
       expect.any(String),
       expect.any(String),
-      expect.objectContaining({ fast: true })
+      expect.objectContaining({ mode: FeatureMode.Fast })
     );
   });
 

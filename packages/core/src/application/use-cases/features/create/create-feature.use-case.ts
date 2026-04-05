@@ -22,6 +22,7 @@ import type { Feature } from '../../../../domain/generated/output.js';
 import {
   SdlcLifecycle,
   AgentRunStatus,
+  FeatureMode,
   type AgentType,
 } from '../../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../../ports/output/repositories/feature-repository.interface.js';
@@ -86,9 +87,13 @@ export class CreateFeatureUseCase {
    * No AI calls, no git operations — just DB writes.
    */
   async createRecord(input: CreateFeatureInput): Promise<CreateRecordResult> {
-    let initialLifecycle: SdlcLifecycle = input.fast
-      ? SdlcLifecycle.Implementation
-      : SdlcLifecycle.Requirements;
+    const effectiveMode = input.mode ?? FeatureMode.Regular;
+    let initialLifecycle: SdlcLifecycle =
+      effectiveMode === FeatureMode.Exploration
+        ? SdlcLifecycle.Exploring
+        : effectiveMode === FeatureMode.Fast
+          ? SdlcLifecycle.Implementation
+          : SdlcLifecycle.Requirements;
     let shouldSpawn = true;
     let effectiveRepoPath = input.repositoryPath.replace(/\\/g, '/');
 
@@ -173,7 +178,7 @@ export class CreateFeatureUseCase {
       lifecycle: initialLifecycle,
       messages: [],
       relatedArtifacts: [],
-      fast: input.fast ?? false,
+      mode: effectiveMode,
       push: input.push ?? false,
       openPr: input.openPr ?? false,
       forkAndPr: input.forkAndPr ?? false,
@@ -187,6 +192,10 @@ export class CreateFeatureUseCase {
         allowPlan: false,
         allowMerge: false,
       },
+      iterationCount: 0,
+      ...(effectiveMode === FeatureMode.Exploration && {
+        maxIterations: getSettings().workflow.explorationMaxIterations ?? 10,
+      }),
       agentRunId: runId,
       specPath: '',
       repositoryId: repository.id,
@@ -278,7 +287,11 @@ export class CreateFeatureUseCase {
       slug,
       featureNumber,
       input.userInput,
-      input.fast ? 'fast' : undefined
+      feature.mode === FeatureMode.Fast
+        ? 'fast'
+        : feature.mode === FeatureMode.Exploration
+          ? 'exploration'
+          : undefined
     );
 
     // Commit pending attachments if sessionId was provided (web UI flow)
@@ -387,7 +400,7 @@ export class CreateFeatureUseCase {
           ciWatchEnabled: input.ciWatchEnabled ?? true,
           enableEvidence: input.enableEvidence ?? false,
           commitEvidence: input.commitEvidence ?? false,
-          ...(input.fast ? { fast: true } : {}),
+          ...(feature.mode !== FeatureMode.Regular ? { mode: feature.mode } : {}),
           ...(input.agentType ? { agentType: input.agentType as AgentType } : {}),
           ...(input.model ? { model: input.model } : {}),
         }

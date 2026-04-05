@@ -17,7 +17,7 @@ import { join, resolve } from 'node:path';
 import { container } from '@/infrastructure/di/container.js';
 import { CreateFeatureUseCase } from '@/application/use-cases/features/create/create-feature.use-case.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
-import { SdlcLifecycle } from '@/domain/generated/output.js';
+import { SdlcLifecycle, FeatureMode } from '@/domain/generated/output.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { colors, messages, spinner } from '../../ui/index.js';
 import { getCliI18n } from '../../i18n.js';
@@ -36,6 +36,7 @@ interface NewOptions {
   allowAll?: boolean;
   parent?: string;
   fast?: boolean;
+  explore?: boolean;
   pending?: boolean;
   model?: string;
   attach?: string[];
@@ -57,7 +58,7 @@ interface WorkflowDefaults {
   allowPlan: boolean;
   allowMerge: boolean;
   push: boolean;
-  fast: boolean;
+  defaultMode: FeatureMode;
 }
 
 function getWorkflowDefaults(): WorkflowDefaults {
@@ -68,7 +69,7 @@ function getWorkflowDefaults(): WorkflowDefaults {
       allowPlan: false,
       allowMerge: false,
       push: false,
-      fast: true,
+      defaultMode: FeatureMode.Fast,
     };
   }
   const settings = getSettings();
@@ -79,7 +80,7 @@ function getWorkflowDefaults(): WorkflowDefaults {
     allowPlan: gates.allowPlan,
     allowMerge: gates.allowMerge,
     push: gates.pushOnImplementationComplete,
-    fast: settings.workflow.defaultFastMode,
+    defaultMode: (settings.workflow.defaultMode as FeatureMode) ?? FeatureMode.Fast,
   };
 }
 
@@ -103,6 +104,7 @@ export function createNewCommand(): Command {
     .option('--pending', t('cli:commands.feat.new.pendingOption'))
     .option('--fast', t('cli:commands.feat.new.fastOption'))
     .option('--no-fast', t('cli:commands.feat.new.noFastOption'))
+    .option('--explore', t('cli:commands.feat.new.exploreOption'))
     .option('--model <model>', t('cli:commands.feat.new.modelOption'))
     .option('--no-rebase', t('cli:commands.feat.new.noRebaseOption'))
     .option('--inject-skills', t('cli:commands.feat.new.injectSkillsOption'))
@@ -163,7 +165,20 @@ export function createNewCommand(): Command {
           }
         }
 
-        const fast = options.fast ?? defaults.fast;
+        // Validate mutually exclusive mode flags
+        if (options.explore && options.fast) {
+          messages.error(t('cli:commands.feat.new.exploreAndFastConflict'));
+          process.exitCode = 1;
+          return;
+        }
+
+        const mode = options.explore
+          ? FeatureMode.Exploration
+          : options.fast
+            ? FeatureMode.Fast
+            : options.fast === false
+              ? FeatureMode.Regular
+              : defaults.defaultMode;
 
         const result = await spinner(t('cli:commands.feat.new.spinnerText'), () =>
           useCase.execute({
@@ -174,7 +189,7 @@ export function createNewCommand(): Command {
             openPr,
             ...(parentId !== undefined && { parentId }),
             ...(options.pending && { pending: true }),
-            ...(fast && { fast: true }),
+            mode,
             ...(options.model !== undefined && { model: options.model }),
             ...(attachmentPaths.length > 0 && { attachmentPaths }),
             ...(options.injectSkills !== undefined && { injectSkills: options.injectSkills }),

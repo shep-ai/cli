@@ -6,6 +6,7 @@ import type { FeatureCreateDrawerProps } from '@/components/common/feature-creat
 import { DrawerCloseGuardProvider } from '@/hooks/drawer-close-guard';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
+import { FeatureMode } from '@shepai/core/domain/generated/output';
 
 // Mock pickFiles client helper
 const mockPickFiles = vi.fn<() => Promise<FileAttachment[] | null>>();
@@ -211,7 +212,7 @@ describe('FeatureCreateDrawer', () => {
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         push: false,
         openPr: false,
-        fast: true,
+        mode: FeatureMode.Fast,
       });
       expect(payload).toHaveProperty('sessionId');
       expect(payload).not.toHaveProperty('name');
@@ -249,8 +250,8 @@ describe('FeatureCreateDrawer', () => {
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
-      // Turn off fast mode first so PRD/Plan switches are enabled
-      await user.click(screen.getByLabelText('Fast Mode'));
+      // Switch to Regular mode so PRD/Plan switches are enabled
+      await user.click(screen.getByTestId('mode-option-regular'));
       await user.click(screen.getByLabelText('PRD'));
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
@@ -267,8 +268,8 @@ describe('FeatureCreateDrawer', () => {
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Add a feature');
-      // Turn off fast mode first so PRD/Plan switches are enabled
-      await user.click(screen.getByLabelText('Fast Mode'));
+      // Switch to Regular mode so PRD/Plan switches are enabled
+      await user.click(screen.getByTestId('mode-option-regular'));
       await user.click(screen.getByLabelText('PRD'));
       await user.click(screen.getByLabelText('Plan'));
       await user.click(screen.getByLabelText('Merge'));
@@ -309,7 +310,7 @@ describe('FeatureCreateDrawer', () => {
         ciWatchEnabled: true,
         enableEvidence: false,
         commitEvidence: false,
-        fast: false,
+        defaultMode: FeatureMode.Regular,
         injectSkills: false,
       };
       const { rerender } = render(
@@ -410,7 +411,7 @@ describe('FeatureCreateDrawer', () => {
         ciWatchEnabled: true,
         enableEvidence: false,
         commitEvidence: false,
-        fast: false,
+        defaultMode: FeatureMode.Regular,
         injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
@@ -532,9 +533,8 @@ describe('FeatureCreateDrawer', () => {
       // Check "Create PR" (which forces push=true)
       await user.click(screen.getByLabelText('PR'));
 
-      // Turn off fast mode so PRD/Plan switches can be toggled
-      await user.click(screen.getByLabelText('Fast Mode'));
-      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
+      // Switch to Regular mode so PRD/Plan switches can be toggled
+      await user.click(screen.getByTestId('mode-option-regular'));
 
       // Select a parent feature
       await user.click(screen.getByTestId('parent-feature-combobox'));
@@ -550,8 +550,8 @@ describe('FeatureCreateDrawer', () => {
 
       // Assert all fields are reset to defaults (component is still mounted)
       expect(screen.getByPlaceholderText(descriptionPlaceholder)).toHaveValue('');
-      // Fast mode resets to default (checked)
-      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
+      // Mode resets to default (Fast)
+      expect(screen.getByTestId('mode-option-fast')).toHaveAttribute('aria-checked', 'true');
       expect(screen.getByLabelText('PRD')).not.toBeChecked();
       expect(screen.getByLabelText('Plan')).not.toBeChecked();
       expect(screen.getByLabelText('Merge')).not.toBeChecked();
@@ -723,18 +723,26 @@ describe('FeatureCreateDrawer', () => {
     });
   });
 
-  describe('fast mode toggle', () => {
-    it('renders fast mode switch with label', () => {
+  describe('mode selector', () => {
+    it('renders the mode selector with three options', () => {
       renderDrawer();
-      expect(screen.getByLabelText('Fast Mode')).toBeInTheDocument();
+      expect(screen.getByTestId('mode-selector')).toBeInTheDocument();
+      expect(screen.getByTestId('mode-option-regular')).toBeInTheDocument();
+      expect(screen.getByTestId('mode-option-fast')).toBeInTheDocument();
+      expect(screen.getByTestId('mode-option-exploration')).toBeInTheDocument();
     });
 
-    it('fast mode is checked by default (no workflowDefaults)', () => {
+    it('fast mode is selected by default (no workflowDefaults)', () => {
       renderDrawer();
-      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
+      expect(screen.getByTestId('mode-option-fast')).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByTestId('mode-option-regular')).toHaveAttribute('aria-checked', 'false');
+      expect(screen.getByTestId('mode-option-exploration')).toHaveAttribute(
+        'aria-checked',
+        'false'
+      );
     });
 
-    it('fast mode respects workflowDefaults.fast=true', () => {
+    it('respects workflowDefaults.defaultMode=Fast', () => {
       const defaults: WorkflowDefaults = {
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         push: false,
@@ -742,14 +750,14 @@ describe('FeatureCreateDrawer', () => {
         ciWatchEnabled: true,
         enableEvidence: false,
         commitEvidence: false,
-        fast: true,
+        defaultMode: FeatureMode.Fast,
         injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
-      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
+      expect(screen.getByTestId('mode-option-fast')).toHaveAttribute('aria-checked', 'true');
     });
 
-    it('fast mode respects workflowDefaults.fast=false', () => {
+    it('respects workflowDefaults.defaultMode=Regular', () => {
       const defaults: WorkflowDefaults = {
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         push: false,
@@ -757,14 +765,15 @@ describe('FeatureCreateDrawer', () => {
         ciWatchEnabled: true,
         enableEvidence: false,
         commitEvidence: false,
-        fast: false,
+        defaultMode: FeatureMode.Regular,
         injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
-      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
+      expect(screen.getByTestId('mode-option-regular')).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByTestId('mode-option-fast')).toHaveAttribute('aria-checked', 'false');
     });
 
-    it('toggling fast mode checkbox updates form state', async () => {
+    it('clicking a mode option updates the selection', async () => {
       const user = userEvent.setup();
       const defaults: WorkflowDefaults = {
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
@@ -773,18 +782,18 @@ describe('FeatureCreateDrawer', () => {
         ciWatchEnabled: true,
         enableEvidence: false,
         commitEvidence: false,
-        fast: false,
+        defaultMode: FeatureMode.Regular,
         injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
 
-      const checkbox = screen.getByLabelText('Fast Mode');
-      expect(checkbox).not.toBeChecked();
-      await user.click(checkbox);
-      expect(checkbox).toBeChecked();
+      expect(screen.getByTestId('mode-option-regular')).toHaveAttribute('aria-checked', 'true');
+      await user.click(screen.getByTestId('mode-option-fast'));
+      expect(screen.getByTestId('mode-option-fast')).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByTestId('mode-option-regular')).toHaveAttribute('aria-checked', 'false');
     });
 
-    it('submitting with fast mode on includes fast=true in payload', async () => {
+    it('submitting with fast mode selected includes mode=Fast in payload', async () => {
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
@@ -794,48 +803,69 @@ describe('FeatureCreateDrawer', () => {
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
       expect(onSubmit).toHaveBeenCalledOnce();
-      expect(onSubmit.mock.calls[0][0]).toEqual(expect.objectContaining({ fast: true }));
+      expect(onSubmit.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ mode: FeatureMode.Fast })
+      );
     });
 
-    it('submitting with fast mode off includes fast=false in payload', async () => {
+    it('submitting with regular mode selected includes mode=Regular in payload', async () => {
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Fix the typo');
-      // Toggle fast mode off (it's on by default)
-      await user.click(screen.getByLabelText('Fast Mode'));
+      // Select Regular mode (Fast is on by default)
+      await user.click(screen.getByTestId('mode-option-regular'));
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
       expect(onSubmit).toHaveBeenCalledOnce();
-      expect(onSubmit.mock.calls[0][0]).toEqual(expect.objectContaining({ fast: false }));
+      expect(onSubmit.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ mode: FeatureMode.Regular })
+      );
     });
 
-    it('fast mode checkbox has accessible label', () => {
+    it('submitting with exploration mode selected includes mode=Exploration in payload', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'Fix the typo');
+      // Select Exploration mode
+      await user.click(screen.getByTestId('mode-option-exploration'));
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      expect(onSubmit.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ mode: FeatureMode.Exploration })
+      );
+    });
+
+    it('mode selector has accessible label', () => {
       renderDrawer();
-      const checkbox = screen.getByLabelText('Fast Mode');
-      expect(checkbox).toHaveAttribute('id', 'fast-mode');
+      expect(screen.getByLabelText('Feature mode')).toBeInTheDocument();
     });
 
-    it('fast mode checkbox is disabled when isSubmitting', () => {
+    it('mode selector items are disabled when isSubmitting', () => {
       renderDrawer({ isSubmitting: true });
-      expect(screen.getByLabelText('Fast Mode')).toBeDisabled();
+      expect(screen.getByTestId('mode-option-regular')).toBeDisabled();
+      expect(screen.getByTestId('mode-option-fast')).toBeDisabled();
+      expect(screen.getByTestId('mode-option-exploration')).toBeDisabled();
     });
 
-    it('fast mode resets to default after submit', async () => {
+    it('mode resets to default after submit', async () => {
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText(descriptionPlaceholder), 'My Feature');
-      // Toggle fast mode off then submit
-      await user.click(screen.getByLabelText('Fast Mode'));
-      expect(screen.getByLabelText('Fast Mode')).not.toBeChecked();
+      // Switch to Regular mode then submit
+      await user.click(screen.getByTestId('mode-option-regular'));
+      expect(screen.getByTestId('mode-option-regular')).toHaveAttribute('aria-checked', 'true');
 
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
-      // After submit, form resets — fast mode should be back to default (checked)
-      expect(screen.getByLabelText('Fast Mode')).toBeChecked();
+      // After submit, form resets — mode should be back to default (Fast)
+      expect(screen.getByTestId('mode-option-fast')).toHaveAttribute('aria-checked', 'true');
     });
   });
 
@@ -1359,7 +1389,7 @@ describe('FeatureCreateDrawer', () => {
         ciWatchEnabled: true,
         enableEvidence: false,
         commitEvidence: false,
-        fast: true,
+        defaultMode: FeatureMode.Fast,
         injectSkills: false,
       };
       const { rerender } = render(
