@@ -1,3 +1,10 @@
+# [1.168.0](https://github.com/shep-ai/shep/compare/v1.167.0...v1.168.0) (2026-04-05)
+
+
+### Features
+
+* **web:** add interactive askuserquestion support in chat ([#478](https://github.com/shep-ai/shep/issues/478)) ([a84cf1c](https://github.com/shep-ai/shep/commit/a84cf1c27f00b08f8fff1cf430d4031821d74483))
+
 # [1.167.0](https://github.com/shep-ai/shep/compare/v1.166.1...v1.167.0) (2026-04-04)
 
 
