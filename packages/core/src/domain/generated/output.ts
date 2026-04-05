@@ -609,6 +609,10 @@ export type FeatureFlags = {
    * Use the built-in React file manager instead of the native OS folder picker
    */
   reactFileManager: boolean;
+  /**
+   * Enable the Inventory page showing all repositories and features
+   */
+  inventory: boolean;
 };
 
 /**

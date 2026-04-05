@@ -20,6 +20,7 @@ export interface FeatureFlagsState {
   adoptBranch: boolean;
   gitRebaseSync: boolean;
   reactFileManager: boolean;
+  inventory: boolean;
 }
 
 export function getFeatureFlags(): FeatureFlagsState {
@@ -35,6 +36,7 @@ export function getFeatureFlags(): FeatureFlagsState {
           adoptBranch: flags.adoptBranch,
           gitRebaseSync: flags.gitRebaseSync,
           reactFileManager: flags.reactFileManager,
+          inventory: flags.inventory,
         };
       }
     }
@@ -53,6 +55,7 @@ export function getFeatureFlags(): FeatureFlagsState {
     adoptBranch: false,
     gitRebaseSync: false,
     reactFileManager: isEnabled(process.env.NEXT_PUBLIC_FLAG_REACT_FILE_MANAGER),
+    inventory: false,
   };
 }
 
@@ -81,5 +84,8 @@ export const featureFlags = {
   },
   get reactFileManager() {
     return getFeatureFlags().reactFileManager;
+  },
+  get inventory() {
+    return getFeatureFlags().inventory;
   },
 } as const;

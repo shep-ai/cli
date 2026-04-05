@@ -520,6 +520,9 @@ model FeatureFlags {
 
   @doc("Use the built-in React file manager instead of the native OS folder picker")
   reactFileManager: boolean = false;
+
+  @doc("Enable the Inventory page showing all repositories and features")
+  inventory: boolean = false;
 }
 
 /**

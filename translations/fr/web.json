@@ -202,6 +202,8 @@
       "gitRebaseSyncDescription": "Activer les opérations de rebase-on-main et sync-main de git",
       "reactFileManager": "Gestionnaire de fichiers React",
       "reactFileManagerDescription": "Utiliser le gestionnaire de fichiers React intégré au lieu du sélecteur de dossier natif du système",
+      "inventory": "Inventaire",
+      "inventoryDescription": "Activer la page Inventaire affichant tous les dépôts et fonctionnalités en vue arborescente",
       "hint": "Fonctionnalités expérimentales encore en cours de développement. Activez à vos risques et périls — elles peuvent changer ou être supprimées dans les versions futures. Le mode débogage ajoute une journalisation détaillée utile pour le dépannage."
     },
     "interactiveAgent": {
@@ -240,6 +242,7 @@
     "controlCenter": "Centre de contrôle",
     "dashboard": "Tableau de bord",
     "features": "Fonctionnalités",
+    "inventory": "Inventaire",
     "repositories": "Dépôts",
     "settings": "Paramètres",
     "sessions": "Sessions",

@@ -13,6 +13,7 @@ import {
   Wrench,
   Puzzle,
   Settings,
+  TableProperties,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -161,6 +162,14 @@ export function AppSidebar({
             href="/"
             active={pathname === '/'}
           />
+          {featureFlags.inventory ? (
+            <SidebarNavItem
+              icon={TableProperties}
+              label={t('navigation.inventory')}
+              href="/features"
+              active={pathname === '/features'}
+            />
+          ) : null}
           <SidebarNavItem
             icon={Wrench}
             label={t('navigation.tools')}

@@ -159,6 +159,7 @@ export function createDefaultSettings(): Settings {
     adoptBranch: false,
     gitRebaseSync: false,
     reactFileManager: false,
+    inventory: false,
   };
 
   return {

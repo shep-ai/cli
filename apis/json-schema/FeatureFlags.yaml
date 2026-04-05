@@ -30,6 +30,10 @@ properties:
     type: boolean
     default: false
     description: Use the built-in React file manager instead of the native OS folder picker
+  inventory:
+    type: boolean
+    default: false
+    description: Enable the Inventory page showing all repositories and features
 required:
   - skills
   - envDeploy
@@ -38,4 +42,5 @@ required:
   - adoptBranch
   - gitRebaseSync
   - reactFileManager
+  - inventory
 description: Feature flag toggles for runtime feature control

@@ -202,6 +202,8 @@
       "gitRebaseSyncDescription": "הפעל פעולות rebase-on-main וסנכרון main ב-Git",
       "reactFileManager": "מנהל קבצים React",
       "reactFileManagerDescription": "השתמש במנהל הקבצים המובנה של React במקום בוחר התיקיות של מערכת ההפעלה",
+      "inventory": "מלאי",
+      "inventoryDescription": "הפעל את דף המלאי המציג את כל המאגרים והתכונות בתצוגת עץ",
       "hint": "תכונות ניסיוניות שעדיין בפיתוח. הפעל על אחריותך — הן עשויות להשתנות או להיות מוסרות בגרסאות עתידיות. מצב ניפוי שגיאות מוסיף רישום מפורט שימושי לפתרון בעיות."
     },
     "interactiveAgent": {
@@ -240,6 +242,7 @@
     "controlCenter": "מרכז בקרה",
     "dashboard": "לוח בקרה",
     "features": "פיצ'רים",
+    "inventory": "מלאי",
     "repositories": "מאגרים",
     "settings": "הגדרות",
     "sessions": "סשנים",

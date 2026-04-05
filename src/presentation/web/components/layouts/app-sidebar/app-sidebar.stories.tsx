@@ -15,6 +15,7 @@ const defaultFeatureFlags = {
   adoptBranch: false,
   gitRebaseSync: false,
   reactFileManager: false,
+  inventory: false,
 };
 
 const meta: Meta<typeof AppSidebar> = {

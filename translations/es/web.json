@@ -202,6 +202,8 @@
       "gitRebaseSyncDescription": "Habilitar operaciones de rebase-on-main y sync-main de git",
       "reactFileManager": "Administrador de archivos React",
       "reactFileManagerDescription": "Usar el administrador de archivos React integrado en lugar del selector de carpetas nativo del SO",
+      "inventory": "Inventario",
+      "inventoryDescription": "Habilitar la página de Inventario que muestra todos los repositorios y funciones en vista de árbol",
       "hint": "Funcionalidades experimentales que aún están en desarrollo. Habilítalas bajo tu propio riesgo — pueden cambiar o ser eliminadas en versiones futuras. El modo de depuración agrega registro detallado útil para la resolución de problemas."
     },
     "interactiveAgent": {
@@ -240,6 +242,7 @@
     "controlCenter": "Centro de control",
     "dashboard": "Panel",
     "features": "Funcionalidades",
+    "inventory": "Inventario",
     "repositories": "Repositorios",
     "settings": "Configuración",
     "sessions": "Sesiones",
