@@ -1,35 +1,35 @@
 
- RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-auto-stash-rebase
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-auto-stash-rebase[39m
 
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — syncMain (integration) > should fetch latest main when upstream has new commits (from feature branch) 976ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — syncMain (integration) > should fast-forward main when on the main branch (uses pull) 954ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — syncMain (integration) > should succeed silently when main is already up-to-date 617ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — syncMain (integration) > should throw SYNC_FAILED when on main and local main has diverged from remote 1089ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — syncMain (integration) > should succeed from feature branch even when local main has diverged (fetches origin/main only) 1101ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — syncMain (integration) > should be idempotent — calling sync twice succeeds 920ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — rebaseOnMain (integration) > should successfully rebase feature branch onto main with no conflicts 1191ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — rebaseOnMain (integration) > should throw REBASE_CONFLICT when rebase encounters conflicting changes 1032ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — rebaseOnMain (integration) > should throw GIT_ERROR when worktree has uncommitted changes 603ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — rebaseOnMain (integration) > should throw BRANCH_NOT_FOUND when feature branch does not exist 599ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — rebaseOnMain (integration) > should leave worktree clean after aborting a conflicted rebase 1012ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — rebaseOnMain (integration) > should produce linear history after successful rebase 1139ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — rebaseOnMain (integration) > should succeed when feature branch is already up-to-date with main (no-op rebase) 603ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — helper methods (integration) > getConflictedFiles should return conflicted file paths during a rebase conflict 1045ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — helper methods (integration) > stageFiles + rebaseContinue should complete rebase after manual conflict resolution 1188ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — helper methods (integration) > rebaseAbort should restore branch to pre-rebase state 1012ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash (integration) > should stash uncommitted changes and return true 634ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash (integration) > should return false when working directory is clean 623ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash (integration) > should include the stash message in git stash list output 649ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash (integration) > should stash pop and restore uncommitted changes 745ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash (integration) > should stash drop and discard the stash entry 715ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash + rebase + pop flow (integration) > should preserve uncommitted changes across a clean rebase (stash → sync → rebase → pop) 1406ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash + rebase + pop flow (integration) > should skip stash when working directory is clean and rebase normally 1148ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash + rebase + pop flow (integration) > should preserve uncommitted changes even when rebase has conflicts that are manually resolved 1308ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash + rebase + pop flow (integration) > should restore uncommitted changes even after a failed rebase that is aborted 1064ms
- ✓  node  tests/integration/services/git/git-pr.service.rebase-sync.test.ts > GitPrService — stash + rebase + pop flow (integration) > should handle unstaged modifications in stash-rebase-pop flow 1188ms
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — syncMain (integration)[2m > [22mshould fetch latest main when upstream has new commits (from feature branch)[33m 968[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — syncMain (integration)[2m > [22mshould fast-forward main when on the main branch (uses pull)[33m 921[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — syncMain (integration)[2m > [22mshould succeed silently when main is already up-to-date[33m 626[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — syncMain (integration)[2m > [22mshould throw SYNC_FAILED when on main and local main has diverged from remote[33m 1078[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — syncMain (integration)[2m > [22mshould succeed from feature branch even when local main has diverged (fetches origin/main only)[33m 1067[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — syncMain (integration)[2m > [22mshould be idempotent — calling sync twice succeeds[33m 923[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — rebaseOnMain (integration)[2m > [22mshould successfully rebase feature branch onto main with no conflicts[33m 1149[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — rebaseOnMain (integration)[2m > [22mshould throw REBASE_CONFLICT when rebase encounters conflicting changes[33m 935[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — rebaseOnMain (integration)[2m > [22mshould throw GIT_ERROR when worktree has uncommitted changes[33m 610[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — rebaseOnMain (integration)[2m > [22mshould throw BRANCH_NOT_FOUND when feature branch does not exist[33m 628[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — rebaseOnMain (integration)[2m > [22mshould leave worktree clean after aborting a conflicted rebase[33m 1099[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — rebaseOnMain (integration)[2m > [22mshould produce linear history after successful rebase[33m 1181[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — rebaseOnMain (integration)[2m > [22mshould succeed when feature branch is already up-to-date with main (no-op rebase)[33m 632[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — helper methods (integration)[2m > [22mgetConflictedFiles should return conflicted file paths during a rebase conflict[33m 1031[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — helper methods (integration)[2m > [22mstageFiles + rebaseContinue should complete rebase after manual conflict resolution[33m 1198[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — helper methods (integration)[2m > [22mrebaseAbort should restore branch to pre-rebase state[33m 1028[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash (integration)[2m > [22mshould stash uncommitted changes and return true[33m 709[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash (integration)[2m > [22mshould return false when working directory is clean[33m 628[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash (integration)[2m > [22mshould include the stash message in git stash list output[33m 647[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash (integration)[2m > [22mshould stash pop and restore uncommitted changes[33m 687[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash (integration)[2m > [22mshould stash drop and discard the stash entry[33m 778[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash + rebase + pop flow (integration)[2m > [22mshould preserve uncommitted changes across a clean rebase (stash → sync → rebase → pop)[33m 1241[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash + rebase + pop flow (integration)[2m > [22mshould skip stash when working directory is clean and rebase normally[33m 1173[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash + rebase + pop flow (integration)[2m > [22mshould preserve uncommitted changes even when rebase has conflicts that are manually resolved[33m 1268[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash + rebase + pop flow (integration)[2m > [22mshould restore uncommitted changes even after a failed rebase that is aborted[33m 1031[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts[2m > [22mGitPrService — stash + rebase + pop flow (integration)[2m > [22mshould handle unstaged modifications in stash-rebase-pop flow[33m 1235[2mms[22m[39m
 
- Test Files  1 passed (1)
-      Tests  26 passed (26)
-   Start at  18:15:29
-   Duration  24.72s (transform 63ms, setup 30ms, import 60ms, tests 24.57s, environment 0ms)
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m26 passed[39m[22m[90m (26)[39m
+[2m   Start at [22m 18:22:39
+[2m   Duration [22m 24.60s[2m (transform 55ms, setup 26ms, import 53ms, tests 24.47s, environment 0ms)[22m
 

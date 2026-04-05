@@ -1,31 +1,31 @@
 
- RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-auto-stash-rebase
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-auto-stash-rebase[39m
 
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should include all conflicted file paths 1ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should include conflicted file contents 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should include feature branch name 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should include base branch name 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should include conflict marker removal instructions 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should warn against modifying non-conflicted files 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should include attempt number and max attempts 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should include previous feedback when provided 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should not include feedback section on first attempt 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts > buildConflictResolutionPrompt > should instruct not to run git commands 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > should resolve conflicts on first attempt — stages and continues 2ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > should retry on failed first attempt and succeed on second 1ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > should abort rebase after 3 failed attempts and throw REBASE_CONFLICT 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > should handle multi-commit rebase — resolves first commit then second 1ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > should handle multi-commit rebase — rebaseContinue succeeds but next commit has conflicts 1ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > should handle three-commit rebase where only first and third have conflicts 1ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > should handle two-commit rebase with retries on second commit 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > should return immediately when no conflicted files are found 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > should pass cwd to executor options 2ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > resolveStashPop > should resolve stash pop conflicts — invokes agent, validates, stages 1ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > resolveStashPop > should throw clear error after 3 failed stash pop resolution attempts 0ms
- ✓  node  tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts > ConflictResolutionService > resolveStashPop > should return immediately when no conflicted files from stash pop 0ms
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould include all conflicted file paths[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould include conflicted file contents[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould include feature branch name[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould include base branch name[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould include conflict marker removal instructions[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould warn against modifying non-conflicted files[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould include attempt number and max attempts[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould include previous feedback when provided[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould not include feedback section on first attempt[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts[2m > [22mbuildConflictResolutionPrompt[2m > [22mshould instruct not to run git commands[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mshould resolve conflicts on first attempt — stages and continues[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mshould retry on failed first attempt and succeed on second[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mshould abort rebase after 3 failed attempts and throw REBASE_CONFLICT[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mshould handle multi-commit rebase — resolves first commit then second[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mshould handle multi-commit rebase — rebaseContinue succeeds but next commit has conflicts[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mshould handle three-commit rebase where only first and third have conflicts[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mshould handle two-commit rebase with retries on second commit[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mshould return immediately when no conflicted files are found[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mshould pass cwd to executor options[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mresolveStashPop[2m > [22mshould resolve stash pop conflicts — invokes agent, validates, stages[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mresolveStashPop[2m > [22mshould throw clear error after 3 failed stash pop resolution attempts[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts[2m > [22mConflictResolutionService[2m > [22mresolveStashPop[2m > [22mshould return immediately when no conflicted files from stash pop[32m 0[2mms[22m[39m
 
- Test Files  2 passed (2)
-      Tests  22 passed (22)
-   Start at  18:15:27
-   Duration  192ms (transform 115ms, setup 51ms, import 120ms, tests 12ms, environment 0ms)
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m22 passed[39m[22m[90m (22)[39m
+[2m   Start at [22m 18:22:29
+[2m   Duration [22m 134ms[2m (transform 84ms, setup 47ms, import 72ms, tests 10ms, environment 0ms)[22m
 
