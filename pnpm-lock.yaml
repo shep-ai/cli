@@ -279,6 +279,9 @@ importers:
       storybook:
         specifier: 8.6.15
         version: 8.6.15(prettier@3.3.3)
+      tabulator-tables:
+        specifier: ^6.4.0
+        version: 6.4.0
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0

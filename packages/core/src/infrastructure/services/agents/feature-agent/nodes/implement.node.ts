@@ -167,7 +167,7 @@ export function createImplementNode(executor: IAgentExecutor) {
           log
         );
 
-        const options = buildExecutorOptions(state);
+        const options = buildExecutorOptions(state, undefined, 'implement');
         const promptContext = { isLastPhase, phaseIndex: i, totalPhases };
         const phaseStartTime = Date.now();
         const phaseTimingId = await recordPhaseStart(`implement:${phase.id}`, {

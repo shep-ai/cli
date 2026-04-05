@@ -62,7 +62,7 @@ export function createFastImplementNode(executor: IAgentExecutor) {
     });
 
     try {
-      const options = buildExecutorOptions(state);
+      const options = buildExecutorOptions(state, undefined, 'fast-implement');
 
       log.info(`Executing agent at cwd=${options.cwd}`);
       log.info(`Prompt length: ${prompt.length} chars`);

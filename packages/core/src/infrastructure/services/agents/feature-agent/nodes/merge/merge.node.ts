@@ -146,7 +146,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
       const feature = await deps.featureRepository.findById(state.featureId);
       const branch = feature?.branch ?? `feat/${state.featureId}`;
       const baseBranch = await deps.getDefaultBranch(cwd);
-      const options = buildExecutorOptions(state);
+      const options = buildExecutorOptions(state, undefined, 'merge');
 
       let commitHash = state.commitHash;
       let prUrl = state.prUrl;

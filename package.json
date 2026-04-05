@@ -148,6 +148,7 @@
     "shx": "^0.4.0",
     "sonner": "^2.0.7",
     "storybook": "8.6.15",
+    "tabulator-tables": "^6.4.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18",
     "tsc-alias": "^1.8.16",
