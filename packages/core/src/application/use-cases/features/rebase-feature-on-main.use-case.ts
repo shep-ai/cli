@@ -86,6 +86,7 @@ export class RebaseFeatureOnMainUseCase {
 
       // Stash uncommitted changes if present (smart rebase)
       const didStash = await this.gitPrService.stash(cwd, `shep-auto-stash: ${feature.branch}`);
+      let stashPopError: Error | undefined;
 
       try {
         // Auto-sync main before rebasing (per spec decision)
@@ -105,8 +106,33 @@ export class RebaseFeatureOnMainUseCase {
       } finally {
         // Restore stashed changes after rebase (whether it succeeded or failed)
         if (didStash) {
-          await this.gitPrService.stashPop(cwd);
+          try {
+            await this.gitPrService.stashPop(cwd);
+          } catch {
+            // Stash pop failed — likely conflicts between rebased code and stashed changes.
+            // Invoke agent-powered resolution, then drop the stash entry on success.
+            try {
+              await this.conflictResolutionService.resolveStashPop(
+                cwd,
+                feature.branch,
+                defaultBranch
+              );
+              await this.gitPrService.stashDrop(cwd);
+            } catch {
+              stashPopError = new Error(
+                `Rebase succeeded but failed to restore your uncommitted changes. ` +
+                  `The rebase is complete, but your stashed work-in-progress could not be applied cleanly. ` +
+                  `Run \`git stash pop\` manually to resolve the remaining conflicts. ` +
+                  `Your stash entry is preserved.`
+              );
+            }
+          }
         }
+      }
+
+      // Throw stash pop error after the finally block to satisfy no-unsafe-finally
+      if (stashPopError) {
+        throw stashPopError;
       }
 
       // Rebase succeeded (possibly with resolved conflicts)

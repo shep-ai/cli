@@ -78,6 +78,7 @@ function createMockWorktreeService(): IWorktreeService {
 function createMockConflictResolution(): ConflictResolutionService {
   return {
     resolve: vi.fn().mockResolvedValue(undefined),
+    resolveStashPop: vi.fn().mockResolvedValue(undefined),
   } as unknown as ConflictResolutionService;
 }
 
@@ -354,5 +355,50 @@ describe('RebaseFeatureOnMainUseCase', () => {
     expect(mockGitPrService.stashPop).toHaveBeenCalledWith(
       '/home/user/my-project/.worktrees/feat-my-feature'
     );
+  });
+
+  it('should invoke resolveStashPop and stashDrop when stashPop fails', async () => {
+    vi.mocked(mockFeatureRepo.findById).mockResolvedValue(sampleFeature);
+    vi.mocked(mockGitPrService.stash).mockResolvedValue(true);
+    vi.mocked(mockGitPrService.stashPop).mockRejectedValue(
+      new GitPrError('stash pop conflict', GitPrErrorCode.GIT_ERROR)
+    );
+
+    await useCase.execute('feat-abc-123');
+
+    expect(mockConflictResolution.resolveStashPop).toHaveBeenCalledWith(
+      '/home/user/my-project',
+      'feat/my-feature',
+      'main'
+    );
+    expect(mockGitPrService.stashDrop).toHaveBeenCalledWith('/home/user/my-project');
+  });
+
+  it('should throw distinguishable error when resolveStashPop also fails', async () => {
+    vi.mocked(mockFeatureRepo.findById).mockResolvedValue(sampleFeature);
+    vi.mocked(mockGitPrService.stash).mockResolvedValue(true);
+    vi.mocked(mockGitPrService.stashPop).mockRejectedValue(
+      new GitPrError('stash pop conflict', GitPrErrorCode.GIT_ERROR)
+    );
+    vi.mocked(mockConflictResolution.resolveStashPop).mockRejectedValue(
+      new Error('Failed to resolve stash pop conflicts after 3 attempts')
+    );
+
+    const error = await useCase.execute('feat-abc-123').catch((e) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toContain('Rebase succeeded');
+    expect(error.message).toContain('git stash pop');
+    expect(mockGitPrService.stashDrop).not.toHaveBeenCalled();
+  });
+
+  it('should not invoke resolveStashPop when stashPop succeeds', async () => {
+    vi.mocked(mockFeatureRepo.findById).mockResolvedValue(sampleFeature);
+    vi.mocked(mockGitPrService.stash).mockResolvedValue(true);
+
+    await useCase.execute('feat-abc-123');
+
+    expect(mockConflictResolution.resolveStashPop).not.toHaveBeenCalled();
+    expect(mockGitPrService.stashDrop).not.toHaveBeenCalled();
   });
 });
