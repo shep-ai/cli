@@ -1,3 +1,12 @@
+# [1.170.0](https://github.com/shep-ai/shep/compare/v1.169.1...v1.170.0) (2026-04-05)
+
+
+### Features
+
+* **agents:** add gh repo create fallback when fork fails with no remotes ([#525](https://github.com/shep-ai/shep/issues/525)) ([5a59608](https://github.com/shep-ai/shep/commit/5a596088974b62029db14f5497b6b82216b4b994))
+* **domain:** add skill injection system for feature worktrees ([#509](https://github.com/shep-ai/shep/issues/509)) ([79303db](https://github.com/shep-ai/shep/commit/79303dbf160f4d0afb6435360af2060ad4e4f132))
+* **domain:** auto-stash uncommitted changes before rebase with agent-powered conflict resolution ([#526](https://github.com/shep-ai/shep/issues/526)) ([54e48cd](https://github.com/shep-ai/shep/commit/54e48cd9f7b54d92bc6666d60ef385fa80c859ca))
+
 ## [1.169.1](https://github.com/shep-ai/shep/compare/v1.169.0...v1.169.1) (2026-04-05)
 
 
