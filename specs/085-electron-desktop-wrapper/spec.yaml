@@ -1,0 +1,151 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: electron-desktop-wrapper
+number: 85
+branch: "feat/085-electron-desktop-wrapper"
+oneLiner: "Package shep web UI as a native desktop app using Electron"
+summary: >
+  Wrap the existing shep Next.js web UI in an Electron shell to provide a native desktop application
+  experience. The Electron app will embed the existing web server (Next.js) in a BrowserWindow,
+  manage the backend lifecycle (DI container, database, watchers), and distribute as platform-specific
+  installers for macOS, Windows, and Linux.
+phase: Analysis
+sizeEstimate: L
+
+relatedFeatures: []
+
+technologies:
+  - "Electron"
+  - "electron-builder"
+  - "Next.js 16"
+  - "better-sqlite3 (native addon)"
+  - "node-notifier (native addon)"
+  - "tsyringe (DI container)"
+  - "pnpm workspaces"
+
+relatedLinks:
+  - title: "Electron Documentation"
+    url: "https://www.electronjs.org/docs/latest"
+  - title: "electron-builder"
+    url: "https://www.electron.build/"
+  - title: "Electron with Next.js patterns"
+    url: "https://www.electronjs.org/docs/latest/tutorial/examples"
+  - title: "Rebuilding native modules for Electron"
+    url: "https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules"
+
+openQuestions:
+  - "Should the Electron app replace the daemon mode (`shep start`) or coexist alongside it as an alternative distribution channel?"
+  - "Should we use electron-builder or Electron Forge for packaging and distribution?"
+  - "Should the Electron app auto-update via electron-updater, or rely on the existing `shep upgrade` mechanism?"
+  - "Should the tray icon / menu bar integration be included in the initial scope, or deferred to a follow-up?"
+  - "How should the Electron app handle multiple repository contexts — one window per repo, or a repo switcher within a single window?"
+  - "Should the CLI commands (shep run, shep feat, etc.) remain available inside the Electron app via an embedded terminal, or is the web UI sufficient?"
+
+content: |
+  ## Problem Statement
+
+  Shep currently runs as a CLI tool that spawns a Next.js web UI either in the foreground (`shep ui`) or as a
+  background daemon (`shep start`). Users must install Node.js >= 22, install the npm package globally, and
+  interact via the terminal. This creates friction for non-CLI-native users and prevents a polished native
+  desktop experience (dock icon, system tray, native notifications, auto-launch on login).
+
+  Wrapping shep in Electron provides a native desktop app that bundles Node.js, manages its own lifecycle,
+  and delivers the web UI in a dedicated BrowserWindow — no terminal required.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The repository is a pnpm monorepo with three workspace packages:
+
+  - **Root package (`@shepai/cli`)** — CLI entry point at `src/presentation/cli/index.ts`, builds to `dist/`
+  - **Core package (`packages/core/`)** — Domain, application, and infrastructure layers (Clean Architecture)
+  - **Web package (`src/presentation/web/`)** — Next.js 16 app with App Router, server actions, SSE streaming
+
+  Presentation layers:
+  - `src/presentation/cli/` — Commander-based CLI with daemon management
+  - `src/presentation/tui/` — Terminal UI (Inquirer prompts, wizards)
+  - `src/presentation/web/` — Next.js web UI (React 19, Tailwind v4, Radix UI)
+
+  ### Architecture Patterns
+
+  **Clean Architecture with DI:** All business logic lives in `packages/core/src/` with four layers
+  (domain, application, infrastructure, presentation). DI is managed by tsyringe with a global container
+  exposed on `globalThis.__shepContainer` for the web UI's server-side code.
+
+  **Web server lifecycle:** The web UI runs via `WebServerService` (infrastructure layer) which programmatically
+  starts a Next.js server. Two modes exist:
+  1. **Foreground (`shep ui`)** — starts web server in the CLI process
+  2. **Daemon (`shep start` / default `shep`)** — spawns a detached child process running `_serve` command
+
+  Both modes share the same bootstrap: `initializeContainer()` → settings init → web server start →
+  notification/PR-sync/auto-archive watchers.
+
+  **Native dependencies:** The project uses `better-sqlite3` (C++ addon for SQLite) and `node-notifier`
+  (native notifications). These require native module rebuilding for Electron's Node.js version.
+
+  **Build pipeline:** TypeScript compiles to `dist/` via `tsc`. Web UI builds via `next build` into `web/.next`.
+  Production packaging copies the built web directory alongside `dist/`.
+
+  ### Relevant Technologies
+
+  - **Next.js 16** with App Router, server actions, standalone output mode
+  - **React 19** with Server Components and client-side interactivity
+  - **better-sqlite3** — native C++ addon, must be rebuilt for Electron's Node.js ABI
+  - **node-notifier** — sends native OS notifications, may be replaceable with Electron's built-in Notification API
+  - **tsyringe** — DI container with reflect-metadata, uses decorator metadata
+  - **Commander** — CLI framework (not needed in Electron, but the bootstrap logic is reusable)
+  - **Semantic Release** — automated npm + GitHub releases
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | New: `packages/electron/` or `electron/` | High | New Electron main process, preload scripts, and build configuration |
+  | `packages/core/src/infrastructure/services/web-server.service.ts` | Medium | May need adaptation for Electron's embedded server pattern |
+  | `packages/core/src/infrastructure/services/browser-opener.service.ts` | Medium | In Electron, \"open browser\" should focus the BrowserWindow, not spawn an external browser |
+  | `src/presentation/cli/commands/daemon/start-daemon.ts` | Low | Electron replaces the daemon pattern — the app IS the long-running process |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | DI initialization is reusable but needs to be invoked from Electron main process |
+  | `packages/core/src/infrastructure/persistence/sqlite/` | Medium | better-sqlite3 native addon must be rebuilt for Electron's Node.js ABI |
+  | `package.json` | Medium | New scripts, devDependencies (electron, electron-builder), build targets |
+  | `pnpm-workspace.yaml` | Low | Add Electron package to workspace if structured as a separate package |
+  | `.github/workflows/ci.yml` | Medium | CI must build and publish Electron installers for macOS/Windows/Linux |
+  | `release.config.mjs` | Low | Electron releases may need separate versioning or parallel release assets |
+
+  ## Dependencies
+
+  **Existing code dependencies:**
+  - `initializeContainer()` from `@/infrastructure/di/container.js` — bootstraps the entire backend
+  - `WebServerService` — manages the Next.js server lifecycle
+  - `InitializeSettingsUseCase` — settings initialization
+  - `resolveWebDir()` — resolves the Next.js web directory (needs adaptation for Electron's packaged paths)
+  - Notification, PR-sync, and auto-archive watcher services — background tasks that must start with the app
+
+  **New external dependencies:**
+  - `electron` — the Electron framework itself
+  - `electron-builder` or `@electron-forge/cli` — packaging and distribution
+  - `electron-updater` (optional) — auto-update mechanism
+  - `@electron/rebuild` — rebuilding native addons (better-sqlite3) for Electron's Node.js version
+
+  **Native addon concerns:**
+  - `better-sqlite3` must be compiled against Electron's Node.js headers
+  - `node-notifier` could potentially be replaced by Electron's native `Notification` API
+  - Platform-specific builds needed: macOS (.dmg), Windows (.exe/.msi), Linux (.AppImage/.deb)
+
+  ## Size Estimate
+
+  **L** — This is a week+ effort. Justification:
+  1. New Electron main process with full lifecycle management (app ready, window creation, shutdown)
+  2. Native addon rebuilding and testing across platforms (better-sqlite3 is the critical path)
+  3. Embedding Next.js server inside Electron's main process with correct path resolution
+  4. electron-builder configuration for macOS, Windows, and Linux packaging
+  5. CI pipeline additions for building and publishing platform-specific installers
+  6. Code signing setup for macOS (notarization) and Windows (Authenticode)
+  7. Auto-update mechanism if included in scope
+  8. Replacing browser-opener with Electron-native window management
+  9. Testing across all three platforms
+
+  ---
+
+  _Generated by feature agent — proceed with research_
