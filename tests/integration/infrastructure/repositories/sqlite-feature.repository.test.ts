@@ -597,4 +597,51 @@ describe('SQLiteFeatureRepository', () => {
       expect(found!.pr!.ciFixHistory![2].outcome).toBe('timeout');
     });
   });
+
+  describe('injectSkills persistence', () => {
+    it('should persist injectSkills=true via create/findById', async () => {
+      const feature = createTestFeature({ injectSkills: true });
+
+      await repository.create(feature);
+      const found = await repository.findById('feat-1');
+
+      expect(found?.injectSkills).toBe(true);
+    });
+
+    it('should persist injectSkills=false via create/findById', async () => {
+      const feature = createTestFeature({ injectSkills: false });
+
+      await repository.create(feature);
+      const found = await repository.findById('feat-1');
+
+      expect(found?.injectSkills).toBe(false);
+    });
+
+    it('should persist injectedSkills list via create/findById', async () => {
+      const feature = createTestFeature({
+        injectSkills: true,
+        injectedSkills: ['architecture-reviewer', 'tsp-model'],
+      });
+
+      await repository.create(feature);
+      const found = await repository.findById('feat-1');
+
+      expect(found?.injectedSkills).toEqual(['architecture-reviewer', 'tsp-model']);
+    });
+
+    it('should persist injectedSkills list via update/findById', async () => {
+      await repository.create(createTestFeature({ injectSkills: true }));
+
+      await repository.update(
+        createTestFeature({
+          injectSkills: true,
+          injectedSkills: ['tsp-model', 'shadcn-ui'],
+          updatedAt: new Date(),
+        })
+      );
+      const found = await repository.findById('feat-1');
+
+      expect(found?.injectedSkills).toEqual(['tsp-model', 'shadcn-ui']);
+    });
+  });
 });

@@ -350,30 +350,45 @@ describe('createDefaultSettings', () => {
           skills: [
             {
               name: 'architecture-reviewer',
-              type: SkillSourceType.Local,
-              source: '.claude/skills/architecture-reviewer',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'architecture-reviewer',
             },
             {
               name: 'cross-validate-artifacts',
-              type: SkillSourceType.Local,
-              source: '.claude/skills/cross-validate-artifacts',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'cross-validate-artifacts',
             },
             {
               name: 'mermaid-diagrams',
-              type: SkillSourceType.Local,
-              source: '.claude/skills/mermaid-diagrams',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'mermaid-diagrams',
             },
             {
               name: 'react-flow',
-              type: SkillSourceType.Local,
-              source: '.claude/skills/react-flow',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'react-flow',
             },
-            { name: 'shadcn-ui', type: SkillSourceType.Local, source: '.claude/skills/shadcn-ui' },
-            { name: 'tsp-model', type: SkillSourceType.Local, source: '.claude/skills/tsp-model' },
+            {
+              name: 'shadcn-ui',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'shadcn-ui',
+            },
+            {
+              name: 'tsp-model',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'tsp-model',
+            },
             {
               name: 'vercel-react-best-practices',
-              type: SkillSourceType.Local,
-              source: '.claude/skills/vercel-react-best-practices',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'vercel-react-best-practices',
             },
             {
               name: 'frontend-design',
@@ -403,25 +418,18 @@ describe('createDefaultSettings', () => {
       expect(settings.workflow.skillInjection!.skills).toHaveLength(8);
     });
 
-    it('should have local skills with type local and remote skills with type remote', () => {
+    it('should have all skills as remote type', () => {
       const settings = createDefaultSettings();
-      const localSkills = settings.workflow.skillInjection!.skills.filter(
-        (s) => s.type === SkillSourceType.Local
-      );
       const remoteSkills = settings.workflow.skillInjection!.skills.filter(
         (s) => s.type === SkillSourceType.Remote
       );
-      expect(localSkills).toHaveLength(7);
-      expect(remoteSkills).toHaveLength(1);
+      expect(remoteSkills).toHaveLength(8);
     });
 
-    it('should have each local skill with a valid source path', () => {
+    it('should have each remote skill with a remoteSkillName matching its name', () => {
       const settings = createDefaultSettings();
-      const localSkills = settings.workflow.skillInjection!.skills.filter(
-        (s) => s.type === SkillSourceType.Local
-      );
-      for (const skill of localSkills) {
-        expect(skill.source).toBe(`.claude/skills/${skill.name}`);
+      for (const skill of settings.workflow.skillInjection!.skills) {
+        expect(skill.remoteSkillName).toBe(skill.name);
       }
     });
 

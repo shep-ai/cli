@@ -134,7 +134,6 @@ describe('parseWorkerArgs', () => {
       commitSpecs: true,
       ciWatchEnabled: true,
       enableEvidence: false,
-      injectSkills: false,
       commitEvidence: false,
       resumePayload: undefined,
       agentType: undefined,
@@ -446,7 +445,6 @@ describe('runWorker', () => {
         commitSpecs: true,
         ciWatchEnabled: true,
         enableEvidence: false,
-        injectSkills: false,
         commitEvidence: false,
       },
       { configurable: { thread_id: 'thread-abc' } }

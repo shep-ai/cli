@@ -60,7 +60,9 @@
       "systemTerminal": "System-Terminal",
       "failedToSave": "IDE- & Terminal-Einstellungen konnten nicht gespeichert werden",
       "hint": "Ihr bevorzugter Editor öffnet Dateien zur Überprüfung. Die Shell-Einstellung steuert generierte Skripte. Der Terminal-Emulator wird gestartet, wenn Shell-Sitzungen über die Web-UI geöffnet werden.",
-      "links": { "configurationGuide": "Konfigurationsanleitung" }
+      "links": {
+        "configurationGuide": "Konfigurationsanleitung"
+      }
     },
     "workflow": {
       "title": "Workflow",
@@ -68,7 +70,11 @@
       "sectionDescription": "Automatisierungsverhalten nach der Implementierung",
       "defaultFastMode": "Schnellmodus als Standard",
       "defaultFastModeDescription": "SDLC-Phasen überspringen und direkt aus dem Prompt implementieren",
-      "subsections": { "approve": "Genehmigen", "evidence": "Nachweise", "git": "Git" },
+      "subsections": {
+        "approve": "Genehmigen",
+        "evidence": "Nachweise",
+        "git": "Git"
+      },
       "autoApprovePrd": "PRD automatisch genehmigen",
       "autoApprovePrdDescription": "Manuelle Überprüfung der Anforderungen überspringen",
       "autoApprovePlan": "Plan automatisch genehmigen",
@@ -99,7 +105,10 @@
       "stageTimeouts": "Phasen-Zeitlimits",
       "failedToSave": "Workflow-Einstellungen konnten nicht gespeichert werden",
       "hint": "Steuern Sie, wie autonom jeder Feature-Lauf ist. Autogenehmigung überspringt die manuelle Überprüfungspause in jeder Phase. Push- und PR-Optionen steuern, was nach erfolgreicher Implementierung passiert.",
-      "links": { "approvalGates": "Genehmigungsstufen", "pushAndPrFlags": "Push- & PR-Flags" }
+      "links": {
+        "approvalGates": "Genehmigungsstufen",
+        "pushAndPrFlags": "Push- & PR-Flags"
+      }
     },
     "ci": {
       "title": "Continuous Integration",
@@ -115,7 +124,10 @@
       "hideCiStatus": "CI-Status ausblenden",
       "hideCiStatusDescription": "CI-Status-Badges in Feature-Drawer und Merge-Überprüfung ausblenden",
       "hint": "Wenn ein Feature abgeschlossen ist, kann der Agent CI überwachen und Fehler automatisch beheben. Diese Limits verhindern unkontrollierte Wiederholungen und steuern, wie viel Log-Ausgabe zur Analyse an den Agenten gesendet wird.",
-      "links": { "cicdPipeline": "CI/CD-Pipeline", "ciSecurityGates": "CI-Sicherheitsgates" }
+      "links": {
+        "cicdPipeline": "CI/CD-Pipeline",
+        "ciSecurityGates": "CI-Sicherheitsgates"
+      }
     },
     "stageTimeouts": {
       "title": "Phasen-Zeitlimits",
@@ -167,7 +179,9 @@
       },
       "failedToSave": "Benachrichtigungseinstellungen konnten nicht gespeichert werden",
       "hint": "In-App-Toast-Benachrichtigungen halten Sie auf dem Laufenden. Passen Sie genau an, welche Agenten-Lebenszyklus-Ereignisse eine Benachrichtigung auslösen.",
-      "links": { "notificationSystem": "Benachrichtigungssystem" }
+      "links": {
+        "notificationSystem": "Benachrichtigungssystem"
+      }
     },
     "featureFlags": {
       "title": "Feature-Flags",
@@ -255,7 +269,7 @@
     "deleteSubFeatures": "Unter-Features löschen",
     "closePullRequest": "Pull Request schließen",
     "cancel": "Abbrechen",
-    "deleting": "Wird gelöscht\u2026",
+    "deleting": "Wird gelöscht…",
     "delete": "Löschen"
   },
   "rejectFeedback": {
@@ -264,25 +278,25 @@
     "ariaLabel": "Ablehnungsfeedback",
     "placeholder": "Beschreiben Sie, was geändert werden muss...",
     "cancel": "Abbrechen",
-    "rejecting": "Wird abgelehnt\u2026",
+    "rejecting": "Wird abgelehnt…",
     "confirmReject": "Ablehnung bestätigen"
   },
   "emptyState": {
     "addProject": "Projekt hinzufügen",
     "addProjectDescription": "Fügen Sie Ihren Projektordner hinzu, um die Feature-Erstellung freizuschalten.",
-    "addProjectDescriptionLine2": "Beschreiben Sie, was Sie brauchen \u2014 Shep erledigt den Rest.",
-    "checkingSetup": "Einrichtung wird geprüft\u2026",
+    "addProjectDescriptionLine2": "Beschreiben Sie, was Sie brauchen — Shep erledigt den Rest.",
+    "checkingSetup": "Einrichtung wird geprüft…",
     "ready": "{{label}} bereit",
     "notInstalled": "{{label}} nicht installiert",
     "reCheck": "Erneut prüfen",
     "needsAuth": "{{label}} benötigt Authentifizierung",
     "open": "{{label}} öffnen",
-    "checking": "{{label}} wird geprüft\u2026",
+    "checking": "{{label}} wird geprüft…",
     "notFound": "{{label}} nicht gefunden",
     "docs": "Dokumentation",
-    "opening": "Wird geöffnet\u2026",
+    "opening": "Wird geöffnet…",
     "chooseFolder": "Ordner auswählen",
-    "folderHint": "Jeder Ordner funktioniert \u2014 Git wird bei Bedarf automatisch initialisiert.",
+    "folderHint": "Jeder Ordner funktioniert — Git wird bei Bedarf automatisch initialisiert.",
     "orUseCli": "oder CLI verwenden",
     "copyCommands": "Befehle kopieren",
     "git": "Git",
@@ -291,7 +305,7 @@
     "githubCliRequired": "Für Pull Requests erforderlich"
   },
   "welcome": {
-    "loadingAgents": "Agenten werden geladen\u2026",
+    "loadingAgents": "Agenten werden geladen…",
     "chooseAgent": "Wählen Sie Ihren Agenten",
     "pickModel": "Modell auswählen",
     "selectAgentSubtitle": "Wählen Sie den KI-Coding-Agenten, den Shep verwenden soll.",
@@ -339,11 +353,11 @@
     "stopDevServer": "Server stoppen",
     "startDevServer": "Server starten",
     "retryDevServer": "Server neu starten",
-    "starting": "Startet\u2026",
+    "starting": "Startet…",
     "retry": "Wiederholen",
     "start": "Starten",
     "failed": "Fehlgeschlagen",
-    "deleting": "Lösche\u2026",
+    "deleting": "Lösche…",
     "addFeature": "Feature hinzufügen",
     "reviewRequirements": "Anforderungen prüfen",
     "reviewTechnicalPlan": "Technischen Plan prüfen",
@@ -464,7 +478,11 @@
     "plan": "Plan",
     "planDescription": "Übergang von Planung zur Implementierung automatisch genehmigen.",
     "merge": "Merge",
-    "mergeDescription": "Merge-Übergang zu Abgeschlossen automatisch genehmigen."
+    "mergeDescription": "Merge-Übergang zu Abgeschlossen automatisch genehmigen.",
+    "skills": "SKILLS",
+    "skillsDescription": "Curated skills to guide the agent during feature development.",
+    "injectSkills": "Inject",
+    "injectSkillsDescription": "Include curated skills in the feature worktree."
   },
   "featureDrawer": {
     "copyFeatureId": "Feature-ID kopieren",
@@ -578,7 +596,7 @@
     "addRepository": "Repository hinzufügen"
   },
   "modelPicker": {
-    "searchPlaceholder": "Modell-ID suchen oder eingeben\u2026"
+    "searchPlaceholder": "Modell-ID suchen oder eingeben…"
   },
   "skills": {
     "searchPlaceholder": "Fähigkeiten suchen..."

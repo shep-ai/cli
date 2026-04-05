@@ -902,7 +902,7 @@ describe('CreateFeatureUseCase', () => {
       expect(mockSkillInjector.inject).not.toHaveBeenCalled();
     });
 
-    it('should NOT call inject() when skillInjection config is undefined', async () => {
+    it('should fall back to default skills when skillInjection config is undefined', async () => {
       mockGetSettings.mockReturnValue({
         agent: { type: 'claude-code' },
         workflow: {},
@@ -910,7 +910,9 @@ describe('CreateFeatureUseCase', () => {
 
       await useCase.execute({ ...baseInput, injectSkills: true });
 
-      expect(mockSkillInjector.inject).not.toHaveBeenCalled();
+      expect(mockSkillInjector.inject).toHaveBeenCalledOnce();
+      const config = vi.mocked(mockSkillInjector.inject).mock.calls[0][1];
+      expect(config.skills.length).toBeGreaterThan(0);
     });
 
     it('should use settings.workflow.skillInjection.enabled when injectSkills is undefined', async () => {

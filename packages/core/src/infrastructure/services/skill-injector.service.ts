@@ -144,7 +144,7 @@ export class SkillInjectorService implements ISkillInjectorService {
     const timer = setTimeout(() => controller.abort(), REMOTE_SKILL_TIMEOUT_MS);
 
     try {
-      const args = ['skills', 'add', skill.source];
+      const args = ['skills', 'add', skill.source, '--yes'];
       if (skill.remoteSkillName) {
         args.push('--skill', skill.remoteSkillName);
       }

@@ -1,6 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => '/skills',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { SkillsPageClient } from '@/components/features/skills/skills-page-client';
 import type { SkillData } from '@/lib/skills';
 

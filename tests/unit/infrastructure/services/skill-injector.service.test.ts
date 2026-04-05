@@ -295,7 +295,7 @@ describe('SkillInjectorService', () => {
 
       expect(mockExecFile).toHaveBeenCalledWith(
         'npx',
-        ['skills', 'add', '@anthropic/skills', '--skill', 'frontend-design'],
+        ['skills', 'add', '@anthropic/skills', '--yes', '--skill', 'frontend-design'],
         expect.objectContaining({ cwd: worktreePath })
       );
       expect(result.injected).toContain('frontend-design');

@@ -16,6 +16,7 @@ import type {
   SkillInjectionConfig,
   SkillSource,
 } from '../../../../domain/generated/output.js';
+import { createDefaultSettings } from '../../../../domain/factories/settings-defaults.factory.js';
 import {
   type AgentType,
   type AgentAuthMethod,
@@ -318,7 +319,9 @@ function buildSkillInjectionFromRow(
 
   if (!isEnabled && !hasSkills) return {};
 
-  const skills: SkillSource[] = hasSkills ? JSON.parse(row.skill_injection_skills!) : [];
+  const skills: SkillSource[] = hasSkills
+    ? JSON.parse(row.skill_injection_skills!)
+    : (createDefaultSettings().workflow.skillInjection?.skills ?? []);
 
   return {
     skillInjection: {

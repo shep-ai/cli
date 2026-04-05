@@ -26,6 +26,11 @@ describe('getWorkflowDefaults server action', () => {
           allowMerge: true,
           pushOnImplementationComplete: true,
         },
+        ciWatchEnabled: true,
+        enableEvidence: true,
+        commitEvidence: true,
+        defaultFastMode: true,
+        skillInjection: { enabled: true, skills: [] },
       },
     });
 
@@ -39,6 +44,11 @@ describe('getWorkflowDefaults server action', () => {
       },
       push: true,
       openPr: true,
+      ciWatchEnabled: true,
+      enableEvidence: true,
+      commitEvidence: true,
+      fast: true,
+      injectSkills: true,
     });
   });
 
@@ -52,6 +62,11 @@ describe('getWorkflowDefaults server action', () => {
           allowMerge: false,
           pushOnImplementationComplete: false,
         },
+        ciWatchEnabled: false,
+        enableEvidence: false,
+        commitEvidence: false,
+        defaultFastMode: false,
+        skillInjection: { enabled: false, skills: [] },
       },
     });
 
@@ -65,6 +80,11 @@ describe('getWorkflowDefaults server action', () => {
       },
       push: false,
       openPr: false,
+      ciWatchEnabled: false,
+      enableEvidence: false,
+      commitEvidence: false,
+      fast: false,
+      injectSkills: false,
     });
   });
 
@@ -78,6 +98,10 @@ describe('getWorkflowDefaults server action', () => {
           allowMerge: false,
           pushOnImplementationComplete: true,
         },
+        ciWatchEnabled: false,
+        enableEvidence: false,
+        commitEvidence: false,
+        defaultFastMode: false,
       },
     });
 
@@ -97,6 +121,10 @@ describe('getWorkflowDefaults server action', () => {
           allowMerge: false,
           pushOnImplementationComplete: false,
         },
+        ciWatchEnabled: false,
+        enableEvidence: false,
+        commitEvidence: false,
+        defaultFastMode: false,
       },
     });
 

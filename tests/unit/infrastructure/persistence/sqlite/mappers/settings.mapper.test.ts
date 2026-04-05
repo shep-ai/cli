@@ -1125,16 +1125,17 @@ describe('Settings Mapper', () => {
       expect(settings.workflow.skillInjection).toBeUndefined();
     });
 
-    it('should reconstruct skillInjection with empty skills when enabled=1 but skills is null', () => {
+    it('should fall back to default skills when enabled=1 but skills is null', () => {
       const row = createTestRow({
         skill_injection_enabled: 1,
         skill_injection_skills: null,
       });
       const settings = fromDatabase(row);
-      expect(settings.workflow.skillInjection).toEqual({
-        enabled: true,
-        skills: [],
-      });
+      expect(settings.workflow.skillInjection?.enabled).toBe(true);
+      expect(settings.workflow.skillInjection?.skills.length).toBeGreaterThan(0);
+      expect(settings.workflow.skillInjection?.skills.map((s) => s.name)).toContain(
+        'frontend-design'
+      );
     });
 
     it('should deserialize remote skills with remoteSkillName', () => {
