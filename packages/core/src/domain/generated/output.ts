@@ -397,6 +397,46 @@ export type AnalyzeRepoTimeouts = {
    */
   analyzeMs?: number;
 };
+export enum SkillSourceType {
+  Local = 'local',
+  Remote = 'remote',
+}
+
+/**
+ * A skill source for injection into feature worktrees
+ */
+export type SkillSource = {
+  /**
+   * Unique skill directory name (e.g. 'architecture-reviewer')
+   */
+  name: string;
+  /**
+   * How this skill is provisioned (local copy or remote install)
+   */
+  type: SkillSourceType;
+  /**
+   * Source path (local) or npm package/URL (remote)
+   */
+  source: string;
+  /**
+   * Remote skill name passed to --skill flag (remote type only)
+   */
+  remoteSkillName?: string;
+};
+
+/**
+ * Skill injection configuration for feature worktrees
+ */
+export type SkillInjectionConfig = {
+  /**
+   * Whether skill injection is enabled (default: false, opt-in)
+   */
+  enabled: boolean;
+  /**
+   * List of skills to inject into feature worktrees
+   */
+  skills: SkillSource[];
+};
 
 /**
  * Global workflow configuration defaults
@@ -466,6 +506,10 @@ export type WorkflowConfig = {
    * Minutes after completion before auto-archiving a feature (default: 10, 0 = disabled)
    */
   autoArchiveDelayMinutes?: number;
+  /**
+   * Skill injection configuration (optional, disabled by default)
+   */
+  skillInjection?: SkillInjectionConfig;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',
@@ -613,6 +657,10 @@ export type FeatureFlags = {
    * Use the built-in React file manager instead of the native OS folder picker
    */
   reactFileManager: boolean;
+  /**
+   * Enable the Inventory page showing all repositories and features
+   */
+  inventory: boolean;
 };
 
 /**
@@ -1034,6 +1082,10 @@ export type Feature = SoftDeletableEntity & {
    */
   agentRunId?: string;
   /**
+   * Skills that were injected into this feature's worktree during creation
+   */
+  injectedSkills?: string[];
+  /**
    * Absolute path to the feature spec directory inside the worktree
    */
   specPath?: string;
@@ -1069,6 +1121,10 @@ export type Feature = SoftDeletableEntity & {
    * Enable evidence collection after implementation (default: false)
    */
   enableEvidence: boolean;
+  /**
+   * Inject curated skills into the feature worktree (default: false)
+   */
+  injectSkills: boolean;
   /**
    * Commit evidence to PR (default: false, requires enableEvidence)
    */

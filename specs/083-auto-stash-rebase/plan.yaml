@@ -1,0 +1,176 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "auto-stash-rebase"
+summary: >
+  The auto-stash-rebase feature is largely implemented on the current branch. The remaining
+  work addresses three implementation gaps identified during research: (1) the stash message
+  should include the feature branch name for traceability, (2) stash pop failures need
+  agent-powered conflict resolution instead of a raw throw, and (3) the multi-commit rebase
+  loop in ConflictResolutionService has a premature return that exits after the first commit
+  instead of looping to check for more conflicts. The plan also adds comprehensive test
+  coverage for the new stash-pop-resolution path and integration tests for the full flow.
+
+relatedFeatures:
+  - "080-smart-rebase"
+  - "063-prevent-subprocess-stash"
+
+technologies:
+  - "TypeScript"
+  - "tsyringe (DI)"
+  - "Node.js child_process (execFile for git commands)"
+  - "Node.js fs (readFileSync for conflict file reading)"
+  - "Vitest (unit and integration testing)"
+
+relatedLinks:
+  - title: "Git stash documentation"
+    url: "https://git-scm.com/docs/git-stash"
+  - title: "Git rebase documentation"
+    url: "https://git-scm.com/docs/git-rebase"
+
+phases:
+  - id: "phase-1"
+    name: "Bug Fixes & Gap Closure"
+    description: >
+      Fix the three implementation gaps in existing code: (1) update stash message to include
+      feature branch name per spec decision, (2) fix the premature return in
+      ConflictResolutionService.resolve() that prevents multi-commit rebase handling,
+      (3) add agent-powered stash pop conflict resolution in the use case's finally block.
+      These are targeted changes to existing files with clear before/after behavior,
+      making them ideal TDD candidates.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Unit Test Coverage"
+    description: >
+      Expand existing unit test suites to cover the new stash-pop-resolution path,
+      the multi-commit rebase loop fix, and the stash message format change. This includes
+      tests for the ConflictResolutionService multi-commit loop, the use case's
+      stash pop error handling with agent resolution, and edge cases like agent failure
+      during stash pop resolution.
+    parallel: false
+
+  - id: "phase-3"
+    name: "Integration Tests"
+    description: >
+      Add integration tests that verify the full stash-rebase-pop flow against real git
+      repositories. Tests create actual git repos with conflicts, dirty working directories,
+      and multi-commit rebases to validate end-to-end behavior. Uses the existing test
+      harness pattern from git-pr.service.rebase-sync.test.ts.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - "packages/core/src/application/use-cases/features/rebase-feature-on-main.use-case.ts"
+  - "packages/core/src/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.ts"
+  - "tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts"
+  - "tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts"
+  - "tests/integration/services/git/git-pr.service.rebase-sync.test.ts"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The auto-stash-rebase feature fits cleanly into the existing Clean Architecture layering.
+  The core flow is already implemented: the RebaseFeatureOnMainUseCase orchestrates
+  stash → sync → rebase → conflict resolution → stash pop, with ConflictResolutionService
+  handling agent-powered conflict resolution via IAgentExecutorProvider.
+
+  The remaining work is surgical — three targeted fixes to close gaps between the current
+  implementation and the spec requirements, plus test coverage for the new behavior.
+
+  ### Existing Architecture (Unchanged)
+
+  - **Port interface (IGitPrService):** Already has stash() and stashPop() methods.
+  - **Infrastructure (GitPrService):** Already implements stash/stashPop via execFile.
+  - **Infrastructure (ConflictResolutionService):** Already has dual-loop pattern with
+    agent invocation, validation, and retry logic.
+  - **Use case (RebaseFeatureOnMainUseCase):** Already orchestrates the full flow with
+    try/finally for stash pop guarantee.
+  - **DI container:** ConflictResolutionService and RebaseFeatureOnMainUseCase already
+    registered as singletons with string token aliases.
+  - **Presentation (server action):** Thin wrapper, unchanged.
+
+  ## Key Design Decisions
+
+  ### 1. Stash Message Format (Gap #1)
+
+  **Current:** `'shep-rebase: auto-stash before rebase'` — generic, no feature identification.
+  **Target:** `'shep-auto-stash: feat/my-feature'` — includes feature branch per spec decision.
+
+  The fix is a one-line change in the use case. The feature branch name is already available
+  on the feature entity (`feature.branch`). This enables manual recovery via `git stash list`
+  when users need to identify which stash belongs to which feature.
+
+  ### 2. Multi-Commit Rebase Loop Fix (Gap #2)
+
+  **Current:** ConflictResolutionService.resolve() line 106 has `return` after a successful
+  `rebaseContinue()`. This exits the entire method instead of looping back to check for
+  conflicts on subsequent commits in a multi-commit rebase.
+
+  **Fix:** Replace `return` with `continue` to loop back to the outer `while(true)` which
+  checks `getConflictedFiles()`. If no conflicts remain, it returns naturally at line 59.
+  If the next commit has conflicts, the inner retry loop handles them.
+
+  This is a one-character fix (return → continue) but has significant behavioral impact
+  for multi-commit rebases. The catch block on line 110 already handles the case where
+  rebaseContinue throws REBASE_CONFLICT (immediate new conflicts), but the return on
+  line 106 prevents detecting conflicts that emerge without an error (clean continue
+  followed by the outer loop's getConflictedFiles check).
+
+  ### 3. Agent-Powered Stash Pop Resolution (Gap #3)
+
+  **Current:** The finally block calls `stashPop()` directly. If it throws (conflict between
+  rebased code and stashed changes), the error propagates unhandled.
+
+  **Target:** Wrap `stashPop()` in try/catch within the finally block. On failure:
+  1. Detect that stash pop failed (catch the error)
+  2. Get conflicted files from the stash pop
+  3. Invoke ConflictResolutionService to resolve stash pop conflicts
+  4. If agent resolves: success
+  5. If agent fails: throw a clear error distinguishing what succeeded (rebase) and what
+     failed (stash pop restoration) with recovery instructions
+
+  The ConflictResolutionService already handles conflict resolution generically — it reads
+  conflicted files, invokes the agent, validates, and stages. For stash pop conflicts,
+  the flow is: detect failure → resolve conflicts → `git add` resolved files →
+  `git stash drop` (the stash entry that partially applied). This reuses the existing
+  service rather than duplicating logic.
+
+  **Important nuance:** After a failed `git stash pop`, git leaves the working directory
+  in a conflicted state (partially applied stash). The conflicted files have markers just
+  like rebase conflicts. We can reuse getConflictedFiles() and the resolution service,
+  but we need a stash-pop-specific prompt context (not rebase context) and we finish with
+  `git stash drop` instead of `git rebase --continue`. This means adding a
+  `resolveStashPopConflicts()` method or a mode parameter to the existing resolve() method.
+
+  **Chosen approach:** Add a separate `resolveStashPop()` method on ConflictResolutionService
+  that reuses the internal helpers (readConflictedFileContents, validateResolution,
+  buildFeedbackFromRemainingMarkers) but with stash-pop-specific orchestration: resolve →
+  stage → stash drop. This keeps the rebase and stash-pop resolution flows distinct while
+  sharing the common agent invocation and validation logic.
+
+  ## Implementation Strategy
+
+  Phase 1 (Bug Fixes) comes first because the fixes are prerequisites for meaningful testing.
+  Writing tests against buggy behavior would require rewriting them after the fix.
+
+  Phase 2 (Unit Tests) follows TDD methodology — but since the code already exists, the TDD
+  cycle is: write test for the desired behavior (RED if there's a gap), fix the code (GREEN),
+  then refactor. For already-correct behavior, tests are written as characterization tests.
+
+  Phase 3 (Integration Tests) provides end-to-end validation with real git repositories.
+  These are the most expensive to write and run, so they come last after unit-level confidence
+  is established.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Multi-commit rebase loop fix could break existing single-commit behavior | The outer loop's `getConflictedFiles()` check returns empty for clean rebases, causing immediate return. Single-commit behavior is unaffected. Unit tests verify both paths. |
+  | Stash pop conflicts leave working directory in inconsistent state if agent fails | On agent failure, preserve the stash entry and throw a clear error with `git stash pop` recovery instructions. The stash is not dropped until conflicts are fully resolved. |
+  | ConflictResolutionService reuse for stash pop may have subtle differences from rebase conflicts | Stash pop conflicts use the same marker format as rebase conflicts. The key difference is the finish step (stash drop vs rebase continue). The separate `resolveStashPop()` method handles this cleanly. |
+  | Stash message format change could break existing stash detection logic | No code currently parses stash messages. The message is purely for human identification in `git stash list`. No downstream impact. |
+  | Integration tests may be flaky due to git timing or temp directory issues | Follow existing harness pattern (create bare repo, clone, configure user). Use unique temp dirs per test. Clean up in afterEach. |

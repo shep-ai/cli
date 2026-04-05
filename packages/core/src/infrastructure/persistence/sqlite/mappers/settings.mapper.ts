@@ -11,7 +11,12 @@
  * - Optional fields stored as NULL when missing
  */
 
-import type { Settings } from '../../../../domain/generated/output.js';
+import type {
+  Settings,
+  SkillInjectionConfig,
+  SkillSource,
+} from '../../../../domain/generated/output.js';
+import { createDefaultSettings } from '../../../../domain/factories/settings-defaults.factory.js';
 import {
   type AgentType,
   type AgentAuthMethod,
@@ -118,6 +123,7 @@ export interface SettingsRow {
   feature_flag_adopt_branch: number;
   feature_flag_git_rebase_sync: number;
   feature_flag_react_file_manager: number;
+  feature_flag_inventory: number;
   // Interactive agent config (added in migration 046)
   interactive_agent_enabled: number;
   interactive_agent_auto_timeout_minutes: number;
@@ -131,6 +137,10 @@ export interface SettingsRow {
 
   // Exploration max iterations (added in migration 053)
   exploration_max_iterations: number | null;
+
+  // Skill injection config (added in migration 051)
+  skill_injection_enabled: number;
+  skill_injection_skills: string | null;
 }
 
 /**
@@ -239,6 +249,7 @@ export function toDatabase(settings: Settings): SettingsRow {
     feature_flag_adopt_branch: settings.featureFlags?.adoptBranch ? 1 : 0,
     feature_flag_git_rebase_sync: settings.featureFlags?.gitRebaseSync ? 1 : 0,
     feature_flag_react_file_manager: settings.featureFlags?.reactFileManager ? 1 : 0,
+    feature_flag_inventory: settings.featureFlags?.inventory ? 1 : 0,
 
     // InteractiveAgentConfig (boolean → 0/1, integer fields; defaults applied here)
     interactive_agent_enabled: (settings.interactiveAgent?.enabled ?? true) ? 1 : 0,
@@ -254,6 +265,12 @@ export function toDatabase(settings: Settings): SettingsRow {
 
     // Exploration max iterations (default: 10)
     exploration_max_iterations: settings.workflow.explorationMaxIterations ?? null,
+
+    // Skill injection config (default: disabled, no skills)
+    skill_injection_enabled: settings.workflow.skillInjection?.enabled ? 1 : 0,
+    skill_injection_skills: settings.workflow.skillInjection?.skills?.length
+      ? JSON.stringify(settings.workflow.skillInjection.skills)
+      : null,
   };
 }
 
@@ -293,6 +310,31 @@ function buildAnalyzeRepoTimeoutsFromRow(
 ): { analyzeRepoTimeouts: Record<string, number> } | Record<string, never> {
   if (row.analyze_repo_timeout_analyze_ms === null) return {};
   return { analyzeRepoTimeouts: { analyzeMs: row.analyze_repo_timeout_analyze_ms } };
+}
+
+/**
+ * Build the skillInjection spread from DB row columns.
+ * Returns `{ skillInjection: { ... } }` when the enabled flag or skills JSON is present,
+ * or an empty object `{}` when both are default/null (so the field stays undefined).
+ */
+function buildSkillInjectionFromRow(
+  row: SettingsRow
+): { skillInjection: SkillInjectionConfig } | Record<string, never> {
+  const hasSkills = row.skill_injection_skills !== null;
+  const isEnabled = row.skill_injection_enabled === 1;
+
+  if (!isEnabled && !hasSkills) return {};
+
+  const skills: SkillSource[] = hasSkills
+    ? JSON.parse(row.skill_injection_skills!)
+    : (createDefaultSettings().workflow.skillInjection?.skills ?? []);
+
+  return {
+    skillInjection: {
+      enabled: isEnabled,
+      skills,
+    },
+  };
 }
 
 /**
@@ -376,6 +418,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       ...(row.ci_log_max_chars !== null && { ciLogMaxChars: row.ci_log_max_chars }),
       ...buildStageTimeoutsFromRow(row),
       ...buildAnalyzeRepoTimeoutsFromRow(row),
+      ...buildSkillInjectionFromRow(row),
       ciWatchEnabled: row.ci_watch_enabled !== 0,
       enableEvidence: row.workflow_enable_evidence === 1,
       commitEvidence: row.workflow_commit_evidence === 1,
@@ -396,6 +439,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       adoptBranch: row.feature_flag_adopt_branch === 1,
       gitRebaseSync: row.feature_flag_git_rebase_sync === 1,
       reactFileManager: row.feature_flag_react_file_manager === 1,
+      inventory: row.feature_flag_inventory === 1,
     },
 
     // InteractiveAgentConfig (INTEGER 0/1 → boolean, integer → number)

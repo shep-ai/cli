@@ -17,6 +17,7 @@ import {
 } from '@/application/ports/output/services/git-pr-service.interface.js';
 import {
   buildConflictResolutionPrompt,
+  buildStashPopResolutionPrompt,
   type ConflictedFile,
 } from './conflict-resolution.prompt.js';
 
@@ -101,9 +102,9 @@ export class ConflictResolutionService {
 
       try {
         await this.gitPrService.rebaseContinue(cwd);
-        // rebaseContinue succeeded — check if there are more conflicts
-        // from subsequent commits (loop continues)
-        return; // No more conflicts
+        // rebaseContinue succeeded — loop back to check if subsequent
+        // commits have conflicts (getConflictedFiles at top of while loop)
+        continue;
       } catch (error) {
         if (error instanceof GitPrError && error.code === GitPrErrorCode.REBASE_CONFLICT) {
           // Next commit has conflicts — loop back to resolve them
@@ -112,6 +113,60 @@ export class ConflictResolutionService {
         throw error; // Unexpected error
       }
     }
+  }
+
+  /**
+   * Resolve conflicts from a failed stash pop.
+   *
+   * After a rebase, stash pop may fail if the rebased code conflicts with
+   * stashed uncommitted changes. This method invokes the agent to resolve
+   * those conflicts, validates, and stages the resolved files.
+   *
+   * Unlike resolve(), this does NOT call rebaseContinue — the rebase is
+   * already complete. On success, the caller is responsible for dropping
+   * the stash entry.
+   *
+   * @param cwd - Working directory (repo root or worktree path)
+   * @param featureBranch - Feature branch name
+   * @param baseBranch - Base branch name
+   */
+  async resolveStashPop(cwd: string, featureBranch: string, baseBranch: string): Promise<void> {
+    const conflictedFiles = await this.gitPrService.getConflictedFiles(cwd);
+    if (conflictedFiles.length === 0) {
+      return;
+    }
+
+    const executor = await this.agentProvider.getExecutor();
+
+    for (let attempt = 1; attempt <= MAX_RETRIES_PER_COMMIT; attempt++) {
+      const fileContents = this.readConflictedFileContents(cwd, conflictedFiles);
+
+      const previousFeedback =
+        attempt > 1 ? this.buildFeedbackFromRemainingMarkers(cwd, conflictedFiles) : undefined;
+
+      const prompt = buildStashPopResolutionPrompt({
+        conflictedFiles: fileContents,
+        featureBranch,
+        baseBranch,
+        attemptNumber: attempt,
+        maxAttempts: MAX_RETRIES_PER_COMMIT,
+        previousFeedback,
+      });
+
+      await executor.execute(prompt, { cwd });
+
+      if (this.validateResolution(cwd, conflictedFiles)) {
+        await this.gitPrService.stageFiles(cwd, conflictedFiles);
+        return;
+      }
+    }
+
+    const remaining = conflictedFiles.join(', ');
+    throw new Error(
+      `Failed to resolve stash pop conflicts after ${MAX_RETRIES_PER_COMMIT} attempts. ` +
+        `Unresolved files: ${remaining}. Your stash entry is preserved — ` +
+        `run \`git stash pop\` manually to resolve.`
+    );
   }
 
   /**

@@ -2,8 +2,8 @@
  * SQLite Migrations Module
  *
  * Manages database schema migrations using umzug v3.
- * Legacy migrations (V1–V35) are registered programmatically from legacy-migrations.ts.
- * New migrations (35+) are individual .ts files in the migrations/ directory,
+ * Legacy migrations (V1–V36) are registered programmatically from legacy-migrations.ts.
+ * New migrations (36+) are individual .ts files in the migrations/ directory,
  * discovered at runtime via directory scan.
  *
  * Preserves the same export API (runSQLiteMigrations, LATEST_SCHEMA_VERSION) so
@@ -23,7 +23,7 @@ import { LEGACY_MIGRATIONS, LEGACY_MIGRATION_NAMES } from './legacy-migrations.j
  * The latest schema version (highest legacy migration version number).
  * Exported for test assertions so they don't hardcode version numbers.
  */
-export const LATEST_SCHEMA_VERSION = 35;
+export const LATEST_SCHEMA_VERSION = 36;
 
 /**
  * Resolves the migrations directory path.

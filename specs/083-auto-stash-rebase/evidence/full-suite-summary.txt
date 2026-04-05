@@ -1,0 +1,94 @@
+Auto-Stash-Rebase Feature — Full Test Suite Summary
+=====================================================
+Date: 2026-04-05
+Branch: feat/auto-stash-rebase
+
+UNIT TESTS (83 feature-specific tests)
+---------------------------------------
+
+1. RebaseFeatureOnMainUseCase (20/20 passing)
+   File: tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts
+   - should sync main and rebase cleanly on happy path
+   - should throw when feature not found
+   - should resolve feature by prefix when exact ID not found
+   - should use worktree path as cwd when worktree exists
+   - should use repo root as cwd when no worktree exists
+   - should delegate to conflict resolution service on REBASE_CONFLICT
+   - should propagate conflict resolution failure
+   - should propagate SYNC_FAILED error without attempting rebase
+   - should propagate non-rebase git errors directly
+   - should stash uncommitted changes before rebase and pop after
+   - should not pop stash when no changes were stashed
+   - should pop stash after rebase with conflict resolution
+   - should pop stash even when rebase fails with non-conflict error
+   - should stash and pop with worktree path
+   - should invoke resolveStashPop and stashDrop when stashPop fails
+   - should throw distinguishable error when resolveStashPop also fails
+   - should invoke resolveStashPop after rebase conflict resolution when stash pop fails
+   - should invoke resolveStashPop with worktree path when stash pop fails
+   - should propagate rebase error when both rebase and stash pop fail
+   - should not invoke resolveStashPop when stashPop succeeds
+
+2. ConflictResolutionService (12/12 passing)
+   File: tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.service.test.ts
+   - should resolve conflicts on first attempt — stages and continues
+   - should retry on failed first attempt and succeed on second
+   - should abort rebase after 3 failed attempts and throw REBASE_CONFLICT
+   - should handle multi-commit rebase — resolves first commit then second
+   - should handle multi-commit rebase — rebaseContinue succeeds but next commit has conflicts
+   - should handle three-commit rebase where only first and third have conflicts
+   - should handle two-commit rebase with retries on second commit
+   - should return immediately when no conflicted files are found
+   - should pass cwd to executor options
+   - resolveStashPop > should resolve stash pop conflicts — invokes agent, validates, stages
+   - resolveStashPop > should throw clear error after 3 failed stash pop resolution attempts
+   - resolveStashPop > should return immediately when no conflicted files from stash pop
+
+3. Conflict Resolution Prompt (10/10 passing)
+   File: tests/unit/infrastructure/services/agents/conflict-resolution/conflict-resolution.prompt.test.ts
+   - should include all conflicted file paths
+   - should include conflicted file contents
+   - should include feature branch name
+   - should include base branch name
+   - should include conflict marker removal instructions
+   - should warn against modifying non-conflicted files
+   - should include attempt number and max attempts
+   - should include previous feedback when provided
+   - should not include feedback section on first attempt
+   - should instruct not to run git commands
+
+4. GitPrService Rebase & Sync (41/41 passing)
+   File: tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts
+   - syncMain: 7 tests (fetch, pull, up-to-date, diverged errors, generic error)
+   - rebaseOnMain: 10 tests (dirty worktree, clean rebase, conflicts, branch not found, checkout, target)
+   - getConflictedFiles: 5 tests (file list, empty, normalize paths, errors)
+   - stageFiles: 2 tests (add files, error)
+   - rebaseContinue: 3 tests (continue, new conflicts, error)
+   - rebaseAbort: 2 tests (abort, error)
+   - stash: 3 tests (push true, push false, error)
+   - stashPop: 2 tests (pop, error)
+   - stashDrop: 2 tests (drop, error)
+   - parseGitError: 5 tests (sync_failed, diverged, rejected, auth, generic)
+
+TOTAL FEATURE UNIT TESTS: 83 passed (0 failed)
+
+INTEGRATION TESTS (26 feature-specific tests)
+----------------------------------------------
+
+5. GitPrService Integration (26/26 passing)
+   File: tests/integration/services/git/git-pr.service.rebase-sync.test.ts
+   - syncMain (6): fetch, pull, up-to-date, diverged, feature-branch diverged, idempotent
+   - rebaseOnMain (7): no conflicts, conflicts, dirty worktree, branch not found, abort, linear history, no-op
+   - helper methods (3): getConflictedFiles, stageFiles+rebaseContinue, rebaseAbort
+   - stash (5): stash push true, push false, message format, stash pop, stash drop
+   - stash+rebase+pop flow (5): clean rebase preserve, skip stash when clean, preserve with conflict resolution, restore after abort, unstaged modifications
+
+TOTAL FEATURE INTEGRATION TESTS: 26 passed (0 failed)
+
+GRAND TOTAL: 109 feature-specific tests passed, 0 failed.
+
+Full project suite verification:
+  Unit test files:   374 passed (0 failed)
+  Unit tests:        5312 passed (0 failed)
+  Integration files: 50 passed (0 failed)
+  Integration tests: 589 passed (0 failed)

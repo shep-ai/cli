@@ -1,0 +1,464 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "skill-injector"
+summary: >
+  14 tasks across 5 phases covering TypeSpec domain modeling, port interface definition,
+  infrastructure service implementation, settings persistence, and use case/CLI integration.
+  All code tasks include TDD cycles. Estimated total: 9-11 hours.
+
+relatedFeatures:
+  - "033-global-skills-page"
+  - "080-skill-branding-injection"
+
+technologies:
+  - "TypeScript"
+  - "TypeSpec"
+  - "tsyringe"
+  - "Node.js fs/promises"
+  - "Node.js child_process"
+  - "SQLite (better-sqlite3)"
+  - "Commander.js"
+
+relatedLinks:
+  - title: "Node.js fs.cp documentation"
+    url: "https://nodejs.org/api/fs.html#fspromisescpsrc-dest-options"
+
+tasks:
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Define SkillInjectionConfig, SkillSource, and SkillSourceType in TypeSpec"
+    description: >
+      Add three new models to tsp/domain/entities/settings.tsp: SkillSourceType enum
+      (local, remote), SkillSource model (name, type, source, remoteSkillName?), and
+      SkillInjectionConfig model (enabled boolean default false, skills SkillSource[]).
+      Add optional skillInjection field to WorkflowConfig. Run pnpm tsp:compile to
+      regenerate domain types. Verify the generated output.ts contains the new types.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "SkillSourceType enum with 'local' and 'remote' values exists in settings.tsp"
+      - "SkillSource model has name (string), type (SkillSourceType), source (string), remoteSkillName? (string)"
+      - "SkillInjectionConfig model has enabled (boolean, default false) and skills (SkillSource[])"
+      - "WorkflowConfig has optional skillInjection field of type SkillInjectionConfig"
+      - "pnpm tsp:compile succeeds with zero errors"
+      - "Generated output.ts exports SkillInjectionConfig, SkillSource, and SkillSourceType"
+    tdd:
+      red:
+        - "Write a unit test importing SkillInjectionConfig, SkillSource, SkillSourceType from generated output — fails because types don't exist yet"
+      green:
+        - "Add the TypeSpec models to settings.tsp and run pnpm tsp:compile"
+        - "Verify the import test passes with the regenerated types"
+      refactor:
+        - "Review generated output for naming consistency with existing models"
+    estimatedEffort: "45min"
+
+  - id: "task-2"
+    phaseId: "phase-2"
+    title: "Create ISkillInjectorService port interface"
+    description: >
+      Define the ISkillInjectorService interface in application/ports/output/services/
+      with a single inject() method. Define SkillInjectionResult type with injected (string[]),
+      skipped (string[]), and failed (Array<{ name: string; error: string }>) fields.
+      Export from the services barrel index.ts.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "ISkillInjectorService interface exists in skill-injector.interface.ts"
+      - "inject(worktreePath: string, config: SkillInjectionConfig): Promise<SkillInjectionResult> signature defined"
+      - "SkillInjectionResult type exported with injected, skipped, and failed arrays"
+      - "Interface and types exported from services/index.ts barrel"
+    tdd:
+      red:
+        - "Write a type-level test that creates a mock implementing ISkillInjectorService — fails because the interface doesn't exist"
+      green:
+        - "Create skill-injector.interface.ts with the interface and result types"
+        - "Export from index.ts"
+      refactor:
+        - "Align JSDoc style with existing port interfaces (ISpecInitializerService pattern)"
+    estimatedEffort: "30min"
+
+  - id: "task-3"
+    phaseId: "phase-2"
+    title: "Extend CreateFeatureInput with injectSkills field"
+    description: >
+      Add optional injectSkills?: boolean field to CreateFeatureInput in
+      application/use-cases/features/create/types.ts. This field allows CLI flag
+      override of the settings default.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "CreateFeatureInput has injectSkills?: boolean field"
+      - "Field has JSDoc explaining it overrides settings.workflow.skillInjection.enabled"
+      - "Existing type checks still pass (pnpm validate)"
+    tdd:
+      red:
+        - "Write a test that constructs CreateFeatureInput with injectSkills: true — fails because field doesn't exist on the type"
+      green:
+        - "Add the optional field to CreateFeatureInput interface"
+      refactor:
+        - "Ensure JSDoc follows the existing pattern (see fast, ciWatchEnabled fields)"
+    estimatedEffort: "15min"
+
+  - id: "task-4"
+    phaseId: "phase-3"
+    title: "Implement local skill injection (fs.cp deep copy)"
+    description: >
+      Create SkillInjectorService in infrastructure/services/skill-injector.service.ts.
+      Implement the local skill injection path: for each skill with type 'local', deep-copy
+      from source path to <worktreePath>/.claude/skills/<name>/ using fs.cp({ recursive: true }).
+      Resolve local source paths against the repository root (not the worktree). Include
+      .claude/skills/ directory bootstrapping via mkdir({ recursive: true }).
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "SkillInjectorService class is @injectable() with ExecFunction constructor injection"
+      - "Local skills are deep-copied from source to worktree's .claude/skills/<name>/"
+      - ".claude/skills/ directory is created if it doesn't exist (mkdir recursive)"
+      - "Source paths are resolved against repo root, not worktree path"
+      - "Injected skill names are added to result.injected array"
+      - "fs.cp errors are caught and added to result.failed array (not thrown)"
+    tdd:
+      red:
+        - "Write test: inject() with one local skill copies directory to correct destination"
+        - "Write test: inject() creates .claude/skills/ directory if missing"
+        - "Write test: inject() with failing fs.cp adds to failed array, does not throw"
+      green:
+        - "Implement SkillInjectorService.inject() handling local skill type"
+        - "Add mkdir({ recursive: true }) for directory bootstrapping"
+        - "Add try/catch per skill with failed array population"
+      refactor:
+        - "Extract local skill injection into a private method (injectLocalSkill)"
+        - "Extract constants for .claude/skills path segment"
+    estimatedEffort: "1h"
+
+  - id: "task-5"
+    phaseId: "phase-3"
+    title: "Implement SKILL.md idempotency check"
+    description: >
+      Before injecting any skill (local or remote), check if
+      <worktreePath>/.claude/skills/<name>/SKILL.md exists using fs.access. If it does,
+      skip the skill and add its name to result.skipped. This prevents re-injection
+      and preserves user customizations.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "Skills with existing SKILL.md are skipped (not copied/installed)"
+      - "Skipped skill names appear in result.skipped array"
+      - "Skipped skills do not appear in result.injected or result.failed"
+      - "Running inject() twice produces identical results (second run skips all)"
+    tdd:
+      red:
+        - "Write test: inject() skips skill when SKILL.md exists in target directory"
+        - "Write test: inject() twice — second call returns all skills in skipped array"
+      green:
+        - "Add fs.access check for SKILL.md before each skill injection"
+        - "Populate skipped array for existing skills"
+      refactor:
+        - "Extract idempotency check into a private method (isSkillPresent)"
+    estimatedEffort: "30min"
+
+  - id: "task-6"
+    phaseId: "phase-3"
+    title: "Implement remote skill injection (npx with timeout)"
+    description: >
+      For skills with type 'remote', execute npx skills add <source> --skill <remoteSkillName>
+      via the injected ExecFunction with cwd set to worktree path. Apply 30-second timeout
+      using AbortController with signal option. Capture stdout/stderr for logging. Handle
+      timeout and execution errors by adding to result.failed with descriptive error messages.
+    state: "Todo"
+    dependencies:
+      - "task-5"
+    acceptanceCriteria:
+      - "Remote skills invoke ExecFunction with correct npx arguments array"
+      - "cwd is set to the worktree path"
+      - "AbortController signal with 30s timeout is passed to ExecFunction"
+      - "Successful installation adds skill name to result.injected"
+      - "Timeout errors are caught and added to result.failed with 'timeout' message"
+      - "Execution errors are caught and added to result.failed with error details"
+      - "AbortController timeout is cleared after successful execution (prevent timer leak)"
+    tdd:
+      red:
+        - "Write test: inject() with remote skill calls ExecFunction with correct npx arguments"
+        - "Write test: inject() with remote skill that times out adds to failed array"
+        - "Write test: inject() with remote skill that throws adds error details to failed array"
+      green:
+        - "Implement remote skill path in inject() using ExecFunction"
+        - "Create AbortController, wire setTimeout(30000), pass signal to exec options"
+        - "Add try/catch/finally with clearTimeout for timer cleanup"
+      refactor:
+        - "Extract remote skill injection into a private method (injectRemoteSkill)"
+        - "Extract timeout constant (REMOTE_SKILL_TIMEOUT_MS = 30000)"
+    estimatedEffort: "1h"
+
+  - id: "task-7"
+    phaseId: "phase-3"
+    title: "Implement .gitignore management with git tracking detection"
+    description: >
+      After all skills are injected, manage the worktree's .gitignore to prevent injected
+      skills from being committed. For each injected skill, check if it's already tracked in
+      git using 'git ls-files --error-unmatch'. Only append .gitignore entries for untracked
+      skills. Use trailing slash convention (.claude/skills/<name>/). Do not add duplicate
+      entries. Create .gitignore if it doesn't exist.
+    state: "Todo"
+    dependencies:
+      - "task-6"
+    acceptanceCriteria:
+      - "Each injected, untracked skill gets a .gitignore entry (.claude/skills/<name>/)"
+      - "Already git-tracked skills are NOT added to .gitignore"
+      - "Duplicate .gitignore entries are not created on repeated runs"
+      - ".gitignore is created if it doesn't exist"
+      - "Existing .gitignore content is preserved (append-only)"
+      - "Entries use trailing slash convention for directories"
+      - "Skipped skills (already present) that are untracked also get .gitignore entries"
+    tdd:
+      red:
+        - "Write test: injected untracked skill is appended to .gitignore"
+        - "Write test: tracked skill (git ls-files returns 0) is NOT added to .gitignore"
+        - "Write test: existing .gitignore entry is not duplicated"
+        - "Write test: .gitignore is created when absent"
+      green:
+        - "Implement updateGitignore() method using ExecFunction for git ls-files"
+        - "Read existing .gitignore, check for existing patterns, append new entries"
+        - "Handle missing .gitignore with fs.readFile catch to empty string fallback"
+      refactor:
+        - "Extract git tracking check into private method (isTrackedInGit)"
+        - "Extract .gitignore update logic into private method (updateGitignore)"
+    estimatedEffort: "1h"
+
+  - id: "task-8"
+    phaseId: "phase-3"
+    title: "Add input validation and security checks"
+    description: >
+      Validate skill source strings to prevent shell injection: reject sources containing
+      shell metacharacters (; | & $ backtick \\ ( ) { } < >). Validate skill names to prevent
+      path traversal (reject names containing '..', starting with '/', or containing backslash).
+      Validate that the worktree path exists before starting injection.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "Sources with shell metacharacters are rejected with warning (not injected)"
+      - "Skill names with path traversal patterns are rejected with warning"
+      - "Non-existent worktree path throws"
+      - "Invalid skills are added to result.failed with descriptive validation error"
+    tdd:
+      red:
+        - "Write test: source with semicolon is rejected"
+        - "Write test: skill name with '..' is rejected"
+        - "Write test: non-existent worktree path throws"
+      green:
+        - "Add validateSkillSource() and validateSkillName() private methods"
+        - "Add worktree path existence check at the start of inject()"
+        - "Run validation before injection for each skill"
+      refactor:
+        - "Extract validation regex patterns into named constants"
+    estimatedEffort: "30min"
+
+  - id: "task-9"
+    phaseId: "phase-3"
+    title: "Register SkillInjectorService in DI container"
+    description: >
+      Register ISkillInjectorService in the DI container (container.ts) using the factory
+      pattern. The factory resolves ExecFunction from the container and passes it to the
+      SkillInjectorService constructor.
+    state: "Todo"
+    dependencies:
+      - "task-8"
+    acceptanceCriteria:
+      - "ISkillInjectorService is registered in container.ts with factory pattern"
+      - "Factory resolves ExecFunction dependency from container"
+      - "container.resolve('ISkillInjectorService') returns a SkillInjectorService instance"
+    tdd:
+      red:
+        - "Write test: container.resolve('ISkillInjectorService') returns an instance implementing the interface"
+      green:
+        - "Add registration to container.ts using register() with useFactory"
+      refactor:
+        - "Verify registration is placed near other service registrations for consistency"
+    estimatedEffort: "15min"
+
+  - id: "task-10"
+    phaseId: "phase-4"
+    title: "Create SQLite migration 050 for skill injection columns"
+    description: >
+      Create migration 050-add-skill-injection-config.ts that adds two columns to the settings
+      table: skill_injection_enabled (INTEGER NOT NULL DEFAULT 0) and skill_injection_skills
+      (TEXT, nullable for JSON). Follow the existing migration pattern with pragma table_info
+      guard against duplicate columns.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "Migration file 050-add-skill-injection-config.ts exists in migrations directory"
+      - "Adds skill_injection_enabled column (INTEGER NOT NULL DEFAULT 0)"
+      - "Adds skill_injection_skills column (TEXT, nullable)"
+      - "Uses pragma table_info guard to prevent duplicate column errors"
+      - "Has up() and down() exports following umzug pattern"
+    tdd:
+      red:
+        - "Write test: migration adds both columns to a fresh settings table"
+        - "Write test: migration is idempotent (running twice doesn't error)"
+      green:
+        - "Create migration file following the 049-add-auto-archive-delay-minutes pattern"
+        - "Add column existence checks via pragma table_info"
+      refactor:
+        - "Verify column naming follows existing snake_case convention"
+    estimatedEffort: "30min"
+
+  - id: "task-11"
+    phaseId: "phase-4"
+    title: "Update settings mapper for skill injection serialization"
+    description: >
+      Extend SettingsRow with skill_injection_enabled (number) and skill_injection_skills
+      (string | null) columns. Update toDatabase() to serialize skillInjection config
+      (boolean to 0/1, skills array to JSON string). Update fromDatabase() to deserialize
+      (0/1 to boolean, JSON.parse for skills array). Handle null/undefined gracefully.
+    state: "Todo"
+    dependencies:
+      - "task-10"
+    acceptanceCriteria:
+      - "SettingsRow interface includes skill_injection_enabled and skill_injection_skills columns"
+      - "toDatabase() serializes skillInjection.enabled to 0/1 integer"
+      - "toDatabase() serializes skillInjection.skills to JSON string (or null if empty)"
+      - "fromDatabase() deserializes integer to boolean and JSON to SkillSource array"
+      - "fromDatabase() handles null skill_injection_skills gracefully (returns undefined or empty)"
+      - "Round-trip: toDatabase(fromDatabase(row)) produces equivalent row"
+    tdd:
+      red:
+        - "Write test: toDatabase() with skillInjection config produces correct column values"
+        - "Write test: fromDatabase() with valid columns reconstructs SkillInjectionConfig"
+        - "Write test: fromDatabase() with null skill_injection_skills produces empty/undefined skills"
+        - "Write test: round-trip serialization preserves all fields"
+      green:
+        - "Add columns to SettingsRow interface"
+        - "Add serialization in toDatabase() (boolean to int, JSON.stringify)"
+        - "Add deserialization in fromDatabase() (int to boolean, JSON.parse with fallback)"
+      refactor:
+        - "Consider extracting a buildSkillInjectionFromRow() helper following the buildStageTimeoutsFromRow pattern"
+    estimatedEffort: "45min"
+
+  - id: "task-12"
+    phaseId: "phase-4"
+    title: "Populate default skill list in settings factory"
+    description: >
+      Update createDefaultSettings() to include skillInjection config under workflow with
+      enabled: false and the curated list of local skills (architecture-reviewer,
+      cross-validate-artifacts, mermaid-diagrams, react-flow, shadcn-ui, tsp-model,
+      vercel-react-best-practices). Import SkillInjectionConfig type from generated output.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+      - "task-10"
+    acceptanceCriteria:
+      - "createDefaultSettings().workflow.skillInjection exists"
+      - "skillInjection.enabled is false by default"
+      - "skillInjection.skills contains 7 local skills with correct names and source paths"
+      - "Each skill has type 'local' and source pointing to .claude/skills/<name>"
+    tdd:
+      red:
+        - "Write test: createDefaultSettings().workflow.skillInjection.enabled === false"
+        - "Write test: createDefaultSettings().workflow.skillInjection.skills has 7 entries"
+        - "Write test: each default skill has type 'local' and valid source path"
+      green:
+        - "Add SkillInjectionConfig to workflow object in createDefaultSettings()"
+        - "Define the curated skill list as a constant array"
+      refactor:
+        - "Extract the default skill list constant for clarity"
+    estimatedEffort: "30min"
+
+  - id: "task-13"
+    phaseId: "phase-5"
+    title: "Integrate skill injector into CreateFeatureUseCase"
+    description: >
+      Add ISkillInjectorService as a constructor dependency of CreateFeatureUseCase via
+      @inject('ISkillInjectorService'). Insert the guarded injection call in
+      initializeAndSpawn() after attachment processing (line ~304) and before feature record
+      update (line ~306). Guard with injectSkills flag resolved from input or settings.
+      Log results at info/warn level. Wrap in try/catch for NFR-3 error isolation.
+    state: "Todo"
+    dependencies:
+      - "task-2"
+      - "task-3"
+      - "task-9"
+    acceptanceCriteria:
+      - "CreateFeatureUseCase constructor includes ISkillInjectorService dependency"
+      - "inject() is called after spec init + attachments, before feature record update"
+      - "Injection is guarded by resolved injectSkills flag (input override ?? settings ?? false)"
+      - "Injection result is logged: injected count at info, failures at warn"
+      - "Injection errors are caught and logged (do not propagate)"
+      - "When injectSkills is false or skills list is empty, injector is not called"
+      - "Settings are read via getSettings() following the existing pattern at line 325"
+    tdd:
+      red:
+        - "Write test: use case calls skillInjector.inject() when injectSkills is true"
+        - "Write test: use case does NOT call inject() when injectSkills is false"
+        - "Write test: use case does NOT call inject() when skills list is empty"
+        - "Write test: use case continues with agent spawn when inject() throws"
+        - "Write test: input.injectSkills overrides settings.workflow.skillInjection.enabled"
+      green:
+        - "Add @inject('ISkillInjectorService') to constructor"
+        - "Add guarded injection block in initializeAndSpawn() after attachments"
+        - "Implement flag resolution: input.injectSkills ?? settings.workflow.skillInjection?.enabled ?? false"
+      refactor:
+        - "Ensure the injection block follows the same try/catch pattern as attachment processing"
+    estimatedEffort: "1h"
+
+  - id: "task-14"
+    phaseId: "phase-5"
+    title: "Add CLI --inject-skills / --no-inject-skills flags"
+    description: >
+      Add --inject-skills and --no-inject-skills options to the feat new command using
+      Commander.js negation pattern (same as --fast / --no-fast). Pass the resolved value
+      as injectSkills on CreateFeatureInput. When neither flag is provided, leave undefined
+      to fall through to settings default. Update NewOptions interface.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+      - "task-13"
+    acceptanceCriteria:
+      - "--inject-skills flag sets injectSkills: true on use case input"
+      - "--no-inject-skills flag sets injectSkills: false on use case input"
+      - "Neither flag leaves injectSkills undefined (falls through to settings)"
+      - "NewOptions interface includes injectSkills?: boolean"
+      - "Flag is passed through to useCase.execute() call"
+    tdd:
+      red:
+        - "Write test: command with --inject-skills passes injectSkills: true to use case"
+        - "Write test: command with --no-inject-skills passes injectSkills: false to use case"
+        - "Write test: command without flag does not include injectSkills in use case input"
+      green:
+        - "Add .option('--inject-skills', description) and .option('--no-inject-skills', description)"
+        - "Add injectSkills to NewOptions interface"
+        - "Pass options.injectSkills to useCase.execute() conditionally"
+      refactor:
+        - "Verify flag placement is consistent with existing options ordering"
+    estimatedEffort: "30min"
+
+totalEstimate: "9-11 hours"
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation spans 14 tasks across 5 phases, building the feature bottom-up from
+  domain types through to CLI integration. Phase 1 establishes the TypeSpec foundation that
+  all other code depends on. Phase 2 defines the port contract. Phase 3 is the heaviest,
+  implementing the core service logic with 6 tasks covering local copy, idempotency, remote
+  npx, .gitignore management, security validation, and DI registration. Phase 4 handles
+  persistence mechanics. Phase 5 wires everything together in the use case and CLI.
+
+  The dependency graph ensures no task is started before its prerequisites are complete.
+  Tasks within the same phase can sometimes be parallelized (e.g., task-10 and task-12
+  only depend on task-1, not on each other), though the recommended execution order is
+  sequential for clean TDD flow.
+
+  Every code task follows RED-GREEN-REFACTOR: write a failing test first, implement the
+  minimum code to pass, then clean up. The infrastructure service tests use vi.mock for
+  fs/promises and mock ExecFunction injection, following the existing test patterns in
+  worktree.service.test.ts.

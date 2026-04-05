@@ -11,6 +11,7 @@ import {
   Loader2,
   GitFork,
   FileText,
+  Puzzle,
   RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -91,6 +92,8 @@ export interface FeatureCreatePayload {
   commitSpecs: boolean;
   /** Sync main from remote before creating the feature branch (default: true). */
   rebaseBeforeBranch: boolean;
+  /** Inject curated skills into the feature worktree. */
+  injectSkills: boolean;
   /** Optional agent type override for this feature run */
   agentType?: string;
   /** Optional model override for this feature run */
@@ -250,6 +253,7 @@ export function FeatureCreateDrawer({
   const [forkAndPr, setForkAndPr] = useState(false);
   const [commitSpecs, setCommitSpecs] = useState(true);
   const [rebaseBeforeBranch, setRebaseBeforeBranch] = useState(true);
+  const [injectSkills, setInjectSkills] = useState(workflowDefaults?.injectSkills ?? false);
   const [overrideAgent, setOverrideAgent] = useState<string | undefined>(undefined);
   const [overrideModel, setOverrideModel] = useState<string | undefined>(undefined);
   const [selectedRepoPath, setSelectedRepoPath] = useState<string | undefined>(
@@ -275,6 +279,7 @@ export function FeatureCreateDrawer({
       setEnableEvidence(workflowDefaults.enableEvidence);
       setCommitEvidence(workflowDefaults.commitEvidence);
       setMode(workflowDefaults.defaultMode ?? FeatureMode.Fast);
+      setInjectSkills(workflowDefaults.injectSkills ?? false);
     }
   }, [workflowDefaults]);
 
@@ -511,6 +516,7 @@ export function FeatureCreateDrawer({
         forkAndPr,
         commitSpecs,
         rebaseBeforeBranch,
+        injectSkills,
         ...(pending ? { pending } : {}),
         ...(overrideAgent ? { agentType: overrideAgent } : {}),
         ...(overrideModel ? { model: overrideModel } : {}),
@@ -535,6 +541,7 @@ export function FeatureCreateDrawer({
       forkAndPr,
       commitSpecs,
       rebaseBeforeBranch,
+      injectSkills,
       pending,
       overrideAgent,
       overrideModel,
@@ -1000,6 +1007,45 @@ export function FeatureCreateDrawer({
                         : !enableEvidence
                           ? t('createDrawer.requiresEvidence')
                           : t('createDrawer.addToPrDescription')}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
+              {/* Skills row */}
+              <div className="border-input flex items-center gap-4 rounded-md border px-3 py-2.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground w-16 shrink-0 cursor-default text-xs font-semibold tracking-wider">
+                      {t('createDrawer.skills')}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {t('createDrawer.skillsDescription')}
+                  </TooltipContent>
+                </Tooltip>
+                <div className="flex flex-1 items-center gap-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-pointer items-center gap-1.5">
+                        <Switch
+                          id="inject-skills"
+                          size="sm"
+                          checked={injectSkills}
+                          onCheckedChange={setInjectSkills}
+                          disabled={isSubmitting}
+                        />
+                        <Label
+                          htmlFor="inject-skills"
+                          className="flex cursor-pointer items-center gap-1 text-xs font-medium"
+                        >
+                          <Puzzle className="h-3 w-3" />
+                          {t('createDrawer.injectSkills')}
+                        </Label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {t('createDrawer.injectSkillsDescription')}
                     </TooltipContent>
                   </Tooltip>
                 </div>

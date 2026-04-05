@@ -1,0 +1,467 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "skill-injector"
+summary: >
+  Technical research for the skill injector feature covering architecture, library choices,
+  security, and performance. Key decisions: use Node.js fs.cp for recursive copy (Node 16.7+),
+  injected ExecFunction via DI for npx invocation (matching WorktreeService pattern), JSON column
+  for skill list storage in SQLite, and WorkflowConfig as the home for SkillInjectionConfig.
+  All patterns follow the established Clean Architecture port/adapter conventions with tsyringe DI.
+
+# Relationships
+relatedFeatures:
+  - "033-global-skills-page"
+  - "080-skill-branding-injection"
+
+technologies:
+  - "TypeScript"
+  - "TypeSpec"
+  - "tsyringe (dependency injection)"
+  - "Node.js fs/promises (fs.cp recursive copy)"
+  - "Node.js child_process.execFile (via DI ExecFunction)"
+  - "SQLite (better-sqlite3)"
+  - "umzug (migration framework)"
+  - "Commander.js (CLI flags)"
+
+relatedLinks:
+  - title: "Node.js fs.cp documentation"
+    url: "https://nodejs.org/api/fs.html#fspromisescpsrc-dest-options"
+  - title: "Claude Code Skills Documentation"
+    url: "https://code.claude.com/docs/en/setup"
+
+# Structured technology decisions
+decisions:
+  - title: "File Copy Strategy for Local Skills"
+    chosen: "Node.js fs.cp with { recursive: true } (fs/promises)"
+    rejected:
+      - "Manual recursive readdir + mkdir + copyFile — unnecessarily complex reimplementation of built-in functionality. The codebase uses Node 20+ where fs.cp is stable."
+      - "Third-party library (fs-extra) — adds an external dependency when the native API provides identical functionality. The project has no existing fs-extra dependency."
+      - "Symlinks — rejected per spec. Cross-platform issues on Windows, agent edits would modify source, and .gitignore handling is more complex with symlinks."
+    rationale: >
+      Node.js fs.cp (available since Node 16.7, stable in Node 20) provides native recursive
+      directory copying with a single call: fs.cp(src, dest, { recursive: true }). This is the
+      simplest and most maintainable approach. The existing codebase uses direct fs/promises
+      imports without an abstraction layer (see SpecInitializerService pattern), so adding
+      fs.cp follows the established convention. No external dependency is needed.
+
+  - title: "Command Execution for Remote Skills (npx)"
+    chosen: "Injected ExecFunction via tsyringe DI (same pattern as WorktreeService)"
+    rejected:
+      - "Direct child_process.execFile import — violates the established DI pattern. WorktreeService, GitPrService, and BrowserOpenerService all inject ExecFunction. Direct imports make testing harder."
+      - "execa library — adds an external dependency when the project already has a well-established ExecFunction abstraction registered in the DI container with Windows cross-platform handling."
+      - "child_process.exec (shell mode) — security risk from shell interpolation. The spec explicitly requires execFile to avoid shell injection (NFR-8)."
+    rationale: >
+      The codebase has a standardized pattern for command execution: ExecFunction is a type alias
+      for promisified execFile, registered in the DI container at 'ExecFunction' with
+      Windows-specific options (shell: true, windowsHide: true). WorktreeService and GitPrService
+      both inject this dependency. The skill injector should follow the same pattern for npx
+      invocation. This ensures cross-platform compatibility (IS_WINDOWS handling) and testability
+      (constructor injection with mock functions, no global module mocking).
+
+  - title: "Timeout Mechanism for Remote Skill Installation"
+    chosen: "AbortController with setTimeout, passed as signal option to execFile"
+    rejected:
+      - "Custom wrapper with child.kill() on timer — more complex and error-prone. AbortController is the standard Node.js pattern for cancellation and integrates natively with execFile's options."
+      - "No timeout (rely on npx default) — violates spec requirement (FR-3, 30-second timeout). npx has no guaranteed timeout; network issues could hang indefinitely."
+    rationale: >
+      Node.js execFile accepts an AbortSignal via the options.signal parameter (Node 16+).
+      Using AbortController with setTimeout(30000) provides clean timeout handling that
+      automatically kills the child process and rejects the promise with an AbortError.
+      This is the idiomatic Node.js approach and avoids manual process lifecycle management.
+
+  - title: "SQLite Storage for Skill List"
+    chosen: "JSON TEXT column (skill_injection_skills) alongside INTEGER column (skill_injection_enabled)"
+    rejected:
+      - "Separate skill_sources table with FK to settings — over-engineered for a list that is always read/written as a whole unit. Adds migration complexity, a new repository interface, and join queries for minimal benefit. The list is small (< 20 items) and never queried individually."
+      - "One column per skill — completely inflexible. Adding a new skill would require a migration. The list is variable-length by design."
+    rationale: >
+      The spec resolved this question in favor of JSON column storage. The skills array is always
+      read and written as a complete unit (never queried by individual skill), making JSON the
+      pragmatic choice. SQLite has good JSON support, and the settings mapper already handles
+      complex nested objects with JSON.parse/JSON.stringify patterns. Two columns are needed:
+      skill_injection_enabled (INTEGER DEFAULT 0) for the boolean flag, and
+      skill_injection_skills (TEXT, nullable) for the JSON-serialized SkillSource array.
+
+  - title: "SkillInjectionConfig Location in Settings"
+    chosen: "Nested under WorkflowConfig (settings.workflow.skillInjection)"
+    rejected:
+      - "Top-level on Settings — increases the Settings surface area and doesn't reflect that skill injection is a workflow step. All other per-creation behaviors (ciWatchEnabled, approvalGateDefaults, enableEvidence) live under workflow."
+      - "Under AgentConfig — semantic mismatch. AgentConfig handles agent type and authentication, not workflow step configuration. Skill injection is triggered during feature creation, not agent configuration."
+    rationale: >
+      Skill injection is a step in the feature creation workflow, executed inside
+      CreateFeatureUseCase.initializeAndSpawn() alongside spec initialization and attachment
+      processing. It logically belongs under WorkflowConfig, next to ciWatchEnabled,
+      approvalGateDefaults, and enableEvidence — all of which are per-workflow-run behaviors.
+      The spec's FR-7 and FR-9 consistently reference settings.workflow.skillInjection,
+      confirming this placement.
+
+  - title: "Port Interface Design"
+    chosen: "Single inject() method returning SkillInjectionResult with injected/skipped/failed arrays"
+    rejected:
+      - "Separate methods per skill type (injectLocal, injectRemote) — leaks implementation details into the port interface. The use case should not know about skill types; it delegates the entire injection to the service."
+      - "Void return with event-based reporting — adds unnecessary complexity. A structured result object is simpler, testable, and follows the SpecInitializerResult pattern."
+    rationale: >
+      The ISpecInitializerService port provides a good template: a single method that takes
+      configuration inputs and returns a structured result. The ISkillInjectorService.inject()
+      method accepts (worktreePath: string, config: SkillInjectionConfig) and returns
+      Promise<SkillInjectionResult>. The result includes injected (string[]), skipped (string[]),
+      and failed (Array<{ name: string; error: string }>) for comprehensive reporting.
+      This matches FR-1 and FR-12 requirements.
+
+  - title: "Git Tracking Detection for .gitignore Management"
+    chosen: "ExecFunction with 'git ls-files' to check if skill is tracked"
+    rejected:
+      - "Check .git/index directly — fragile, platform-dependent, and breaks the abstraction. git ls-files is the standard porcelain command for checking tracked files."
+      - "Always add to .gitignore regardless — would create unnecessary .gitignore entries for skills that are already committed and tracked, causing confusion."
+    rationale: >
+      FR-5 and SC-8 require that already-tracked skills (committed in git) are NOT added to
+      .gitignore. Running 'git ls-files --error-unmatch .claude/skills/<name>/' in the worktree
+      reliably detects whether a skill directory is tracked. A zero exit code means tracked;
+      non-zero means untracked. The ExecFunction DI token is already available for git operations,
+      and this follows the GitPrService pattern of running git commands with cwd set to the
+      worktree path.
+
+  - title: "Idempotency Check Strategy"
+    chosen: "Check for SKILL.md file existence in target directory"
+    rejected:
+      - "Check for directory existence only — too broad. An empty or partially copied directory could exist without a valid skill. SKILL.md is the canonical skill marker file."
+      - "Version comparison — rejected per spec. Adds complexity for version parsing, conflict resolution, and user customization preservation. Skip-if-present is the safest approach for v1."
+    rationale: >
+      The spec (FR-4, SC-6) defines the idempotency check as: if
+      <worktreePath>/.claude/skills/<name>/SKILL.md exists, skip the skill. SKILL.md is
+      the canonical marker file present in every skill directory (verified by examining the
+      19 existing skills in the repo, all of which contain SKILL.md with frontmatter metadata).
+      This is a simple, reliable check that avoids false positives from partial copies.
+
+  - title: "Migration Number"
+    chosen: "050-add-skill-injection-config.ts"
+    rejected:
+      - "049-add-skill-injection-config.ts — would collide with existing 049 migrations (auto-archive-delay, default-fast-mode, language-preference). While the codebase allows duplicate prefixes, using 050 is cleaner."
+    rationale: >
+      The existing migration files go up to 049 (three migrations share the 049 prefix).
+      Using 050 avoids any ambiguity and follows sequential numbering. The migration adds
+      two columns: skill_injection_enabled (INTEGER NOT NULL DEFAULT 0) and
+      skill_injection_skills (TEXT, nullable for JSON). The pattern follows
+      046-add-interactive-agent-settings.ts with pragma table_info guard against duplicate columns.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: "Should the SkillInjectorService accept filesystem and exec dependencies via constructor injection or import them directly?"
+    resolved: true
+    options:
+      - option: "Constructor injection via DI for ExecFunction; direct fs/promises imports for filesystem"
+        description: "Inject ExecFunction (for npx and git ls-files) via tsyringe DI following the WorktreeService pattern. Use direct fs/promises imports for file operations following the SpecInitializerService pattern. This hybrid approach matches the existing codebase conventions exactly."
+        selected: true
+      - option: "Full constructor injection for both exec and filesystem"
+        description: "Inject both ExecFunction and a filesystem abstraction interface. Maximum testability but introduces a filesystem port that doesn't exist anywhere in the codebase, adding unnecessary abstraction."
+        selected: false
+      - option: "Direct imports for everything (no DI for exec)"
+        description: "Import execFile directly from child_process. Simpler but breaks the established ExecFunction DI pattern and makes unit testing harder (requires vi.mock of node:child_process)."
+        selected: false
+    selectionRationale: >
+      The codebase has two distinct patterns: ExecFunction is always injected via DI (WorktreeService,
+      GitPrService, BrowserOpenerService), while filesystem operations use direct fs/promises imports
+      (SpecInitializerService, ToolInstallerService). Following both conventions maintains consistency.
+      Unit tests for fs operations use vi.mock('node:fs/promises') which is already well-established
+      in the test suite (see worktree.service.test.ts).
+
+  - question: "How should the skill injector handle the .claude/skills/ directory bootstrapping?"
+    resolved: true
+    options:
+      - option: "mkdir with { recursive: true } before any injection"
+        description: "Call fs.mkdir(join(worktreePath, '.claude', 'skills'), { recursive: true }) once at the start of inject(). Handles all cases: directory exists, .claude exists but skills doesn't, neither exists. No-op if already present."
+        selected: true
+      - option: "Check existence first, then create conditionally"
+        description: "Use fs.access or fs.stat to check if the directory exists before creating. Adds an extra filesystem call for no benefit since mkdir with recursive: true is idempotent."
+        selected: false
+      - option: "Let individual skill copy operations create directories as needed"
+        description: "Rely on fs.cp to create parent directories. Risk of race conditions if multiple skills target the same parent. Less explicit about intent."
+        selected: false
+    selectionRationale: >
+      mkdir with { recursive: true } is idempotent and handles all edge cases in a single call.
+      This matches the SpecInitializerService pattern where mkdir({ recursive: true }) is used
+      to create spec directories. FR-13 requires handling the case where .claude/ itself doesn't
+      exist, which recursive mkdir handles automatically.
+
+  - question: "Should the .gitignore entries use trailing slashes for directories?"
+    resolved: true
+    options:
+      - option: "Yes, use trailing slash (.claude/skills/<name>/)"
+        description: "Git convention for directory-only patterns. Matches only directories, not files with the same name. More precise and follows gitignore best practices."
+        selected: true
+      - option: "No trailing slash (.claude/skills/<name>)"
+        description: "Matches both files and directories with the name. Less precise but simpler. Could cause unexpected behavior if a file with the same name exists."
+        selected: false
+      - option: "Use wildcard pattern (.claude/skills/<name>/**)"
+        description: "Explicitly matches all contents within the directory. More verbose than trailing slash for the same effect. Non-standard for directory ignore patterns."
+        selected: false
+    selectionRationale: >
+      Trailing slash is the gitignore convention for directory patterns and provides the most
+      precise matching. Since skills are always directories (not files), the trailing slash
+      ensures only the directory is ignored. This prevents edge cases where a file with the
+      same name could be accidentally ignored.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. File Copy Strategy for Local Skills
+
+  **Chosen:** Node.js `fs.cp` with `{ recursive: true }` (fs/promises)
+
+  **Rejected:**
+  - Manual recursive readdir + mkdir + copyFile — unnecessarily complex when `fs.cp` is available natively
+  - fs-extra library — external dependency when native API suffices; not used elsewhere in the codebase
+  - Symlinks — cross-platform issues on Windows, agent edits modify source, complex .gitignore handling
+
+  **Rationale:** `fs.cp` (stable in Node 20) provides native recursive directory copying. The codebase
+  uses direct `fs/promises` imports (SpecInitializerService pattern). No external dependency needed.
+
+  ### 2. Command Execution for Remote Skills (npx)
+
+  **Chosen:** Injected `ExecFunction` via tsyringe DI
+
+  **Rejected:**
+  - Direct child_process import — violates established DI pattern used by WorktreeService, GitPrService
+  - execa library — external dependency; project already has ExecFunction abstraction with Windows handling
+  - child_process.exec — shell interpolation security risk (NFR-8)
+
+  **Rationale:** The `ExecFunction` type is registered in the DI container with platform-specific
+  Windows options (`shell: true`, `windowsHide: true`). Constructor injection enables testing without
+  global mocks.
+
+  ### 3. Timeout Mechanism for Remote Skill Installation
+
+  **Chosen:** `AbortController` with `setTimeout`, passed as `signal` option to `execFile`
+
+  **Rejected:**
+  - Custom wrapper with child.kill() — more complex and error-prone
+  - No timeout — violates spec requirement (30-second per-skill timeout)
+
+  **Rationale:** Node.js `execFile` accepts `AbortSignal` via `options.signal`. Using AbortController
+  with `setTimeout(30000)` provides clean timeout handling that automatically kills the child process.
+
+  ### 4. SQLite Storage for Skill List
+
+  **Chosen:** JSON TEXT column + INTEGER column
+
+  **Rejected:**
+  - Separate skill_sources table — over-engineered for a list always read/written as a whole
+  - One column per skill — inflexible, requires migration for each new skill
+
+  **Rationale:** Two columns: `skill_injection_enabled` (INTEGER DEFAULT 0) and
+  `skill_injection_skills` (TEXT, nullable JSON). Follows existing mapper patterns.
+
+  ### 5. SkillInjectionConfig Location
+
+  **Chosen:** Nested under `WorkflowConfig` (`settings.workflow.skillInjection`)
+
+  **Rejected:**
+  - Top-level on Settings — increases surface area, doesn't reflect workflow step nature
+  - Under AgentConfig — semantic mismatch; AgentConfig handles agent type/auth, not workflow steps
+
+  **Rationale:** Skill injection is a workflow step alongside ciWatchEnabled, approvalGateDefaults,
+  and enableEvidence. All FR references use `settings.workflow.skillInjection`.
+
+  ### 6. Port Interface Design
+
+  **Chosen:** Single `inject()` method returning structured `SkillInjectionResult`
+
+  **Rejected:**
+  - Separate methods per skill type — leaks implementation details into port
+  - Void return with events — unnecessary complexity vs structured result
+
+  **Rationale:** Follows ISpecInitializerService pattern: single method, structured result
+  with injected/skipped/failed arrays for comprehensive reporting.
+
+  ### 7. Git Tracking Detection
+
+  **Chosen:** `git ls-files --error-unmatch` via ExecFunction
+
+  **Rejected:**
+  - Direct .git/index access — fragile, platform-dependent
+  - Always add to .gitignore — creates unnecessary entries for tracked skills
+
+  **Rationale:** Standard git porcelain command. ExecFunction already available via DI.
+  Zero exit = tracked; non-zero = untracked.
+
+  ### 8. Idempotency Check
+
+  **Chosen:** Check for SKILL.md file existence
+
+  **Rejected:**
+  - Directory existence only — too broad; partial copies could exist without valid skill
+  - Version comparison — rejected per spec; adds complexity for v1
+
+  **Rationale:** SKILL.md is the canonical skill marker file, present in all 19 existing skills.
+
+  ### 9. Migration Number
+
+  **Chosen:** 050-add-skill-injection-config.ts
+
+  **Rejected:**
+  - 049 prefix — already has 3 migrations; 050 is cleaner
+
+  **Rationale:** Sequential numbering. Adds `skill_injection_enabled` (INTEGER DEFAULT 0)
+  and `skill_injection_skills` (TEXT nullable).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `fs/promises` (fs.cp) | Recursive directory copy | Use (built-in) | Native Node.js API, stable in Node 20. No external dependency needed |
+  | `fs/promises` (readFile, writeFile, mkdir, access) | File operations, .gitignore management | Use (built-in) | Follows SpecInitializerService pattern of direct fs/promises imports |
+  | `child_process.execFile` (via ExecFunction DI) | npx invocation, git ls-files | Use (built-in + DI) | Existing DI pattern with Windows cross-platform handling |
+  | `AbortController` | Timeout for npx commands | Use (built-in) | Standard Node.js cancellation mechanism, integrates with execFile signal option |
+  | `path` (join, resolve) | Cross-platform path construction | Use (built-in) | Required for all file path operations; never hardcode separators |
+  | `fs-extra` | Recursive copy | Reject | External dependency; native fs.cp provides identical functionality |
+  | `execa` | Process execution | Reject | External dependency; ExecFunction DI pattern already established |
+  | `cross-spawn` | Cross-platform spawn | Reject | ExecFunction DI already handles Windows with shell:true option |
+  | `glob` / `fast-glob` | File pattern matching | Reject | Not needed; skill paths are known and explicit from the config |
+
+  ## Security Considerations
+
+  ### Shell Injection Prevention (NFR-8)
+
+  Remote skill installation executes `npx skills add <source>` where `<source>` comes from
+  user-configured settings. Although the skill list is user-configured (not untrusted external input),
+  the implementation must still prevent shell injection:
+
+  1. **Use `execFile`, not `exec`** — The DI-registered ExecFunction uses `promisify(execFile)`,
+     which does not spawn a shell by default (except on Windows where `shell: true` is required
+     but arguments are still properly escaped by the OS).
+
+  2. **Validate source values** — Before passing to execFile, validate that `source` strings
+     do not contain shell metacharacters (`; | & $ \` \\ ( ) { } < >`). Reject invalid sources
+     with a warning.
+
+  3. **Argument array, not string** — Pass command arguments as an array to execFile:
+     `execFile('npx', ['skills', 'add', source, '--skill', remoteSkillName], options)`.
+     This prevents argument injection.
+
+  ### Filesystem Safety
+
+  - All file operations use `path.join()` for path construction
+  - The worktree path is validated before injection (exists check)
+  - .gitignore writes use append mode (no risk of overwriting existing entries)
+  - Skill names are validated to prevent path traversal (`..`, absolute paths)
+
+  ## Performance Implications
+
+  ### Local Skill Injection
+
+  - **File size**: Each skill directory is typically < 100KB. Copying 10-20 skills adds < 2MB total.
+  - **I/O**: `fs.cp` with `recursive: true` is a single syscall-level operation per skill.
+  - **Parallelism**: Local skills can be copied sequentially; the total time is < 1 second for 20 skills.
+  - **NFR-1 compliance**: Well within the 5-second budget for local-only skill sets.
+
+  ### Remote Skill Injection
+
+  - **Network**: Each `npx skills add` invocation may download packages. Time is bounded by 30s timeout.
+  - **Sequential execution**: Remote skills are processed sequentially (spec confirms total count < 20).
+  - **Worst case**: 20 remote skills * 30s timeout = 10 minutes. In practice, most complete in < 5s.
+  - **Non-blocking**: Injection runs before agent spawn but after spec init. The total injection time
+    is additive to feature creation time but bounded.
+
+  ### Settings Read Performance
+
+  - Adding two columns to the settings table has negligible impact on read performance.
+  - JSON parsing of the skills array (< 20 items) is sub-millisecond.
+
+  ## Architecture Notes
+
+  ### Clean Architecture Layers
+
+  The skill injector touches all four architecture layers:
+
+  1. **Domain** (`tsp/domain/entities/settings.tsp`):
+     - New `SkillInjectionConfig` model with `enabled: boolean` and `skills: SkillSource[]`
+     - New `SkillSource` model with `name: string`, `type: SkillSourceType`, `source: string`, `remoteSkillName?: string`
+     - New `SkillSourceType` enum with `local` and `remote` values
+     - Added as optional field on `WorkflowConfig`: `skillInjection?: SkillInjectionConfig`
+
+  2. **Application** (`packages/core/src/application/`):
+     - New port: `ISkillInjectorService` in `ports/output/services/skill-injector.interface.ts`
+     - New types: `SkillInjectionResult` with injected/skipped/failed arrays
+     - Modified: `CreateFeatureInput` with optional `injectSkills?: boolean` field
+     - Modified: `CreateFeatureUseCase.initializeAndSpawn()` — call injector after spec init
+
+  3. **Infrastructure** (`packages/core/src/infrastructure/`):
+     - New service: `SkillInjectorService` in `services/skill-injector.service.ts`
+     - New migration: `050-add-skill-injection-config.ts`
+     - Modified: `settings.mapper.ts` — serialize/deserialize skillInjection config
+     - Modified: `container.ts` — register ISkillInjectorService binding
+
+  4. **Presentation** (`src/presentation/cli/`):
+     - Modified: `feat/new.command.ts` — add `--inject-skills` / `--no-inject-skills` flags
+
+  ### Integration Point in CreateFeatureUseCase
+
+  The skill injector integrates at a specific point in `initializeAndSpawn()`:
+
+  ```
+  Line 271-277: specInitializer.initialize()     ← after this
+  Line 279-304: attachment processing             ← alongside this
+  === SKILL INJECTION HERE ===                    ← new step
+  Line 306-317: feature record update             ← before this
+  Line 319-371: agent spawn                       ← before this
+  ```
+
+  The injection is guarded by:
+  ```typescript
+  const shouldInject = input.injectSkills ?? settings.workflow.skillInjection?.enabled ?? false;
+  if (shouldInject && settings.workflow.skillInjection?.skills?.length) {
+    try {
+      const result = await this.skillInjector.inject(worktreePath, settings.workflow.skillInjection);
+      // Log result at info/warn level
+    } catch {
+      // Log warning and continue — injection failure must not block feature creation (NFR-3)
+    }
+  }
+  ```
+
+  ### DI Registration Pattern
+
+  ```typescript
+  // In container.ts, near other service registrations (~line 340):
+  container.register<ISkillInjectorService>('ISkillInjectorService', {
+    useFactory: (c) => new SkillInjectorService(c.resolve('ExecFunction')),
+  });
+  ```
+
+  ### CLI Flag Pattern
+
+  Follows the `--fast` / `--no-fast` pattern with Commander.js negation:
+
+  ```typescript
+  .option('--inject-skills', 'Inject curated skills into the worktree')
+  .option('--no-inject-skills', 'Skip skill injection for this invocation')
+  ```
+
+  Commander.js automatically creates a boolean `options.injectSkills` that is `true` for
+  `--inject-skills`, `false` for `--no-inject-skills`, and `undefined` when neither is provided.
+  The undefined case falls through to the settings default.
+
+  ### Default Skill List
+
+  The `createDefaultSettings()` factory will include a default skill list (enabled: false):
+
+  ```typescript
+  skillInjection: {
+    enabled: false,
+    skills: [
+      { name: 'architecture-reviewer', type: 'local', source: '.claude/skills/architecture-reviewer' },
+      { name: 'cross-validate-artifacts', type: 'local', source: '.claude/skills/cross-validate-artifacts' },
+      { name: 'mermaid-diagrams', type: 'local', source: '.claude/skills/mermaid-diagrams' },
+      { name: 'react-flow', type: 'local', source: '.claude/skills/react-flow' },
+      { name: 'shadcn-ui', type: 'local', source: '.claude/skills/shadcn-ui' },
+      { name: 'tsp-model', type: 'local', source: '.claude/skills/tsp-model' },
+      { name: 'vercel-react-best-practices', type: 'local', source: '.claude/skills/vercel-react-best-practices' },
+    ],
+  }
+  ```
+
+  Note: Local skill `source` paths are relative to the main repository root. The injector
+  resolves them against the repository path (not the worktree path) to copy from the
+  committed source into the worktree destination.

@@ -205,6 +205,8 @@
       "gitRebaseSyncDescription": "Habilitar operaciones de rebase-on-main y sync-main de git",
       "reactFileManager": "Administrador de archivos React",
       "reactFileManagerDescription": "Usar el administrador de archivos React integrado en lugar del selector de carpetas nativo del SO",
+      "inventory": "Inventario",
+      "inventoryDescription": "Habilitar la página de Inventario que muestra todos los repositorios y funciones en vista de árbol",
       "hint": "Funcionalidades experimentales que aún están en desarrollo. Habilítalas bajo tu propio riesgo — pueden cambiar o ser eliminadas en versiones futuras. El modo de depuración agrega registro detallado útil para la resolución de problemas."
     },
     "interactiveAgent": {
@@ -243,6 +245,7 @@
     "controlCenter": "Centro de control",
     "dashboard": "Panel",
     "features": "Funcionalidades",
+    "inventory": "Inventario",
     "repositories": "Repositorios",
     "settings": "Configuración",
     "sessions": "Sesiones",
@@ -269,7 +272,7 @@
     "deleteSubFeatures": "Eliminar sub-funcionalidades",
     "closePullRequest": "Cerrar pull request",
     "cancel": "Cancelar",
-    "deleting": "Eliminando\u2026",
+    "deleting": "Eliminando…",
     "delete": "Eliminar"
   },
   "rejectFeedback": {
@@ -278,25 +281,25 @@
     "ariaLabel": "Comentarios de rechazo",
     "placeholder": "Describe qué necesita cambiar...",
     "cancel": "Cancelar",
-    "rejecting": "Rechazando\u2026",
+    "rejecting": "Rechazando…",
     "confirmReject": "Confirmar rechazo"
   },
   "emptyState": {
     "addProject": "Agregar un proyecto",
     "addProjectDescription": "Agrega tu carpeta de proyecto para desbloquear la creación de funcionalidades.",
-    "addProjectDescriptionLine2": "Describe lo que necesitas \u2014 Shep se encarga del resto.",
-    "checkingSetup": "Verificando configuración\u2026",
+    "addProjectDescriptionLine2": "Describe lo que necesitas — Shep se encarga del resto.",
+    "checkingSetup": "Verificando configuración…",
     "ready": "{{label}} listo",
     "notInstalled": "{{label}} no está instalado",
     "reCheck": "Verificar de nuevo",
     "needsAuth": "{{label}} necesita autenticación",
     "open": "Abrir {{label}}",
-    "checking": "Verificando {{label}}\u2026",
+    "checking": "Verificando {{label}}…",
     "notFound": "{{label}} no encontrado",
     "docs": "Documentación",
-    "opening": "Abriendo\u2026",
+    "opening": "Abriendo…",
     "chooseFolder": "Elige una carpeta",
-    "folderHint": "Cualquier carpeta funciona \u2014 git se inicializará automáticamente si es necesario.",
+    "folderHint": "Cualquier carpeta funciona — git se inicializará automáticamente si es necesario.",
     "orUseCli": "o usa el CLI",
     "copyCommands": "Copiar comandos",
     "git": "Git",
@@ -305,7 +308,7 @@
     "githubCliRequired": "Requerido para pull requests"
   },
   "welcome": {
-    "loadingAgents": "Cargando agentes\u2026",
+    "loadingAgents": "Cargando agentes…",
     "chooseAgent": "Elige tu agente",
     "pickModel": "Elige un modelo",
     "selectAgentSubtitle": "Selecciona el agente de codificación AI que quieres que Shep use.",
@@ -354,11 +357,11 @@
     "stopDevServer": "Detener servidor",
     "startDevServer": "Iniciar servidor",
     "retryDevServer": "Reintentar servidor",
-    "starting": "Iniciando\u2026",
+    "starting": "Iniciando…",
     "retry": "Reintentar",
     "start": "Iniciar",
     "failed": "Error",
-    "deleting": "Eliminando\u2026",
+    "deleting": "Eliminando…",
     "addFeature": "Agregar función",
     "reviewRequirements": "Revisar requisitos",
     "reviewTechnicalPlan": "Revisar plan técnico",
@@ -479,7 +482,11 @@
     "plan": "Plan",
     "planDescription": "Auto-aprobar transición de planificación a implementación.",
     "merge": "Merge",
-    "mergeDescription": "Auto-aprobar transición de merge a completado."
+    "mergeDescription": "Auto-aprobar transición de merge a completado.",
+    "skills": "SKILLS",
+    "skillsDescription": "Curated skills to guide the agent during feature development.",
+    "injectSkills": "Inject",
+    "injectSkillsDescription": "Include curated skills in the feature worktree."
   },
   "featureDrawer": {
     "copyFeatureId": "Copiar ID de función",
@@ -593,7 +600,7 @@
     "addRepository": "Agregar repositorio"
   },
   "modelPicker": {
-    "searchPlaceholder": "Buscar o escribir un ID de modelo\u2026"
+    "searchPlaceholder": "Buscar o escribir un ID de modelo…"
   },
   "skills": {
     "searchPlaceholder": "Buscar habilidades..."

@@ -349,6 +349,7 @@ const SAMPLE_WORKFLOW_DEFAULTS: WorkflowDefaults = {
   enableEvidence: true,
   commitEvidence: false,
   defaultMode: FeatureMode.Fast,
+  injectSkills: false,
 };
 
 /**

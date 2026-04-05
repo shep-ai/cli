@@ -15,6 +15,7 @@ export interface WorkflowDefaults {
   enableEvidence: boolean;
   commitEvidence: boolean;
   defaultMode: FeatureMode;
+  injectSkills: boolean;
 }
 
 export async function getWorkflowDefaults(): Promise<WorkflowDefaults> {
@@ -33,5 +34,6 @@ export async function getWorkflowDefaults(): Promise<WorkflowDefaults> {
     enableEvidence: workflow.enableEvidence,
     commitEvidence: workflow.commitEvidence,
     defaultMode: (workflow.defaultMode as FeatureMode) ?? FeatureMode.Fast,
+    injectSkills: workflow.skillInjection?.enabled ?? false,
   };
 }

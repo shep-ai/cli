@@ -1,0 +1,17 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: SkillInjectionConfig.yaml
+type: object
+properties:
+  enabled:
+    type: boolean
+    default: false
+    description: "Whether skill injection is enabled (default: false, opt-in)"
+  skills:
+    type: array
+    items:
+      $ref: SkillSource.yaml
+    description: List of skills to inject into feature worktrees
+required:
+  - enabled
+  - skills
+description: Skill injection configuration for feature worktrees

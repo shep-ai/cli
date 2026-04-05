@@ -69,6 +69,9 @@ properties:
     minimum: -2147483648
     maximum: 2147483647
     description: "Minutes after completion before auto-archiving a feature (default: 10, 0 = disabled)"
+  skillInjection:
+    $ref: SkillInjectionConfig.yaml
+    description: Skill injection configuration (optional, disabled by default)
 required:
   - openPrOnImplementationComplete
   - approvalGateDefaults

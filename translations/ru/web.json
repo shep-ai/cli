@@ -205,6 +205,8 @@
       "gitRebaseSyncDescription": "Включить операции git rebase-on-main и sync-main",
       "reactFileManager": "Файловый менеджер React",
       "reactFileManagerDescription": "Использовать встроенный файловый менеджер React вместо системного выбора папок",
+      "inventory": "Инвентарь",
+      "inventoryDescription": "Включить страницу Инвентаря, отображающую все репозитории и функции в виде дерева",
       "hint": "Экспериментальные функции, которые ещё находятся в разработке. Включайте на свой страх и риск — они могут измениться или быть удалены в будущих версиях. Режим отладки добавляет подробное логирование, полезное для устранения неполадок."
     },
     "interactiveAgent": {
@@ -243,6 +245,7 @@
     "controlCenter": "Центр управления",
     "dashboard": "Панель управления",
     "features": "Функции",
+    "inventory": "Инвентарь",
     "repositories": "Репозитории",
     "settings": "Настройки",
     "sessions": "Сессии",
@@ -269,7 +272,7 @@
     "deleteSubFeatures": "Удалить подфункции",
     "closePullRequest": "Закрыть запрос на слияние",
     "cancel": "Отмена",
-    "deleting": "Удаление\u2026",
+    "deleting": "Удаление…",
     "delete": "Удалить"
   },
   "rejectFeedback": {
@@ -278,25 +281,25 @@
     "ariaLabel": "Обратная связь при отклонении",
     "placeholder": "Опишите, что нужно изменить...",
     "cancel": "Отмена",
-    "rejecting": "Отклонение\u2026",
+    "rejecting": "Отклонение…",
     "confirmReject": "Подтвердить отклонение"
   },
   "emptyState": {
     "addProject": "Добавить проект",
     "addProjectDescription": "Добавьте папку проекта для создания функций.",
-    "addProjectDescriptionLine2": "Опишите, что вам нужно \u2014 Shep сделает остальное.",
-    "checkingSetup": "Проверка настройки\u2026",
+    "addProjectDescriptionLine2": "Опишите, что вам нужно — Shep сделает остальное.",
+    "checkingSetup": "Проверка настройки…",
     "ready": "{{label}} готов",
     "notInstalled": "{{label}} не установлен",
     "reCheck": "Проверить снова",
     "needsAuth": "{{label}} требует аутентификации",
     "open": "Открыть {{label}}",
-    "checking": "Проверка {{label}}\u2026",
+    "checking": "Проверка {{label}}…",
     "notFound": "{{label}} не найден",
     "docs": "Документация",
-    "opening": "Открытие\u2026",
+    "opening": "Открытие…",
     "chooseFolder": "Выбрать папку",
-    "folderHint": "Подойдёт любая папка \u2014 git будет инициализирован автоматически при необходимости.",
+    "folderHint": "Подойдёт любая папка — git будет инициализирован автоматически при необходимости.",
     "orUseCli": "или используйте CLI",
     "copyCommands": "Копировать команды",
     "git": "Git",
@@ -305,7 +308,7 @@
     "githubCliRequired": "Необходим для запросов на слияние"
   },
   "welcome": {
-    "loadingAgents": "Загрузка агентов\u2026",
+    "loadingAgents": "Загрузка агентов…",
     "chooseAgent": "Выберите вашего агента",
     "pickModel": "Выберите модель",
     "selectAgentSubtitle": "Выберите AI-агента для кодирования, который будет использовать Shep.",
@@ -354,11 +357,11 @@
     "stopDevServer": "Остановить сервер",
     "startDevServer": "Запустить сервер",
     "retryDevServer": "Перезапустить сервер",
-    "starting": "Запуск\u2026",
+    "starting": "Запуск…",
     "retry": "Повторить",
     "start": "Запуск",
     "failed": "Ошибка",
-    "deleting": "Удаление\u2026",
+    "deleting": "Удаление…",
     "addFeature": "Добавить функцию",
     "reviewRequirements": "Проверить требования",
     "reviewTechnicalPlan": "Проверить технический план",
@@ -479,7 +482,11 @@
     "plan": "План",
     "planDescription": "Автоодобрение перехода планирования к реализации.",
     "merge": "Слияние",
-    "mergeDescription": "Автоодобрение перехода слияния к завершению."
+    "mergeDescription": "Автоодобрение перехода слияния к завершению.",
+    "skills": "SKILLS",
+    "skillsDescription": "Curated skills to guide the agent during feature development.",
+    "injectSkills": "Inject",
+    "injectSkillsDescription": "Include curated skills in the feature worktree."
   },
   "featureDrawer": {
     "copyFeatureId": "Копировать ID функции",
@@ -593,7 +600,7 @@
     "addRepository": "Добавить репозиторий"
   },
   "modelPicker": {
-    "searchPlaceholder": "Поиск или введите ID модели\u2026"
+    "searchPlaceholder": "Поиск или введите ID модели…"
   },
   "skills": {
     "searchPlaceholder": "Поиск навыков..."

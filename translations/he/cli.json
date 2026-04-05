@@ -208,6 +208,8 @@
         "exploreAndFastConflict": "Cannot use --explore and --fast together. Choose one mode.",
         "modelOption": "מזהה מודל LLM להרצה זו (לדוגמה claude-opus-4-6)",
         "noRebaseOption": "Skip syncing main from remote before creating the feature branch",
+        "injectSkillsOption": "Inject curated skills into the worktree",
+        "noInjectSkillsOption": "Skip skill injection for this invocation",
         "attachOption": "צרף קובץ (ניתן לחזור)",
         "parentNotFound": "פיצ'ר הורה לא נמצא: {{id}}",
         "attachmentNotFound": "קובץ מצורף לא נמצא: {{path}}",

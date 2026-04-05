@@ -59,3 +59,4 @@ export type {
   UnsubscribeFn,
   ChatState,
 } from './interactive-session-service.interface.js';
+export type { ISkillInjectorService, SkillInjectionResult } from './skill-injector.interface.js';

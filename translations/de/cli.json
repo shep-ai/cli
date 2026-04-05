@@ -208,6 +208,8 @@
         "exploreAndFastConflict": "Cannot use --explore and --fast together. Choose one mode.",
         "modelOption": "LLM-Modellbezeichnung für diesen Lauf (z.B. claude-opus-4-6)",
         "noRebaseOption": "Skip syncing main from remote before creating the feature branch",
+        "injectSkillsOption": "Inject curated skills into the worktree",
+        "noInjectSkillsOption": "Skip skill injection for this invocation",
         "attachOption": "Eine Datei anhängen (wiederholbar)",
         "parentNotFound": "Übergeordnetes Feature nicht gefunden: {{id}}",
         "attachmentNotFound": "Anhang nicht gefunden: {{path}}",

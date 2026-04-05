@@ -1,0 +1,313 @@
+name: "auto-stash-rebase"
+summary: >
+  The auto-stash-rebase feature extends the existing rebase flow in RebaseFeatureOnMainUseCase
+  to transparently handle dirty working directories. The implementation adds stash/stashPop
+  methods to IGitPrService, introduces a ConflictResolutionService for agent-powered rebase
+  conflict resolution with retry logic, and orchestrates the full stash-sync-rebase-pop flow
+  with try/finally guarantees. All components follow existing Clean Architecture patterns
+  using tsyringe DI, port interfaces, and the established agent executor provider abstraction.
+
+relatedFeatures:
+  - "080-smart-rebase"
+  - "063-prevent-subprocess-stash"
+
+technologies:
+  - "TypeScript"
+  - "tsyringe (dependency injection)"
+  - "Node.js child_process (execFile for git commands)"
+  - "Next.js server actions"
+  - "Vitest (unit and integration testing)"
+
+relatedLinks:
+  - title: "Git stash documentation"
+    url: "https://git-scm.com/docs/git-stash"
+  - title: "Git rebase documentation"
+    url: "https://git-scm.com/docs/git-rebase"
+
+decisions:
+  - title: "Stash/Pop Placement in the Architecture"
+    chosen: "Stash and pop on the IGitPrService port interface with orchestration in the use case"
+    rejected:
+      - "Stash/pop inside rebaseOnMain() implementation — would hide the stash lifecycle from the use case, making it impossible to guarantee pop in a finally block across the entire rebase+conflict-resolution flow. Also violates single-responsibility: rebaseOnMain should only rebase."
+      - "Separate IStashService port — over-engineering for two simple git commands that naturally belong alongside the existing rebase/sync operations on IGitPrService. Adding a new port interface + DI registration for two trivial methods creates unnecessary indirection."
+    rationale: >
+      The existing IGitPrService already contains all rebase-related operations (syncMain,
+      rebaseOnMain, rebaseContinue, rebaseAbort, getConflictedFiles, stageFiles). Adding
+      stash() and stashPop() to this same interface keeps related git operations cohesive.
+      The use case layer (RebaseFeatureOnMainUseCase) orchestrates the stash lifecycle with
+      a try/finally block to guarantee pop regardless of rebase outcome. This matches the
+      existing pattern where the use case coordinates multiple gitPrService calls
+      (sync -> rebase -> conflict resolve) while the service handles individual git commands.
+
+  - title: "Conflict Resolution Architecture"
+    chosen: "Dedicated ConflictResolutionService in infrastructure/services/agents/ with dual-loop retry pattern"
+    rejected:
+      - "Inline conflict resolution in the use case — would bloat the use case with agent invocation, prompt building, validation, staging, and retry logic. Violates single-responsibility and makes the conflict resolution logic untestable in isolation."
+      - "Conflict resolution as a LangGraph node — the rebase operation is a one-shot action triggered by a button click, not part of an ongoing agentic workflow. LangGraph's state machine model is overkill for a simple retry loop and would require maintaining graph state for a transient operation."
+    rationale: >
+      The ConflictResolutionService is a focused infrastructure service that encapsulates
+      the agent interaction pattern: read conflicted files, build prompt, invoke agent,
+      validate resolution, stage files, continue rebase. The dual-loop design (outer loop
+      for multi-commit rebases, inner loop for per-commit retries) handles the full
+      complexity of git rebase conflicts. The service depends on IAgentExecutorProvider
+      for agent-agnostic execution and IGitPrService for git operations, following the
+      same dependency patterns as other infrastructure services.
+
+  - title: "Agent Invocation for Conflict Resolution"
+    chosen: "IAgentExecutorProvider.getExecutor() with execute() (non-streaming, one-shot)"
+    rejected:
+      - "Direct Claude Code SDK invocation — would hardcode the AI provider, violating the mandatory agent resolution rule (CLAUDE.md: all resolution flows through IAgentExecutorProvider). Would break if the user switches to a different agent provider."
+      - "Streaming execution via executeStream() — conflict resolution is a background operation triggered by a button click, not an interactive session. There is no UI to display streaming progress. The agent needs to edit files and return; streaming adds complexity without benefit."
+    rationale: >
+      The existing IAgentExecutorProvider abstraction resolves the user's configured agent
+      (Claude Code, OpenAI, etc.) without hardcoding. Using execute() (non-streaming) is
+      appropriate because the conflict resolution agent receives a prompt, edits files in
+      the working directory, and returns. The cwd option passed to execute() ensures the
+      agent operates in the correct directory (worktree or repo root). This follows the
+      same pattern used by other one-shot agent operations in the codebase.
+
+  - title: "Stash Pop Conflict Handling Strategy"
+    chosen: "Agent-powered stash pop resolution (per spec decision)"
+    rejected:
+      - "Fail with clear error message and preserved stash — simpler to implement and stash pop conflicts are rare. However, the spec explicitly selects agent-powered resolution for a more seamless UX. This approach can serve as a fallback if agent resolution fails."
+      - "Drop stash and warn user — destructive to the user's uncommitted work. Unacceptable for user trust. The stash entry must always be preserved if pop fails."
+    rationale: >
+      The spec's open question Q1 resolves to agent-powered stash pop resolution. When
+      stash pop fails (because rebased code conflicts with stashed changes), the system
+      should invoke the conflict resolution agent to resolve the stash pop conflicts
+      automatically. The current implementation does a plain stashPop() in the finally
+      block; the agent-powered stash pop resolution requires detecting the stash pop
+      failure, identifying conflicted files from the stash pop, and invoking the
+      ConflictResolutionService a second time with stash-pop-specific context. If the
+      agent cannot resolve stash pop conflicts, the system preserves the stash entry and
+      reports a clear error with recovery instructions as a fallback.
+
+  - title: "Stash Message Format"
+    chosen: "Include feature branch name for traceability: 'shep-auto-stash: <feature-branch>'"
+    rejected:
+      - "Generic message like 'auto-stash before rebase' — functional but harder to identify among other stashes in git stash list. When users need manual recovery, they cannot tell which stash belongs to which feature."
+      - "Include full metadata (feature ID, timestamp, branch) — over-engineering. The feature name is sufficient for identification; the timestamp is already in git's stash metadata, and the feature ID is not meaningful to users inspecting stash list."
+    rationale: >
+      The stash message 'shep-auto-stash: <feature-branch>' provides the minimum metadata
+      needed for manual recovery. If a user runs git stash list, they can immediately
+      identify which stash was created by shep and for which feature. The current
+      implementation uses 'shep-rebase: auto-stash before rebase' which is close but
+      should include the feature branch name per the spec decision. The feature branch
+      is available in the use case (feature.branch) and is trivially included.
+
+  - title: "Retry Count for Conflict Resolution"
+    chosen: "Hardcoded MAX_RETRIES_PER_COMMIT = 3"
+    rejected:
+      - "User-configurable via settings service — per LESSONS.md, adding a per-feature setting requires touching 12+ layers (server action, use case types, entity, spawn options, agent process, CLI args, state channels, graph invoke, node data, overview tab, etc.). Three retries is already generous; if an agent cannot resolve in 3 attempts with feedback, more attempts are unlikely to help."
+      - "No retry (single attempt) — too aggressive. Some conflicts require iterative refinement where the agent's first attempt leaves a few markers that can be resolved with targeted feedback about remaining marker locations."
+    rationale: >
+      Three retries per conflicted commit strikes the right balance between giving the
+      agent sufficient attempts and avoiding runaway costs. The retry loop provides
+      feedback about remaining conflict markers with specific line numbers, giving the
+      agent targeted information to fix its mistakes. The constant is defined at the
+      module level in ConflictResolutionService and is easy to change if needed, without
+      requiring the full settings-service wiring.
+
+  - title: "Working Directory Resolution for Stash Operations"
+    chosen: "Resolve via IWorktreeService in the use case, pass cwd to all git operations"
+    rejected:
+      - "Always use repositoryPath (repo root) — would break for worktree-based features where the working directory is in ~/.shep/repos/<hash>/wt/<branch>. Stash operates on the working directory, not the repo root."
+      - "Resolve cwd inside each git service method — would require every method to accept a feature entity and resolve the worktree path, duplicating the resolution logic. The use case should resolve cwd once and pass it consistently."
+    rationale: >
+      The existing resolveCwd() method in RebaseFeatureOnMainUseCase already handles this
+      correctly: it checks if a worktree exists for the feature branch and returns the
+      worktree path if so, otherwise the repository root. All git operations (stash, sync,
+      rebase, stashPop) receive the same cwd value. This ensures stash and stashPop operate
+      in the same directory where the rebase happens, which is critical for correctness.
+      The worktree service's getWorktreePath() computes the conventional path
+      (~/.shep/repos/<hash>/wt/<branch-slug>) deterministically.
+
+openQuestions:
+  - question: "Should the rebaseOnMain() dirty-worktree guard be removed or kept alongside the use-case-level stash?"
+    resolved: true
+    options:
+      - option: "Keep the guard — defense-in-depth"
+        description: "rebaseOnMain() continues to check hasUncommittedChanges() and throws GIT_ERROR if dirty. The use case stashes before calling rebaseOnMain, so the guard should never trigger. But keeping it provides defense-in-depth against future callers that forget to stash."
+        selected: true
+      - option: "Remove the guard — the use case handles it"
+        description: "Remove the dirty-worktree check from rebaseOnMain() since the use case guarantees a clean working directory via stash. Simpler code but loses the safety net for other callers."
+        selected: false
+      - option: "Convert guard to a warning log instead of error"
+        description: "Log a warning instead of throwing, allowing rebase to proceed anyway. Risk of data loss if the worktree is genuinely dirty for an unexpected reason."
+        selected: false
+    selectionRationale: >
+      Defense-in-depth is the right approach. The guard in rebaseOnMain() costs nothing
+      (one git status check) and protects against future callers that might not stash
+      first. The use case always stashes before rebasing, so the guard is effectively
+      a no-op in the happy path. If a future code path calls rebaseOnMain() directly
+      without stashing, the guard catches the mistake immediately with a clear error
+      rather than producing a confusing rebase failure.
+
+  - question: "How should the stash message include the feature name?"
+    resolved: true
+    options:
+      - option: "Use feature.branch as the identifier"
+        description: "Stash message: 'shep-auto-stash: feat/my-feature'. The branch name is always available and is the most recognizable identifier when users inspect git stash list."
+        selected: true
+      - option: "Use feature.name (display name)"
+        description: "Stash message: 'shep-auto-stash: My Feature'. More human-readable but the display name may contain spaces and special characters that look odd in git stash list output."
+        selected: false
+      - option: "Use feature.id (UUID)"
+        description: "Stash message: 'shep-auto-stash: abc123'. Unique but meaningless to users; they would need to look up the UUID to understand which feature it belongs to."
+        selected: false
+    selectionRationale: >
+      The branch name is the most natural identifier in a git context. When users run
+      git stash list, they see stash entries alongside branch names. Using the feature
+      branch (e.g., 'feat/my-feature') provides immediate recognition without requiring
+      any lookup. The branch name is always available on the Feature entity and does
+      not contain problematic characters.
+
+  - question: "Should stash pop failure after successful rebase be treated as partial success or full failure?"
+    resolved: true
+    options:
+      - option: "Partial success with clear guidance"
+        description: "Return success for the rebase but report the stash pop failure separately. The user knows their branch is rebased but uncommitted changes need attention. The stash entry is preserved for manual recovery."
+        selected: false
+      - option: "Full failure (throw error)"
+        description: "The spec's open question Q3 selects 'Report full failure'. The use case throws an error, which propagates to the server action and returns {success: false, error: message}. The web UI shows the error. While the rebase itself succeeded, the overall operation (rebase + restore changes) failed."
+        selected: true
+      - option: "Silent recovery — retry stash pop automatically"
+        description: "Retry stash pop with git checkout --theirs/--ours strategies. Risky because it may silently overwrite the user's changes with the wrong side of the conflict."
+        selected: false
+    selectionRationale: >
+      The spec explicitly selects 'Report full failure' for this scenario. The use case
+      wraps stashPop in the finally block, so if it throws, the error propagates to the
+      outer catch block which records it as a failed operation. This is appropriate because
+      the user initiated a single operation ('Rebase on Main') and expects their uncommitted
+      work to be preserved. If stash pop fails, the operation did not achieve its full
+      objective even though the rebase portion succeeded. The error message should clearly
+      distinguish what succeeded (rebase) and what failed (stash restoration) so the user
+      understands the state of their repository.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Stash/Pop Placement in the Architecture
+
+  **Chosen:** Stash and pop on the IGitPrService port interface with orchestration in the use case
+
+  **Rejected:**
+  - Stash/pop inside rebaseOnMain() — hides the stash lifecycle from the use case, making it impossible to guarantee pop in a finally block. Also violates single-responsibility.
+  - Separate IStashService port — over-engineering for two simple git commands that naturally belong alongside the existing rebase/sync operations on IGitPrService.
+
+  **Rationale:** The existing IGitPrService already contains all rebase-related operations (syncMain, rebaseOnMain, rebaseContinue, rebaseAbort, getConflictedFiles, stageFiles). Adding stash() and stashPop() keeps related git operations cohesive. The use case orchestrates the stash lifecycle with try/finally to guarantee restoration.
+
+  ### 2. Conflict Resolution Architecture
+
+  **Chosen:** Dedicated ConflictResolutionService in infrastructure/services/agents/ with dual-loop retry pattern
+
+  **Rejected:**
+  - Inline conflict resolution in the use case — bloats the use case, violates SRP, makes conflict logic untestable in isolation.
+  - LangGraph node — rebase is a one-shot action, not an ongoing workflow. Graph state machine is overkill.
+
+  **Rationale:** The ConflictResolutionService encapsulates the agent interaction: read conflicted files, build prompt, invoke agent, validate, stage, continue. The dual-loop handles multi-commit rebases (outer) and per-commit retries (inner). Depends on IAgentExecutorProvider for agent-agnostic execution.
+
+  ### 3. Agent Invocation
+
+  **Chosen:** IAgentExecutorProvider.getExecutor() with execute() (non-streaming, one-shot)
+
+  **Rejected:**
+  - Direct Claude SDK invocation — hardcodes provider, violates mandatory agent resolution rule.
+  - executeStream() — no UI to display streaming progress for background operation.
+
+  **Rationale:** The IAgentExecutorProvider resolves the configured agent without hardcoding. execute() is appropriate for a background operation where the agent edits files and returns. cwd option ensures correct working directory.
+
+  ### 4. Stash Pop Conflict Handling
+
+  **Chosen:** Agent-powered stash pop resolution (per spec decision)
+
+  **Rejected:**
+  - Fail with clear error + preserved stash — simpler but spec selects agent-powered approach for seamless UX.
+  - Drop stash and warn — destructive, unacceptable for user trust.
+
+  **Rationale:** When stash pop fails, invoke the ConflictResolutionService to resolve stash pop conflicts. If agent cannot resolve, preserve stash and report error with recovery instructions as fallback. Note: current implementation does plain stashPop() without agent resolution; this gap needs to be addressed in the plan phase.
+
+  ### 5. Stash Message Format
+
+  **Chosen:** Include feature branch name: 'shep-auto-stash: <feature-branch>'
+
+  **Rejected:**
+  - Generic message — harder to identify in git stash list.
+  - Full metadata (ID, timestamp, branch) — over-engineering; git already stores timestamp.
+
+  **Rationale:** The feature branch name provides immediate recognition in git stash list. Available on the Feature entity and free of problematic characters. Current implementation uses a generic message; should be updated to include feature.branch.
+
+  ### 6. Retry Count
+
+  **Chosen:** Hardcoded MAX_RETRIES_PER_COMMIT = 3
+
+  **Rejected:**
+  - User-configurable — requires 12+ layer wiring per LESSONS.md patterns.
+  - Single attempt — too aggressive; iterative refinement with feedback helps.
+
+  **Rationale:** Three retries with targeted feedback (remaining marker line numbers) is sufficient. Easy to change the constant later without full settings wiring.
+
+  ### 7. Working Directory Resolution
+
+  **Chosen:** Resolve via IWorktreeService in the use case, pass cwd to all git operations
+
+  **Rejected:**
+  - Always use repo root — breaks worktree-based features.
+  - Resolve inside each git method — duplicates resolution logic.
+
+  **Rationale:** resolveCwd() in the use case checks worktree existence and returns worktree path or repo root. All operations receive the same cwd, ensuring stash and rebase operate in the same directory.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | tsyringe | Dependency injection | Use (existing) | Already used throughout the codebase for DI. ConflictResolutionService registered as singleton with string token alias. |
+  | Node.js child_process (execFile) | Git command execution | Use (existing) | GitPrService wraps all git commands via execFile. No external git library needed. |
+  | Node.js fs (readFileSync) | Read conflicted file contents | Use (existing) | ConflictResolutionService reads files synchronously for prompt building. Appropriate since files are small and operation is sequential. |
+  | simple-git | High-level git operations | Reject | Would add a dependency for operations already handled by GitPrService's execFile wrapper. The existing pattern gives full control over error classification and output parsing. |
+  | isomorphic-git | Pure JS git implementation | Reject | Heavy dependency for operations that are simple execFile calls. Does not support all git operations needed (rebase, stash). |
+
+  ## Security Considerations
+
+  - **Stash safety:** The stash pop occurs in a finally block, guaranteeing the user's uncommitted work is not silently lost. If pop fails, the stash entry is preserved and the user is informed.
+  - **Agent file access:** The conflict resolution agent receives cwd and can edit files in the working directory. The prompt constrains the agent to edit ONLY conflicted files and prohibits git commands, tests, or builds. This matches the existing 063-prevent-subprocess-stash pattern that prevents agents from running destructive git operations.
+  - **No new authentication surfaces:** The feature uses existing git operations that already have proper error handling for auth failures (GitPrErrorCode.AUTH_FAILURE).
+  - **Stash message injection:** The feature branch name is included in the stash message. Branch names are controlled by the system (not user-provided freeform input) and are safe for use in git stash push -m.
+
+  ## Performance Implications
+
+  - **Stash overhead:** git stash push and git stash pop are fast operations (milliseconds for typical working directories). No timeout changes needed.
+  - **Agent invocation cost:** The conflict resolution agent is only invoked when rebase conflicts occur. For clean rebases (the common case), no agent cost is incurred. Each retry attempt invokes the agent once; worst case is 3 invocations per conflicted commit.
+  - **No polling or waiting:** Unlike CI watch, conflict resolution is synchronous — the use case awaits each agent invocation and proceeds immediately after validation.
+  - **readFileSync in validation:** The ConflictResolutionService reads conflicted files synchronously. This is acceptable because conflicted files are typically small (source code files) and the operation runs in the Node.js server context, not a hot path.
+
+  ## Architecture Notes
+
+  The feature follows the established Clean Architecture layering:
+
+  - **Port interface (IGitPrService):** stash() and stashPop() methods defined on the existing output port, maintaining the contract between application and infrastructure layers.
+  - **Infrastructure implementation (GitPrService):** Implements stash/stashPop using execFile('git', [...]) with proper error classification via parseGitError().
+  - **Infrastructure service (ConflictResolutionService):** Encapsulates agent-powered conflict resolution. Depends on IAgentExecutorProvider (agent-agnostic) and IGitPrService (git operations). Registered in DI container as singleton.
+  - **Use case (RebaseFeatureOnMainUseCase):** Orchestrates the full flow: resolve feature -> create agent run -> resolve cwd -> stash -> sync -> rebase -> conflict resolve -> pop -> complete timing. Uses try/finally for stash pop guarantee.
+  - **Presentation (server action):** Thin wrapper that resolves the use case via DI and calls execute(). No business logic in presentation layer.
+  - **DI container:** ConflictResolutionService registered as singleton with string token alias for web route resolution (Turbopack compatibility pattern).
+
+  ### Key Implementation Details
+
+  1. **Stash before rebase, pop in finally:** The stash() call returns a boolean indicating whether changes were actually stashed. This guards the finally block's stashPop() to avoid popping someone else's stash when the working directory was clean.
+
+  2. **rebaseOnMain() dirty-worktree guard kept:** Defense-in-depth. The use case stashes before rebasing, so the guard should never trigger, but it protects against future callers that forget to stash.
+
+  3. **Conflict resolution dual-loop:** Outer loop handles multi-commit rebases (rebaseContinue may reveal conflicts on the next commit). Inner loop retries agent resolution up to 3 times per commit with feedback about remaining conflict markers.
+
+  4. **Prompt design:** The conflict resolution prompt includes branch context, full file contents with markers, rebase semantics explanation (HEAD = base branch during rebase), and constraints (edit only, no git commands). Retry prompts include specific line numbers of remaining markers.
+
+  5. **Activity timeline integration:** Each rebase operation creates a standalone agent run and phase timing entry. This surfaces in the web UI's activity timeline with duration, success/error status, and error messages.
+
+  ### Implementation Gaps to Address in Planning
+
+  1. **Stash message should include feature branch:** Current implementation uses 'shep-rebase: auto-stash before rebase'; should use 'shep-auto-stash: <feature.branch>' per spec decision.
+
+  2. **Stash pop conflict handling:** Current implementation does plain stashPop() without agent-powered resolution for stash pop conflicts. Per spec decision, stash pop failures should invoke the ConflictResolutionService. Implementation needs: detect stash pop failure -> identify conflicted files -> invoke agent -> validate -> report error if agent cannot resolve.
+
+  3. **rebaseContinue flow in ConflictResolutionService:** The current implementation returns immediately after a successful rebaseContinue (line 106). For multi-commit rebases, it should loop back to check for more conflicts. The code has a continue statement on REBASE_CONFLICT (line 110) but the early return on line 106 exits before re-checking. This needs verification in testing to confirm multi-commit rebase behavior.

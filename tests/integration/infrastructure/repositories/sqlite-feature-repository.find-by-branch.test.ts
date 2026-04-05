@@ -37,6 +37,7 @@ describe('SQLiteFeatureRepository.findByBranch', () => {
     commitSpecs: true,
     ciWatchEnabled: true,
     enableEvidence: false,
+    injectSkills: false,
     commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date('2026-01-01T00:00:00Z'),

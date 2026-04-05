@@ -311,6 +311,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         defaultMode: FeatureMode.Regular,
+        injectSkills: false,
       };
       const { rerender } = render(
         <DrawerCloseGuardProvider>
@@ -411,6 +412,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         defaultMode: FeatureMode.Regular,
+        injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
 
@@ -749,6 +751,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         defaultMode: FeatureMode.Fast,
+        injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
       expect(screen.getByTestId('mode-option-fast')).toHaveAttribute('aria-checked', 'true');
@@ -763,6 +766,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         defaultMode: FeatureMode.Regular,
+        injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
       expect(screen.getByTestId('mode-option-regular')).toHaveAttribute('aria-checked', 'true');
@@ -779,6 +783,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         defaultMode: FeatureMode.Regular,
+        injectSkills: false,
       };
       renderDrawer({ workflowDefaults: defaults });
 
@@ -1385,6 +1390,7 @@ describe('FeatureCreateDrawer', () => {
         enableEvidence: false,
         commitEvidence: false,
         defaultMode: FeatureMode.Fast,
+        injectSkills: false,
       };
       const { rerender } = render(
         <DrawerCloseGuardProvider>

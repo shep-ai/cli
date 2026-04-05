@@ -1,0 +1,21 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: SkillSource.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Unique skill directory name (e.g. 'architecture-reviewer')
+  type:
+    $ref: SkillSourceType.yaml
+    description: How this skill is provisioned (local copy or remote install)
+  source:
+    type: string
+    description: Source path (local) or npm package/URL (remote)
+  remoteSkillName:
+    type: string
+    description: Remote skill name passed to --skill flag (remote type only)
+required:
+  - name
+  - type
+  - source
+description: A skill source for injection into feature worktrees

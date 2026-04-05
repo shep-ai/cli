@@ -65,6 +65,7 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     commitSpecs: true,
     ciWatchEnabled: true,
     enableEvidence: false,
+    injectSkills: false,
     commitEvidence: false,
     iterationCount: 0,
     maxIterations: 10,

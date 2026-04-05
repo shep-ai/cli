@@ -524,6 +524,7 @@ describe('SQLiteSettingsRepository', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        inventory: false,
       };
 
       await repository.initialize(settings);
@@ -537,6 +538,7 @@ describe('SQLiteSettingsRepository', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        inventory: false,
       });
     });
 
@@ -554,6 +556,7 @@ describe('SQLiteSettingsRepository', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        inventory: false,
       });
     });
 
@@ -569,6 +572,7 @@ describe('SQLiteSettingsRepository', () => {
         adoptBranch: true,
         gitRebaseSync: false,
         reactFileManager: false,
+        inventory: false,
       };
       settings.updatedAt = new Date('2025-01-02T00:00:00Z');
       await repository.update(settings);
@@ -582,6 +586,7 @@ describe('SQLiteSettingsRepository', () => {
         adoptBranch: true,
         gitRebaseSync: false,
         reactFileManager: false,
+        inventory: false,
       });
     });
 
@@ -595,6 +600,7 @@ describe('SQLiteSettingsRepository', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        inventory: false,
       };
 
       await repository.initialize(settings);

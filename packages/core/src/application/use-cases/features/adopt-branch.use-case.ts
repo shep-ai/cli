@@ -122,6 +122,7 @@ export class AdoptBranchUseCase {
       commitSpecs: true,
       ciWatchEnabled: true,
       enableEvidence: false,
+      injectSkills: false,
       commitEvidence: false,
       approvalGates: {
         allowPrd: false,

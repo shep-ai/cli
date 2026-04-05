@@ -974,6 +974,14 @@ export class GitPrService implements IGitPrService {
     }
   }
 
+  async stashDrop(cwd: string): Promise<void> {
+    try {
+      await this.execFile('git', ['stash', 'drop'], { cwd });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
   async getBranchSyncStatus(
     cwd: string,
     featureBranch: string,

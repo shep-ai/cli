@@ -283,6 +283,65 @@ model AnalyzeRepoTimeouts {
   analyzeMs?: int32;
 }
 
+/**
+ * Skill Source Type
+ *
+ * Indicates how a skill is provisioned into a worktree:
+ * - local: Copied from the main repository's .claude/skills/ directory
+ * - remote: Installed via `npx skills add` at runtime
+ */
+@doc("How a skill is provisioned into a worktree")
+enum SkillSourceType {
+  @doc("Copied from the main repository's .claude/skills/ directory")
+  Local: "local",
+
+  @doc("Installed via npx skills add at runtime")
+  Remote: "remote",
+}
+
+/**
+ * Skill Source
+ *
+ * Defines a single skill to be injected into feature worktrees.
+ * Local skills are deep-copied from a path relative to the repository root.
+ * Remote skills are installed via `npx skills add <source> --skill <remoteSkillName>`.
+ */
+@doc("A skill source for injection into feature worktrees")
+model SkillSource {
+  @doc("Unique skill directory name (e.g. 'architecture-reviewer')")
+  name: string;
+
+  @doc("How this skill is provisioned (local copy or remote install)")
+  type: SkillSourceType;
+
+  @doc("Source path (local) or npm package/URL (remote)")
+  source: string;
+
+  @doc("Remote skill name passed to --skill flag (remote type only)")
+  remoteSkillName?: string;
+}
+
+/**
+ * Skill Injection Configuration
+ *
+ * Controls whether curated agent skills are injected into feature worktrees
+ * during CreateFeatureUseCase execution. When enabled, skills from the
+ * configured list are copied/installed into the worktree's .claude/skills/
+ * directory with idempotency (existing skills are skipped) and commit
+ * prevention (.gitignore management).
+ *
+ * Disabled by default (opt-in). Users enable via Settings or per-invocation
+ * with the --inject-skills CLI flag.
+ */
+@doc("Skill injection configuration for feature worktrees")
+model SkillInjectionConfig {
+  @doc("Whether skill injection is enabled (default: false, opt-in)")
+  enabled: boolean = false;
+
+  @doc("List of skills to inject into feature worktrees")
+  skills: SkillSource[];
+}
+
 @doc("Global workflow configuration defaults")
 model WorkflowConfig {
   /**
@@ -375,6 +434,15 @@ model WorkflowConfig {
    */
   @doc("Minutes after completion before auto-archiving a feature (default: 10, 0 = disabled)")
   autoArchiveDelayMinutes?: int32;
+
+  /**
+   * Skill injection configuration for feature worktrees.
+   * When enabled, curated skills are copied/installed into the worktree's
+   * .claude/skills/ directory during feature creation.
+   * Optional for backward compatibility with pre-migration databases.
+   */
+  @doc("Skill injection configuration (optional, disabled by default)")
+  skillInjection?: SkillInjectionConfig;
 }
 
 @doc("AI coding agent configuration")
@@ -528,6 +596,9 @@ model FeatureFlags {
 
   @doc("Use the built-in React file manager instead of the native OS folder picker")
   reactFileManager: boolean = false;
+
+  @doc("Enable the Inventory page showing all repositories and features")
+  inventory: boolean = false;
 }
 
 /**

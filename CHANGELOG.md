@@ -1,3 +1,17 @@
+## [1.169.1](https://github.com/shep-ai/shep/compare/v1.169.0...v1.169.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* **agents:** pass explicit node name to buildExecutorOptions ([#523](https://github.com/shep-ai/shep/issues/523)) ([af39abb](https://github.com/shep-ai/shep/commit/af39abb2373c8fc68bf15ec2e69fb847fa58f64c))
+
+# [1.169.0](https://github.com/shep-ai/shep/compare/v1.168.0...v1.169.0) (2026-04-05)
+
+
+### Features
+
+* **web:** add tabulator-based feature tree table with shadcn styling and repo grouping ([#505](https://github.com/shep-ai/shep/issues/505)) ([18c3dd9](https://github.com/shep-ai/shep/commit/18c3dd97042f7b65ffdbf405479825928a37ba89))
+
 # [1.168.0](https://github.com/shep-ai/shep/compare/v1.167.0...v1.168.0) (2026-04-05)
 
 

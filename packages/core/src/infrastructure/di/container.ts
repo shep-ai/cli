@@ -42,6 +42,8 @@ import type { IGitPrService } from '../../application/ports/output/services/git-
 import { GitPrService } from '../services/git/git-pr.service.js';
 import type { IGitForkService } from '../../application/ports/output/services/git-fork-service.interface.js';
 import { GitForkService } from '../services/git/git-fork.service.js';
+import type { ISkillInjectorService } from '../../application/ports/output/services/skill-injector.interface.js';
+import { SkillInjectorService } from '../services/skill-injector.service.js';
 import type { IIdeLauncherService } from '../../application/ports/output/services/ide-launcher-service.interface.js';
 import { JsonDrivenIdeLauncherService } from '../services/ide-launchers/json-driven-ide-launcher.service.js';
 import type { IDaemonService } from '../../application/ports/output/services/daemon-service.interface.js';
@@ -242,6 +244,7 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
   container.registerSingleton<IWorktreeService>('IWorktreeService', WorktreeService);
+  container.registerSingleton<ISkillInjectorService>('ISkillInjectorService', SkillInjectorService);
   container.registerSingleton<IToolInstallerService>(
     'IToolInstallerService',
     ToolInstallerServiceImpl

@@ -79,6 +79,8 @@ export function buildFeatureNodeData(
     ...(run?.error && { errorMessage: run.error }),
     ...(feature.agentRunId != null && { hasAgentRun: true }),
     ...(feature.plan != null && { hasPlan: true }),
+    ...(feature.injectSkills && { injectSkills: true }),
+    ...(feature.injectedSkills?.length && { injectedSkills: feature.injectedSkills }),
     ...(feature.pr && {
       pr: {
         url: feature.pr.url,

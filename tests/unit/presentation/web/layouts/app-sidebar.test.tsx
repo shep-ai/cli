@@ -46,6 +46,7 @@ const defaultFlags = {
   adoptBranch: false,
   gitRebaseSync: false,
   reactFileManager: false,
+  inventory: true,
 };
 
 function renderWithSidebar(ui: React.ReactElement) {
@@ -107,9 +108,12 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Tools')).toBeInTheDocument();
   });
 
-  it('renders Features label in content', () => {
+  it('renders Inventory nav item and Features section header in content', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
+    // "Inventory" appears as the nav item when inventory flag is enabled
+    expect(screen.getByText('Inventory')).toBeInTheDocument();
+    // "Features" appears as the sidebar section header
     expect(screen.getByText('Features')).toBeInTheDocument();
   });
 

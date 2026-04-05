@@ -32,6 +32,7 @@ function createMockFeature(overrides: Partial<Feature> = {}): Feature {
     commitSpecs: true,
     ciWatchEnabled: true,
     enableEvidence: false,
+    injectSkills: false,
     commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date(),
@@ -85,6 +86,7 @@ function createMockGitPrService(): IGitPrService {
     rebaseAbort: vi.fn(),
     stash: vi.fn(),
     stashPop: vi.fn(),
+    stashDrop: vi.fn(),
     getBranchSyncStatus: vi.fn(),
   };
 }

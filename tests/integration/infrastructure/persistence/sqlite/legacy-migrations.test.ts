@@ -2,7 +2,7 @@
  * Legacy Migrations Integration Tests
  *
  * Tests for the legacy migration registration module that transforms
- * the 35 existing migrations into umzug-compatible format.
+ * the 36 existing migrations into umzug-compatible format.
  *
  * TDD Phase: RED → GREEN
  */
@@ -37,14 +37,14 @@ describe('Legacy Migrations', () => {
   });
 
   describe('LEGACY_MIGRATIONS array structure', () => {
-    it('should export exactly 35 migration entries', () => {
-      expect(LEGACY_MIGRATIONS).toHaveLength(35);
+    it('should export exactly 36 migration entries', () => {
+      expect(LEGACY_MIGRATIONS).toHaveLength(36);
     });
 
-    it('should have zero-padded names sorted from 001 through 035', () => {
+    it('should have zero-padded names sorted from 001 through 036', () => {
       const names = LEGACY_MIGRATIONS.map((m) => m.name);
 
-      for (let i = 0; i < 35; i++) {
+      for (let i = 0; i < 36; i++) {
         const expectedPrefix = String(i + 1).padStart(3, '0');
         expect(names[i]).toMatch(new RegExp(`^${expectedPrefix}-`));
       }
@@ -79,8 +79,8 @@ describe('Legacy Migrations', () => {
   });
 
   describe('LEGACY_MIGRATION_NAMES export', () => {
-    it('should be an array of 35 migration name strings', () => {
-      expect(LEGACY_MIGRATION_NAMES).toHaveLength(35);
+    it('should be an array of 36 migration name strings', () => {
+      expect(LEGACY_MIGRATION_NAMES).toHaveLength(36);
       expect(LEGACY_MIGRATION_NAMES).toEqual(LEGACY_MIGRATIONS.map((m) => m.name));
     });
   });
@@ -172,12 +172,12 @@ describe('Legacy Migrations', () => {
       refDb.close();
     });
 
-    it('should set PRAGMA user_version to 35 after all migrations', async () => {
+    it('should set PRAGMA user_version to 36 after all migrations', async () => {
       for (const migration of LEGACY_MIGRATIONS) {
         await migration.up({ name: migration.name, context: db });
       }
 
-      expect(getSchemaVersion(db)).toBe(35);
+      expect(getSchemaVersion(db)).toBe(36);
     });
 
     it('should set PRAGMA user_version incrementally', async () => {
@@ -276,16 +276,16 @@ describe('Legacy Migrations', () => {
   });
 
   describe('LATEST_SCHEMA_VERSION derivation', () => {
-    it('should derive LATEST_SCHEMA_VERSION = 35 from the legacy migrations array', () => {
-      // The LATEST_SCHEMA_VERSION in migrations.ts should equal 35
+    it('should derive LATEST_SCHEMA_VERSION = 36 from the legacy migrations array', () => {
+      // The LATEST_SCHEMA_VERSION in migrations.ts should equal 36
       // which is the version of the last legacy migration
-      expect(LATEST_SCHEMA_VERSION).toBe(35);
+      expect(LATEST_SCHEMA_VERSION).toBe(36);
     });
   });
 
   describe('specific table creation', () => {
     beforeEach(async () => {
-      // Run all 35 legacy migrations
+      // Run all 36 legacy migrations
       for (const migration of LEGACY_MIGRATIONS) {
         await migration.up({ name: migration.name, context: db });
       }

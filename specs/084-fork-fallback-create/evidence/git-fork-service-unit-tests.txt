@@ -1,0 +1,35 @@
+GitForkService Unit Tests — 17 passed (17)
+==========================================
+
+Command: pnpm vitest run tests/unit/infrastructure/services/git/git-fork.service.test.ts --reporter=verbose
+Captured: 2026-04-05T17:48:14Z
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fork-fallback-create
+
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should fork the repo and remap remotes on happy path 1ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should detect origin is already a fork and set upstream to parent 1ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should update upstream URL when remote already exists for a fork origin 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should throw AUTH_FAILURE when gh auth fails 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should throw FORK_FAILED for generic fork errors 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should fallback to gh repo create when fork fails with no remotes 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should fallback to gh repo create when fork fails with unable to determine base repository 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should throw FORK_FAILED when both fork and create fallback fail 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > pushToFork > should push branch to origin 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > pushToFork > should throw PUSH_FAILED on error 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > createUpstreamPr > should create PR to upstream repo 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > createUpstreamPr > should handle SSH remote URLs 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > createUpstreamPr > should throw PR_CREATE_FAILED on error 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > getUpstreamPrStatus > should return Open for open PR 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > getUpstreamPrStatus > should return Merged for merged PR 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > getUpstreamPrStatus > should return Closed for closed PR 0ms
+ ✓  node  tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > getUpstreamPrStatus > should throw PR_STATUS_FAILED on error 0ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  17:48:14
+   Duration  180ms (transform 64ms, setup 31ms, import 67ms, tests 6ms, environment 0ms)
+
+New fallback tests added for this feature (3 of 17):
+  - should fallback to gh repo create when fork fails with no remotes
+  - should fallback to gh repo create when fork fails with unable to determine base repository
+  - should throw FORK_FAILED when both fork and create fallback fail
