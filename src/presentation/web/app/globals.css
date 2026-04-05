@@ -230,7 +230,9 @@
     rgba(139, 92, 246, 1) 95%,
     transparent 100%
   );
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   mask-composite: exclude;
   animation: fab-spin 1s linear infinite;
   pointer-events: none;
@@ -251,7 +253,9 @@
     rgba(16, 185, 129, 0.95),
     rgba(52, 211, 153, 0.7)
   );
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   mask-composite: exclude;
   animation: fab-shimmer 2s ease-in-out infinite;
   pointer-events: none;
@@ -272,7 +276,9 @@
     rgba(255, 255, 255, 0.95),
     rgba(196, 181, 253, 0.7)
   );
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   mask-composite: exclude;
   animation: fab-shimmer 1.2s ease-in-out infinite;
   pointer-events: none;

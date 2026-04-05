@@ -332,7 +332,7 @@ describe('ControlCenterInner URL-based navigation', () => {
       });
     });
 
-    it('does NOT call fitView when repo is added to non-empty canvas', async () => {
+    it('calls fitView focused on new node when repo is added to non-empty canvas', async () => {
       renderControlCenter();
 
       await act(async () => {
@@ -347,7 +347,11 @@ describe('ControlCenterInner URL-based navigation', () => {
         vi.advanceTimersByTime(1);
       });
 
-      expect(mockFitView).not.toHaveBeenCalled();
+      expect(mockFitView).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nodes: expect.arrayContaining([expect.objectContaining({ id: expect.any(String) })]),
+        })
+      );
     });
 
     it('opens drawer at /create?repo=<path> after 600ms delay following fitView', async () => {

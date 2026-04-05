@@ -198,7 +198,7 @@ function InteractionResponseMessage({ text }: { text: string }) {
         <div className="text-foreground mt-px flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl rounded-tl-sm border border-emerald-600/20 bg-emerald-50/50 px-4 py-2 text-sm shadow-sm dark:border-emerald-500/20 dark:bg-emerald-950/20">
           {parsed.questions.map((q) => (
             <span key={q.question} className="flex items-center gap-2">
-              <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+              <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-emerald-700 uppercase dark:bg-emerald-900/50 dark:text-emerald-400">
                 {q.header}
               </span>
               <span className="text-muted-foreground text-xs">

@@ -121,11 +121,7 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
     //
     // For ALL other tools: auto-allow (same effect as bypassPermissions).
     const canUseTool = options.onUserQuestion
-      ? async (
-          toolName: string,
-          input: Record<string, unknown>,
-          opts: { toolUseID: string }
-        ) => {
+      ? async (toolName: string, input: Record<string, unknown>, opts: { toolUseID: string }) => {
           if (toolName === 'AskUserQuestion') {
             const questions = (input.questions as UserQuestion[]) ?? [];
             const answers = await options.onUserQuestion!({
@@ -148,9 +144,7 @@ export class ClaudeCodeInteractiveExecutor implements IInteractiveAgentExecutor 
       // When onUserQuestion is provided, use canUseTool to intercept AskUserQuestion
       // while auto-allowing everything else (replaces bypassPermissions).
       // When not provided, use bypassPermissions for backward compatibility.
-      ...(canUseTool
-        ? { canUseTool }
-        : { permissionMode: 'bypassPermissions' as const }),
+      ...(canUseTool ? { canUseTool } : { permissionMode: 'bypassPermissions' as const }),
       env: cleanEnv,
       // Forward system prompt using preset+append pattern
       ...(options.systemPrompt && {

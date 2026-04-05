@@ -39,7 +39,6 @@ export function ChatTab({ featureId, worktreePath }: ChatTabProps) {
     runtime,
     status,
     clearChat,
-    stopAgent,
     sessionInfo,
     isChatLoading,
     pendingInteraction,

@@ -3,12 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight, Folder, FolderOpen, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type {
@@ -87,9 +82,7 @@ function AddressBar({
 
   const breadcrumbs = parseBreadcrumbs(currentPath);
   const needsCollapse = breadcrumbs.length > MAX_VISIBLE_CRUMBS;
-  const visibleCrumbs = needsCollapse
-    ? breadcrumbs.slice(-MAX_VISIBLE_CRUMBS)
-    : breadcrumbs;
+  const visibleCrumbs = needsCollapse ? breadcrumbs.slice(-MAX_VISIBLE_CRUMBS) : breadcrumbs;
 
   return (
     <div className="border-b px-4 py-3">
@@ -116,7 +109,7 @@ function AddressBar({
             }
           }}
           onBlur={closeEdit}
-          className="bg-muted/60 border-border focus:ring-ring/20 focus:border-ring w-full rounded-lg border px-3 py-2 font-mono text-xs outline-none transition-all focus:ring-2"
+          className="bg-muted/60 border-border focus:ring-ring/20 focus:border-ring w-full rounded-lg border px-3 py-2 font-mono text-xs transition-all outline-none focus:ring-2"
           placeholder="Type a path and press Enter..."
           spellCheck={false}
           autoComplete="off"
@@ -133,12 +126,12 @@ function AddressBar({
           </button>
 
           {/* Collapsed middle */}
-          {needsCollapse && (
+          {needsCollapse ? (
             <>
               <ChevronRight className="text-muted-foreground/30 h-3 w-3 shrink-0" />
               <span className="text-muted-foreground/40 font-mono text-xs">...</span>
             </>
-          )}
+          ) : null}
 
           {/* Visible crumbs */}
           {visibleCrumbs.map((crumb, i) => {
@@ -267,7 +260,8 @@ export function ReactFileManagerDialog({
             <div className="space-y-0.5 p-2">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div
-                  key={i}
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={`skeleton-${i}`}
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5"
                   style={{ opacity: 1 - i * 0.1 }}
                 >
@@ -324,9 +318,7 @@ export function ReactFileManagerDialog({
             disabled={!currentPath || isLoading}
             className="h-8 shrink-0 px-5 text-xs font-medium"
           >
-            {isLoading ? (
-              <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-            ) : null}
+            {isLoading ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
             Select
           </Button>
         </div>

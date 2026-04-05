@@ -40,7 +40,11 @@ export interface ControlCenterState {
   edges: Edge[];
   onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
   handleConnect: (connection: Connection) => void;
-  handleAddRepository: (path: string) => { wasEmpty: boolean; repoPath: string };
+  handleAddRepository: (path: string) => {
+    wasEmpty: boolean;
+    repoPath: string;
+    tempNodeId: string;
+  };
   handleLayout: (direction: LayoutDirection) => void;
   handleArchiveFeature: (featureId: string) => void;
   handleDeleteFeature: (

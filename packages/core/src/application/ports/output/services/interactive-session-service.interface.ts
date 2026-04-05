@@ -240,8 +240,5 @@ export interface IInteractiveSessionService {
    * @param answers - Map of question text → selected answer(s)
    * @param annotations - Optional per-question annotations (notes, preview)
    */
-  respondToInteraction(
-    featureId: string,
-    answers: Record<string, string>
-  ): Promise<void>;
+  respondToInteraction(featureId: string, answers: Record<string, string>): Promise<void>;
 }

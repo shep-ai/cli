@@ -60,7 +60,10 @@ const multiQuestionInteraction: InteractionData = {
       header: 'IDE',
       multiSelect: false,
       options: [
-        { label: 'VS Code', description: "Microsoft's popular editor with rich extension ecosystem." },
+        {
+          label: 'VS Code',
+          description: "Microsoft's popular editor with rich extension ecosystem.",
+        },
         { label: 'Neovim', description: 'Terminal-based, highly customizable.' },
         { label: 'JetBrains', description: 'Full-featured IDEs with deep language intelligence.' },
         { label: 'Cursor', description: 'AI-first fork of VS Code.' },
@@ -95,12 +98,7 @@ const multiQuestionInteraction: InteractionData = {
 function InteractiveBubble({ interaction }: { interaction: InteractionData }) {
   const [submitted, setSubmitted] = useState(false);
   if (submitted) return <p className="text-muted-foreground px-4 text-xs">Submitted!</p>;
-  return (
-    <InteractionBubble
-      interaction={interaction}
-      onSubmit={() => setSubmitted(true)}
-    />
-  );
+  return <InteractionBubble interaction={interaction} onSubmit={() => setSubmitted(true)} />;
 }
 
 const noop = (): void => undefined;

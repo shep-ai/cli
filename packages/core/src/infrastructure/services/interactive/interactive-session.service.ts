@@ -1065,12 +1065,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     return this.sessionRepo.getAllActiveTurnStatuses();
   }
 
-  async respondToInteraction(
-    featureId: string,
-    answers: Record<string, string>
-  ): Promise<void> {
+  async respondToInteraction(featureId: string, answers: Record<string, string>): Promise<void> {
     const state = this.findActiveStateForFeature(featureId);
-    if (!state || !state.pendingInteraction || !state.pendingInteractionResolver) {
+    if (!state?.pendingInteraction || !state.pendingInteractionResolver) {
       throw new Error(`No pending interaction for feature ${featureId}`);
     }
 

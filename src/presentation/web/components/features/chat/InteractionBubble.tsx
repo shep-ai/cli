@@ -38,11 +38,7 @@ export interface InteractionBubbleProps {
  * After submission, the bubble disappears and a green summary message
  * is persisted in the conversation history (rendered by InteractionResponseMessage in thread.tsx).
  */
-export function InteractionBubble({
-  interaction,
-  onSubmit,
-  className,
-}: InteractionBubbleProps) {
+export function InteractionBubble({ interaction, onSubmit, className }: InteractionBubbleProps) {
   const isMultiQuestion = interaction.questions.length > 1;
 
   return (
@@ -156,7 +152,11 @@ function TabbedQuestions({
 
       {/* All panels rendered — only active one visible (preserves state) */}
       {questions.map((q, i) => (
-        <div key={q.question} className="px-4 py-3" style={{ display: i === activeTab ? undefined : 'none' }}>
+        <div
+          key={q.question}
+          className="px-4 py-3"
+          style={{ display: i === activeTab ? undefined : 'none' }}
+        >
           <QuestionPanel
             question={q}
             selection={selections[q.question]}
@@ -317,7 +317,7 @@ function SingleQuestion({
   return (
     <div>
       <div className="mb-2 flex items-start gap-2">
-        <span className="inline-flex shrink-0 items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700 dark:bg-violet-900/50 dark:text-violet-300">
+        <span className="inline-flex shrink-0 items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-violet-700 uppercase dark:bg-violet-900/50 dark:text-violet-300">
           {question.header}
         </span>
         <span className="font-medium">{question.question}</span>
@@ -395,9 +395,7 @@ function OptionRow({ option, isSelected, isMulti, onToggle }: OptionRowProps) {
             : 'border-muted-foreground/30'
         )}
       >
-        {isSelected ? (
-          <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
-        ) : null}
+        {isSelected ? <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} /> : null}
       </span>
 
       <div className="flex min-w-0 flex-col gap-0.5">
@@ -430,11 +428,7 @@ function OtherRow({ isSelected, isMulti, text, onToggle, onTextChange }: OtherRo
           : 'border-border/50 hover:border-violet-300 dark:hover:border-violet-500/30'
       )}
     >
-      <button
-        type="button"
-        onClick={onToggle}
-        className="mt-0.5 shrink-0"
-      >
+      <button type="button" onClick={onToggle} className="mt-0.5 shrink-0">
         <span
           className={cn(
             'flex h-4 w-4 items-center justify-center border transition-colors',
@@ -444,9 +438,7 @@ function OtherRow({ isSelected, isMulti, text, onToggle, onTextChange }: OtherRo
               : 'border-muted-foreground/30'
           )}
         >
-          {isSelected ? (
-            <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
-          ) : null}
+          {isSelected ? <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} /> : null}
         </span>
       </button>
 

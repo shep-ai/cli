@@ -25,8 +25,6 @@ export function ChatDotIndicator({ status, className = '' }: ChatDotIndicatorPro
         : 'h-2 w-2 bg-green-500';
 
   return (
-    <span
-      className={`absolute -top-0.5 -right-0.5 block rounded-full ${dotClass} ${className}`}
-    />
+    <span className={`absolute -top-0.5 -right-0.5 block rounded-full ${dotClass} ${className}`} />
   );
 }
