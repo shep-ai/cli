@@ -1,3 +1,10 @@
+# [1.169.0](https://github.com/shep-ai/shep/compare/v1.168.0...v1.169.0) (2026-04-05)
+
+
+### Features
+
+* **web:** add tabulator-based feature tree table with shadcn styling and repo grouping ([#505](https://github.com/shep-ai/shep/issues/505)) ([18c3dd9](https://github.com/shep-ai/shep/commit/18c3dd97042f7b65ffdbf405479825928a37ba89))
+
 # [1.168.0](https://github.com/shep-ai/shep/compare/v1.167.0...v1.168.0) (2026-04-05)
 
 
