@@ -1,8 +1,8 @@
 /**
  * GitPrService Rebase & Sync Integration Tests
  *
- * Exercises syncMain and rebaseOnMain against real temporary git repositories.
- * No mocks — verifies actual git state after each operation.
+ * Exercises syncMain, rebaseOnMain, and stash/stashPop against real temporary
+ * git repositories. No mocks — verifies actual git state after each operation.
  */
 
 import 'reflect-metadata';
@@ -490,5 +490,332 @@ describe('GitPrService — helper methods (integration)', () => {
     await git(cloneDir, ['checkout', featureBranch]);
     const { stdout: afterHash } = await git(cloneDir, ['rev-parse', 'HEAD']);
     expect(afterHash.trim()).toBe(beforeHash.trim());
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Stash / Stash-Rebase-Pop Integration Tests                        */
+/* ------------------------------------------------------------------ */
+
+describe('GitPrService — stash (integration)', () => {
+  let bareDir: string;
+  let cloneDir: string;
+  let featureBranch: string;
+  let service: GitPrService;
+  const dirs: string[] = [];
+
+  beforeEach(async () => {
+    const harness = await createHarness();
+    bareDir = harness.bareDir;
+    cloneDir = harness.cloneDir;
+    featureBranch = harness.featureBranch;
+    dirs.push(bareDir, cloneDir);
+    service = new GitPrService(makeRealExec());
+  });
+
+  afterEach(async () => {
+    for (const dir of dirs) {
+      if (existsSync(dir)) {
+        try {
+          await git(dir, ['rebase', '--abort']);
+        } catch {
+          // Not in a rebase — ignore
+        }
+      }
+    }
+    destroyDirs(dirs);
+    dirs.length = 0;
+  });
+
+  it('should stash uncommitted changes and return true', async () => {
+    await git(cloneDir, ['checkout', featureBranch]);
+
+    // Create an uncommitted change
+    writeFileSync(join(cloneDir, 'wip.ts'), '// work in progress\n');
+    await git(cloneDir, ['add', 'wip.ts']);
+
+    const didStash = await service.stash(cloneDir, 'shep-auto-stash: test');
+    expect(didStash).toBe(true);
+
+    // Working directory should be clean after stash
+    const { stdout: status } = await git(cloneDir, ['status', '--porcelain']);
+    expect(status.trim()).toBe('');
+
+    // The wip file should not exist in the working tree
+    expect(existsSync(join(cloneDir, 'wip.ts'))).toBe(false);
+  });
+
+  it('should return false when working directory is clean', async () => {
+    await git(cloneDir, ['checkout', featureBranch]);
+
+    const didStash = await service.stash(cloneDir, 'shep-auto-stash: test');
+    expect(didStash).toBe(false);
+  });
+
+  it('should include the stash message in git stash list output', async () => {
+    await git(cloneDir, ['checkout', featureBranch]);
+
+    // Create an uncommitted change
+    writeFileSync(join(cloneDir, 'wip.ts'), '// work in progress\n');
+    await git(cloneDir, ['add', 'wip.ts']);
+
+    const stashMessage = `shep-auto-stash: ${featureBranch}`;
+    await service.stash(cloneDir, stashMessage);
+
+    // Verify the stash message appears in git stash list
+    const { stdout: stashList } = await git(cloneDir, ['stash', 'list']);
+    expect(stashList).toContain(stashMessage);
+  });
+
+  it('should stash pop and restore uncommitted changes', async () => {
+    await git(cloneDir, ['checkout', featureBranch]);
+
+    // Create uncommitted changes (both staged and unstaged file)
+    writeFileSync(join(cloneDir, 'wip.ts'), '// work in progress\n');
+    await git(cloneDir, ['add', 'wip.ts']);
+
+    // Stash
+    await service.stash(cloneDir, 'shep-auto-stash: test');
+    expect(existsSync(join(cloneDir, 'wip.ts'))).toBe(false);
+
+    // Pop
+    await service.stashPop(cloneDir);
+
+    // Verify the file is restored
+    expect(existsSync(join(cloneDir, 'wip.ts'))).toBe(true);
+    const content = readFileSync(join(cloneDir, 'wip.ts'), 'utf-8');
+    expect(content).toBe('// work in progress\n');
+  });
+
+  it('should stash drop and discard the stash entry', async () => {
+    await git(cloneDir, ['checkout', featureBranch]);
+
+    // Create and stash a change
+    writeFileSync(join(cloneDir, 'wip.ts'), '// work in progress\n');
+    await git(cloneDir, ['add', 'wip.ts']);
+    await service.stash(cloneDir, 'shep-auto-stash: test');
+
+    // Verify stash exists
+    const { stdout: beforeList } = await git(cloneDir, ['stash', 'list']);
+    expect(beforeList.trim()).not.toBe('');
+
+    // Drop
+    await service.stashDrop(cloneDir);
+
+    // Verify stash is empty
+    const { stdout: afterList } = await git(cloneDir, ['stash', 'list']);
+    expect(afterList.trim()).toBe('');
+  });
+});
+
+describe('GitPrService — stash + rebase + pop flow (integration)', () => {
+  let bareDir: string;
+  let cloneDir: string;
+  let featureBranch: string;
+  let service: GitPrService;
+  const dirs: string[] = [];
+
+  beforeEach(async () => {
+    const harness = await createHarness();
+    bareDir = harness.bareDir;
+    cloneDir = harness.cloneDir;
+    featureBranch = harness.featureBranch;
+    dirs.push(bareDir, cloneDir);
+    service = new GitPrService(makeRealExec());
+  });
+
+  afterEach(async () => {
+    for (const dir of dirs) {
+      if (existsSync(dir)) {
+        try {
+          await git(dir, ['rebase', '--abort']);
+        } catch {
+          // Not in a rebase — ignore
+        }
+      }
+    }
+    destroyDirs(dirs);
+    dirs.length = 0;
+  });
+
+  it('should preserve uncommitted changes across a clean rebase (stash → sync → rebase → pop)', async () => {
+    // Add an upstream commit on main that does NOT conflict with feature files
+    await addUpstreamCommit(
+      bareDir,
+      'upstream.ts',
+      '// upstream change\n',
+      'chore: non-conflicting upstream change'
+    );
+
+    // Switch to feature branch and create uncommitted changes
+    await git(cloneDir, ['checkout', featureBranch]);
+    writeFileSync(join(cloneDir, 'wip.ts'), '// my uncommitted work\nexport const wip = true;\n');
+    await git(cloneDir, ['add', 'wip.ts']);
+
+    // Verify dirty state
+    const hasDirty = await service.hasUncommittedChanges(cloneDir);
+    expect(hasDirty).toBe(true);
+
+    // --- Full stash-rebase-pop flow ---
+    const didStash = await service.stash(cloneDir, `shep-auto-stash: ${featureBranch}`);
+    expect(didStash).toBe(true);
+
+    // Working directory should now be clean
+    expect(await service.hasUncommittedChanges(cloneDir)).toBe(false);
+
+    // Sync main
+    await service.syncMain(cloneDir, 'main');
+
+    // Rebase (should succeed — no conflicts)
+    await service.rebaseOnMain(cloneDir, featureBranch, 'main');
+
+    // Pop stash
+    await service.stashPop(cloneDir);
+
+    // --- Verify final state ---
+    // Uncommitted changes restored
+    expect(existsSync(join(cloneDir, 'wip.ts'))).toBe(true);
+    const wipContent = readFileSync(join(cloneDir, 'wip.ts'), 'utf-8');
+    expect(wipContent).toContain('my uncommitted work');
+
+    // Feature file still present
+    expect(existsSync(join(cloneDir, 'feature.ts'))).toBe(true);
+
+    // Upstream change is present (rebase applied it)
+    expect(existsSync(join(cloneDir, 'upstream.ts'))).toBe(true);
+
+    // On correct branch
+    const { stdout: currentBranch } = await git(cloneDir, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    expect(currentBranch.trim()).toBe(featureBranch);
+  });
+
+  it('should skip stash when working directory is clean and rebase normally', async () => {
+    // Add upstream commit
+    await addUpstreamCommit(bareDir, 'upstream.ts', '// upstream\n', 'chore: upstream change');
+
+    await git(cloneDir, ['checkout', featureBranch]);
+
+    // No uncommitted changes — stash should return false
+    const didStash = await service.stash(cloneDir, `shep-auto-stash: ${featureBranch}`);
+    expect(didStash).toBe(false);
+
+    // Sync + rebase as normal
+    await service.syncMain(cloneDir, 'main');
+    await service.rebaseOnMain(cloneDir, featureBranch, 'main');
+
+    // Upstream change is present
+    expect(existsSync(join(cloneDir, 'upstream.ts'))).toBe(true);
+
+    // Feature file still present
+    expect(existsSync(join(cloneDir, 'feature.ts'))).toBe(true);
+
+    // Stash list should be empty (nothing was stashed)
+    const { stdout: stashList } = await git(cloneDir, ['stash', 'list']);
+    expect(stashList.trim()).toBe('');
+  });
+
+  it('should preserve uncommitted changes even when rebase has conflicts that are manually resolved', async () => {
+    // Create a conflict on feature.ts
+    await addUpstreamCommit(
+      bareDir,
+      'feature.ts',
+      '// Main branch version\nexport const main = true;\n',
+      'chore: conflicting upstream change'
+    );
+
+    // Switch to feature branch, create uncommitted work on a different file
+    await git(cloneDir, ['checkout', featureBranch]);
+    writeFileSync(join(cloneDir, 'wip.ts'), '// my work in progress\n');
+    await git(cloneDir, ['add', 'wip.ts']);
+
+    // Stash
+    const didStash = await service.stash(cloneDir, `shep-auto-stash: ${featureBranch}`);
+    expect(didStash).toBe(true);
+
+    // Sync + attempt rebase (will conflict)
+    await service.syncMain(cloneDir, 'main');
+    const rebaseError = await service.rebaseOnMain(cloneDir, featureBranch, 'main').catch((e) => e);
+    expect(rebaseError).toBeInstanceOf(GitPrError);
+    expect(rebaseError.code).toBe(GitPrErrorCode.REBASE_CONFLICT);
+
+    // Manually resolve the conflict
+    writeFileSync(
+      join(cloneDir, 'feature.ts'),
+      '// Resolved version\nexport const resolved = true;\n'
+    );
+    await service.stageFiles(cloneDir, ['feature.ts']);
+    await service.rebaseContinue(cloneDir);
+
+    // Pop stash — should succeed since wip.ts doesn't conflict with rebased changes
+    await service.stashPop(cloneDir);
+
+    // Verify uncommitted work is restored
+    expect(existsSync(join(cloneDir, 'wip.ts'))).toBe(true);
+    const wipContent = readFileSync(join(cloneDir, 'wip.ts'), 'utf-8');
+    expect(wipContent).toContain('my work in progress');
+
+    // Verify resolved feature file is present
+    const featureContent = readFileSync(join(cloneDir, 'feature.ts'), 'utf-8');
+    expect(featureContent).toContain('Resolved version');
+  });
+
+  it('should restore uncommitted changes even after a failed rebase that is aborted', async () => {
+    // Create a conflict
+    await addUpstreamCommit(
+      bareDir,
+      'feature.ts',
+      '// Main version\n',
+      'chore: conflicting change'
+    );
+
+    await git(cloneDir, ['checkout', featureBranch]);
+    writeFileSync(join(cloneDir, 'wip.ts'), '// important work\n');
+    await git(cloneDir, ['add', 'wip.ts']);
+
+    // Stash
+    const didStash = await service.stash(cloneDir, `shep-auto-stash: ${featureBranch}`);
+    expect(didStash).toBe(true);
+
+    // Sync + attempt rebase
+    await service.syncMain(cloneDir, 'main');
+    await service.rebaseOnMain(cloneDir, featureBranch, 'main').catch(() => {
+      // Expected — conflict
+    });
+
+    // Abort the rebase instead of resolving
+    await service.rebaseAbort(cloneDir);
+
+    // Pop stash — should succeed since rebase was aborted (back to pre-rebase state)
+    await service.stashPop(cloneDir);
+
+    // Verify uncommitted work is restored
+    expect(existsSync(join(cloneDir, 'wip.ts'))).toBe(true);
+    const wipContent = readFileSync(join(cloneDir, 'wip.ts'), 'utf-8');
+    expect(wipContent).toContain('important work');
+  });
+
+  it('should handle unstaged modifications in stash-rebase-pop flow', async () => {
+    // Add non-conflicting upstream commit
+    await addUpstreamCommit(bareDir, 'upstream.ts', '// upstream\n', 'chore: upstream');
+
+    await git(cloneDir, ['checkout', featureBranch]);
+
+    // Create unstaged modification (modify existing tracked file, don't git add)
+    writeFileSync(join(cloneDir, 'feature.ts'), '// Modified but not staged\nexport {};\n');
+
+    // Stash
+    const didStash = await service.stash(cloneDir, `shep-auto-stash: ${featureBranch}`);
+    expect(didStash).toBe(true);
+
+    // Sync + rebase
+    await service.syncMain(cloneDir, 'main');
+    await service.rebaseOnMain(cloneDir, featureBranch, 'main');
+
+    // Pop
+    await service.stashPop(cloneDir);
+
+    // Verify the unstaged modification is restored
+    const content = readFileSync(join(cloneDir, 'feature.ts'), 'utf-8');
+    expect(content).toContain('Modified but not staged');
   });
 });
