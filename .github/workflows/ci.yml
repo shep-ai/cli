@@ -7,9 +7,9 @@
 #   ┌──────┬───────────┬─────────────────┬─────────────────┬─────────┬─────────┬───────────┐
 #   │ Lint │ Typecheck │ Unit (lin+win)  │ E2E CLI (l+w)   │ E2E TUI │ E2E Web │ Storybook │
 #   └──────┴───────────┴─────────────────┴─────────────────┴─────────┴─────────┴───────────┘
-#   ┌──────────┬─────────┐
-#   │ Gitleaks │ Semgrep │
-#   └──────────┴─────────┘
+#   ┌──────────┬─────────┬──────────────────┐
+#   │ Gitleaks │ Semgrep │ Security Enforce │
+#   └──────────┴─────────┴──────────────────┘
 #                  (all parallel)
 #
 #   On push to main only:
@@ -206,6 +206,26 @@ jobs:
             p/security-audit
 
   # ===========================================================================
+  # Supply Chain Security Enforcement
+  # Runs shep security enforce to validate dependency risk, release integrity,
+  # and governance posture. Gates release and dev-release jobs.
+  # ===========================================================================
+  security-enforce:
+    name: Security Enforce
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run tsp:compile
+      - name: Run security enforcement
+        run: pnpm dev:cli security enforce --output json
+
+  # ===========================================================================
   # Security Summary Comment (PRs only)
   # Posts aggregated security scan results as a PR comment
   # ===========================================================================
@@ -259,6 +279,7 @@ jobs:
       - storybook-build
       - security-gitleaks
       - security-semgrep
+      - security-enforce
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
 
     permissions:
@@ -309,6 +330,7 @@ jobs:
       - storybook-build
       - security-gitleaks
       - security-semgrep
+      - security-enforce
     if: github.event_name == 'pull_request'
 
     permissions:
