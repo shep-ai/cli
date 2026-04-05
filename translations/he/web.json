@@ -14,6 +14,7 @@
       "notifications": "התראות",
       "flags": "דגלים",
       "chat": "צ'אט",
+      "layout": "פריסה",
       "database": "מסד נתונים"
     },
     "language": {
@@ -145,6 +146,8 @@
       "planDescription": "תפוגת זמן תכנון מימוש",
       "implement": "מימוש",
       "implementDescription": "תפוגת זמן מימוש קוד",
+      "fastImplement": "מימוש מהיר",
+      "fastImplementDescription": "תפוגת זמן מימוש במצב מהיר",
       "merge": "מיזוג",
       "mergeDescription": "תפוגת זמן יצירת PR ומיזוג",
       "hint": "לכל סוכן תפוגות זמן שלבים מוגדרות באופן עצמאי. כאשר שלב חורג מתפוגת הזמן שלו, הסוכן מופסק. תפוגות זמן ארוכות יותר שימושיות למימושים מורכבים. ברירת המחדל של סוכן פיצ'ר היא 30 דקות לשלב. ברירת המחדל של סוכן ניתוח מאגר היא 10 דקות."
@@ -199,6 +202,8 @@
       "gitRebaseSyncDescription": "הפעל פעולות rebase-on-main וסנכרון main ב-Git",
       "reactFileManager": "מנהל קבצים React",
       "reactFileManagerDescription": "השתמש במנהל הקבצים המובנה של React במקום בוחר התיקיות של מערכת ההפעלה",
+      "inventory": "מלאי",
+      "inventoryDescription": "הפעל את דף המלאי המציג את כל המאגרים והתכונות בתצוגת עץ",
       "hint": "תכונות ניסיוניות שעדיין בפיתוח. הפעל על אחריותך — הן עשויות להשתנות או להיות מוסרות בגרסאות עתידיות. מצב ניפוי שגיאות מוסיף רישום מפורט שימושי לפתרון בעיות."
     },
     "interactiveAgent": {
@@ -211,6 +216,13 @@
       "maxConcurrentSessions": "מספר מרבי של סשנים מקבילים",
       "maxConcurrentSessionsDescription": "מספר מרבי של סשנים אינטראקטיביים פעילים בו-זמנית (1-10)",
       "hint": "לשונית הצ'אט מפעילה תהליך סוכן מתמשך לכל פיצ'ר. תפוגת זמן אוטומטית עוצרת סשנים לא פעילים כדי לחסוך במשאבים. מגבלת הסשנים המקבילים מונעת שימוש מופרז במשאבים על מכונות מפתחים."
+    },
+    "fabLayout": {
+      "title": "פריסה",
+      "description": "שליטה במיקום כפתורי הפעולה הצפים במרכז הבקרה",
+      "swapPosition": "החלפת מיקומי כפתורים צפים",
+      "swapPositionDescription": "העברת כפתור הצ'אט לשמאל וכפתור היצירה לימין",
+      "hint": "שני כפתורי הפעולה הצפים (יצירה וצ'אט) נמצאים בפינות התחתונות של מרכז הבקרה. הפעל את האפשרות הזו כדי להחליף את מיקומיהם."
     },
     "database": {
       "title": "מסד נתונים",
@@ -230,6 +242,7 @@
     "controlCenter": "מרכז בקרה",
     "dashboard": "לוח בקרה",
     "features": "פיצ'רים",
+    "inventory": "מלאי",
     "repositories": "מאגרים",
     "settings": "הגדרות",
     "sessions": "סשנים",
@@ -256,7 +269,7 @@
     "deleteSubFeatures": "מחק תת-פיצ'רים",
     "closePullRequest": "סגור בקשת משיכה",
     "cancel": "ביטול",
-    "deleting": "מוחק\u2026",
+    "deleting": "מוחק…",
     "delete": "מחק"
   },
   "rejectFeedback": {
@@ -265,25 +278,25 @@
     "ariaLabel": "משוב דחייה",
     "placeholder": "תאר מה צריך לשנות...",
     "cancel": "ביטול",
-    "rejecting": "דוחה\u2026",
+    "rejecting": "דוחה…",
     "confirmReject": "אשר דחייה"
   },
   "emptyState": {
     "addProject": "הוסף פרויקט",
     "addProjectDescription": "הוסף את תיקיית הפרויקט שלך כדי לאפשר יצירת פיצ'רים.",
-    "addProjectDescriptionLine2": "תאר מה אתה צריך \u2014 Shep מטפל בשאר.",
-    "checkingSetup": "בודק הגדרה\u2026",
+    "addProjectDescriptionLine2": "תאר מה אתה צריך — Shep מטפל בשאר.",
+    "checkingSetup": "בודק הגדרה…",
     "ready": "{{label}} מוכן",
     "notInstalled": "{{label}} לא מותקן",
     "reCheck": "בדוק שוב",
     "needsAuth": "{{label}} דורש אימות",
     "open": "פתח {{label}}",
-    "checking": "בודק {{label}}\u2026",
+    "checking": "בודק {{label}}…",
     "notFound": "{{label}} לא נמצא",
     "docs": "תיעוד",
-    "opening": "פותח\u2026",
+    "opening": "פותח…",
     "chooseFolder": "בחר תיקייה",
-    "folderHint": "כל תיקייה מתאימה \u2014 Git יאותחל אוטומטית אם צריך.",
+    "folderHint": "כל תיקייה מתאימה — Git יאותחל אוטומטית אם צריך.",
     "orUseCli": "או השתמש ב-CLI",
     "copyCommands": "העתק פקודות",
     "git": "Git",
@@ -292,7 +305,7 @@
     "githubCliRequired": "נדרש לבקשות משיכה"
   },
   "welcome": {
-    "loadingAgents": "טוען סוכנים\u2026",
+    "loadingAgents": "טוען סוכנים…",
     "chooseAgent": "בחר את הסוכן שלך",
     "pickModel": "בחר מודל",
     "selectAgentSubtitle": "בחר את סוכן הקידוד AI שתרצה ש-Shep ישתמש בו.",
@@ -340,11 +353,11 @@
     "stopDevServer": "עצירת שרת",
     "startDevServer": "הפעלת שרת",
     "retryDevServer": "הפעלה מחדש של שרת",
-    "starting": "מפעיל\u2026",
+    "starting": "מפעיל…",
     "retry": "ניסיון חוזר",
     "start": "הפעלה",
     "failed": "נכשל",
-    "deleting": "מוחק\u2026",
+    "deleting": "מוחק…",
     "addFeature": "הוספת פיצ'ר",
     "reviewRequirements": "סקירת דרישות",
     "reviewTechnicalPlan": "סקירת תוכנית טכנית",
@@ -465,7 +478,11 @@
     "plan": "תוכנית",
     "planDescription": "אישור אוטומטי של מעבר תכנון ליישום.",
     "merge": "מיזוג",
-    "mergeDescription": "אישור אוטומטי של מעבר מיזוג להשלמה."
+    "mergeDescription": "אישור אוטומטי של מעבר מיזוג להשלמה.",
+    "skills": "SKILLS",
+    "skillsDescription": "Curated skills to guide the agent during feature development.",
+    "injectSkills": "Inject",
+    "injectSkillsDescription": "Include curated skills in the feature worktree."
   },
   "featureDrawer": {
     "copyFeatureId": "העתקת מזהה פיצ'ר",
@@ -579,7 +596,7 @@
     "addRepository": "הוספת מאגר"
   },
   "modelPicker": {
-    "searchPlaceholder": "חיפוש או הקלדת מזהה מודל\u2026"
+    "searchPlaceholder": "חיפוש או הקלדת מזהה מודל…"
   },
   "skills": {
     "searchPlaceholder": "חיפוש כישורים..."

@@ -1,15 +1,15 @@
 ---
 name: cross-validate-artifacts
-version: 1.0.0
-author: Shep AI (https://shep.bot)
-homepage: https://shep.bot
-repository: https://github.com/shep-ai/shep
 description: Cross-validate documentation and artifacts across the codebase for consistency, conflicts, and contradictions. Use when users ask to "cross-validate", "validate docs", "check documentation consistency", "audit documentation", or find conflicts/contradictions in docs. Supports automatic fixing with "validate and fix" argument. Runs parallel subagents for efficient validation across categories (domain-models, agent-system, tech-stack, architecture, cli-commands). Part of the Shep autonomous SDLC platform — https://shep.bot
+metadata:
+  version: '1.0.0'
+  author: Shep AI (https://shep.bot)
+  homepage: https://shep.bot
+  repository: https://github.com/shep-ai/shep
 ---
 
 # Cross-Validate Artifacts Skill
 
-> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 Cross-validate documentation and artifacts across the codebase for consistency, conflicts, and contradictions.
 

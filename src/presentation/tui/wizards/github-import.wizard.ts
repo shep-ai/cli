@@ -3,6 +3,7 @@
  *
  * Interactive TUI wizard that guides users through importing a GitHub repository.
  * Offers two paths: paste a GitHub URL or browse the user's repositories.
+ * Supports browsing repos from multiple organizations.
  * Returns the selected URL/nameWithOwner and optional destination override.
  */
 
@@ -14,6 +15,7 @@ import type {
 } from '@/application/ports/output/services/github-repository-service.interface.js';
 import { GitHubUrlParseError } from '@/application/ports/output/services/github-repository-service.interface.js';
 import type { ListGitHubRepositoriesUseCase } from '@/application/use-cases/repositories/list-github-repositories.use-case.js';
+import type { ListGitHubOrganizationsUseCase } from '@/application/use-cases/repositories/list-github-organizations.use-case.js';
 import { getTuiI18n } from '../i18n.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
@@ -31,6 +33,9 @@ export interface GitHubImportWizardResult {
  * Import method choice for the first prompt.
  */
 type ImportMethod = 'url' | 'browse';
+
+/** Sentinel value representing the authenticated user's personal account */
+const PERSONAL_OWNER = '__personal__';
 
 /**
  * Format a GitHub repo for display in the select list.
@@ -51,16 +56,18 @@ function formatRepoChoice(repo: GitHubRepo): { name: string; value: string; desc
  * Steps:
  * 1. Choose import method (URL input or browse repos)
  * 2a. If URL: prompt for URL, validate with parseGitHubUrl
- * 2b. If browse: fetch repos via listUseCase, display select list
+ * 2b. If browse: optionally select an org, then fetch repos via listUseCase, display select list
  * 3. Optionally prompt for destination directory override
  *
  * @param gitHubService - Service for URL validation
  * @param listUseCase - Use case for listing user repos
+ * @param listOrgsUseCase - Use case for listing user's organizations
  * @returns The selected import target and optional destination
  */
 export async function githubImportWizard(
   gitHubService: IGitHubRepositoryService,
-  listUseCase: ListGitHubRepositoriesUseCase
+  listUseCase: ListGitHubRepositoriesUseCase,
+  listOrgsUseCase?: ListGitHubOrganizationsUseCase
 ): Promise<GitHubImportWizardResult> {
   // Step 1: Choose import method
   const t = getTuiI18n().t;
@@ -86,7 +93,7 @@ export async function githubImportWizard(
   if (method === 'url') {
     url = await promptForUrl(gitHubService);
   } else {
-    url = await promptForBrowse(listUseCase);
+    url = await promptForBrowse(listUseCase, listOrgsUseCase);
   }
 
   // Step 3: Optional destination override
@@ -130,12 +137,46 @@ async function promptForUrl(gitHubService: IGitHubRepositoryService): Promise<st
 
 /**
  * Prompt the user to browse and select from their GitHub repositories.
- * Fetches repos via the list use case and displays them in a select prompt.
+ * If organizations are available, first prompts the user to select an owner.
  */
-async function promptForBrowse(listUseCase: ListGitHubRepositoriesUseCase): Promise<string> {
-  const repos = await listUseCase.execute({ limit: 30 });
-
+async function promptForBrowse(
+  listUseCase: ListGitHubRepositoriesUseCase,
+  listOrgsUseCase?: ListGitHubOrganizationsUseCase
+): Promise<string> {
   const t = getTuiI18n().t;
+  let owner: string | undefined;
+
+  // Try to load organizations for the owner selector
+  if (listOrgsUseCase) {
+    try {
+      const orgs = await listOrgsUseCase.execute();
+      if (orgs.length > 0) {
+        const ownerChoices = [
+          { name: 'My repositories', value: PERSONAL_OWNER },
+          ...orgs.map((org) => ({
+            name: org.login,
+            value: org.login,
+            description: org.description || undefined,
+          })),
+        ];
+
+        const selectedOwner = await select<string>({
+          message: 'Select account',
+          choices: ownerChoices,
+          theme: shepTheme,
+        });
+
+        if (selectedOwner !== PERSONAL_OWNER) {
+          owner = selectedOwner;
+        }
+      }
+    } catch {
+      // Org listing failure is non-critical — proceed with personal repos
+    }
+  }
+
+  const repos = await listUseCase.execute({ limit: 30, owner });
+
   if (repos.length === 0) {
     throw new Error(t('tui:wizards.githubImport.noRepos'));
   }

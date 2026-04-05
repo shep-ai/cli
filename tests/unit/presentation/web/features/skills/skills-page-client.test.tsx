@@ -1,6 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => '/skills',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { SkillsPageClient } from '@/components/features/skills/skills-page-client';
 import type { SkillData } from '@/lib/skills';
 
@@ -16,6 +23,10 @@ function makeSkill(overrides: Partial<SkillData> = {}): SkillData {
     ...overrides,
   };
 }
+
+import type { SkillInjectionConfig } from '@shepai/core/domain/generated/output';
+
+const emptyInjectionConfig: SkillInjectionConfig = { enabled: false, skills: [] };
 
 const sampleSkills: SkillData[] = [
   makeSkill({
@@ -52,12 +63,12 @@ const sampleSkills: SkillData[] = [
 
 describe('SkillsPageClient', () => {
   it('renders page header with "Skills" title', () => {
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
     expect(screen.getByRole('heading', { level: 1, name: /Skills/ })).toBeInTheDocument();
   });
 
   it('renders all skills when no filters applied', () => {
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
     expect(screen.getByTestId('skill-card-shep-kit:plan')).toBeInTheDocument();
     expect(screen.getByTestId('skill-card-shep-kit:implement')).toBeInTheDocument();
     expect(screen.getByTestId('skill-card-shep:ui-component')).toBeInTheDocument();
@@ -66,13 +77,13 @@ describe('SkillsPageClient', () => {
   });
 
   it('renders search input', () => {
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
     expect(screen.getByPlaceholderText(/search skills/i)).toBeInTheDocument();
   });
 
   it('search input filters skills by name', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     const searchInput = screen.getByPlaceholderText(/search skills/i);
     await user.type(searchInput, 'plan');
@@ -84,7 +95,7 @@ describe('SkillsPageClient', () => {
 
   it('search input filters skills by description', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     const searchInput = screen.getByPlaceholderText(/search skills/i);
     await user.type(searchInput, 'architecture');
@@ -95,7 +106,7 @@ describe('SkillsPageClient', () => {
 
   it('search is case-insensitive', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     const searchInput = screen.getByPlaceholderText(/search skills/i);
     await user.type(searchInput, 'PLAN');
@@ -105,7 +116,7 @@ describe('SkillsPageClient', () => {
 
   it('category filter shows only skills in selected category', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     await user.click(screen.getByRole('button', { name: /^Analysis/ }));
 
@@ -116,7 +127,7 @@ describe('SkillsPageClient', () => {
 
   it('search and category filter combine', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     // Filter to Workflow category
     await user.click(screen.getByRole('button', { name: /^Workflow/ }));
@@ -130,7 +141,7 @@ describe('SkillsPageClient', () => {
 
   it('clicking "All" category button shows all categories', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     // First filter to Workflow
     await user.click(screen.getByRole('button', { name: /^Workflow/ }));
@@ -142,13 +153,13 @@ describe('SkillsPageClient', () => {
   });
 
   it('shows "No skills found" empty state when skills prop is empty', () => {
-    render(<SkillsPageClient skills={[]} />);
+    render(<SkillsPageClient skills={[]} injectionConfig={emptyInjectionConfig} />);
     expect(screen.getByText('No skills found')).toBeInTheDocument();
   });
 
   it('shows "No matching skills" when filters yield no results', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     const searchInput = screen.getByPlaceholderText(/search skills/i);
     await user.type(searchInput, 'zzzznonexistent');
@@ -158,7 +169,7 @@ describe('SkillsPageClient', () => {
 
   it('clears filters when "Clear filters" action is clicked', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     // Apply a search that yields no results
     const searchInput = screen.getByPlaceholderText(/search skills/i);
@@ -175,7 +186,7 @@ describe('SkillsPageClient', () => {
 
   it('opens drawer when a skill card is clicked', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     await user.click(screen.getByTestId('skill-card-shep-kit:plan'));
 
@@ -189,7 +200,7 @@ describe('SkillsPageClient', () => {
 
   it('closes drawer when dismissed', async () => {
     const user = userEvent.setup();
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     // Open drawer
     await user.click(screen.getByTestId('skill-card-shep-kit:plan'));
@@ -203,7 +214,7 @@ describe('SkillsPageClient', () => {
   });
 
   it('renders category filter with skill counts from full unfiltered list', () => {
-    render(<SkillsPageClient skills={sampleSkills} />);
+    render(<SkillsPageClient skills={sampleSkills} injectionConfig={emptyInjectionConfig} />);
 
     // Workflow has 2, Code Generation has 1, Analysis has 1, Reference has 1
     const filterGroup = screen.getByRole('group', { name: /filter by category/i });

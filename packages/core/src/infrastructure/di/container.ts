@@ -42,6 +42,8 @@ import type { IGitPrService } from '../../application/ports/output/services/git-
 import { GitPrService } from '../services/git/git-pr.service.js';
 import type { IGitForkService } from '../../application/ports/output/services/git-fork-service.interface.js';
 import { GitForkService } from '../services/git/git-fork.service.js';
+import type { ISkillInjectorService } from '../../application/ports/output/services/skill-injector.interface.js';
+import { SkillInjectorService } from '../services/skill-injector.service.js';
 import type { IIdeLauncherService } from '../../application/ports/output/services/ide-launcher-service.interface.js';
 import { JsonDrivenIdeLauncherService } from '../services/ide-launchers/json-driven-ide-launcher.service.js';
 import type { IDaemonService } from '../../application/ports/output/services/daemon-service.interface.js';
@@ -102,6 +104,7 @@ import { ShowFeatureUseCase } from '../../application/use-cases/features/show-fe
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
 import { StartFeatureUseCase } from '../../application/use-cases/features/start-feature.use-case.js';
+import { UpdateFeaturePinnedConfigUseCase } from '../../application/use-cases/features/update-feature-pinned-config.use-case.js';
 import { AdoptBranchUseCase } from '../../application/use-cases/features/adopt-branch.use-case.js';
 import { GetFeatureArtifactUseCase } from '../../application/use-cases/features/get-feature-artifact.use-case.js';
 import { GetResearchArtifactUseCase } from '../../application/use-cases/features/get-research-artifact.use-case.js';
@@ -116,6 +119,7 @@ import { ListRepositoriesUseCase } from '../../application/use-cases/repositorie
 import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
 import { ImportGitHubRepositoryUseCase } from '../../application/use-cases/repositories/import-github-repository.use-case.js';
 import { ListGitHubRepositoriesUseCase } from '../../application/use-cases/repositories/list-github-repositories.use-case.js';
+import { ListGitHubOrganizationsUseCase } from '../../application/use-cases/repositories/list-github-organizations.use-case.js';
 import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
 import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 import { CleanupFeatureWorktreeUseCase } from '../../application/use-cases/features/cleanup-feature-worktree.use-case.js';
@@ -133,6 +137,7 @@ import { StartInteractiveSessionUseCase } from '../../application/use-cases/inte
 import { SendInteractiveMessageUseCase } from '../../application/use-cases/interactive/send-interactive-message.use-case.js';
 import { StopInteractiveSessionUseCase } from '../../application/use-cases/interactive/stop-interactive-session.use-case.js';
 import { GetInteractiveChatStateUseCase } from '../../application/use-cases/interactive/get-interactive-chat-state.use-case.js';
+import { RespondToInteractionUseCase } from '../../application/use-cases/interactive/respond-to-interaction.use-case.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -238,6 +243,7 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
   container.registerSingleton<IWorktreeService>('IWorktreeService', WorktreeService);
+  container.registerSingleton<ISkillInjectorService>('ISkillInjectorService', SkillInjectorService);
   container.registerSingleton<IToolInstallerService>(
     'IToolInstallerService',
     ToolInstallerServiceImpl
@@ -380,6 +386,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(DeleteFeatureUseCase);
   container.registerSingleton(ResumeFeatureUseCase);
   container.registerSingleton(StartFeatureUseCase);
+  container.registerSingleton(UpdateFeaturePinnedConfigUseCase);
   container.registerSingleton(AdoptBranchUseCase);
   container.registerSingleton(GetFeatureArtifactUseCase);
   container.registerSingleton(GetResearchArtifactUseCase);
@@ -394,6 +401,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(DeleteRepositoryUseCase);
   container.registerSingleton(ImportGitHubRepositoryUseCase);
   container.registerSingleton(ListGitHubRepositoriesUseCase);
+  container.registerSingleton(ListGitHubOrganizationsUseCase);
   // CheckAndUnblockFeaturesUseCase must be registered before UpdateFeatureLifecycleUseCase
   // because the latter injects the former via class token.
   container.registerSingleton(CheckAndUnblockFeaturesUseCase);
@@ -424,6 +432,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register(`IAgentSessionRepository:${AgentType.CodexCli}`, {
     useFactory: () => new CodexCliSessionRepository(),
   });
+  container.register(`IAgentSessionRepository:${AgentType.CopilotCli}`, {
+    useFactory: () => new StubSessionRepository(AgentType.CopilotCli),
+  });
 
   container.registerSingleton(AgentSessionRepositoryRegistry);
   container.registerSingleton(ListAgentSessionsUseCase);
@@ -449,8 +460,14 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('StartFeatureUseCase', {
     useFactory: (c) => c.resolve(StartFeatureUseCase),
   });
+  container.register('UpdateFeaturePinnedConfigUseCase', {
+    useFactory: (c) => c.resolve(UpdateFeaturePinnedConfigUseCase),
+  });
   container.register('AdoptBranchUseCase', {
     useFactory: (c) => c.resolve(AdoptBranchUseCase),
+  });
+  container.register('StopAgentRunUseCase', {
+    useFactory: (c) => c.resolve(StopAgentRunUseCase),
   });
   container.register('ApproveAgentRunUseCase', {
     useFactory: (c) => c.resolve(ApproveAgentRunUseCase),
@@ -493,6 +510,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('ListGitHubRepositoriesUseCase', {
     useFactory: (c) => c.resolve(ListGitHubRepositoriesUseCase),
+  });
+  container.register('ListGitHubOrganizationsUseCase', {
+    useFactory: (c) => c.resolve(ListGitHubOrganizationsUseCase),
   });
   container.register('CheckAndUnblockFeaturesUseCase', {
     useFactory: (c) => c.resolve(CheckAndUnblockFeaturesUseCase),
@@ -572,6 +592,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(SendInteractiveMessageUseCase);
   container.registerSingleton(StopInteractiveSessionUseCase);
   container.registerSingleton(GetInteractiveChatStateUseCase);
+  container.registerSingleton(RespondToInteractionUseCase);
 
   // String-token aliases for web routes (Turbopack can't resolve .js→.ts
   // imports inside @shepai/core, so routes use string tokens instead of class refs)
@@ -586,6 +607,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('GetInteractiveChatStateUseCase', {
     useFactory: (c) => c.resolve(GetInteractiveChatStateUseCase),
+  });
+  container.register('RespondToInteractionUseCase', {
+    useFactory: (c) => c.resolve(RespondToInteractionUseCase),
   });
 
   // Startup cleanup: mark any zombie sessions (booting/ready from a prior server run) as stopped

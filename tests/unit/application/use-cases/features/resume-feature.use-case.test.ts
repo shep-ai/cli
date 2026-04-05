@@ -73,6 +73,7 @@ function createTestFeature(overrides?: Partial<Feature>): Feature {
     commitSpecs: true,
     ciWatchEnabled: true,
     enableEvidence: false,
+    injectSkills: false,
     commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     agentRunId: 'run-001',
@@ -164,6 +165,46 @@ describe('ResumeFeatureUseCase', () => {
       expect.any(String),
       expect.objectContaining({
         agentType: 'dev',
+      })
+    );
+  });
+
+  it('should clone the switched agent config into the retry run and spawn options', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature());
+    runRepo.findById.mockResolvedValue(
+      createTestRun({
+        status: AgentRunStatus.failed,
+        agentType: 'codex-cli' as any,
+        modelId: 'gpt-5.4',
+        threadId: 'thread-switched',
+      })
+    );
+
+    await useCase.execute('feat-001');
+
+    const createdRun = runRepo.create.mock.calls[0]?.[0];
+
+    expect(createdRun).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        agentType: 'codex-cli',
+        modelId: 'gpt-5.4',
+        threadId: 'thread-switched',
+        featureId: 'feat-001',
+        status: AgentRunStatus.pending,
+      })
+    );
+    expect(processService.spawn).toHaveBeenCalledWith(
+      'feat-001',
+      createdRun.id,
+      '/test/repo',
+      '/wt/path/specs/001-test-feature',
+      '/wt/path',
+      expect.objectContaining({
+        resume: true,
+        threadId: 'thread-switched',
+        agentType: 'codex-cli',
+        model: 'gpt-5.4',
       })
     );
   });

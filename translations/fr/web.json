@@ -14,6 +14,7 @@
       "notifications": "Notifications",
       "flags": "Drapeaux",
       "chat": "Chat",
+      "layout": "Disposition",
       "database": "Base de données"
     },
     "language": {
@@ -145,6 +146,8 @@
       "planDescription": "Délai de planification de l'implémentation",
       "implement": "Implémenter",
       "implementDescription": "Délai d'implémentation du code",
+      "fastImplement": "Implémentation Rapide",
+      "fastImplementDescription": "Délai d'implémentation en mode rapide",
       "merge": "Fusion",
       "mergeDescription": "Délai de création et fusion de PR",
       "hint": "Chaque agent a des délais par étape configurables indépendamment. Lorsqu'une étape dépasse son délai, l'agent est terminé. Des délais plus longs sont utiles pour les implémentations complexes. L'agent de fonctionnalité a un délai par défaut de 30 minutes par étape. L'agent d'analyse de dépôt a un délai par défaut de 10 minutes."
@@ -199,6 +202,8 @@
       "gitRebaseSyncDescription": "Activer les opérations de rebase-on-main et sync-main de git",
       "reactFileManager": "Gestionnaire de fichiers React",
       "reactFileManagerDescription": "Utiliser le gestionnaire de fichiers React intégré au lieu du sélecteur de dossier natif du système",
+      "inventory": "Inventaire",
+      "inventoryDescription": "Activer la page Inventaire affichant tous les dépôts et fonctionnalités en vue arborescente",
       "hint": "Fonctionnalités expérimentales encore en cours de développement. Activez à vos risques et périls — elles peuvent changer ou être supprimées dans les versions futures. Le mode débogage ajoute une journalisation détaillée utile pour le dépannage."
     },
     "interactiveAgent": {
@@ -211,6 +216,13 @@
       "maxConcurrentSessions": "Sessions simultanées max",
       "maxConcurrentSessionsDescription": "Nombre maximum de sessions d'agent interactif actives simultanément (1-10)",
       "hint": "L'onglet Chat lance un processus d'agent persistant par fonctionnalité. Le délai d'inactivité automatique arrête les sessions inactives pour économiser les ressources. Le plafond de sessions simultanées empêche l'utilisation incontrôlée des ressources sur les machines de développement."
+    },
+    "fabLayout": {
+      "title": "Disposition",
+      "description": "Contrôler la position des boutons d'action flottants dans le centre de contrôle",
+      "swapPosition": "Inverser les positions des FAB",
+      "swapPositionDescription": "Déplacer le bouton Chat à gauche et le bouton Créer à droite",
+      "hint": "Les deux boutons d'action flottants (Créer et Chat) se trouvent dans les coins inférieurs du centre de contrôle. Activez cette option pour inverser leurs positions."
     },
     "database": {
       "title": "Base de données",
@@ -230,6 +242,7 @@
     "controlCenter": "Centre de contrôle",
     "dashboard": "Tableau de bord",
     "features": "Fonctionnalités",
+    "inventory": "Inventaire",
     "repositories": "Dépôts",
     "settings": "Paramètres",
     "sessions": "Sessions",
@@ -256,7 +269,7 @@
     "deleteSubFeatures": "Supprimer les sous-fonctionnalités",
     "closePullRequest": "Fermer la pull request",
     "cancel": "Annuler",
-    "deleting": "Suppression\u2026",
+    "deleting": "Suppression…",
     "delete": "Supprimer"
   },
   "rejectFeedback": {
@@ -265,25 +278,25 @@
     "ariaLabel": "Retour de rejet",
     "placeholder": "Décrivez ce qui doit changer...",
     "cancel": "Annuler",
-    "rejecting": "Rejet en cours\u2026",
+    "rejecting": "Rejet en cours…",
     "confirmReject": "Confirmer le rejet"
   },
   "emptyState": {
     "addProject": "Ajouter un projet",
     "addProjectDescription": "Ajoutez votre dossier de projet pour débloquer la création de fonctionnalités.",
-    "addProjectDescriptionLine2": "Décrivez ce dont vous avez besoin \u2014 Shep s'occupe du reste.",
-    "checkingSetup": "Vérification de la configuration\u2026",
+    "addProjectDescriptionLine2": "Décrivez ce dont vous avez besoin — Shep s'occupe du reste.",
+    "checkingSetup": "Vérification de la configuration…",
     "ready": "{{label}} prêt",
     "notInstalled": "{{label}} non installé",
     "reCheck": "Revérifier",
     "needsAuth": "{{label}} nécessite une authentification",
     "open": "Ouvrir {{label}}",
-    "checking": "Vérification de {{label}}\u2026",
+    "checking": "Vérification de {{label}}…",
     "notFound": "{{label}} introuvable",
     "docs": "Documentation",
-    "opening": "Ouverture\u2026",
+    "opening": "Ouverture…",
     "chooseFolder": "Choisir un dossier",
-    "folderHint": "N'importe quel dossier fonctionne \u2014 git sera initialisé automatiquement si nécessaire.",
+    "folderHint": "N'importe quel dossier fonctionne — git sera initialisé automatiquement si nécessaire.",
     "orUseCli": "ou utilisez le CLI",
     "copyCommands": "Copier les commandes",
     "git": "Git",
@@ -292,7 +305,7 @@
     "githubCliRequired": "Requis pour les pull requests"
   },
   "welcome": {
-    "loadingAgents": "Chargement des agents\u2026",
+    "loadingAgents": "Chargement des agents…",
     "chooseAgent": "Choisissez votre agent",
     "pickModel": "Choisissez un modèle",
     "selectAgentSubtitle": "Sélectionnez l'agent de codage IA que vous souhaitez que Shep utilise.",
@@ -340,11 +353,11 @@
     "stopDevServer": "Arrêter le serveur",
     "startDevServer": "Démarrer le serveur",
     "retryDevServer": "Relancer le serveur",
-    "starting": "Démarrage\u2026",
+    "starting": "Démarrage…",
     "retry": "Réessayer",
     "start": "Démarrer",
     "failed": "Échec",
-    "deleting": "Suppression\u2026",
+    "deleting": "Suppression…",
     "addFeature": "Ajouter une fonctionnalité",
     "reviewRequirements": "Vérifier les exigences",
     "reviewTechnicalPlan": "Vérifier le plan technique",
@@ -465,7 +478,11 @@
     "plan": "Plan",
     "planDescription": "Auto-approuver la transition de la planification vers l'implémentation.",
     "merge": "Merge",
-    "mergeDescription": "Auto-approuver la transition du merge vers terminé."
+    "mergeDescription": "Auto-approuver la transition du merge vers terminé.",
+    "skills": "SKILLS",
+    "skillsDescription": "Curated skills to guide the agent during feature development.",
+    "injectSkills": "Inject",
+    "injectSkillsDescription": "Include curated skills in the feature worktree."
   },
   "featureDrawer": {
     "copyFeatureId": "Copier l'ID de la fonctionnalité",
@@ -579,7 +596,7 @@
     "addRepository": "Ajouter un dépôt"
   },
   "modelPicker": {
-    "searchPlaceholder": "Rechercher ou saisir un ID de modèle\u2026"
+    "searchPlaceholder": "Rechercher ou saisir un ID de modèle…"
   },
   "skills": {
     "searchPlaceholder": "Rechercher des compétences..."

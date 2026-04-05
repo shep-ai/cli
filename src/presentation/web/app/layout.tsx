@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import '@xyflow/react/dist/base.css';
-import '@cubone/react-file-manager/dist/style.css';
 import './globals.css';
 import { AppShell } from '@/components/layouts/app-shell';
 import { Toaster } from '@/components/ui/sonner';
 import { getFeatureFlags } from '@/lib/feature-flags';
+import { getFabLayout } from '@/lib/fab-layout';
 import { FeatureFlagsProvider } from '@/hooks/feature-flags-context';
+import { FabLayoutProvider } from '@/hooks/fab-layout-context';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { I18nProvider } from '@/components/providers/i18n-provider';
 import { getLanguagePreference } from '@/lib/language';
@@ -57,7 +58,9 @@ export default async function RootLayout({
         <I18nProvider initialLanguage={language}>
           <QueryProvider>
             <FeatureFlagsProvider flags={getFeatureFlags()}>
-              <AppShell sidebarOpen={sidebarOpen}>{children}</AppShell>
+              <FabLayoutProvider layout={getFabLayout()}>
+                <AppShell sidebarOpen={sidebarOpen}>{children}</AppShell>
+              </FabLayoutProvider>
             </FeatureFlagsProvider>
           </QueryProvider>
         </I18nProvider>

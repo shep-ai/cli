@@ -260,10 +260,13 @@ model StageTimeouts {
   @doc("Timeout for the plan stage (default: 600000)")
   planMs?: int32;
 
-  @doc("Timeout for the implement stage (default: 600000)")
+  @doc("Timeout for the implement stage (default: 1800000)")
   implementMs?: int32;
 
-  @doc("Timeout for the merge stage (default: 600000)")
+  @doc("Timeout for the fast-implement stage (default: 1800000)")
+  fastImplementMs?: int32;
+
+  @doc("Timeout for the merge stage (default: 1800000)")
   mergeMs?: int32;
 }
 
@@ -278,6 +281,65 @@ model StageTimeouts {
 model AnalyzeRepoTimeouts {
   @doc("Timeout for the repository analysis stage (default: 600000)")
   analyzeMs?: int32;
+}
+
+/**
+ * Skill Source Type
+ *
+ * Indicates how a skill is provisioned into a worktree:
+ * - local: Copied from the main repository's .claude/skills/ directory
+ * - remote: Installed via `npx skills add` at runtime
+ */
+@doc("How a skill is provisioned into a worktree")
+enum SkillSourceType {
+  @doc("Copied from the main repository's .claude/skills/ directory")
+  Local: "local",
+
+  @doc("Installed via npx skills add at runtime")
+  Remote: "remote",
+}
+
+/**
+ * Skill Source
+ *
+ * Defines a single skill to be injected into feature worktrees.
+ * Local skills are deep-copied from a path relative to the repository root.
+ * Remote skills are installed via `npx skills add <source> --skill <remoteSkillName>`.
+ */
+@doc("A skill source for injection into feature worktrees")
+model SkillSource {
+  @doc("Unique skill directory name (e.g. 'architecture-reviewer')")
+  name: string;
+
+  @doc("How this skill is provisioned (local copy or remote install)")
+  type: SkillSourceType;
+
+  @doc("Source path (local) or npm package/URL (remote)")
+  source: string;
+
+  @doc("Remote skill name passed to --skill flag (remote type only)")
+  remoteSkillName?: string;
+}
+
+/**
+ * Skill Injection Configuration
+ *
+ * Controls whether curated agent skills are injected into feature worktrees
+ * during CreateFeatureUseCase execution. When enabled, skills from the
+ * configured list are copied/installed into the worktree's .claude/skills/
+ * directory with idempotency (existing skills are skipped) and commit
+ * prevention (.gitignore management).
+ *
+ * Disabled by default (opt-in). Users enable via Settings or per-invocation
+ * with the --inject-skills CLI flag.
+ */
+@doc("Skill injection configuration for feature worktrees")
+model SkillInjectionConfig {
+  @doc("Whether skill injection is enabled (default: false, opt-in)")
+  enabled: boolean = false;
+
+  @doc("List of skills to inject into feature worktrees")
+  skills: SkillSource[];
 }
 
 @doc("Global workflow configuration defaults")
@@ -364,6 +426,15 @@ model WorkflowConfig {
    */
   @doc("Minutes after completion before auto-archiving a feature (default: 10, 0 = disabled)")
   autoArchiveDelayMinutes?: int32;
+
+  /**
+   * Skill injection configuration for feature worktrees.
+   * When enabled, curated skills are copied/installed into the worktree's
+   * .claude/skills/ directory during feature creation.
+   * Optional for backward compatibility with pre-migration databases.
+   */
+  @doc("Skill injection configuration (optional, disabled by default)")
+  skillInjection?: SkillInjectionConfig;
 }
 
 @doc("AI coding agent configuration")
@@ -517,6 +588,9 @@ model FeatureFlags {
 
   @doc("Use the built-in React file manager instead of the native OS folder picker")
   reactFileManager: boolean = false;
+
+  @doc("Enable the Inventory page showing all repositories and features")
+  inventory: boolean = false;
 }
 
 /**
@@ -569,6 +643,30 @@ model InteractiveAgentConfig {
    */
   @doc("Maximum number of concurrent active interactive sessions (default: 3)")
   maxConcurrentSessions: int32 = 3;
+}
+
+/**
+ * FAB Layout Configuration
+ *
+ * Controls the horizontal placement of the two floating action buttons (FABs)
+ * in the web UI control center:
+ * - Create FAB (+): opens the new-feature/add-repo speed-dial
+ * - Chat FAB: opens the global Shep Chat popup
+ *
+ * By default the Create FAB sits on the start side (left in LTR) and the
+ * Chat FAB sits on the end side (right in LTR). When `swapPosition` is true
+ * the positions are mirrored so that the Chat FAB moves to the start side
+ * and the Create FAB moves to the end side.
+ */
+@doc("FAB (floating action button) layout configuration")
+model FabLayoutConfig {
+  /**
+   * When true the Create (+) and Chat FABs swap horizontal positions.
+   * Default layout: Create = start (left in LTR), Chat = end (right in LTR).
+   * Swapped layout: Chat = start (left in LTR), Create = end (right in LTR).
+   */
+  @doc("Swap Create and Chat FAB positions (default: false)")
+  swapPosition: boolean = false;
 }
 
 /**
@@ -710,4 +808,13 @@ model Settings extends BaseEntity {
    */
   @doc("Interactive agent chat configuration (optional, defaults applied at runtime)")
   interactiveAgent?: InteractiveAgentConfig;
+
+  /**
+   * FAB layout configuration.
+   * Controls the horizontal placement of the Create (+) and Chat floating
+   * action buttons in the web UI.
+   * Optional for backward compatibility — defaults applied at runtime.
+   */
+  @doc("FAB layout configuration (optional, defaults applied at runtime)")
+  fabLayout?: FabLayoutConfig;
 }

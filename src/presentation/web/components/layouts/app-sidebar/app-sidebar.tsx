@@ -2,7 +2,19 @@
 
 import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { Home, Moon, Sun, Volume2, VolumeOff, Wrench, Puzzle, Settings } from 'lucide-react';
+import {
+  Home,
+  Moon,
+  Sun,
+  Volume2,
+  VolumeOff,
+  Zap,
+  ZapOff,
+  Wrench,
+  Puzzle,
+  Settings,
+  TableProperties,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Sidebar,
@@ -23,6 +35,7 @@ import { ShepLogo } from '@/components/common/shep-logo';
 import { VersionBadge } from '@/components/common/version-badge';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { useSoundEnabled } from '@/hooks/use-sound-enabled';
+import { useAnimationsEnabled } from '@/hooks/use-animations-enabled';
 import { useTheme } from '@/hooks/useTheme';
 import { useSoundAction } from '@/hooks/use-sound-action';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
@@ -52,6 +65,8 @@ export interface AppSidebarProps {
   featureFlags: FeatureFlagsState;
 
   onFeatureClick?: (featureId: string) => void;
+  /** Called when the user clicks the + button on a repo group to create a feature */
+  onAddFeature?: (repositoryPath: string) => void;
 }
 
 export function AppSidebar({
@@ -59,6 +74,7 @@ export function AppSidebar({
   featureFlags,
 
   onFeatureClick,
+  onAddFeature,
 }: AppSidebarProps) {
   const { t, i18n } = useTranslation('web');
   const pathname = usePathname();
@@ -67,6 +83,7 @@ export function AppSidebar({
   const { mounted: showExpanded, visible: expandedVisible } = useDeferredMount(collapsed, 200);
   const versionData = useVersion();
   const { enabled: soundEnabled, toggle: toggleSound } = useSoundEnabled();
+  const { enabled: animationsEnabled, toggle: toggleAnimations } = useAnimationsEnabled();
   const { resolvedTheme, theme, setTheme } = useTheme();
   const toggleOnSound = useSoundAction('toggle-on');
   const toggleOffSound = useSoundAction('toggle-off');
@@ -97,8 +114,6 @@ export function AppSidebar({
         .filter((g) => g.items.length > 0),
     }));
   }, [features, t]);
-
-  const hasMultipleRepos = repoGroups.length > 1;
 
   return (
     <Sidebar
@@ -147,6 +162,14 @@ export function AppSidebar({
             href="/"
             active={pathname === '/'}
           />
+          {featureFlags.inventory ? (
+            <SidebarNavItem
+              icon={TableProperties}
+              label={t('navigation.inventory')}
+              href="/features"
+              active={pathname === '/features'}
+            />
+          ) : null}
           <SidebarNavItem
             icon={Wrench}
             label={t('navigation.tools')}
@@ -181,49 +204,33 @@ export function AppSidebar({
           >
             <SidebarSectionHeader label={t('sidebar.features')} />
             <ScrollArea className="min-h-0 flex-1">
-              {hasMultipleRepos
-                ? repoGroups.map(({ repoPath, repoName, featureCount, statusGroups }) => (
-                    <RepoGroup key={repoPath} repoName={repoName} featureCount={featureCount}>
-                      {statusGroups.map(({ statusKey, label, items }) => (
-                        <FeatureStatusGroup key={statusKey} label={label} count={items.length}>
-                          {items.map((feature) => (
-                            <FeatureListItem
-                              key={feature.featureId}
-                              name={feature.name}
-                              status={feature.status}
-                              startedAt={feature.startedAt}
-                              duration={feature.duration}
-                              agentType={feature.agentType}
-                              modelId={feature.modelId}
-                              onClick={
-                                onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
-                              }
-                            />
-                          ))}
-                        </FeatureStatusGroup>
+              {repoGroups.map(({ repoPath, repoName, featureCount, statusGroups }) => (
+                <RepoGroup
+                  key={repoPath}
+                  repoName={repoName}
+                  featureCount={featureCount}
+                  onAddFeature={onAddFeature ? () => onAddFeature(repoPath) : undefined}
+                >
+                  {statusGroups.map(({ statusKey, label, items }) => (
+                    <FeatureStatusGroup key={statusKey} label={label} count={items.length}>
+                      {items.map((feature) => (
+                        <FeatureListItem
+                          key={feature.featureId}
+                          name={feature.name}
+                          status={feature.status}
+                          startedAt={feature.startedAt}
+                          duration={feature.duration}
+                          agentType={feature.agentType}
+                          modelId={feature.modelId}
+                          onClick={
+                            onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
+                          }
+                        />
                       ))}
-                    </RepoGroup>
-                  ))
-                : repoGroups.flatMap(({ statusGroups }) =>
-                    statusGroups.map(({ statusKey, label, items }) => (
-                      <FeatureStatusGroup key={statusKey} label={label} count={items.length}>
-                        {items.map((feature) => (
-                          <FeatureListItem
-                            key={feature.featureId}
-                            name={feature.name}
-                            status={feature.status}
-                            startedAt={feature.startedAt}
-                            duration={feature.duration}
-                            agentType={feature.agentType}
-                            modelId={feature.modelId}
-                            onClick={
-                              onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined
-                            }
-                          />
-                        ))}
-                      </FeatureStatusGroup>
-                    ))
-                  )}
+                    </FeatureStatusGroup>
+                  ))}
+                </RepoGroup>
+              ))}
             </ScrollArea>
           </div>
         ) : null}
@@ -307,6 +314,29 @@ export function AppSidebar({
                     </TooltipTrigger>
                     <TooltipContent side="top">
                       {soundEnabled ? t('sidebar.muteSounds') : t('sidebar.unmuteSounds')}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {!collapsed && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton
+                        className="w-auto flex-none"
+                        onClick={() => {
+                          clickSound.play();
+                          toggleAnimations();
+                        }}
+                        aria-label={animationsEnabled ? 'Disable animations' : 'Enable animations'}
+                      >
+                        {animationsEnabled ? (
+                          <Zap className="h-4 w-4" />
+                        ) : (
+                          <ZapOff className="h-4 w-4" />
+                        )}
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {animationsEnabled ? 'Disable animations' : 'Enable animations'}
                     </TooltipContent>
                   </Tooltip>
                 )}

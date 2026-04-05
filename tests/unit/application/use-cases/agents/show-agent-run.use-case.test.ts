@@ -41,6 +41,7 @@ describe('ShowAgentRunUseCase', () => {
       findById: vi.fn().mockResolvedValue(createMockAgentRun()),
       findByThreadId: vi.fn(),
       updateStatus: vi.fn(),
+      updatePinnedConfig: vi.fn(),
       findRunningByPid: vi.fn(),
       list: vi.fn().mockResolvedValue([]),
       delete: vi.fn(),

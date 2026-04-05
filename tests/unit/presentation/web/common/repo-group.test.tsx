@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RepoGroup } from '@/components/common/repo-group';
@@ -95,5 +95,50 @@ describe('RepoGroup', () => {
 
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('does not render add-feature button when onAddFeature is not provided', () => {
+    render(
+      <RepoGroup repoName="my-project" featureCount={1}>
+        <div>child</div>
+      </RepoGroup>
+    );
+
+    expect(screen.queryByTestId('repo-add-feature')).not.toBeInTheDocument();
+  });
+
+  it('renders add-feature button when onAddFeature is provided', () => {
+    render(
+      <RepoGroup repoName="my-project" featureCount={1} onAddFeature={vi.fn()}>
+        <div>child</div>
+      </RepoGroup>
+    );
+
+    expect(screen.getByTestId('repo-add-feature')).toBeInTheDocument();
+  });
+
+  it('calls onAddFeature when the + button is clicked', async () => {
+    const user = userEvent.setup();
+    const onAddFeature = vi.fn();
+
+    render(
+      <RepoGroup repoName="my-project" featureCount={1} onAddFeature={onAddFeature}>
+        <div>child</div>
+      </RepoGroup>
+    );
+
+    await user.click(screen.getByTestId('repo-add-feature'));
+
+    expect(onAddFeature).toHaveBeenCalledOnce();
+  });
+
+  it('has accessible label on the add-feature button', () => {
+    render(
+      <RepoGroup repoName="my-project" featureCount={1} onAddFeature={vi.fn()}>
+        <div>child</div>
+      </RepoGroup>
+    );
+
+    expect(screen.getByLabelText('Add feature to my-project')).toBeInTheDocument();
   });
 });

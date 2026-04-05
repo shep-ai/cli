@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { fn } from '@storybook/test';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
@@ -72,10 +73,28 @@ export const Collapsed: Story = {
   },
 };
 
+export const WithAddFeature: Story = {
+  args: {
+    repoName: 'my-project',
+    featureCount: 2,
+    onAddFeature: fn(),
+    children: (
+      <>
+        <FeatureStatusGroup label="In Progress" count={1}>
+          <FeatureListItem name="Dashboard" status="in-progress" startedAt={Date.now() - 330_000} />
+        </FeatureStatusGroup>
+        <FeatureStatusGroup label="Done" count={1}>
+          <FeatureListItem name="Settings Page" status="done" duration="2h" />
+        </FeatureStatusGroup>
+      </>
+    ),
+  },
+};
+
 export const MultipleRepos: Story = {
   render: () => (
     <>
-      <RepoGroup repoName="frontend" featureCount={2}>
+      <RepoGroup repoName="frontend" featureCount={2} onAddFeature={fn()}>
         <FeatureStatusGroup label="In Progress" count={1}>
           <FeatureListItem name="Dashboard" status="in-progress" startedAt={Date.now() - 330_000} />
         </FeatureStatusGroup>
@@ -83,7 +102,7 @@ export const MultipleRepos: Story = {
           <FeatureListItem name="Settings Page" status="done" duration="2h" />
         </FeatureStatusGroup>
       </RepoGroup>
-      <RepoGroup repoName="backend-api" featureCount={2}>
+      <RepoGroup repoName="backend-api" featureCount={2} onAddFeature={fn()}>
         <FeatureStatusGroup label="Action Needed" count={1}>
           <FeatureListItem name="Auth Module" status="action-needed" />
         </FeatureStatusGroup>

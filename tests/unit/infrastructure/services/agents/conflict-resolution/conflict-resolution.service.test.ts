@@ -61,6 +61,9 @@ function createMockGitPrService(): IGitPrService {
     getFailureLogs: vi.fn(),
     syncMain: vi.fn(),
     rebaseOnMain: vi.fn(),
+    stash: vi.fn().mockResolvedValue(false),
+    stashPop: vi.fn().mockResolvedValue(undefined),
+    stashDrop: vi.fn().mockResolvedValue(undefined),
   } as unknown as IGitPrService;
 }
 
@@ -79,8 +82,10 @@ describe('ConflictResolutionService', () => {
   });
 
   it('should resolve conflicts on first attempt — stages and continues', async () => {
-    // Setup: one conflicted file
-    vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue(['src/index.ts']);
+    // Setup: one conflicted file, then no conflicts after rebaseContinue
+    vi.mocked(mockGitPrService.getConflictedFiles)
+      .mockResolvedValueOnce(['src/index.ts'])
+      .mockResolvedValueOnce([]);
 
     // First read: file has conflict markers (before agent resolves)
     // Second read (validation): file is clean after agent resolves
@@ -97,7 +102,9 @@ describe('ConflictResolutionService', () => {
   });
 
   it('should retry on failed first attempt and succeed on second', async () => {
-    vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue(['src/index.ts']);
+    vi.mocked(mockGitPrService.getConflictedFiles)
+      .mockResolvedValueOnce(['src/index.ts'])
+      .mockResolvedValueOnce([]);
 
     // Attempt 1: read file for prompt, then validation fails (markers still present)
     // Attempt 2: read file for feedback, read for prompt, then validation passes
@@ -176,6 +183,109 @@ describe('ConflictResolutionService', () => {
     expect(mockGitPrService.rebaseContinue).toHaveBeenCalledTimes(2);
   });
 
+  it('should handle multi-commit rebase — rebaseContinue succeeds but next commit has conflicts', async () => {
+    // Scenario: rebaseContinue does NOT throw REBASE_CONFLICT but the next
+    // getConflictedFiles call finds conflicts on the subsequent commit.
+    // This tests the loop continuation path after a successful rebaseContinue.
+
+    vi.mocked(mockGitPrService.getConflictedFiles)
+      .mockResolvedValueOnce(['src/a.ts']) // First commit conflicts
+      .mockResolvedValueOnce(['src/b.ts']) // Second commit conflicts (found by loop re-check)
+      .mockResolvedValueOnce([]); // No more conflicts
+
+    mockedReadFileSync
+      // First commit: read for prompt
+      .mockReturnValueOnce('<<<<<<< HEAD\na\n=======\nb\n>>>>>>> feat/x' as never)
+      // First commit: validation — clean
+      .mockReturnValueOnce('resolved a' as never)
+      // Second commit: read for prompt
+      .mockReturnValueOnce('<<<<<<< HEAD\nc\n=======\nd\n>>>>>>> feat/x' as never)
+      // Second commit: validation — clean
+      .mockReturnValueOnce('resolved b' as never);
+
+    // Both rebaseContinue calls succeed without throwing
+    vi.mocked(mockGitPrService.rebaseContinue).mockResolvedValue(undefined);
+
+    await service.resolve('/repo', 'feat/x', 'main');
+
+    expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
+    expect(mockGitPrService.stageFiles).toHaveBeenCalledTimes(2);
+    expect(mockGitPrService.stageFiles).toHaveBeenCalledWith('/repo', ['src/a.ts']);
+    expect(mockGitPrService.stageFiles).toHaveBeenCalledWith('/repo', ['src/b.ts']);
+    expect(mockGitPrService.rebaseContinue).toHaveBeenCalledTimes(2);
+    // Verify the outer loop checked 3 times: conflicts, conflicts, empty
+    expect(mockGitPrService.getConflictedFiles).toHaveBeenCalledTimes(3);
+  });
+
+  it('should handle three-commit rebase where only first and third have conflicts', async () => {
+    // Commit 1: has conflicts → resolve → rebaseContinue → succeeds
+    // Commit 2: no conflicts (clean apply) → rebaseContinue happens internally
+    // Commit 3: has conflicts → resolve → rebaseContinue → succeeds → no more conflicts
+
+    vi.mocked(mockGitPrService.getConflictedFiles)
+      .mockResolvedValueOnce(['src/a.ts']) // First commit conflicts
+      .mockResolvedValueOnce(['src/c.ts']) // Third commit conflicts (second was clean)
+      .mockResolvedValueOnce([]); // No more conflicts
+
+    mockedReadFileSync
+      // First commit: read for prompt
+      .mockReturnValueOnce('<<<<<<< HEAD\na\n=======\nb\n>>>>>>> feat/x' as never)
+      // First commit: validation — clean
+      .mockReturnValueOnce('resolved a' as never)
+      // Third commit: read for prompt
+      .mockReturnValueOnce('<<<<<<< HEAD\ne\n=======\nf\n>>>>>>> feat/x' as never)
+      // Third commit: validation — clean
+      .mockReturnValueOnce('resolved c' as never);
+
+    // First rebaseContinue succeeds (commit 2 applies cleanly, commit 3 conflicts later)
+    // Second rebaseContinue succeeds (all done)
+    vi.mocked(mockGitPrService.rebaseContinue).mockResolvedValue(undefined);
+
+    await service.resolve('/repo', 'feat/x', 'main');
+
+    expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
+    expect(mockGitPrService.stageFiles).toHaveBeenCalledTimes(2);
+    expect(mockGitPrService.stageFiles).toHaveBeenCalledWith('/repo', ['src/a.ts']);
+    expect(mockGitPrService.stageFiles).toHaveBeenCalledWith('/repo', ['src/c.ts']);
+    expect(mockGitPrService.rebaseContinue).toHaveBeenCalledTimes(2);
+    expect(mockGitPrService.getConflictedFiles).toHaveBeenCalledTimes(3);
+  });
+
+  it('should handle two-commit rebase with retries on second commit', async () => {
+    // Commit 1: resolves on first attempt
+    // Commit 2: fails first attempt, resolves on second attempt
+
+    vi.mocked(mockGitPrService.getConflictedFiles)
+      .mockResolvedValueOnce(['src/a.ts']) // First commit conflicts
+      .mockResolvedValueOnce(['src/b.ts']) // Second commit conflicts
+      .mockResolvedValueOnce([]); // No more conflicts
+
+    mockedReadFileSync
+      // First commit: read for prompt
+      .mockReturnValueOnce('<<<<<<< HEAD\na\n=======\nb\n>>>>>>> feat/x' as never)
+      // First commit: validation — clean
+      .mockReturnValueOnce('resolved a' as never)
+      // Second commit attempt 1: read for prompt
+      .mockReturnValueOnce('<<<<<<< HEAD\nc\n=======\nd\n>>>>>>> feat/x' as never)
+      // Second commit attempt 1: validation — still has markers
+      .mockReturnValueOnce('<<<<<<< HEAD\nc\n=======\nd\n>>>>>>> feat/x' as never)
+      // Second commit attempt 2: buildFeedbackFromRemainingMarkers
+      .mockReturnValueOnce('<<<<<<< HEAD\nc\n=======\nd\n>>>>>>> feat/x' as never)
+      // Second commit attempt 2: read for prompt
+      .mockReturnValueOnce('<<<<<<< HEAD\nc\n=======\nd\n>>>>>>> feat/x' as never)
+      // Second commit attempt 2: validation — clean
+      .mockReturnValueOnce('resolved b' as never);
+
+    vi.mocked(mockGitPrService.rebaseContinue).mockResolvedValue(undefined);
+
+    await service.resolve('/repo', 'feat/x', 'main');
+
+    // 1 attempt on first commit + 2 attempts on second commit = 3 total
+    expect(mockExecutor.execute).toHaveBeenCalledTimes(3);
+    expect(mockGitPrService.stageFiles).toHaveBeenCalledTimes(2);
+    expect(mockGitPrService.rebaseContinue).toHaveBeenCalledTimes(2);
+  });
+
   it('should return immediately when no conflicted files are found', async () => {
     vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue([]);
 
@@ -187,7 +297,9 @@ describe('ConflictResolutionService', () => {
   });
 
   it('should pass cwd to executor options', async () => {
-    vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue(['src/index.ts']);
+    vi.mocked(mockGitPrService.getConflictedFiles)
+      .mockResolvedValueOnce(['src/index.ts'])
+      .mockResolvedValueOnce([]);
 
     mockedReadFileSync
       .mockReturnValueOnce('<<<<<<< HEAD\na\n=======\nb\n>>>>>>> feat/x' as never)
@@ -199,5 +311,52 @@ describe('ConflictResolutionService', () => {
       expect.any(String),
       expect.objectContaining({ cwd: '/my/worktree' })
     );
+  });
+
+  describe('resolveStashPop', () => {
+    it('should resolve stash pop conflicts — invokes agent, validates, stages', async () => {
+      vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue(['src/index.ts']);
+
+      mockedReadFileSync
+        // Read for prompt
+        .mockReturnValueOnce('<<<<<<< HEAD\nbase\n=======\nstashed\n>>>>>>> stash' as never)
+        // Validation — clean
+        .mockReturnValueOnce('merged content' as never);
+
+      await service.resolveStashPop('/repo', 'feat/x', 'main');
+
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+      // Prompt should mention stash pop context
+      expect(mockExecutor.execute).toHaveBeenCalledWith(
+        expect.stringContaining('stash pop'),
+        expect.objectContaining({ cwd: '/repo' })
+      );
+      expect(mockGitPrService.stageFiles).toHaveBeenCalledWith('/repo', ['src/index.ts']);
+    });
+
+    it('should throw clear error after 3 failed stash pop resolution attempts', async () => {
+      vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue(['src/index.ts']);
+
+      // All reads return file with conflict markers
+      mockedReadFileSync.mockReturnValue(
+        '<<<<<<< HEAD\nbase\n=======\nstashed\n>>>>>>> stash' as never
+      );
+
+      const error = await service.resolveStashPop('/repo', 'feat/x', 'main').catch((e) => e);
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toContain('git stash pop');
+      expect(error.message).toContain('3 attempts');
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(3);
+    });
+
+    it('should return immediately when no conflicted files from stash pop', async () => {
+      vi.mocked(mockGitPrService.getConflictedFiles).mockResolvedValue([]);
+
+      await service.resolveStashPop('/repo', 'feat/x', 'main');
+
+      expect(mockExecutor.execute).not.toHaveBeenCalled();
+      expect(mockGitPrService.stageFiles).not.toHaveBeenCalled();
+    });
   });
 });

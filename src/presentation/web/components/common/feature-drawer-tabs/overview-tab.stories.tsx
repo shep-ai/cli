@@ -157,6 +157,41 @@ export const Error: Story = {
   args: { data: errorData },
 };
 
+/** Pending feature with the pinned execution switch visible. */
+export const PendingWithPinnedConfigSwitch: Story = {
+  args: {
+    data: {
+      ...noProgressData,
+      state: 'pending',
+      agentType: 'codex-cli',
+      modelId: 'gpt-5.4',
+    },
+    pinnedConfig: {
+      agentType: 'codex-cli',
+      modelId: 'gpt-5.4',
+      onSave: async () => ({ ok: true }),
+    },
+  },
+};
+
+/** Pending feature showing inline save feedback for the pinned execution switch. */
+export const PendingWithPinnedConfigError: Story = {
+  args: {
+    data: {
+      ...noProgressData,
+      state: 'pending',
+      agentType: 'claude-code',
+      modelId: 'claude-sonnet-4-6',
+    },
+    pinnedConfig: {
+      agentType: 'claude-code',
+      modelId: 'claude-sonnet-4-6',
+      error: 'Could not save pinned config',
+      onSave: async () => ({ ok: false, error: 'Could not save pinned config' }),
+    },
+  },
+};
+
 const errorWithRetryData: FeatureNodeData = {
   ...errorData,
   onRetry: fn(),
@@ -408,5 +443,19 @@ export const RebaseError: Story = {
     onRebaseOnMain: fn(),
     rebaseLoading: false,
     rebaseError: 'Rebase failed: unresolvable conflicts in src/index.ts',
+  },
+};
+
+/* ---------------------------------------------------------------------------
+ * Injected skills stories
+ * ------------------------------------------------------------------------- */
+
+/** Feature with injected skills displayed in a dedicated section. */
+export const WithInjectedSkills: Story = {
+  args: {
+    data: {
+      ...fullData,
+      injectedSkills: ['architecture-reviewer', 'cross-validate-artifacts', 'tsp-model'],
+    },
   },
 };

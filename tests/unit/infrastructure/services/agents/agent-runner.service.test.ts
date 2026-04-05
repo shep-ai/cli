@@ -102,6 +102,14 @@ describe('AgentRunnerService', () => {
             }
           }
         ),
+      updatePinnedConfig: vi
+        .fn()
+        .mockImplementation(async (id: string, updates: Partial<AgentRun>) => {
+          const existing = storedRuns.get(id);
+          if (existing) {
+            storedRuns.set(id, { ...existing, ...updates });
+          }
+        }),
       findRunningByPid: vi.fn().mockResolvedValue([]),
       list: vi.fn().mockResolvedValue([]),
       delete: vi.fn().mockResolvedValue(undefined),

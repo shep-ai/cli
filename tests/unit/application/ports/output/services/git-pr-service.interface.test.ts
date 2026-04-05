@@ -191,6 +191,9 @@ describe('IGitPrService', () => {
       stashPop: async () => {
         /* noop */
       },
+      stashDrop: async () => {
+        /* noop */
+      },
     };
 
     // Verify all methods exist
@@ -224,9 +227,10 @@ describe('IGitPrService', () => {
       'getBranchSyncStatus',
       'stash',
       'stashPop',
+      'stashDrop',
     ];
 
-    expect(methodNames).toHaveLength(29);
+    expect(methodNames).toHaveLength(30);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

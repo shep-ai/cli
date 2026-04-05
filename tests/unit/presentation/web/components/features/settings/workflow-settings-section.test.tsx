@@ -56,6 +56,7 @@ describe('WorkflowSettingsSection', () => {
     expect(screen.getByTestId('stage-timeout-researchTimeout-input')).toBeDefined();
     expect(screen.getByTestId('stage-timeout-planTimeout-input')).toBeDefined();
     expect(screen.getByTestId('stage-timeout-implementTimeout-input')).toBeDefined();
+    expect(screen.getByTestId('stage-timeout-fastImplementTimeout-input')).toBeDefined();
     expect(screen.getByTestId('stage-timeout-mergeTimeout-input')).toBeDefined();
   });
 

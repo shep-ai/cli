@@ -18,7 +18,7 @@ import type {
   EnvironmentConfig,
   SystemConfig,
 } from '@/domain/generated/output.js';
-import { AgentType, AgentAuthMethod } from '@/domain/generated/output.js';
+import { AgentType, AgentAuthMethod, SkillSourceType } from '@/domain/generated/output.js';
 
 describe('createDefaultSettings', () => {
   describe('return type and structure', () => {
@@ -319,6 +319,7 @@ describe('createDefaultSettings', () => {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        inventory: false,
       });
     });
   });
@@ -344,7 +345,118 @@ describe('createDefaultSettings', () => {
         commitEvidence: false,
         defaultFastMode: true,
         autoArchiveDelayMinutes: 10,
+        skillInjection: {
+          enabled: false,
+          skills: [
+            {
+              name: 'architecture-reviewer',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'architecture-reviewer',
+            },
+            {
+              name: 'cross-validate-artifacts',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'cross-validate-artifacts',
+            },
+            {
+              name: 'mermaid-diagrams',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'mermaid-diagrams',
+            },
+            {
+              name: 'react-flow',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'react-flow',
+            },
+            {
+              name: 'shadcn-ui',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'shadcn-ui',
+            },
+            {
+              name: 'tsp-model',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'tsp-model',
+            },
+            {
+              name: 'vercel-react-best-practices',
+              type: SkillSourceType.Remote,
+              source: 'shep-ai/shep',
+              remoteSkillName: 'vercel-react-best-practices',
+            },
+            {
+              name: 'frontend-design',
+              type: SkillSourceType.Remote,
+              source: 'anthropics/claude-code',
+              remoteSkillName: 'frontend-design',
+            },
+          ],
+        },
       });
+    });
+  });
+
+  describe('SkillInjectionConfig defaults', () => {
+    it('should have skillInjection defined on workflow', () => {
+      const settings = createDefaultSettings();
+      expect(settings.workflow.skillInjection).toBeDefined();
+    });
+
+    it('should have skillInjection.enabled set to false', () => {
+      const settings = createDefaultSettings();
+      expect(settings.workflow.skillInjection!.enabled).toBe(false);
+    });
+
+    it('should have 8 default skills', () => {
+      const settings = createDefaultSettings();
+      expect(settings.workflow.skillInjection!.skills).toHaveLength(8);
+    });
+
+    it('should have all skills as remote type', () => {
+      const settings = createDefaultSettings();
+      const remoteSkills = settings.workflow.skillInjection!.skills.filter(
+        (s) => s.type === SkillSourceType.Remote
+      );
+      expect(remoteSkills).toHaveLength(8);
+    });
+
+    it('should have each remote skill with a remoteSkillName matching its name', () => {
+      const settings = createDefaultSettings();
+      for (const skill of settings.workflow.skillInjection!.skills) {
+        expect(skill.remoteSkillName).toBe(skill.name);
+      }
+    });
+
+    it('should have remote frontend-design skill with correct source and skill name', () => {
+      const settings = createDefaultSettings();
+      const remoteSkill = settings.workflow.skillInjection!.skills.find(
+        (s) => s.name === 'frontend-design'
+      );
+      expect(remoteSkill).toBeDefined();
+      expect(remoteSkill!.type).toBe(SkillSourceType.Remote);
+      expect(remoteSkill!.source).toBe('anthropics/claude-code');
+      expect(remoteSkill!.remoteSkillName).toBe('frontend-design');
+    });
+
+    it('should include the expected skill names', () => {
+      const settings = createDefaultSettings();
+      const names = settings.workflow.skillInjection!.skills.map((s) => s.name);
+      expect(names).toEqual([
+        'architecture-reviewer',
+        'cross-validate-artifacts',
+        'mermaid-diagrams',
+        'react-flow',
+        'shadcn-ui',
+        'tsp-model',
+        'vercel-react-best-practices',
+        'frontend-design',
+      ]);
     });
   });
 

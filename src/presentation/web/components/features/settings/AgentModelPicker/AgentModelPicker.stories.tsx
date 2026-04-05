@@ -1,3 +1,4 @@
+import * as React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
 import { AgentModelPicker } from './index';
@@ -21,6 +22,25 @@ const meta: Meta<typeof AgentModelPicker> = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+function ParentDrivenSelectionDemo(props: React.ComponentProps<typeof AgentModelPicker>) {
+  const [selection, setSelection] = React.useState({
+    agentType: props.initialAgentType,
+    model: props.initialModel,
+  });
+
+  return (
+    <AgentModelPicker
+      {...props}
+      agentType={selection.agentType}
+      model={selection.model}
+      onSave={async (agentType, model) => {
+        setSelection({ agentType, model });
+        return { ok: true };
+      }}
+    />
+  );
+}
 
 export const ClaudeCodeDefault: Story = {
   args: {
@@ -62,6 +82,14 @@ export const DemoAgent: Story = {
   },
 };
 
+export const CopilotCli: Story = {
+  args: {
+    initialAgentType: 'copilot-cli',
+    initialModel: 'claude-sonnet-4.5',
+    mode: 'settings',
+  },
+};
+
 export const OverrideMode: Story = {
   args: {
     initialAgentType: 'claude-code',
@@ -76,5 +104,25 @@ export const Disabled: Story = {
     initialModel: 'claude-sonnet-4-6',
     mode: 'settings',
     disabled: true,
+  },
+};
+
+export const SavingState: Story = {
+  args: {
+    initialAgentType: 'codex-cli',
+    initialModel: 'gpt-5.4',
+    mode: 'settings',
+    saving: true,
+  },
+};
+
+export const ParentDrivenSelection: Story = {
+  render: (args) => (
+    <ParentDrivenSelectionDemo {...(args as React.ComponentProps<typeof AgentModelPicker>)} />
+  ),
+  args: {
+    initialAgentType: 'claude-code',
+    initialModel: 'claude-sonnet-4-6',
+    mode: 'settings',
   },
 };

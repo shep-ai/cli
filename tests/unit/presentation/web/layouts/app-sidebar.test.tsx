@@ -46,6 +46,7 @@ const defaultFlags = {
   adoptBranch: false,
   gitRebaseSync: false,
   reactFileManager: false,
+  inventory: true,
 };
 
 function renderWithSidebar(ui: React.ReactElement) {
@@ -107,9 +108,12 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Tools')).toBeInTheDocument();
   });
 
-  it('renders Features label in content', () => {
+  it('renders Inventory nav item and Features section header in content', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
+    // "Inventory" appears as the nav item when inventory flag is enabled
+    expect(screen.getByText('Inventory')).toBeInTheDocument();
+    // "Features" appears as the sidebar section header
     expect(screen.getByText('Features')).toBeInTheDocument();
   });
 
@@ -151,11 +155,13 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
-  it('does not show repo groups when there is only one repository', () => {
+  it('shows repo group even when there is only one repository', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} featureFlags={defaultFlags} />);
 
-    // Should not render repo group headers for single repo
-    expect(screen.queryByTestId('repo-group')).not.toBeInTheDocument();
+    // Should render repo group header for single repo
+    const repoGroups = screen.getAllByTestId('repo-group');
+    expect(repoGroups).toHaveLength(1);
+    expect(screen.getByText('my-app')).toBeInTheDocument();
   });
 
   it('shows repo groups when there are multiple repositories', () => {
@@ -199,5 +205,32 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Auth Module')).toBeInTheDocument();
     expect(screen.getByText('API Gateway')).toBeInTheDocument();
     expect(screen.getByText('Settings Page')).toBeInTheDocument();
+  });
+
+  it('renders add-feature buttons on repo groups when onAddFeature is provided', () => {
+    renderWithSidebar(
+      <AppSidebar features={mockFeatures} featureFlags={defaultFlags} onAddFeature={vi.fn()} />
+    );
+
+    const addButtons = screen.getAllByTestId('repo-add-feature');
+    expect(addButtons).toHaveLength(1);
+  });
+
+  it('calls onAddFeature with repository path when add-feature button is clicked', async () => {
+    const handleAddFeature = vi.fn();
+    const user = userEvent.setup();
+
+    renderWithSidebar(
+      <AppSidebar
+        features={mockFeatures}
+        featureFlags={defaultFlags}
+        onAddFeature={handleAddFeature}
+      />
+    );
+
+    await user.click(screen.getByTestId('repo-add-feature'));
+
+    expect(handleAddFeature).toHaveBeenCalledOnce();
+    expect(handleAddFeature).toHaveBeenCalledWith('/home/user/projects/my-app');
   });
 });

@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-feature-model-switch
+
+ ✓ |web| tests/unit/presentation/web/components/features/settings/AgentModelPicker.test.tsx (4 tests) 221ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  11:08:25
+   Duration  1.19s (transform 129ms, setup 164ms, import 245ms, tests 221ms, environment 486ms)
+

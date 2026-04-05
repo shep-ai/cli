@@ -200,6 +200,7 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
       getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
       stash: vi.fn().mockResolvedValue(false),
       stashPop: vi.fn().mockResolvedValue(undefined),
+      stashDrop: vi.fn().mockResolvedValue(undefined),
     },
     cleanupFeatureWorktreeUseCase: { execute: vi.fn().mockResolvedValue(undefined) } as any,
   };

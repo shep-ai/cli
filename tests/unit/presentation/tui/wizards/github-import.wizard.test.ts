@@ -23,6 +23,7 @@ import type {
   GitHubRepo,
 } from '@/application/ports/output/services/github-repository-service.interface.js';
 import type { ListGitHubRepositoriesUseCase } from '@/application/use-cases/repositories/list-github-repositories.use-case.js';
+import type { ListGitHubOrganizationsUseCase } from '@/application/use-cases/repositories/list-github-organizations.use-case.js';
 
 const mockSelect = select as ReturnType<typeof vi.fn>;
 const mockInput = input as ReturnType<typeof vi.fn>;
@@ -36,6 +37,7 @@ function createMockGitHubService(): IGitHubRepositoryService {
     checkAuth: vi.fn().mockResolvedValue(undefined),
     cloneRepository: vi.fn().mockResolvedValue(undefined),
     listUserRepositories: vi.fn().mockResolvedValue([]),
+    listOrganizations: vi.fn().mockResolvedValue([]),
     parseGitHubUrl: vi.fn().mockReturnValue({
       owner: 'octocat',
       repo: 'my-project',
@@ -49,6 +51,12 @@ function createMockListUseCase(): ListGitHubRepositoriesUseCase {
   return {
     execute: vi.fn().mockResolvedValue([]),
   } as unknown as ListGitHubRepositoriesUseCase;
+}
+
+function createMockListOrgsUseCase(): ListGitHubOrganizationsUseCase {
+  return {
+    execute: vi.fn().mockResolvedValue([]),
+  } as unknown as ListGitHubOrganizationsUseCase;
 }
 
 function createTestRepos(): GitHubRepo[] {
@@ -73,11 +81,13 @@ function createTestRepos(): GitHubRepo[] {
 describe('githubImportWizard', () => {
   let gitHubService: IGitHubRepositoryService;
   let listUseCase: ReturnType<typeof createMockListUseCase>;
+  let listOrgsUseCase: ReturnType<typeof createMockListOrgsUseCase>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     gitHubService = createMockGitHubService();
     listUseCase = createMockListUseCase();
+    listOrgsUseCase = createMockListOrgsUseCase();
   });
 
   // -------------------------------------------------------------------------
@@ -180,7 +190,7 @@ describe('githubImportWizard', () => {
       });
     });
 
-    it('should call listUseCase with limit 30', async () => {
+    it('should call listUseCase with limit 30 and no owner for personal repos', async () => {
       const repos = createTestRepos();
       (listUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(repos);
 
@@ -189,7 +199,7 @@ describe('githubImportWizard', () => {
 
       await githubImportWizard(gitHubService, listUseCase);
 
-      expect(listUseCase.execute).toHaveBeenCalledWith({ limit: 30 });
+      expect(listUseCase.execute).toHaveBeenCalledWith({ limit: 30, owner: undefined });
     });
 
     it('should display repos with name, visibility badge, and description', async () => {
@@ -225,6 +235,123 @@ describe('githubImportWizard', () => {
       await expect(githubImportWizard(gitHubService, listUseCase)).rejects.toThrow(
         'No repositories found'
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Multi-org browse path
+  // -------------------------------------------------------------------------
+
+  describe('Multi-org browse path', () => {
+    it('should show org selector when orgs are available', async () => {
+      const orgs = [
+        { login: 'my-org', description: 'My organization' },
+        { login: 'another-org', description: '' },
+      ];
+      (listOrgsUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(orgs);
+
+      const repos = createTestRepos();
+      (listUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(repos);
+
+      mockSelect
+        .mockResolvedValueOnce('browse') // method choice
+        .mockResolvedValueOnce('__personal__') // owner selection (personal)
+        .mockResolvedValueOnce('octocat/my-project'); // repo selection
+      mockInput.mockResolvedValueOnce('');
+
+      await githubImportWizard(gitHubService, listUseCase, listOrgsUseCase);
+
+      // Second select call should be the org selector
+      const ownerSelectCall = mockSelect.mock.calls[1][0];
+      expect(ownerSelectCall.message).toBe('Select account');
+      expect(ownerSelectCall.choices).toEqual([
+        { name: 'My repositories', value: '__personal__' },
+        { name: 'my-org', value: 'my-org', description: 'My organization' },
+        { name: 'another-org', value: 'another-org', description: undefined },
+      ]);
+    });
+
+    it('should pass owner to listUseCase when org is selected', async () => {
+      const orgs = [{ login: 'my-org', description: 'My org' }];
+      (listOrgsUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(orgs);
+
+      const repos = createTestRepos();
+      (listUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(repos);
+
+      mockSelect
+        .mockResolvedValueOnce('browse') // method
+        .mockResolvedValueOnce('my-org') // owner
+        .mockResolvedValueOnce('my-org/my-project'); // repo
+      mockInput.mockResolvedValueOnce('');
+
+      await githubImportWizard(gitHubService, listUseCase, listOrgsUseCase);
+
+      expect(listUseCase.execute).toHaveBeenCalledWith({ limit: 30, owner: 'my-org' });
+    });
+
+    it('should not pass owner when personal repos is selected', async () => {
+      const orgs = [{ login: 'my-org', description: 'My org' }];
+      (listOrgsUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(orgs);
+
+      const repos = createTestRepos();
+      (listUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(repos);
+
+      mockSelect
+        .mockResolvedValueOnce('browse')
+        .mockResolvedValueOnce('__personal__')
+        .mockResolvedValueOnce('octocat/my-project');
+      mockInput.mockResolvedValueOnce('');
+
+      await githubImportWizard(gitHubService, listUseCase, listOrgsUseCase);
+
+      expect(listUseCase.execute).toHaveBeenCalledWith({ limit: 30, owner: undefined });
+    });
+
+    it('should skip org selector when no orgs exist', async () => {
+      (listOrgsUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+      const repos = createTestRepos();
+      (listUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(repos);
+
+      mockSelect
+        .mockResolvedValueOnce('browse') // method
+        .mockResolvedValueOnce('octocat/my-project'); // repo (no org selector)
+      mockInput.mockResolvedValueOnce('');
+
+      await githubImportWizard(gitHubService, listUseCase, listOrgsUseCase);
+
+      // Only 2 select calls (method + repo), no org selector
+      expect(mockSelect).toHaveBeenCalledTimes(2);
+    });
+
+    it('should skip org selector when listOrgsUseCase is not provided', async () => {
+      const repos = createTestRepos();
+      (listUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(repos);
+
+      mockSelect.mockResolvedValueOnce('browse').mockResolvedValueOnce('octocat/my-project');
+      mockInput.mockResolvedValueOnce('');
+
+      await githubImportWizard(gitHubService, listUseCase);
+
+      expect(mockSelect).toHaveBeenCalledTimes(2);
+    });
+
+    it('should gracefully handle org listing failure', async () => {
+      (listOrgsUseCase.execute as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('API error')
+      );
+
+      const repos = createTestRepos();
+      (listUseCase.execute as ReturnType<typeof vi.fn>).mockResolvedValue(repos);
+
+      mockSelect.mockResolvedValueOnce('browse').mockResolvedValueOnce('octocat/my-project');
+      mockInput.mockResolvedValueOnce('');
+
+      // Should not throw — falls back to personal repos
+      const result = await githubImportWizard(gitHubService, listUseCase, listOrgsUseCase);
+
+      expect(result.url).toBe('octocat/my-project');
+      expect(mockSelect).toHaveBeenCalledTimes(2); // no org selector
     });
   });
 

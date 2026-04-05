@@ -41,6 +41,7 @@ export const AllSections: Story = {
         adoptBranch: false,
         gitRebaseSync: false,
         reactFileManager: false,
+        inventory: false,
       },
     },
     shepHome: '/opt/shep',
@@ -75,6 +76,7 @@ export const CustomTimeouts: Story = {
           researchMs: 900000,
           planMs: 600000,
           implementMs: 1800000,
+          fastImplementMs: 1800000,
           mergeMs: 600000,
         },
         analyzeRepoTimeouts: {

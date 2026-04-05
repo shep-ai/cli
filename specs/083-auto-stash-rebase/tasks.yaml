@@ -1,0 +1,284 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "auto-stash-rebase"
+summary: >
+  9 tasks across 3 phases covering bug fixes, unit tests, and integration tests
+  for the auto-stash-rebase feature gaps.
+
+relatedFeatures:
+  - "080-smart-rebase"
+  - "063-prevent-subprocess-stash"
+
+technologies:
+  - "TypeScript"
+  - "tsyringe (DI)"
+  - "Vitest"
+  - "Node.js child_process"
+
+relatedLinks:
+  - title: "Git stash documentation"
+    url: "https://git-scm.com/docs/git-stash"
+
+tasks:
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Update stash message to include feature branch name"
+    description: >
+      Change the stash message in RebaseFeatureOnMainUseCase from the generic
+      'shep-rebase: auto-stash before rebase' to 'shep-auto-stash: <feature.branch>'
+      per spec decision. The feature branch is already available on the feature entity.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "stash() is called with message 'shep-auto-stash: <feature.branch>' where branch is the actual feature branch name"
+      - "Existing unit test for stash message is updated to assert the new format"
+      - "pnpm test:unit passes for the rebase use case test file"
+    tdd:
+      red:
+        - "Update the existing stash message assertion in rebase-feature-on-main.use-case.test.ts to expect 'shep-auto-stash: feat/my-feature' (the sampleFeature.branch value) — test fails because code still uses old message"
+      green:
+        - "Change line 88 in rebase-feature-on-main.use-case.ts to use `shep-auto-stash: ${feature.branch}` instead of the hardcoded string"
+      refactor:
+        - "No refactoring needed — single-line change"
+    estimatedEffort: "15min"
+
+  - id: "task-2"
+    phaseId: "phase-1"
+    title: "Fix multi-commit rebase loop premature return"
+    description: >
+      Fix ConflictResolutionService.resolve() line 106 where `return` exits the entire
+      method after a successful rebaseContinue, preventing detection of conflicts on
+      subsequent commits. Replace with `continue` to loop back to the outer while(true)
+      which checks getConflictedFiles() — if no conflicts remain, it returns at line 59.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "After rebaseContinue succeeds, the outer loop checks for more conflicted files"
+      - "Multi-commit rebases with conflicts on commit 2+ are resolved correctly"
+      - "Single-commit rebases still work (outer loop returns when getConflictedFiles is empty)"
+    tdd:
+      red:
+        - "Write a unit test in a new describe block for ConflictResolutionService that mocks a multi-commit rebase: first getConflictedFiles returns files, after resolve+stage+continue it returns more files for the next commit, then finally returns empty — assert resolve() completes without error and the agent was invoked twice"
+      green:
+        - "Change line 106 in conflict-resolution.service.ts from `return;` to `continue;`"
+      refactor:
+        - "Update the comment on line 104-106 to clarify the continue behavior for multi-commit rebases"
+    estimatedEffort: "30min"
+
+  - id: "task-3"
+    phaseId: "phase-1"
+    title: "Add resolveStashPop method to ConflictResolutionService"
+    description: >
+      Add a new public method resolveStashPop(cwd, featureBranch, baseBranch) that handles
+      stash pop conflicts using the same agent resolution pattern. Unlike resolve() which
+      finishes with stageFiles + rebaseContinue, resolveStashPop finishes with stageFiles +
+      git reset to clean up the stash pop state. Reuses existing private helpers
+      (readConflictedFileContents, validateResolution, buildFeedbackFromRemainingMarkers).
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "resolveStashPop() reads conflicted files, invokes agent, validates, and stages resolved files"
+      - "On success, conflicted files are staged and the partial stash application is cleaned up"
+      - "On failure (retries exhausted), throws a clear error with recovery instructions"
+      - "The prompt includes stash-pop-specific context (not rebase context)"
+      - "Uses the same MAX_RETRIES_PER_COMMIT = 3 constant"
+    tdd:
+      red:
+        - "Write unit test: resolveStashPop invokes agent with stash-pop context prompt, validates resolution, stages files — mock all git ops and agent, assert correct call sequence"
+        - "Write unit test: resolveStashPop throws clear error after 3 failed attempts with recovery instructions mentioning 'git stash pop'"
+      green:
+        - "Implement resolveStashPop() in ConflictResolutionService using the existing private helpers"
+        - "Add a stash-pop-specific prompt builder or add a mode parameter to buildConflictResolutionPrompt"
+      refactor:
+        - "Extract shared retry logic between resolve() and resolveStashPop() if duplication is significant (DRY check)"
+        - "Ensure prompt clearly distinguishes stash pop context from rebase context for the agent"
+    estimatedEffort: "1h"
+
+  - id: "task-4"
+    phaseId: "phase-1"
+    title: "Add stashDrop method to IGitPrService and GitPrService"
+    description: >
+      Add stashDrop(cwd) to the IGitPrService port interface and implement it in
+      GitPrService. After successfully resolving stash pop conflicts, the partially
+      applied stash entry needs to be dropped (git stash drop). Without this, the
+      stash entry remains in the stash list even though its contents have been applied.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "stashDrop(cwd) method defined on IGitPrService interface"
+      - "GitPrService implements stashDrop using execFile('git', ['stash', 'drop'], { cwd })"
+      - "Throws GitPrError on failure (e.g., no stash entries)"
+      - "Unit test verifies stashDrop calls git stash drop with correct cwd"
+    tdd:
+      red:
+        - "Write unit test in git-pr.service.rebase-sync.test.ts: stashDrop calls git stash drop — fails because method does not exist"
+      green:
+        - "Add stashDrop(cwd: string): Promise<void> to IGitPrService interface"
+        - "Implement in GitPrService following the same pattern as stashPop (try/catch with parseGitError)"
+      refactor:
+        - "No refactoring needed — simple git command wrapper"
+    estimatedEffort: "20min"
+
+  - id: "task-5"
+    phaseId: "phase-1"
+    title: "Wire agent-powered stash pop resolution into use case finally block"
+    description: >
+      Update the finally block in RebaseFeatureOnMainUseCase to handle stash pop failures
+      with agent-powered resolution. When stashPop throws, catch the error, invoke
+      conflictResolutionService.resolveStashPop(), and if that also fails, throw a
+      distinguishable error that clearly states the rebase succeeded but stash restoration
+      failed, with recovery instructions.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+      - "task-4"
+    acceptanceCriteria:
+      - "stashPop failure triggers conflictResolutionService.resolveStashPop()"
+      - "If resolveStashPop succeeds, stashDrop is called to clean up the stash entry"
+      - "If resolveStashPop fails, error message distinguishes rebase success from stash pop failure"
+      - "Error message includes recovery instructions (e.g., 'run git stash pop manually')"
+      - "Stash entry is preserved on failure (not dropped) for manual recovery"
+      - "Clean stash pop (no conflicts) still works without invoking resolution service"
+    tdd:
+      red:
+        - "Write unit test: stashPop throws → resolveStashPop called → resolves successfully → stashDrop called — assert the full call sequence"
+        - "Write unit test: stashPop throws → resolveStashPop also throws → error message includes 'rebase succeeded' and 'git stash pop' recovery instructions"
+        - "Write unit test: stashPop succeeds → resolveStashPop NOT called (happy path unchanged)"
+      green:
+        - "Wrap the stashPop call in try/catch within the finally block"
+        - "On catch: call resolveStashPop with cwd, feature.branch, defaultBranch"
+        - "On resolveStashPop success: call stashDrop(cwd)"
+        - "On resolveStashPop failure: throw new error with clear recovery message"
+      refactor:
+        - "Ensure the error message from stash pop failure is distinguishable from rebase errors (NFR-9)"
+        - "Verify timing is recorded correctly for both rebase success + stash pop failure scenario"
+    estimatedEffort: "45min"
+
+  - id: "task-6"
+    phaseId: "phase-2"
+    title: "Unit tests for ConflictResolutionService multi-commit loop"
+    description: >
+      Add comprehensive unit tests for the multi-commit rebase resolution flow in
+      ConflictResolutionService. Tests verify the outer loop correctly handles
+      multiple rounds of conflicts across sequential commits during a rebase.
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "Test: two-commit rebase with conflicts on both commits — agent invoked for each, both resolved"
+      - "Test: three-commit rebase where only first and third have conflicts — agent invoked twice"
+      - "Test: rebaseContinue throws REBASE_CONFLICT (immediate conflict on next commit) — handled by inner loop"
+      - "Test: rebaseContinue succeeds then getConflictedFiles returns more files (deferred conflict) — handled by outer loop"
+      - "All tests pass with pnpm test:unit"
+    tdd:
+      red:
+        - "Write multi-commit test scenarios with mocked getConflictedFiles returning different file lists on sequential calls, mocked rebaseContinue succeeding or throwing REBASE_CONFLICT, and mocked agent executor — assert agent invocation count and final success"
+      green:
+        - "Tests should pass against the fixed code (task-2 already applied). If any fail, adjust the mock setup to match actual behavior"
+      refactor:
+        - "Extract shared mock factory functions if test setup becomes repetitive across scenarios"
+    estimatedEffort: "45min"
+
+  - id: "task-7"
+    phaseId: "phase-2"
+    title: "Unit tests for stash pop conflict resolution flow"
+    description: >
+      Add unit tests to the rebase use case test file covering the stash pop agent
+      resolution path. These tests verify the use case correctly delegates to
+      resolveStashPop when stashPop fails, handles agent success (stashDrop), and
+      handles agent failure (clear error message).
+    state: "Todo"
+    dependencies:
+      - "task-5"
+    acceptanceCriteria:
+      - "Test: stash pop fails → resolveStashPop called → succeeds → stashDrop called → overall success"
+      - "Test: stash pop fails → resolveStashPop fails → error thrown with recovery message"
+      - "Test: stash pop fails after rebase conflict resolution → resolveStashPop called with correct cwd"
+      - "Test: rebase fails + stash pop fails → rebase error propagates (stash pop error does not mask it)"
+      - "Test: stash pop succeeds → resolveStashPop NOT called"
+      - "All tests pass with pnpm test:unit"
+    tdd:
+      red:
+        - "Write test cases with mocked stashPop rejecting, mocked resolveStashPop resolving/rejecting, and verify call sequences and error messages"
+      green:
+        - "Tests should pass against the wired use case (task-5 already applied). Fix any issues discovered"
+      refactor:
+        - "Ensure mock factory functions (createMockConflictResolution) include resolveStashPop in the mock definition"
+    estimatedEffort: "45min"
+
+  - id: "task-8"
+    phaseId: "phase-2"
+    title: "Unit tests for stashDrop on GitPrService"
+    description: >
+      Add unit tests for the new stashDrop method on GitPrService, verifying correct
+      git command invocation and error handling.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "Test: stashDrop calls execFile with ['git', ['stash', 'drop'], { cwd }]"
+      - "Test: stashDrop throws GitPrError on failure (e.g., no stash entries)"
+      - "All tests pass with pnpm test:unit"
+    tdd:
+      red:
+        - "Write test in git-pr.service.rebase-sync.test.ts with mocked exec that asserts git stash drop is called"
+        - "Write test with mocked exec rejection that asserts GitPrError is thrown with GIT_ERROR code"
+      green:
+        - "Tests should pass against the implementation from task-4"
+      refactor:
+        - "No refactoring needed"
+    estimatedEffort: "15min"
+
+  - id: "task-9"
+    phaseId: "phase-3"
+    title: "Integration tests for stash-rebase-pop flow"
+    description: >
+      Add integration tests using real git repositories that verify the full
+      stash-rebase-pop flow. Tests create actual repos with uncommitted changes,
+      upstream commits, and conflicts to validate end-to-end behavior. Uses the
+      existing test harness from git-pr.service.rebase-sync.test.ts.
+    state: "Todo"
+    dependencies:
+      - "task-5"
+      - "task-6"
+      - "task-7"
+      - "task-8"
+    acceptanceCriteria:
+      - "Test: stash before rebase with dirty working directory — stash push called, working directory clean for rebase, stash pop restores changes"
+      - "Test: clean working directory — no stash operations, rebase proceeds normally"
+      - "Test: stash and rebase with upstream changes on different files — no conflicts, stash pop succeeds"
+      - "Test: stash message contains feature branch name in git stash list output"
+      - "All tests pass with pnpm test:int"
+    tdd:
+      red:
+        - "Write integration test using createHarness() that creates a dirty working directory (uncommitted file changes), adds upstream commits, then calls stash/syncMain/rebaseOnMain/stashPop and verifies the uncommitted changes are preserved"
+        - "Write integration test that verifies stash message format by calling git stash list after stash push"
+      green:
+        - "Implementation already exists for the stash/pop operations. Tests should pass. If any fail, fix the implementation"
+      refactor:
+        - "Extract shared setup helpers if test scenarios share common harness configuration"
+    estimatedEffort: "1h"
+
+totalEstimate: "5h 15min"
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The task breakdown covers 9 tasks across 3 phases. Phase 1 addresses the three
+  implementation gaps identified during research: stash message format, multi-commit
+  rebase loop bug, agent-powered stash pop resolution, and the supporting stashDrop
+  method. Phase 2 adds comprehensive unit test coverage for all new and modified
+  behavior. Phase 3 provides integration tests against real git repositories.
+
+  The work starts with the independent fixes (tasks 1, 2, and 4 can run in parallel),
+  then builds the stash pop resolution service (task 3), wires it into the use case
+  (task 5), and finishes with test suites (tasks 6-9). Total estimated effort is
+  approximately 5 hours.
+
+  The implementation leverages existing patterns throughout: the ConflictResolutionService's
+  internal helpers for file reading and validation, the GitPrService's execFile wrapper
+  for new git commands, and the test harness from existing integration tests.

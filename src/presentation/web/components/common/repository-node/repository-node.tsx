@@ -278,7 +278,10 @@ export function RepositoryNode({
                         aria-label={t('repositoryNode.chatWithAgent')}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (data.id) router.push(`/repository/${data.id}/chat`);
+                          if (data.id)
+                            router.push(
+                              `/repository/${data.id}/chat` as Parameters<typeof router.push>[0]
+                            );
                         }}
                         className="nodrag relative cursor-pointer text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300"
                       >

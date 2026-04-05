@@ -14,6 +14,7 @@
       "notifications": "الإشعارات",
       "flags": "العلامات",
       "chat": "المحادثة",
+      "layout": "التخطيط",
       "database": "قاعدة البيانات"
     },
     "language": {
@@ -145,6 +146,8 @@
       "planDescription": "مهلة تخطيط التنفيذ",
       "implement": "التنفيذ",
       "implementDescription": "مهلة تنفيذ الكود",
+      "fastImplement": "التنفيذ السريع",
+      "fastImplementDescription": "مهلة التنفيذ في الوضع السريع",
       "merge": "الدمج",
       "mergeDescription": "مهلة إنشاء PR والدمج",
       "hint": "لكل وكيل مهل زمنية مستقلة وقابلة للتكوين لكل مرحلة. عند تجاوز مرحلة لمهلتها الزمنية، يتم إنهاء الوكيل. المهل الأطول مفيدة للتنفيذات المعقدة. المهلة الافتراضية لوكيل الميزات 30 دقيقة لكل مرحلة. المهلة الافتراضية لوكيل تحليل المستودع 10 دقائق."
@@ -199,6 +202,8 @@
       "gitRebaseSyncDescription": "تمكين عمليات إعادة التأسيس على main ومزامنة main",
       "reactFileManager": "مدير ملفات React",
       "reactFileManagerDescription": "استخدام مدير ملفات React المدمج بدلاً من منتقي مجلدات نظام التشغيل الأصلي",
+      "inventory": "المخزون",
+      "inventoryDescription": "تمكين صفحة المخزون التي تعرض جميع المستودعات والميزات في عرض شجري",
       "hint": "ميزات تجريبية لا تزال قيد التطوير. قم بتمكينها على مسؤوليتك — قد تتغير أو تُزال في الإصدارات المستقبلية. وضع التصحيح يضيف تسجيلًا مفصلاً مفيدًا لاستكشاف الأخطاء."
     },
     "interactiveAgent": {
@@ -211,6 +216,13 @@
       "maxConcurrentSessions": "الحد الأقصى للجلسات المتزامنة",
       "maxConcurrentSessionsDescription": "الحد الأقصى لعدد جلسات الوكيل التفاعلية النشطة في وقت واحد (1–10)",
       "hint": "علامة المحادثة تُنشئ عملية وكيل مستمرة لكل ميزة. المهلة التلقائية تُوقف الجلسات الخاملة تلقائيًا لتوفير الموارد. حد الجلسات المتزامنة يمنع الاستخدام المفرط للموارد على أجهزة المطورين."
+    },
+    "fabLayout": {
+      "title": "التخطيط",
+      "description": "التحكم في موضع أزرار الإجراء العائمة في مركز التحكم",
+      "swapPosition": "تبديل مواضع الأزرار العائمة",
+      "swapPositionDescription": "نقل زر المحادثة إلى اليسار وزر الإنشاء إلى اليمين",
+      "hint": "يوجد زران عائمان (إنشاء ومحادثة) في الزوايا السفلية لمركز التحكم. قم بتفعيل هذا الخيار لتبديل مواضعهما."
     },
     "database": {
       "title": "قاعدة البيانات",
@@ -230,6 +242,7 @@
     "controlCenter": "مركز التحكم",
     "dashboard": "لوحة المعلومات",
     "features": "الميزات",
+    "inventory": "المخزون",
     "repositories": "المستودعات",
     "settings": "الإعدادات",
     "sessions": "الجلسات",
@@ -256,7 +269,7 @@
     "deleteSubFeatures": "حذف الميزات الفرعية",
     "closePullRequest": "إغلاق طلب السحب",
     "cancel": "إلغاء",
-    "deleting": "جارٍ الحذف\u2026",
+    "deleting": "جارٍ الحذف…",
     "delete": "حذف"
   },
   "rejectFeedback": {
@@ -265,23 +278,23 @@
     "ariaLabel": "ملاحظات الرفض",
     "placeholder": "صِف ما يحتاج إلى تغيير...",
     "cancel": "إلغاء",
-    "rejecting": "جارٍ الرفض\u2026",
+    "rejecting": "جارٍ الرفض…",
     "confirmReject": "تأكيد الرفض"
   },
   "emptyState": {
     "addProject": "إضافة مشروع",
     "addProjectDescription": "أضف مجلد مشروعك لفتح إمكانية إنشاء الميزات.",
-    "addProjectDescriptionLine2": "صِف ما تحتاجه \u2014 Shep يتولى الباقي.",
-    "checkingSetup": "جارٍ التحقق من الإعداد\u2026",
+    "addProjectDescriptionLine2": "صِف ما تحتاجه — Shep يتولى الباقي.",
+    "checkingSetup": "جارٍ التحقق من الإعداد…",
     "ready": "{{label}} جاهز",
     "notInstalled": "{{label}} غير مثبت",
     "reCheck": "إعادة التحقق",
     "needsAuth": "{{label}} يحتاج إلى مصادقة",
     "open": "فتح {{label}}",
-    "checking": "جارٍ التحقق من {{label}}\u2026",
+    "checking": "جارٍ التحقق من {{label}}…",
     "notFound": "{{label}} غير موجود",
     "docs": "التوثيق",
-    "opening": "جارٍ الفتح\u2026",
+    "opening": "جارٍ الفتح…",
     "chooseFolder": "اختر مجلدًا",
     "folderHint": "أي مجلد يعمل — سيتم تهيئة git تلقائيًا إذا لزم الأمر.",
     "orUseCli": "أو استخدم CLI",
@@ -292,7 +305,7 @@
     "githubCliRequired": "مطلوب لطلبات السحب"
   },
   "welcome": {
-    "loadingAgents": "جارٍ تحميل الوكلاء\u2026",
+    "loadingAgents": "جارٍ تحميل الوكلاء…",
     "chooseAgent": "اختر وكيلك",
     "pickModel": "اختر نموذجًا",
     "selectAgentSubtitle": "اختر وكيل البرمجة بالذكاء الاصطناعي الذي تريد أن يستخدمه Shep.",
@@ -340,11 +353,11 @@
     "stopDevServer": "إيقاف الخادم",
     "startDevServer": "تشغيل الخادم",
     "retryDevServer": "إعادة تشغيل الخادم",
-    "starting": "جارٍ التشغيل\u2026",
+    "starting": "جارٍ التشغيل…",
     "retry": "إعادة المحاولة",
     "start": "تشغيل",
     "failed": "فشل",
-    "deleting": "جارٍ الحذف\u2026",
+    "deleting": "جارٍ الحذف…",
     "addFeature": "إضافة ميزة",
     "reviewRequirements": "مراجعة المتطلبات",
     "reviewTechnicalPlan": "مراجعة الخطة التقنية",
@@ -465,7 +478,11 @@
     "plan": "خطة",
     "planDescription": "الموافقة التلقائية على انتقال التخطيط إلى التنفيذ.",
     "merge": "دمج",
-    "mergeDescription": "الموافقة التلقائية على انتقال الدمج إلى مكتمل."
+    "mergeDescription": "الموافقة التلقائية على انتقال الدمج إلى مكتمل.",
+    "skills": "SKILLS",
+    "skillsDescription": "Curated skills to guide the agent during feature development.",
+    "injectSkills": "Inject",
+    "injectSkillsDescription": "Include curated skills in the feature worktree."
   },
   "featureDrawer": {
     "copyFeatureId": "نسخ معرف الميزة",
@@ -579,7 +596,7 @@
     "addRepository": "إضافة مستودع"
   },
   "modelPicker": {
-    "searchPlaceholder": "البحث أو كتابة معرف النموذج\u2026"
+    "searchPlaceholder": "البحث أو كتابة معرف النموذج…"
   },
   "skills": {
     "searchPlaceholder": "البحث عن مهارات..."

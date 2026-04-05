@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
-import { resolve, basename, dirname } from 'node:path';
+import { resolve, basename, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -85,8 +85,10 @@ function isDockerAvailable(): boolean {
  * Script paths are controlled by test code (auto-discovered from known directory).
  */
 function runScript(scriptPath: string, timeout: number) {
+  const scriptPathForBash = relative(PROJECT_ROOT, scriptPath).split('\\').join('/');
+
   try {
-    const stdout = execFileSync('bash', [scriptPath], {
+    const stdout = execFileSync('bash', [scriptPathForBash], {
       cwd: PROJECT_ROOT,
       encoding: 'utf-8',
       timeout,

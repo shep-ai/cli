@@ -1,3 +1,97 @@
+# [1.171.0](https://github.com/shep-ai/shep/compare/v1.170.0...v1.171.0) (2026-04-05)
+
+
+### Features
+
+* **cli:** pre-download upgrade package before stopping daemon ([#524](https://github.com/shep-ai/shep/issues/524)) ([4124dfb](https://github.com/shep-ai/shep/commit/4124dfbef0e445aa3269dfaa30a7c99a260f5813))
+
+# [1.170.0](https://github.com/shep-ai/shep/compare/v1.169.1...v1.170.0) (2026-04-05)
+
+
+### Features
+
+* **agents:** add gh repo create fallback when fork fails with no remotes ([#525](https://github.com/shep-ai/shep/issues/525)) ([5a59608](https://github.com/shep-ai/shep/commit/5a596088974b62029db14f5497b6b82216b4b994))
+* **domain:** add skill injection system for feature worktrees ([#509](https://github.com/shep-ai/shep/issues/509)) ([79303db](https://github.com/shep-ai/shep/commit/79303dbf160f4d0afb6435360af2060ad4e4f132))
+* **domain:** auto-stash uncommitted changes before rebase with agent-powered conflict resolution ([#526](https://github.com/shep-ai/shep/issues/526)) ([54e48cd](https://github.com/shep-ai/shep/commit/54e48cd9f7b54d92bc6666d60ef385fa80c859ca))
+
+## [1.169.1](https://github.com/shep-ai/shep/compare/v1.169.0...v1.169.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* **agents:** pass explicit node name to buildExecutorOptions ([#523](https://github.com/shep-ai/shep/issues/523)) ([af39abb](https://github.com/shep-ai/shep/commit/af39abb2373c8fc68bf15ec2e69fb847fa58f64c))
+
+# [1.169.0](https://github.com/shep-ai/shep/compare/v1.168.0...v1.169.0) (2026-04-05)
+
+
+### Features
+
+* **web:** add tabulator-based feature tree table with shadcn styling and repo grouping ([#505](https://github.com/shep-ai/shep/issues/505)) ([18c3dd9](https://github.com/shep-ai/shep/commit/18c3dd97042f7b65ffdbf405479825928a37ba89))
+
+# [1.168.0](https://github.com/shep-ai/shep/compare/v1.167.0...v1.168.0) (2026-04-05)
+
+
+### Features
+
+* **web:** add interactive askuserquestion support in chat ([#478](https://github.com/shep-ai/shep/issues/478)) ([a84cf1c](https://github.com/shep-ai/shep/commit/a84cf1c27f00b08f8fff1cf430d4031821d74483))
+
+# [1.167.0](https://github.com/shep-ai/shep/compare/v1.166.1...v1.167.0) (2026-04-04)
+
+
+### Features
+
+* **web:** add feature model switch for per-feature agent configuration ([#521](https://github.com/shep-ai/shep/issues/521)) ([162d4f5](https://github.com/shep-ai/shep/commit/162d4f5764f1955608a42db9ea51018d2868acfd))
+
+## [1.166.1](https://github.com/shep-ai/shep/compare/v1.166.0...v1.166.1) (2026-04-04)
+
+
+### Bug Fixes
+
+* **config:** register StopAgentRunUseCase string token alias in DI container ([#520](https://github.com/shep-ai/shep/issues/520)) ([2b7621a](https://github.com/shep-ai/shep/commit/2b7621a3c08c2222ffe5db0bdaefcb183cf22bff))
+
+# [1.166.0](https://github.com/shep-ai/shep/compare/v1.165.0...v1.166.0) (2026-04-03)
+
+
+### Features
+
+* **config:** add configurable fast-implement stage timeout ([#516](https://github.com/shep-ai/shep/issues/516)) ([1a6523d](https://github.com/shep-ai/shep/commit/1a6523dfc7548fc71e1a71fb1b0434f9e29c595e))
+
+# [1.165.0](https://github.com/shep-ai/shep/compare/v1.164.1...v1.165.0) (2026-04-02)
+
+
+### Features
+
+* **web:** add create feature button to sidenav repo groups ([#517](https://github.com/shep-ai/shep/issues/517)) ([0405a45](https://github.com/shep-ai/shep/commit/0405a454b9f342f6c33e1864a61edbfbc8ffc1b5))
+
+## [1.164.1](https://github.com/shep-ai/shep/compare/v1.164.0...v1.164.1) (2026-04-02)
+
+
+### Bug Fixes
+
+* **agents:** harden sdk integration and improve chat ux ([#514](https://github.com/shep-ai/shep/issues/514)) ([7e05d0c](https://github.com/shep-ai/shep/commit/7e05d0c560d78eb773f51fb5f34a8bab62b3da83))
+
+# [1.164.0](https://github.com/shep-ai/shep/compare/v1.163.0...v1.164.0) (2026-04-02)
+
+
+### Features
+
+* **web:** ide-inspired drawer tabs redesign with repo overview ([#499](https://github.com/shep-ai/shep/issues/499)) ([d4ddf73](https://github.com/shep-ai/shep/commit/d4ddf733c1ec5d04025af0592e0a15004a4f9d12))
+
+# [1.163.0](https://github.com/shep-ai/shep/compare/v1.162.0...v1.163.0) (2026-04-02)
+
+
+### Features
+
+* **web:** add fab position swap setting ([#508](https://github.com/shep-ai/shep/issues/508)) ([9968774](https://github.com/shep-ai/shep/commit/9968774d5121c310863937d7647a409c74582e47))
+* **web:** support multi-org github repository import ([#506](https://github.com/shep-ai/shep/issues/506)) ([fbc58e6](https://github.com/shep-ai/shep/commit/fbc58e661d74e4c70a3c27449891f425669b6391))
+
+# [1.162.0](https://github.com/shep-ai/shep/compare/v1.161.0...v1.162.0) (2026-04-01)
+
+
+### Features
+
+* **web:** show repo group in sidebar for single-repo scenarios ([#504](https://github.com/shep-ai/shep/issues/504)) ([0302385](https://github.com/shep-ai/shep/commit/03023854595084068fcb9b1308e12daaf370599d))
+
 # [1.161.0](https://github.com/shep-ai/shep/compare/v1.160.0...v1.161.0) (2026-04-01)
 
 

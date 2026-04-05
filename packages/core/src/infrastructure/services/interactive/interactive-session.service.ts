@@ -20,7 +20,10 @@ import type {
 import type { IInteractiveSessionRepository } from '../../../application/ports/output/repositories/interactive-session-repository.interface.js';
 import type { IInteractiveMessageRepository } from '../../../application/ports/output/repositories/interactive-message-repository.interface.js';
 import type { IAgentExecutorFactory } from '../../../application/ports/output/agents/agent-executor-factory.interface.js';
-import type { InteractiveAgentSessionHandle } from '../../../application/ports/output/agents/interactive-agent-executor.interface.js';
+import type {
+  InteractiveAgentSessionHandle,
+  UserInteractionData,
+} from '../../../application/ports/output/agents/interactive-agent-executor.interface.js';
 import type { IFeatureRepository } from '../../../application/ports/output/repositories/feature-repository.interface.js';
 import type { InteractiveSession, InteractiveMessage } from '../../../domain/generated/output.js';
 import {
@@ -71,6 +74,10 @@ interface SessionState {
   turnInProgress: boolean;
   /** Queue of user messages waiting to be sent after the current turn completes. */
   turnQueue: string[];
+  /** Pending user interaction (AskUserQuestion) — agent stream is paused, waiting for response. */
+  pendingInteraction: UserInteractionData | null;
+  /** Resolver for the pending interaction Promise — call to resume the agent. */
+  pendingInteractionResolver: ((answers: Record<string, string>) => void) | null;
 }
 
 /**
@@ -93,6 +100,14 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   private sessions = new Map<string, SessionState>();
   /** Cached agentSessionIds from stopped sessions, keyed by featureId. */
   private stoppedAgentSessionIds = new Map<string, string>();
+  /**
+   * Feature-level subscribers that survive session restarts.
+   *
+   * Unlike session-level subscribers (in SessionState.subscribers), these
+   * persist when a session dies and a new one boots. SSE connections
+   * subscribe here so they continue receiving events from new sessions.
+   */
+  private featureSubscribers = new Map<string, Set<(chunk: StreamChunk) => void>>();
 
   constructor(
     private readonly sessionRepo: IInteractiveSessionRepository,
@@ -131,6 +146,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     };
     await this.sessionRepo.create(session);
 
+    // Mark as processing immediately so the FAB shows the spinner during boot
+    void this.sessionRepo.updateTurnStatus(session.id, 'processing');
+
     // Carry over agentSessionId from previous session so resumption works
     let previousAgentSessionId: string | undefined;
     for (const [, s] of this.sessions) {
@@ -165,6 +183,8 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       subscribers: new Set(),
       turnInProgress: false,
       turnQueue: [],
+      pendingInteraction: null,
+      pendingInteractionResolver: null,
     };
     this.sessions.set(session.id, state);
 
@@ -268,12 +288,18 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       );
       let handle: InteractiveAgentSessionHandle;
 
-      if (state.agentSessionId) {
+      // Build the onUserQuestion callback that pauses the SDK stream
+      // and waits for user input via the UI.
+      const onUserQuestion = this.buildOnUserQuestionCallback(state);
+
+      const previousAgentSessionId = state.agentSessionId;
+      if (previousAgentSessionId) {
         // Resume existing SDK session
-        handle = await executor.resumeSession(state.agentSessionId, {
+        handle = await executor.resumeSession(previousAgentSessionId, {
           cwd: worktreePath,
           model: state.model,
           systemPrompt: context,
+          onUserQuestion,
         });
       } else {
         // Create new SDK session
@@ -281,6 +307,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
           cwd: worktreePath,
           model: state.model,
           systemPrompt: context,
+          onUserQuestion,
         });
       }
 
@@ -311,7 +338,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               if (event.content) {
                 greetingText += event.content;
                 state.currentAssistantBuffer += event.content;
-                state.subscribers.forEach((sub) => sub({ delta: event.content!, done: false }));
+                this.notify(state, { delta: event.content!, done: false });
               }
               break;
 
@@ -320,14 +347,12 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 const toolLabel = event.label;
                 const toolDetail = event.detail;
                 void this.persistToolEvent(state, toolLabel, toolDetail);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Using tool: ${toolLabel}`,
-                    activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Using tool: ${toolLabel}`,
+                  activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
+                });
               }
               break;
 
@@ -336,23 +361,19 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 const resultLabel = event.label;
                 const resultDetail = event.detail;
                 void this.persistToolEvent(state, resultLabel, resultDetail);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Completed: ${resultLabel}`,
-                    activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Completed: ${resultLabel}`,
+                  activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
+                });
               }
               break;
 
             case 'status':
               if (event.content) {
                 const statusContent = event.content;
-                state.subscribers.forEach((sub) =>
-                  sub({ delta: '', done: false, log: statusContent })
-                );
+                this.notify(state, { delta: '', done: false, log: statusContent });
               }
               break;
 
@@ -364,6 +385,17 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               // Capture the SDK session ID (available after first message exchange)
               const sdkSessionId = handle.sessionId;
               if (sdkSessionId) {
+                // Detect CWD mismatch: if we tried to resume but got a different
+                // session ID, the SDK silently created a fresh session (typically
+                // because the cwd changed or session JSONL was lost).
+                if (previousAgentSessionId && sdkSessionId !== previousAgentSessionId) {
+                  // eslint-disable-next-line no-console
+                  console.warn(
+                    `[InteractiveSession] Session resume mismatch for feature ${featureId}: ` +
+                      `expected ${previousAgentSessionId}, got ${sdkSessionId}. ` +
+                      `SDK created a fresh session (likely cwd changed or session expired).`
+                  );
+                }
                 state.agentSessionId = sdkSessionId;
                 // Persist to DB so it survives service restarts
                 void this.sessionRepo.updateAgentSessionId(state.sessionId, sdkSessionId);
@@ -392,7 +424,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               state.toolEventsLog = [];
 
               // Notify subscribers of end-of-turn
-              state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+              this.notify(state, { delta: '', done: true });
 
               // Start idle timer now that the session is live
               this.resetTimer(state);
@@ -564,7 +596,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               if (event.content) {
                 responseText += event.content;
                 state.currentAssistantBuffer += event.content;
-                state.subscribers.forEach((sub) => sub({ delta: event.content!, done: false }));
+                this.notify(state, { delta: event.content!, done: false });
               }
               break;
 
@@ -573,14 +605,12 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 const toolLabel = event.label;
                 const toolDetail = event.detail;
                 void this.persistToolEvent(state, toolLabel, toolDetail);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Using tool: ${toolLabel}`,
-                    activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Using tool: ${toolLabel}`,
+                  activity: { kind: 'tool_use', label: toolLabel, detail: toolDetail },
+                });
               }
               break;
 
@@ -589,23 +619,19 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 const resultLabel = event.label;
                 const resultDetail = event.detail;
                 void this.persistToolEvent(state, resultLabel, resultDetail);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Completed: ${resultLabel}`,
-                    activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Completed: ${resultLabel}`,
+                  activity: { kind: 'tool_result', label: resultLabel, detail: resultDetail },
+                });
               }
               break;
 
             case 'status':
               if (event.content) {
                 const statusContent = event.content;
-                state.subscribers.forEach((sub) =>
-                  sub({ delta: '', done: false, log: statusContent })
-                );
+                this.notify(state, { delta: '', done: false, log: statusContent });
               }
               break;
 
@@ -630,12 +656,22 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               state.currentAssistantBuffer = '';
               state.toolEventsLog = [];
 
+              // Accumulate usage from this turn
+              if (event.usage) {
+                void this.sessionRepo.accumulateUsage(state.sessionId, {
+                  costUsd: event.usage.costUsd ?? 0,
+                  inputTokens: event.usage.inputTokens ?? 0,
+                  outputTokens: event.usage.outputTokens ?? 0,
+                  turns: event.usage.numTurns ?? 1,
+                });
+              }
+
               // Mark as unread — if user has the chat open, the frontend
               // will immediately call markRead to clear it
               void this.sessionRepo.updateTurnStatus(state.sessionId, 'unread');
 
               // Notify subscribers of end-of-turn
-              state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+              this.notify(state, { delta: '', done: true });
               return; // Turn complete
             }
 
@@ -645,9 +681,20 @@ export class InteractiveSessionService implements IInteractiveSessionService {
                 `[InteractiveSession] agent error during turn for session ${state.sessionId}:`,
                 event.content
               );
-              state.subscribers.forEach((sub) =>
-                sub({ delta: '', done: true, log: `Error: ${event.content ?? 'unknown'}` })
-              );
+              // Accumulate usage even on errors — cost was still incurred
+              if (event.usage) {
+                void this.sessionRepo.accumulateUsage(state.sessionId, {
+                  costUsd: event.usage.costUsd ?? 0,
+                  inputTokens: event.usage.inputTokens ?? 0,
+                  outputTokens: event.usage.outputTokens ?? 0,
+                  turns: event.usage.numTurns ?? 1,
+                });
+              }
+              this.notify(state, {
+                delta: '',
+                done: true,
+                log: `Error: ${event.content ?? 'unknown'}`,
+              });
               break;
 
             case 'init':
@@ -657,36 +704,32 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               break;
 
             case 'api_retry':
-              state.subscribers.forEach((sub) =>
-                sub({ delta: '', done: false, log: event.content ?? 'Retrying API call...' })
-              );
+              this.notify(state, {
+                delta: '',
+                done: false,
+                log: event.content ?? 'Retrying API call...',
+              });
               break;
 
             case 'rate_limit':
-              state.subscribers.forEach((sub) =>
-                sub({ delta: '', done: false, log: event.content ?? 'Rate limited' })
-              );
+              this.notify(state, { delta: '', done: false, log: event.content ?? 'Rate limited' });
               break;
 
             case 'task_started':
               if (event.content) {
                 void this.persistToolEvent(state, 'Subtask started', event.content);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Subtask: ${event.content}`,
-                    activity: { kind: 'system', label: 'Subtask started', detail: event.content },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Subtask: ${event.content}`,
+                  activity: { kind: 'system', label: 'Subtask started', detail: event.content },
+                });
               }
               break;
 
             case 'task_progress':
               if (event.content) {
-                state.subscribers.forEach((sub) =>
-                  sub({ delta: '', done: false, log: `Subtask: ${event.content}` })
-                );
+                this.notify(state, { delta: '', done: false, log: `Subtask: ${event.content}` });
               }
               break;
 
@@ -694,19 +737,24 @@ export class InteractiveSessionService implements IInteractiveSessionService {
               if (event.content) {
                 const taskStatus = event.detail ?? 'completed';
                 void this.persistToolEvent(state, `Subtask ${taskStatus}`, event.content);
-                state.subscribers.forEach((sub) =>
-                  sub({
-                    delta: '',
-                    done: false,
-                    log: `Subtask ${taskStatus}: ${event.content}`,
-                    activity: {
-                      kind: 'system',
-                      label: `Subtask ${taskStatus}`,
-                      detail: event.content,
-                    },
-                  })
-                );
+                this.notify(state, {
+                  delta: '',
+                  done: false,
+                  log: `Subtask ${taskStatus}: ${event.content}`,
+                  activity: {
+                    kind: 'system',
+                    label: `Subtask ${taskStatus}`,
+                    detail: event.content,
+                  },
+                });
               }
+              break;
+
+            case 'user_question':
+              // AskUserQuestion is now handled by the canUseTool callback
+              // (buildOnUserQuestionCallback) which pauses the SDK stream.
+              // This event should not appear in the stream anymore, but if it
+              // does (e.g. from a different code path), ignore it here.
               break;
           }
         }
@@ -731,7 +779,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 
         state.currentAssistantBuffer = '';
         state.toolEventsLog = [];
-        state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+        this.notify(state, { delta: '', done: true });
       } else if (!responseText) {
         // Stream ended without any response — SDK session likely died.
         // Mark as error so the next message triggers a fresh session.
@@ -739,9 +787,11 @@ export class InteractiveSessionService implements IInteractiveSessionService {
         console.error(
           `[InteractiveSession] stream ended without response for session ${state.sessionId} — session may have died`
         );
-        state.subscribers.forEach((sub) =>
-          sub({ delta: '', done: true, log: 'Session disconnected — will restart on next message' })
-        );
+        this.notify(state, {
+          delta: '',
+          done: true,
+          log: 'Session disconnected — will restart on next message',
+        });
         if (state.agentSessionId) {
           this.stoppedAgentSessionIds.set(state.featureId, state.agentSessionId);
         }
@@ -805,7 +855,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
   async sendUserMessage(
     featureId: string,
     content: string,
-    worktreePath: string
+    worktreePath: string,
+    model?: string,
+    agentType?: string
   ): Promise<InteractiveMessage> {
     // 1. Persist user message to DB immediately — this is the source of truth
     const now = new Date();
@@ -820,7 +872,21 @@ export class InteractiveSessionService implements IInteractiveSessionService {
     await this.messageRepo.create(userMsg);
 
     // 2. Find active session for this feature
-    const state = this.findActiveStateForFeature(featureId);
+    let state = this.findActiveStateForFeature(featureId);
+
+    // If the caller requested a different model/agent than the running session,
+    // silently stop the current session so a new one boots with the new config.
+    // Also clear the cached agentSessionId so we create a fresh SDK session
+    // instead of resuming the old one (which would keep the old model).
+    if (state && model && state.model !== model) {
+      await this.stopSession(state.sessionId);
+      this.stoppedAgentSessionIds.delete(featureId);
+      state = undefined;
+    } else if (state && agentType && state.agentType !== agentType) {
+      await this.stopSession(state.sessionId);
+      this.stoppedAgentSessionIds.delete(featureId);
+      state = undefined;
+    }
 
     if (state) {
       const dbSession = await this.sessionRepo.findById(state.sessionId);
@@ -857,7 +923,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       }
 
       // Boot a new session — startSession will find the agentSessionId from DB
-      const session = await this.startSession(featureId, worktreePath);
+      const session = await this.startSession(featureId, worktreePath, model, agentType);
       const newState = this.sessions.get(session.id);
       if (newState) {
         newState.pendingUserContent = content;
@@ -886,6 +952,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       // Resolve model display: explicit override > default
       const displayModel = state.model ?? 'claude-sonnet-4-6';
 
+      const usage = await this.sessionRepo.getUsage(state.sessionId);
       sessionInfo = {
         pid: null, // SDK manages process internally
         sessionId: state.agentSessionId ?? state.sessionId,
@@ -897,6 +964,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
         lastActivityAt: dbSession?.lastActivityAt
           ? new Date(dbSession.lastActivityAt as unknown as string).toISOString()
           : new Date().toISOString(),
+        totalCostUsd: usage?.totalCostUsd ?? null,
+        totalInputTokens: usage?.totalInputTokens ?? null,
+        totalOutputTokens: usage?.totalOutputTokens ?? null,
       };
     } else {
       // No in-memory state — check DB for last session (e.g. after server restart / hot-reload)
@@ -908,6 +978,7 @@ export class InteractiveSessionService implements IInteractiveSessionService {
           latest.status !== InteractiveSessionStatus.stopped &&
           latest.status !== InteractiveSessionStatus.error
         ) {
+          const latestUsage = await this.sessionRepo.getUsage(latest.id);
           sessionInfo = {
             pid: null,
             sessionId: latest.id,
@@ -919,6 +990,9 @@ export class InteractiveSessionService implements IInteractiveSessionService {
             lastActivityAt: latest.lastActivityAt
               ? new Date(latest.lastActivityAt as unknown as string).toISOString()
               : new Date().toISOString(),
+            totalCostUsd: latestUsage?.totalCostUsd ?? null,
+            totalInputTokens: latestUsage?.totalInputTokens ?? null,
+            totalOutputTokens: latestUsage?.totalOutputTokens ?? null,
           };
         }
       }
@@ -939,33 +1013,33 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       }
     }
 
-    return { messages, sessionStatus, streamingText, sessionInfo, turnStatus };
+    // Include pending interaction if one exists
+    const pendingInteraction = state?.pendingInteraction ?? null;
+
+    return { messages, sessionStatus, streamingText, sessionInfo, turnStatus, pendingInteraction };
   }
 
   subscribeByFeature(featureId: string, onChunk: (chunk: StreamChunk) => void): UnsubscribeFn {
-    const state = this.findActiveStateForFeature(featureId);
-    if (!state) {
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
-      return () => {};
+    // Subscribe at the feature level so the callback survives session restarts.
+    // When a session dies (idle timeout, error) and a new one boots, the SSE
+    // connection keeps receiving events from the new session automatically.
+    let subs = this.featureSubscribers.get(featureId);
+    if (!subs) {
+      subs = new Set();
+      this.featureSubscribers.set(featureId, subs);
     }
-    state.subscribers.add(onChunk);
-    return () => state.subscribers.delete(onChunk);
+    subs.add(onChunk);
+    return () => {
+      subs!.delete(onChunk);
+      if (subs!.size === 0) {
+        this.featureSubscribers.delete(featureId);
+      }
+    };
   }
 
   async stopByFeature(featureId: string): Promise<void> {
     const state = this.findActiveStateForFeature(featureId);
     if (!state) return;
-    // Persist a system message before killing
-    const msg: InteractiveMessage = {
-      id: crypto.randomUUID(),
-      featureId,
-      sessionId: state.sessionId,
-      role: InteractiveMessageRole.assistant,
-      content: '**Session stopped by user**',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    await this.messageRepo.create(msg);
     await this.stopSession(state.sessionId);
   }
 
@@ -989,6 +1063,103 @@ export class InteractiveSessionService implements IInteractiveSessionService {
 
   async getAllActiveTurnStatuses(): Promise<Map<string, string>> {
     return this.sessionRepo.getAllActiveTurnStatuses();
+  }
+
+  async respondToInteraction(featureId: string, answers: Record<string, string>): Promise<void> {
+    const state = this.findActiveStateForFeature(featureId);
+    if (!state?.pendingInteraction || !state.pendingInteractionResolver) {
+      throw new Error(`No pending interaction for feature ${featureId}`);
+    }
+
+    // Persist the user's answers as a structured user message.
+    // The {{interaction}} prefix lets the frontend detect and render it
+    // as a compact green bubble instead of a regular text message.
+    const interactionPayload = {
+      questions: state.pendingInteraction.questions.map((q) => ({
+        header: q.header,
+        question: q.question,
+      })),
+      answers,
+    };
+    const now = new Date();
+    const userMsg: InteractiveMessage = {
+      id: crypto.randomUUID(),
+      featureId: state.featureId,
+      sessionId: state.sessionId,
+      role: InteractiveMessageRole.user,
+      content: `{{interaction}}${JSON.stringify(interactionPayload)}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.messageRepo.create(userMsg);
+
+    // Resolve the Promise that the canUseTool callback is awaiting.
+    // This unblocks the SDK stream — the agent resumes with the user's answers.
+    state.pendingInteractionResolver(answers);
+
+    // Clear pending interaction state
+    state.pendingInteraction = null;
+    state.pendingInteractionResolver = null;
+
+    // Update turn status back to processing
+    void this.sessionRepo.updateTurnStatus(state.sessionId, 'processing');
+
+    // Clear the "Waiting for your response..." log
+    state.subscribers.forEach((sub) => sub({ delta: '', done: false }));
+  }
+
+  /**
+   * Build the onUserQuestion callback for a session.
+   * Called by the SDK's canUseTool when the agent invokes AskUserQuestion.
+   * Returns a Promise that doesn't resolve until the user submits their answers.
+   */
+  private buildOnUserQuestionCallback(state: SessionState) {
+    return async (interaction: UserInteractionData): Promise<Record<string, string>> => {
+      // Flush any accumulated assistant text as a separate message BEFORE
+      // the interaction. This ensures the agent's question text appears
+      // above the green answer bubble in the conversation history.
+      if (state.currentAssistantBuffer.trim()) {
+        const now = new Date();
+        const msg: InteractiveMessage = {
+          id: crypto.randomUUID(),
+          featureId: state.featureId,
+          sessionId: state.sessionId,
+          role: InteractiveMessageRole.assistant,
+          content: state.currentAssistantBuffer,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await this.messageRepo.create(msg);
+        state.currentAssistantBuffer = '';
+        state.toolEventsLog = [];
+
+        // Notify subscribers so the frontend picks up the new message
+        state.subscribers.forEach((sub) => sub({ delta: '', done: true }));
+        // Small delay so the refetch completes before the interaction appears
+        await new Promise<void>((r) => setTimeout(r, 100));
+      }
+
+      // Store the interaction data for the frontend
+      state.pendingInteraction = interaction;
+
+      // Update turn status so the dot indicator shows amber
+      void this.sessionRepo.updateTurnStatus(state.sessionId, 'awaiting_input');
+
+      // Notify subscribers so SSE pushes the interaction to the frontend
+      state.subscribers.forEach((sub) =>
+        sub({
+          delta: '',
+          done: false,
+          log: 'Waiting for your response...',
+          interaction,
+        })
+      );
+
+      // Create a Promise that will be resolved when the user calls respondToInteraction
+      return new Promise<Record<string, string>>((resolve) => {
+        state.pendingInteractionResolver = resolve;
+      });
+    };
   }
 
   /** Find the in-memory state for an active session for a feature. */
@@ -1053,6 +1224,25 @@ export class InteractiveSessionService implements IInteractiveSessionService {
       await this.messageRepo.create(msg);
     } catch {
       // Non-critical — don't fail the turn for a tool event
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Event dispatch
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Dispatch a StreamChunk to all subscribers for a session.
+   *
+   * Sends to both session-level subscribers (legacy, for sessionId-based
+   * subscribe()) and feature-level subscribers (for SSE connections that
+   * must survive session restarts).
+   */
+  private notify(state: SessionState, chunk: StreamChunk): void {
+    state.subscribers.forEach((sub) => sub(chunk));
+    const featureSubs = this.featureSubscribers.get(state.featureId);
+    if (featureSubs) {
+      featureSubs.forEach((sub) => sub(chunk));
     }
   }
 

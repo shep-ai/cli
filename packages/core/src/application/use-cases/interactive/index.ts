@@ -12,3 +12,5 @@ export { StopInteractiveSessionUseCase } from './stop-interactive-session.use-ca
 export type { StopInteractiveSessionInput } from './stop-interactive-session.use-case.js';
 export { GetInteractiveChatStateUseCase } from './get-interactive-chat-state.use-case.js';
 export type { GetInteractiveChatStateInput } from './get-interactive-chat-state.use-case.js';
+export { RespondToInteractionUseCase } from './respond-to-interaction.use-case.js';
+export type { RespondToInteractionInput } from './respond-to-interaction.use-case.js';

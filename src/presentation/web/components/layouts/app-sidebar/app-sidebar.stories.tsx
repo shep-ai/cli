@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { fn } from '@storybook/test';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 
@@ -14,6 +15,7 @@ const defaultFeatureFlags = {
   adoptBranch: false,
   gitRebaseSync: false,
   reactFileManager: false,
+  inventory: false,
 };
 
 const meta: Meta<typeof AppSidebar> = {
@@ -116,6 +118,7 @@ export const Default: Story = {
 export const WithNewFeatureButton: Story = {
   args: {
     features: mockFeatures,
+    onAddFeature: fn(),
   },
 };
 

@@ -14,6 +14,7 @@
       "notifications": "Notificações",
       "flags": "Flags",
       "chat": "Chat",
+      "layout": "Layout",
       "database": "Banco de Dados"
     },
     "language": {
@@ -145,6 +146,8 @@
       "planDescription": "Tempo limite para planejamento de implementação",
       "implement": "Implementar",
       "implementDescription": "Tempo limite para implementação de código",
+      "fastImplement": "Implementação Rápida",
+      "fastImplementDescription": "Tempo limite para implementação em modo rápido",
       "merge": "Merge",
       "mergeDescription": "Tempo limite para criação e merge de PR",
       "hint": "Cada agente tem tempos limite de estágio configuráveis independentemente. Quando um estágio excede seu tempo limite, o agente é encerrado. Tempos limite maiores são úteis para implementações complexas. O agente de recurso tem padrão de 30 minutos por estágio. O agente de análise de repositório tem padrão de 10 minutos."
@@ -199,6 +202,8 @@
       "gitRebaseSyncDescription": "Ativar operações de git rebase-on-main e sync-main",
       "reactFileManager": "Gerenciador de Arquivos React",
       "reactFileManagerDescription": "Usar o gerenciador de arquivos React integrado em vez do seletor de pastas nativo do SO",
+      "inventory": "Inventário",
+      "inventoryDescription": "Ativar a página de Inventário mostrando todos os repositórios e funcionalidades em visualização de árvore",
       "hint": "Recursos experimentais que ainda estão em desenvolvimento. Ative por sua conta e risco — podem mudar ou ser removidos em versões futuras. O modo debug adiciona logs detalhados úteis para solução de problemas."
     },
     "interactiveAgent": {
@@ -211,6 +216,13 @@
       "maxConcurrentSessions": "Máximo de sessões simultâneas",
       "maxConcurrentSessionsDescription": "Número máximo de sessões de agente interativo ativas ao mesmo tempo (1-10)",
       "hint": "A aba Chat inicia um processo de agente persistente por recurso. O tempo limite automático para sessões ociosas automaticamente para economizar recursos. O limite de sessões simultâneas evita uso excessivo de recursos em máquinas de desenvolvimento."
+    },
+    "fabLayout": {
+      "title": "Layout",
+      "description": "Controlar a posição dos botões de ação flutuantes no centro de controle",
+      "swapPosition": "Trocar posições dos FABs",
+      "swapPositionDescription": "Mover o botão de Chat para a esquerda e o de Criar para a direita",
+      "hint": "Os dois botões de ação flutuantes (Criar e Chat) ficam nos cantos inferiores do centro de controle. Ative esta opção para trocar suas posições."
     },
     "database": {
       "title": "Banco de Dados",
@@ -230,6 +242,7 @@
     "controlCenter": "Centro de Controle",
     "dashboard": "Painel",
     "features": "Recursos",
+    "inventory": "Inventário",
     "repositories": "Repositórios",
     "settings": "Configurações",
     "sessions": "Sessões",
@@ -256,7 +269,7 @@
     "deleteSubFeatures": "Excluir sub-recursos",
     "closePullRequest": "Fechar pull request",
     "cancel": "Cancelar",
-    "deleting": "Excluindo\u2026",
+    "deleting": "Excluindo…",
     "delete": "Excluir"
   },
   "rejectFeedback": {
@@ -265,25 +278,25 @@
     "ariaLabel": "Feedback de rejeição",
     "placeholder": "Descreva o que precisa mudar...",
     "cancel": "Cancelar",
-    "rejecting": "Rejeitando\u2026",
+    "rejecting": "Rejeitando…",
     "confirmReject": "Confirmar Rejeição"
   },
   "emptyState": {
     "addProject": "Adicionar um projeto",
     "addProjectDescription": "Adicione sua pasta de projeto para desbloquear a criação de recursos.",
-    "addProjectDescriptionLine2": "Descreva o que você precisa \u2014 o Shep cuida do resto.",
-    "checkingSetup": "Verificando configuração\u2026",
+    "addProjectDescriptionLine2": "Descreva o que você precisa — o Shep cuida do resto.",
+    "checkingSetup": "Verificando configuração…",
     "ready": "{{label}} pronto",
     "notInstalled": "{{label}} não instalado",
     "reCheck": "Verificar novamente",
     "needsAuth": "{{label}} precisa de autenticação",
     "open": "Abrir {{label}}",
-    "checking": "Verificando {{label}}\u2026",
+    "checking": "Verificando {{label}}…",
     "notFound": "{{label}} não encontrado",
     "docs": "Docs",
-    "opening": "Abrindo\u2026",
+    "opening": "Abrindo…",
     "chooseFolder": "Escolha uma Pasta",
-    "folderHint": "Qualquer pasta funciona \u2014 o git será inicializado automaticamente se necessário.",
+    "folderHint": "Qualquer pasta funciona — o git será inicializado automaticamente se necessário.",
     "orUseCli": "ou use o CLI",
     "copyCommands": "Copiar comandos",
     "git": "Git",
@@ -292,7 +305,7 @@
     "githubCliRequired": "Necessário para pull requests"
   },
   "welcome": {
-    "loadingAgents": "Carregando agentes\u2026",
+    "loadingAgents": "Carregando agentes…",
     "chooseAgent": "Escolha seu agente",
     "pickModel": "Escolha um modelo",
     "selectAgentSubtitle": "Selecione o agente de codificação AI que você quer que o Shep use.",
@@ -340,11 +353,11 @@
     "stopDevServer": "Parar servidor",
     "startDevServer": "Iniciar servidor",
     "retryDevServer": "Reiniciar servidor",
-    "starting": "Iniciando\u2026",
+    "starting": "Iniciando…",
     "retry": "Tentar novamente",
     "start": "Iniciar",
     "failed": "Falhou",
-    "deleting": "Excluindo\u2026",
+    "deleting": "Excluindo…",
     "addFeature": "Adicionar funcionalidade",
     "reviewRequirements": "Revisar requisitos",
     "reviewTechnicalPlan": "Revisar plano técnico",
@@ -465,7 +478,11 @@
     "plan": "Plano",
     "planDescription": "Auto-aprovar transição de planejamento para implementação.",
     "merge": "Merge",
-    "mergeDescription": "Auto-aprovar transição de merge para concluído."
+    "mergeDescription": "Auto-aprovar transição de merge para concluído.",
+    "skills": "SKILLS",
+    "skillsDescription": "Curated skills to guide the agent during feature development.",
+    "injectSkills": "Inject",
+    "injectSkillsDescription": "Include curated skills in the feature worktree."
   },
   "featureDrawer": {
     "copyFeatureId": "Copiar ID da funcionalidade",
@@ -579,7 +596,7 @@
     "addRepository": "Adicionar repositório"
   },
   "modelPicker": {
-    "searchPlaceholder": "Buscar ou digitar um ID de modelo\u2026"
+    "searchPlaceholder": "Buscar ou digitar um ID de modelo…"
   },
   "skills": {
     "searchPlaceholder": "Buscar habilidades..."

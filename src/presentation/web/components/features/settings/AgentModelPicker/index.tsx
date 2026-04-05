@@ -14,17 +14,32 @@ import { cn } from '@/lib/utils';
 export interface AgentModelPickerProps {
   initialAgentType: string;
   initialModel: string;
+  agentType?: string;
+  model?: string;
   onAgentModelChange?: (agentType: string, model: string) => void;
+  onSave?: (agentType: string, model: string) => Promise<AgentModelPickerSaveResult | void>;
+  saveError?: string | null;
+  saving?: boolean;
   disabled?: boolean;
   className?: string;
   /** 'settings' persists to DB; 'override' only calls onAgentModelChange */
   mode: 'settings' | 'override';
 }
 
+export interface AgentModelPickerSaveResult {
+  ok: boolean;
+  error?: string;
+}
+
 export function AgentModelPicker({
   initialAgentType,
   initialModel,
+  agentType: controlledAgentType,
+  model: controlledModel,
   onAgentModelChange,
+  onSave,
+  saveError,
+  saving,
   disabled,
   className,
   mode,
@@ -32,9 +47,10 @@ export function AgentModelPicker({
   const [open, setOpen] = React.useState(false);
   const [groups, setGroups] = React.useState<AgentModelGroup[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [agentType, setAgentType] = React.useState(initialAgentType);
-  const [model, setModel] = React.useState(initialModel);
-  const [error, setError] = React.useState<string | null>(null);
+  const [agentType, setAgentType] = React.useState(controlledAgentType ?? initialAgentType);
+  const [model, setModel] = React.useState(controlledModel ?? initialModel);
+  const [internalSaving, setInternalSaving] = React.useState(false);
+  const [internalError, setInternalError] = React.useState<string | null>(null);
 
   // 0 = agent list visible, 1 = model list visible
   const [level, setLevel] = React.useState(0);
@@ -47,9 +63,20 @@ export function AgentModelPicker({
       .finally(() => setLoading(false));
   }, []);
 
-  // Reset drill-down when popover closes
   React.useEffect(() => {
-    if (!open) {
+    setAgentType(controlledAgentType ?? initialAgentType);
+  }, [controlledAgentType, initialAgentType]);
+
+  React.useEffect(() => {
+    setModel(controlledModel ?? initialModel);
+  }, [controlledModel, initialModel]);
+
+  // Reset drill-down when popover transitions from open → closed (not on initial mount)
+  const prevOpenRef = React.useRef(open);
+  React.useEffect(() => {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (wasOpen && !open) {
       const t = setTimeout(() => {
         setLevel(0);
         setDrillAgent(null);
@@ -75,6 +102,8 @@ export function AgentModelPicker({
 
     if (newAgentType === agentType && newModel === model) return;
 
+    setInternalError(null);
+
     if (mode === 'override') {
       setAgentType(newAgentType);
       setModel(newModel);
@@ -82,32 +111,30 @@ export function AgentModelPicker({
       return;
     }
 
-    // mode === 'settings' — optimistically update, then persist
-    const prevAgent = agentType;
-    const prevModel = model;
-    setAgentType(newAgentType);
-    setModel(newModel);
-    onAgentModelChange?.(newAgentType, newModel);
+    const persistSelection =
+      onSave ??
+      (async (nextAgentType: string, nextModel: string) =>
+        updateAgentAndModel(nextAgentType, nextModel || null));
 
-    setError(null);
+    setInternalSaving(true);
     try {
-      const result = await updateAgentAndModel(newAgentType, newModel || null);
-      if (!result.ok) {
-        // Revert on failure
-        setAgentType(prevAgent);
-        setModel(prevModel);
-        onAgentModelChange?.(prevAgent, prevModel);
-        setError(result.error ?? 'Failed to save');
+      const result = await persistSelection(newAgentType, newModel);
+      if (result && 'ok' in result && !result.ok) {
+        setInternalError(result.error ?? 'Failed to save');
+        return;
       }
+      setAgentType(newAgentType);
+      setModel(newModel);
+      onAgentModelChange?.(newAgentType, newModel);
     } catch {
-      setAgentType(prevAgent);
-      setModel(prevModel);
-      onAgentModelChange?.(prevAgent, prevModel);
-      setError('Failed to save');
+      setInternalError('Failed to save');
+    } finally {
+      setInternalSaving(false);
     }
   };
 
-  const isDisabled = (disabled ?? false) || loading;
+  const isDisabled = (disabled ?? false) || loading || (saving ?? false) || internalSaving;
+  const error = saveError ?? internalError;
 
   const AgentIcon = getAgentTypeIcon(agentType);
   const agentLabel = groups.find((g) => g.agentType === agentType)?.label ?? agentType;
@@ -120,6 +147,7 @@ export function AgentModelPicker({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
+            type="button"
             variant="outline"
             role="combobox"
             aria-expanded={open}
@@ -145,7 +173,7 @@ export function AgentModelPicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-(--radix-popover-trigger-width) overflow-hidden p-0"
+          className="z-[70] w-(--radix-popover-trigger-width) overflow-hidden p-0"
           align="start"
         >
           {/* Sliding container — both panels side by side, translateX controlled by level */}

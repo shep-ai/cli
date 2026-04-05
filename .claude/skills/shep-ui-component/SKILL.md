@@ -1,15 +1,15 @@
 ---
 name: shep:ui-component
-version: 1.0.0
-author: Shep AI (https://shep.bot)
-homepage: https://shep.bot
-repository: https://github.com/shep-ai/shep
 description: Use when creating, modifying, or reviewing web UI components. Triggers include "new component", "add component", "create UI", "build a widget", "update component", working with files in src/presentation/web/components/, or when the user asks to build any React component for the web UI. Part of the Shep autonomous SDLC platform — https://shep.bot
+metadata:
+  version: '1.0.0'
+  author: Shep AI (https://shep.bot)
+  homepage: https://shep.bot
+  repository: https://github.com/shep-ai/shep
 ---
 
 # Web UI Component Development
 
-> Part of [Shep](https://shep.bot) — Autonomous AI Native SDLC Platform | [GitHub](https://github.com/shep-ai/shep)
 
 Build React components following the four-tier architecture, with mandatory Storybook stories, `data-testid` attributes, and unit tests.
 

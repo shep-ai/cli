@@ -375,11 +375,15 @@ export type StageTimeouts = {
    */
   planMs?: number;
   /**
-   * Timeout for the implement stage (default: 600000)
+   * Timeout for the implement stage (default: 1800000)
    */
   implementMs?: number;
   /**
-   * Timeout for the merge stage (default: 600000)
+   * Timeout for the fast-implement stage (default: 1800000)
+   */
+  fastImplementMs?: number;
+  /**
+   * Timeout for the merge stage (default: 1800000)
    */
   mergeMs?: number;
 };
@@ -392,6 +396,46 @@ export type AnalyzeRepoTimeouts = {
    * Timeout for the repository analysis stage (default: 600000)
    */
   analyzeMs?: number;
+};
+export enum SkillSourceType {
+  Local = 'local',
+  Remote = 'remote',
+}
+
+/**
+ * A skill source for injection into feature worktrees
+ */
+export type SkillSource = {
+  /**
+   * Unique skill directory name (e.g. 'architecture-reviewer')
+   */
+  name: string;
+  /**
+   * How this skill is provisioned (local copy or remote install)
+   */
+  type: SkillSourceType;
+  /**
+   * Source path (local) or npm package/URL (remote)
+   */
+  source: string;
+  /**
+   * Remote skill name passed to --skill flag (remote type only)
+   */
+  remoteSkillName?: string;
+};
+
+/**
+ * Skill injection configuration for feature worktrees
+ */
+export type SkillInjectionConfig = {
+  /**
+   * Whether skill injection is enabled (default: false, opt-in)
+   */
+  enabled: boolean;
+  /**
+   * List of skills to inject into feature worktrees
+   */
+  skills: SkillSource[];
 };
 
 /**
@@ -458,10 +502,15 @@ export type WorkflowConfig = {
    * Minutes after completion before auto-archiving a feature (default: 10, 0 = disabled)
    */
   autoArchiveDelayMinutes?: number;
+  /**
+   * Skill injection configuration (optional, disabled by default)
+   */
+  skillInjection?: SkillInjectionConfig;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',
   CodexCli = 'codex-cli',
+  CopilotCli = 'copilot-cli',
   GeminiCli = 'gemini-cli',
   Aider = 'aider',
   Continue = 'continue',
@@ -605,6 +654,10 @@ export type FeatureFlags = {
    * Use the built-in React file manager instead of the native OS folder picker
    */
   reactFileManager: boolean;
+  /**
+   * Enable the Inventory page showing all repositories and features
+   */
+  inventory: boolean;
 };
 
 /**
@@ -623,6 +676,16 @@ export type InteractiveAgentConfig = {
    * Maximum number of concurrent active interactive sessions (default: 3)
    */
   maxConcurrentSessions: number;
+};
+
+/**
+ * FAB (floating action button) layout configuration
+ */
+export type FabLayoutConfig = {
+  /**
+   * Swap Create and Chat FAB positions (default: false)
+   */
+  swapPosition: boolean;
 };
 
 /**
@@ -669,6 +732,10 @@ export type Settings = BaseEntity & {
    * Interactive agent chat configuration (optional, defaults applied at runtime)
    */
   interactiveAgent?: InteractiveAgentConfig;
+  /**
+   * FAB layout configuration (optional, defaults applied at runtime)
+   */
+  fabLayout?: FabLayoutConfig;
 };
 export enum TaskState {
   Todo = 'Todo',
@@ -1006,6 +1073,10 @@ export type Feature = SoftDeletableEntity & {
    */
   agentRunId?: string;
   /**
+   * Skills that were injected into this feature's worktree during creation
+   */
+  injectedSkills?: string[];
+  /**
    * Absolute path to the feature spec directory inside the worktree
    */
   specPath?: string;
@@ -1041,6 +1112,10 @@ export type Feature = SoftDeletableEntity & {
    * Enable evidence collection after implementation (default: false)
    */
   enableEvidence: boolean;
+  /**
+   * Inject curated skills into the feature worktree (default: false)
+   */
+  injectSkills: boolean;
   /**
    * Commit evidence to PR (default: false, requires enableEvidence)
    */

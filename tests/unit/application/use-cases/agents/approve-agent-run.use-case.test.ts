@@ -152,6 +152,33 @@ describe('ApproveAgentRunUseCase', () => {
     );
   });
 
+  it('should resume the same run with its persisted switched agentType and modelId', async () => {
+    mockRunRepo.findById.mockResolvedValue(
+      createWaitingRun({
+        agentType: 'codex-cli' as any,
+        modelId: 'gpt-5.4',
+        threadId: 'thread-switched',
+      })
+    );
+
+    await useCase.execute('run-001');
+
+    const wt = '/test/repo/.shep/wt/feat-branch';
+    expect(mockProcessService.spawn).toHaveBeenCalledWith(
+      'feat-001',
+      'run-001',
+      '/test/repo',
+      wt,
+      wt,
+      expect.objectContaining({
+        resume: true,
+        threadId: 'thread-switched',
+        agentType: 'codex-cli',
+        model: 'gpt-5.4',
+      })
+    );
+  });
+
   it('should return error when run not found', async () => {
     mockRunRepo.findById.mockResolvedValue(null);
 

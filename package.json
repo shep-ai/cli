@@ -1,6 +1,6 @@
 {
   "name": "@shepai/cli",
-  "version": "1.161.0",
+  "version": "1.171.0",
   "description": "Autonomous AI Native SDLC Platform - Automate the development cycle from idea to deploy",
   "type": "module",
   "license": "MIT",
@@ -150,6 +150,7 @@
     "shx": "^0.4.0",
     "sonner": "^2.0.7",
     "storybook": "8.6.15",
+    "tabulator-tables": "^6.4.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18",
     "tsc-alias": "^1.8.16",
@@ -175,7 +176,7 @@
   },
   "packageManager": "pnpm@10.30.0",
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.81",
+    "@anthropic-ai/claude-agent-sdk": "0.2.81",
     "@assistant-ui/react": "^0.12.19",
     "@cubone/react-file-manager": "^1.35.0",
     "@inquirer/prompts": "^8.2.0",

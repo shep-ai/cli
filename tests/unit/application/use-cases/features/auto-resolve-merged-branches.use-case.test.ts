@@ -31,6 +31,7 @@ function createMockFeature(overrides: Partial<Feature> = {}): Feature {
     commitSpecs: true,
     ciWatchEnabled: true,
     enableEvidence: false,
+    injectSkills: false,
     commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date(),
@@ -84,6 +85,7 @@ function createMockGitPrService(): IGitPrService {
     rebaseAbort: vi.fn(),
     stash: vi.fn(),
     stashPop: vi.fn(),
+    stashDrop: vi.fn(),
     getBranchSyncStatus: vi.fn(),
   };
 }
@@ -94,6 +96,7 @@ function createMockAgentRunRepo(): IAgentRunRepository {
     findById: vi.fn(),
     findByThreadId: vi.fn(),
     updateStatus: vi.fn(),
+    updatePinnedConfig: vi.fn(),
     findRunningByPid: vi.fn(),
     list: vi.fn(),
     delete: vi.fn(),

@@ -1,0 +1,10 @@
+
+> @shepai/cli@1.161.0 tsp:compile /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-skill-injector
+> tsp compile tsp/
+
+TypeSpec compiler v0.60.1
+
+Compilation completed successfully.
+
+
+Captured: 2026-04-01T14:56:32Z

@@ -80,6 +80,7 @@ describe('FeatureAgentProcessService', () => {
       findById: vi.fn().mockResolvedValue(null),
       findByThreadId: vi.fn().mockResolvedValue(null),
       updateStatus: vi.fn().mockResolvedValue(undefined),
+      updatePinnedConfig: vi.fn().mockResolvedValue(undefined),
       findRunningByPid: vi.fn().mockResolvedValue([]),
       list: vi.fn().mockResolvedValue([]),
       delete: vi.fn().mockResolvedValue(undefined),

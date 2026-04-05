@@ -67,11 +67,14 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         approval_gate_allow_merge, approval_gate_push_on_impl_complete,
         feature_flag_skills, feature_flag_env_deploy, feature_flag_debug, feature_flag_github_import, feature_flag_adopt_branch, feature_flag_git_rebase_sync,
         feature_flag_react_file_manager,
+        feature_flag_inventory,
         workflow_enable_evidence, workflow_commit_evidence,
         hide_ci_status, default_fast_mode,
         interactive_agent_enabled, interactive_agent_auto_timeout_minutes,
         interactive_agent_max_concurrent_sessions,
-        auto_archive_delay_minutes
+        auto_archive_delay_minutes,
+        stage_timeout_fast_implement_ms,
+        fab_position_swapped
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement, @model_default,
@@ -96,11 +99,14 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @approval_gate_allow_merge, @approval_gate_push_on_impl_complete,
         @feature_flag_skills, @feature_flag_env_deploy, @feature_flag_debug, @feature_flag_github_import, @feature_flag_adopt_branch, @feature_flag_git_rebase_sync,
         @feature_flag_react_file_manager,
+        @feature_flag_inventory,
         @workflow_enable_evidence, @workflow_commit_evidence,
         @hide_ci_status, @default_fast_mode,
         @interactive_agent_enabled, @interactive_agent_auto_timeout_minutes,
         @interactive_agent_max_concurrent_sessions,
-        @auto_archive_delay_minutes
+        @auto_archive_delay_minutes,
+        @stage_timeout_fast_implement_ms,
+        @fab_position_swapped
       )
     `);
 
@@ -204,6 +210,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         feature_flag_adopt_branch = @feature_flag_adopt_branch,
         feature_flag_git_rebase_sync = @feature_flag_git_rebase_sync,
         feature_flag_react_file_manager = @feature_flag_react_file_manager,
+        feature_flag_inventory = @feature_flag_inventory,
         workflow_enable_evidence = @workflow_enable_evidence,
         workflow_commit_evidence = @workflow_commit_evidence,
         hide_ci_status = @hide_ci_status,
@@ -211,7 +218,9 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         interactive_agent_enabled = @interactive_agent_enabled,
         interactive_agent_auto_timeout_minutes = @interactive_agent_auto_timeout_minutes,
         interactive_agent_max_concurrent_sessions = @interactive_agent_max_concurrent_sessions,
-        auto_archive_delay_minutes = @auto_archive_delay_minutes
+        auto_archive_delay_minutes = @auto_archive_delay_minutes,
+        stage_timeout_fast_implement_ms = @stage_timeout_fast_implement_ms,
+        fab_position_swapped = @fab_position_swapped
       WHERE id = @id
     `);
 

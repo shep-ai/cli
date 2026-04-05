@@ -112,6 +112,87 @@ describe('GitForkService', () => {
       expect(error).toBeInstanceOf(GitForkError);
       expect(error.code).toBe(GitForkErrorCode.FORK_FAILED);
     });
+
+    it('should fallback to gh repo create when fork fails with no remotes', async () => {
+      // gh repo view fails (no remotes)
+      vi.mocked(mockExec).mockRejectedValueOnce(new Error('not a repo'));
+      // gh repo fork fails with "no git remotes found"
+      vi.mocked(mockExec).mockRejectedValueOnce(
+        new Error('unable to determine base repository: no git remotes found')
+      );
+      // gh api user returns username
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'testuser\n',
+        stderr: '',
+      });
+      // gh repo create succeeds
+      vi.mocked(mockExec).mockResolvedValueOnce({ stdout: '', stderr: '' });
+
+      await service.forkRepository('/path/to/my-project');
+
+      expect(mockExec).toHaveBeenCalledWith('gh', ['api', 'user', '--jq', '.login'], {
+        cwd: '/path/to/my-project',
+      });
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        [
+          'repo',
+          'create',
+          'testuser/my-project',
+          '--source',
+          '.',
+          '--remote',
+          'origin',
+          '--private',
+        ],
+        { cwd: '/path/to/my-project' }
+      );
+    });
+
+    it('should fallback to gh repo create when fork fails with unable to determine base repository', async () => {
+      // gh repo view fails
+      vi.mocked(mockExec).mockRejectedValueOnce(new Error('not a repo'));
+      // gh repo fork fails with "unable to determine base repository"
+      vi.mocked(mockExec).mockRejectedValueOnce(
+        new Error('unable to determine base repository: some other reason')
+      );
+      // gh api user returns username
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'myuser\n',
+        stderr: '',
+      });
+      // gh repo create succeeds
+      vi.mocked(mockExec).mockResolvedValueOnce({ stdout: '', stderr: '' });
+
+      await service.forkRepository('/workspace/cool-repo');
+
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        ['repo', 'create', 'myuser/cool-repo', '--source', '.', '--remote', 'origin', '--private'],
+        { cwd: '/workspace/cool-repo' }
+      );
+    });
+
+    it('should throw FORK_FAILED when both fork and create fallback fail', async () => {
+      // gh repo view fails
+      vi.mocked(mockExec).mockRejectedValueOnce(new Error('not a repo'));
+      // gh repo fork fails with no remotes
+      vi.mocked(mockExec).mockRejectedValueOnce(
+        new Error('unable to determine base repository: no git remotes found')
+      );
+      // gh api user succeeds
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'testuser\n',
+        stderr: '',
+      });
+      // gh repo create fails
+      vi.mocked(mockExec).mockRejectedValueOnce(new Error('repo already exists'));
+
+      const error = await service.forkRepository('/repo').catch((e) => e);
+      expect(error).toBeInstanceOf(GitForkError);
+      expect(error.code).toBe(GitForkErrorCode.FORK_FAILED);
+      expect(error.message).toContain('repo already exists');
+    });
   });
 
   describe('pushToFork', () => {

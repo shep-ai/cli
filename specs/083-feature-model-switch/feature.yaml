@@ -1,0 +1,41 @@
+feature:
+  id: "083-feature-model-switch"
+  name: "feature-model-switch"
+  number: 83
+  branch: "feat/083-feature-model-switch"
+  lifecycle: "research"
+  createdAt: "2026-04-04T06:13:20Z"
+status:
+  phase: "implementation-complete"
+  progress:
+    completed: 6
+    total: 6
+    percentage: 100
+  currentTask: null
+  lastUpdated: "2026-04-04T08:04:31.960Z"
+  lastUpdatedBy: "feature-agent:implement"
+  completedPhases:
+    - "analyze"
+    - "requirements"
+    - "research"
+    - "plan"
+    - "phase-1"
+    - "phase-2"
+    - "phase-3"
+    - "phase-4"
+    - "evidence"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2026-04-04T06:13:20Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []

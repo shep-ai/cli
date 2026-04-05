@@ -3,10 +3,27 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePathname } from 'next/navigation';
-import { Loader2, AlertCircle } from 'lucide-react';
+import {
+  Loader2,
+  AlertCircle,
+  LayoutDashboard,
+  Activity,
+  ScrollText,
+  Map,
+  FileCheck,
+  Cpu,
+  Package,
+  GitMerge,
+  MessageSquare,
+  Play,
+  Square,
+  RotateCcw,
+  Zap,
+  Layers,
+} from 'lucide-react';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getFeaturePhaseTimings } from '@/app/actions/get-feature-phase-timings';
 import type {
   PhaseTimingData,
@@ -15,6 +32,9 @@ import type {
 import { getFeaturePlan } from '@/app/actions/get-feature-plan';
 import type { PlanData } from '@/app/actions/get-feature-plan';
 import type { FeatureNodeData } from '@/components/common/feature-node';
+import { cn } from '@/lib/utils';
+import { featureNodeStateConfig } from '@/components/common/feature-node';
+import { CometSpinner } from '@/components/ui/comet-spinner';
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
 import type { TechDecisionsReviewData } from '@/components/common/tech-decisions-review';
 import type { ProductDecisionsSummaryData } from '@/components/common/product-decisions-summary';
@@ -35,6 +55,7 @@ import { useTabDataFetch } from './use-tab-data-fetch';
 import type { TabFetchers } from './use-tab-data-fetch';
 import type { FeatureTabKey } from '@/components/common/control-center-drawer/drawer-view';
 import type { BranchSyncData } from '@/hooks/use-branch-sync-status';
+import type { FeatureDrawerPinnedConfig } from './pinned-config-utils';
 
 /** Lazy-loaded tab keys (tabs that fetch data on activation). */
 type LazyTabKey = 'activity' | 'plan';
@@ -43,19 +64,20 @@ type LazyTabKey = 'activity' | 'plan';
 interface TabDef {
   key: FeatureTabKey;
   label: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 /** All possible tabs in display order. */
 const ALL_TABS: TabDef[] = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'activity', label: 'Activity' },
-  { key: 'log', label: 'Log' },
-  { key: 'plan', label: 'Plan' },
-  { key: 'prd-review', label: 'PRD Review' },
-  { key: 'tech-decisions', label: 'Tech Decisions' },
-  { key: 'product-decisions', label: 'Product' },
-  { key: 'merge-review', label: 'Merge Review' },
-  { key: 'chat', label: 'Chat' },
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { key: 'activity', label: 'Activity', icon: Activity },
+  { key: 'log', label: 'Log', icon: ScrollText },
+  { key: 'plan', label: 'Plan', icon: Map },
+  { key: 'prd-review', label: 'PRD Review', icon: FileCheck },
+  { key: 'tech-decisions', label: 'Tech Decisions', icon: Cpu },
+  { key: 'product-decisions', label: 'Product', icon: Package },
+  { key: 'merge-review', label: 'Merge Review', icon: GitMerge },
+  { key: 'chat', label: 'Chat', icon: MessageSquare },
 ];
 
 /** Compute which tabs are visible based on feature lifecycle + state. */
@@ -100,6 +122,10 @@ export interface FeatureDrawerTabsProps {
   headerContent?: React.ReactNode;
   featureNode: FeatureNodeData;
   featureId: string;
+  /** Action handlers for the status chip in the title row. */
+  onRetry?: (featureId: string) => void;
+  onStop?: (featureId: string) => void;
+  onStart?: (featureId: string) => void;
   initialTab?: FeatureTabKey;
   /** Tab key from URL path segment (e.g. /feature/[id]/activity → 'activity'). */
   urlTab?: FeatureTabKey;
@@ -144,6 +170,8 @@ export interface FeatureDrawerTabsProps {
   isRejecting?: boolean;
   chatInput?: string;
   onChatInputChange?: (value: string) => void;
+  pinnedConfig?: FeatureDrawerPinnedConfig;
+  continuationActionsDisabled?: boolean;
 
   // Interactive agent
   /** When false, the Chat tab is hidden from the tab bar (FR-17). Defaults to true. */
@@ -204,8 +232,13 @@ export function FeatureDrawerTabs({
   isRejecting,
   chatInput,
   onChatInputChange,
+  pinnedConfig,
+  continuationActionsDisabled = false,
   sseEvents,
   interactiveAgentEnabled = true,
+  onRetry,
+  onStop,
+  onStart,
 }: FeatureDrawerTabsProps) {
   const pathname = usePathname();
 
@@ -415,35 +448,150 @@ export function FeatureDrawerTabs({
         onValueChange={handleTabChange}
         className="flex min-h-0 flex-1 flex-col"
       >
-        {/* Integrated header: title + inline tabs + actions */}
-        <div className="shrink-0 px-4 pt-4 pb-3" data-testid="feature-drawer-header">
-          {/* Row 1: Feature name (left) + tab triggers (right) */}
-          <div className="flex items-baseline gap-4 pe-6">
-            {featureName ? (
-              <h2 className="text-foreground min-w-0 shrink truncate text-base font-semibold tracking-tight">
+        {/* VS Code-style tab bar — first row */}
+        <TabsList className="bg-muted/50 h-auto w-full shrink-0 justify-start gap-0 rounded-none border-b p-0">
+          {visibleTabDefs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <TabsTrigger
+                key={tab.key}
+                value={tab.key}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:border-t-primary [&:not([data-state=active])]:border-r-border relative h-auto rounded-none border-t-2 border-r border-t-transparent border-r-transparent bg-transparent px-3.5 py-2.5 text-[13px] font-normal shadow-none transition-none last:border-r-transparent data-[state=active]:shadow-none"
+              >
+                <Icon className="mr-1.5 size-4" />
+                {tab.label}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+        {/* Persistent header — contrasting background */}
+        <div className="bg-muted/40 shrink-0 border-b">
+          {/* Feature / repo + status chip */}
+          {featureName ? (
+            <div
+              className="flex h-12 items-stretch gap-2 pr-0 pl-4"
+              data-testid="feature-drawer-header"
+            >
+              {/* Fast/SDLC icon */}
+              <div className="flex items-center">
+                {featureNode.fastMode ? (
+                  <Zap className="size-4 shrink-0 text-amber-500" />
+                ) : (
+                  <Layers className="text-muted-foreground/50 size-4 shrink-0" />
+                )}
+              </div>
+              {/* Feature name */}
+              <h2 className="text-foreground flex min-w-0 items-center truncate text-base font-semibold tracking-tight">
                 {featureName}
               </h2>
-            ) : null}
-            <TabsList className="h-auto shrink-0 gap-0.5 rounded-none border-0 bg-transparent p-0">
-              {visibleTabDefs.map((tab) => (
-                <TabsTrigger
-                  key={tab.key}
-                  value={tab.key}
-                  className="text-muted-foreground hover:text-foreground data-[state=active]:text-foreground data-[state=active]:border-primary h-auto rounded-none border-b-2 border-transparent bg-transparent px-2 py-0.5 text-[12px] font-medium shadow-none transition-colors data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-          {/* Row 2+: repo info, actions */}
+              {/* / repo */}
+              {featureNode.repositoryName ? (
+                <span className="animate-in fade-in flex shrink-0 items-center gap-1.5 self-center duration-200">
+                  <span className="text-muted-foreground/30 text-sm">/</span>
+                  {featureNode.remoteUrl ? (
+                    <a
+                      href={featureNode.remoteUrl as string}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground text-sm"
+                    >
+                      {featureNode.repositoryName}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">
+                      {featureNode.repositoryName}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 self-center">
+                  <span className="text-muted-foreground/30 text-sm">/</span>
+                  <span className="bg-muted h-4 w-16 animate-pulse rounded" />
+                </span>
+              )}
+
+              {/* Status chip + action button */}
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="ml-auto flex shrink-0 cursor-default items-center self-stretch text-xs font-medium">
+                      <div
+                        className={cn(
+                          'flex items-center gap-1.5 self-stretch px-3',
+                          featureNodeStateConfig[featureNode.state].labelClass
+                        )}
+                      >
+                        {featureNode.state === 'running' ? (
+                          <CometSpinner size="sm" className="shrink-0" />
+                        ) : (
+                          (() => {
+                            const I = featureNodeStateConfig[featureNode.state].icon;
+                            return <I className="size-3.5 shrink-0" />;
+                          })()
+                        )}
+                        {featureNodeStateConfig[featureNode.state].label}
+                      </div>
+                      {/* Inline action button */}
+                      {featureNode.state === 'pending' && onStart ? (
+                        <button
+                          type="button"
+                          onClick={() => onStart(featureNode.featureId)}
+                          disabled={continuationActionsDisabled}
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-green-500/10 hover:text-green-600 disabled:pointer-events-none disabled:opacity-50 dark:hover:text-green-400"
+                          data-testid="feature-drawer-start-button"
+                        >
+                          <Play className="size-3.5" /> Start
+                        </button>
+                      ) : featureNode.state === 'error' && onRetry ? (
+                        <button
+                          type="button"
+                          onClick={() => onRetry(featureNode.featureId)}
+                          disabled={continuationActionsDisabled}
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-red-500/10 hover:text-red-500 disabled:pointer-events-none disabled:opacity-50 dark:hover:text-red-400"
+                          data-testid="feature-drawer-retry-button"
+                        >
+                          <RotateCcw className="size-3.5" /> Retry
+                        </button>
+                      ) : featureNode.state === 'running' && onStop ? (
+                        <button
+                          type="button"
+                          onClick={() => onStop(featureNode.featureId)}
+                          className="text-muted-foreground flex items-center gap-1 self-stretch px-3 hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400"
+                          data-testid="feature-drawer-stop-button"
+                        >
+                          <Square className="size-3.5" /> Stop
+                        </button>
+                      ) : null}
+                    </div>
+                  </TooltipTrigger>
+                  {featureNode.errorMessage ? (
+                    <TooltipContent
+                      side="bottom"
+                      align="end"
+                      sideOffset={4}
+                      className="z-[100] max-w-xs cursor-pointer text-xs leading-relaxed select-text"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(featureNode.errorMessage!);
+                      }}
+                    >
+                      {featureNode.errorMessage}
+                      <span className="text-muted-foreground ml-1 text-[10px] italic">
+                        (click to copy)
+                      </span>
+                    </TooltipContent>
+                  ) : null}
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          ) : null}
+          {/* IDE toolbar */}
           {headerContent}
         </div>
-        <Separator />
 
         <TabsContent value="overview" className="mt-0 flex-1 overflow-y-auto">
           <OverviewTab
             data={featureNode}
+            pinnedConfig={pinnedConfig}
             syncStatus={syncStatus}
             syncLoading={syncLoading}
             syncError={syncError}
@@ -489,7 +637,7 @@ export function FeatureDrawerTabs({
                 onSelect={onPrdSelect ?? (() => undefined)}
                 onApprove={onPrdApprove ?? (() => undefined)}
                 onReject={onPrdReject}
-                isProcessing={isPrdLoading}
+                isProcessing={Boolean((isPrdLoading ?? false) || continuationActionsDisabled)}
                 isRejecting={isRejecting}
                 chatInput={chatInput}
                 onChatInputChange={onChatInputChange}
@@ -513,7 +661,7 @@ export function FeatureDrawerTabs({
                 <DrawerActionBarForTech
                   onApprove={onTechApprove ?? (() => undefined)}
                   onReject={onTechReject}
-                  isProcessing={isTechLoading}
+                  isProcessing={Boolean((isTechLoading ?? false) || continuationActionsDisabled)}
                   isRejecting={isRejecting}
                   chatInput={chatInput}
                   onChatInputChange={onChatInputChange}
@@ -553,7 +701,7 @@ export function FeatureDrawerTabs({
                 readOnly={featureNode.lifecycle === 'maintain'}
                 onApprove={onMergeApprove ?? (() => undefined)}
                 onReject={onMergeReject}
-                isProcessing={isMergeLoading}
+                isProcessing={Boolean((isMergeLoading ?? false) || continuationActionsDisabled)}
                 isRejecting={isRejecting}
                 chatInput={chatInput}
                 onChatInputChange={onChatInputChange}

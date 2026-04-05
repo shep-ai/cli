@@ -70,6 +70,9 @@ export interface FeatureRow {
   previous_lifecycle: string | null;
   // User attachments (JSON array)
   attachments: string;
+  // Skill injection
+  inject_skills: number;
+  injected_skills: string | null;
   // Soft delete
   deleted_at: number | null;
   created_at: number;
@@ -135,6 +138,9 @@ export function toDatabase(feature: Feature): FeatureRow {
     attachments: JSON.stringify(
       (feature.attachments ?? []).map((a) => ({ ...a, size: Number(a.size) }))
     ),
+    // Skill injection
+    inject_skills: feature.injectSkills ? 1 : 0,
+    injected_skills: feature.injectedSkills?.length ? JSON.stringify(feature.injectedSkills) : null,
     // Soft delete
     deleted_at:
       feature.deletedAt instanceof Date ? feature.deletedAt.getTime() : (feature.deletedAt ?? null),
@@ -211,6 +217,9 @@ export function fromDatabase(row: FeatureRow): Feature {
     }),
     // User attachments
     attachments: JSON.parse(row.attachments ?? '[]'),
+    // Skill injection
+    injectSkills: row.inject_skills === 1,
+    ...(row.injected_skills != null && { injectedSkills: JSON.parse(row.injected_skills) }),
     // Soft delete
     ...(row.deleted_at != null && { deletedAt: new Date(row.deleted_at) }),
   };

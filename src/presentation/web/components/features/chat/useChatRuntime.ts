@@ -7,6 +7,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InteractiveMessage } from '@shepai/core/domain/generated/output';
 import { InteractiveMessageRole } from '@shepai/core/domain/generated/output';
 
+/** Shape matching UserInteractionData from the agent executor interface. */
+export interface InteractionData {
+  toolCallId: string;
+  questions: {
+    question: string;
+    header: string;
+    options: { label: string; description: string; preview?: string }[];
+    multiSelect: boolean;
+  }[];
+}
+
 /** Chat state returned by the backend — matches ChatState from service interface */
 interface ChatState {
   messages: InteractiveMessage[];
@@ -14,6 +25,7 @@ interface ChatState {
   streamingText: string | null;
   sessionInfo: SessionInfo | null;
   turnStatus?: string;
+  pendingInteraction?: InteractionData | null;
 }
 
 interface SessionInfo {
@@ -23,6 +35,9 @@ interface SessionInfo {
   startedAt: string;
   idleTimeoutMinutes: number;
   lastActivityAt: string;
+  totalCostUsd: number | null;
+  totalInputTokens: number | null;
+  totalOutputTokens: number | null;
 }
 
 // ── API helpers ─────────────────────────────────────────────────────────────
@@ -40,12 +55,14 @@ async function fetchChatState(featureId: string): Promise<ChatState> {
 async function postMessage(
   featureId: string,
   content: string,
-  worktreePath: string
+  worktreePath: string,
+  model?: string,
+  agentType?: string
 ): Promise<InteractiveMessage> {
   const res = await fetch(`/api/interactive/chat/${featureId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content, worktreePath }),
+    body: JSON.stringify({ content, worktreePath, model, agentType }),
   });
   if (!res.ok) throw new Error(`Failed to send message: ${res.status}`);
   const data = (await res.json()) as { message: InteractiveMessage };
@@ -85,6 +102,20 @@ export interface ChatRuntimeOptions {
   contentTransform?: (content: string) => string;
   /** Called after a message is successfully sent (e.g. clear attachments). */
   onMessageSent?: () => void;
+  /** Override model for new sessions (e.g. 'claude-sonnet-4-6'). */
+  model?: string;
+  /** Override agent type for new sessions (e.g. 'claude-code'). */
+  agentType?: string;
+  /** When true, inject debug bubbles showing SSE events, session info, etc. */
+  debugMode?: boolean;
+}
+
+/** A debug event captured from SSE for display in debug mode. */
+export interface DebugEvent {
+  id: string;
+  timestamp: Date;
+  label: string;
+  detail?: string;
 }
 
 /**
@@ -97,6 +128,26 @@ export function useChatRuntime(
   options?: ChatRuntimeOptions
 ) {
   const queryClient = useQueryClient();
+
+  // Keep a ref to the latest model/agent so the mutation closure always
+  // reads the current value without depending on stale captures.
+  const modelRef = useRef(options?.model);
+  const agentTypeRef = useRef(options?.agentType);
+  modelRef.current = options?.model;
+  agentTypeRef.current = options?.agentType;
+
+  // ── Debug events (dev mode only) ────────────────────────────────────────
+  const debugModeRef = useRef(options?.debugMode ?? false);
+  debugModeRef.current = options?.debugMode ?? false;
+  const [debugEvents, setDebugEvents] = useState<DebugEvent[]>([]);
+
+  const pushDebug = useCallback((label: string, detail?: string) => {
+    if (!debugModeRef.current) return;
+    setDebugEvents((prev) => [
+      ...prev,
+      { id: `dbg-${Date.now()}-${Math.random()}`, timestamp: new Date(), label, detail },
+    ]);
+  }, []);
 
   // ── TanStack Query: fetch messages from backend ─────────────────────────
   const { data: chatState, isLoading: isChatLoading } = useQuery({
@@ -114,6 +165,19 @@ export function useChatRuntime(
 
   const messages = useMemo(() => chatState?.messages ?? [], [chatState?.messages]);
   const sessionStatus = chatState?.sessionStatus ?? null;
+
+  // Track session status changes for debug
+  const prevSessionStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (sessionStatus && sessionStatus !== prevSessionStatusRef.current) {
+      const info = chatState?.sessionInfo;
+      const detail = info
+        ? `model=${info.model ?? '?'}, sid=${info.sessionId?.slice(0, 8) ?? '?'}`
+        : undefined;
+      pushDebug(`session_${sessionStatus}`, detail);
+    }
+    prevSessionStatusRef.current = sessionStatus;
+  }, [sessionStatus, chatState?.sessionInfo, pushDebug]);
   const backendStreamingText = chatState?.streamingText ?? null;
 
   // Cache last known sessionInfo so PID stays visible after process exits
@@ -130,6 +194,20 @@ export function useChatRuntime(
   const [awaitingResponse, setAwaitingResponse] = useState(false);
   const awaitingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  // ── Interaction state (AskUserQuestion) ─────────────────────────────
+  const [pendingInteraction, setPendingInteraction] = useState<InteractionData | null>(null);
+
+  // Sync pending interaction from backend polling (fallback for missed SSE)
+  useEffect(() => {
+    const backendInteraction = chatState?.pendingInteraction ?? null;
+    if (backendInteraction) {
+      setPendingInteraction(backendInteraction);
+    } else if (!backendInteraction && pendingInteraction) {
+      // Backend cleared it (e.g. agent continued) — clear local state
+      setPendingInteraction(null);
+    }
+  }, [chatState?.pendingInteraction, pendingInteraction]);
 
   // Delayed awaiting — only show Thinking bubble after 600ms to avoid flash
   const startAwaiting = useCallback(() => {
@@ -169,8 +247,18 @@ export function useChatRuntime(
       }
     });
 
-    es.addEventListener('activity', () => {
+    es.addEventListener('activity', (event: MessageEvent) => {
       cancelAwaiting();
+      try {
+        const data = JSON.parse(event.data as string) as {
+          activity?: { kind: string; label: string; detail?: string };
+        };
+        if (data.activity) {
+          pushDebug(`[${data.activity.kind}] ${data.activity.label}`, data.activity.detail);
+        }
+      } catch {
+        // Ignore
+      }
       // Tool events are already persisted to DB — just refetch to show them
       void queryClient.invalidateQueries({ queryKey: chatQueryKey(featureId) });
     });
@@ -181,6 +269,19 @@ export function useChatRuntime(
         if (data.log) {
           cancelAwaiting();
           setStatusLog(data.log);
+          pushDebug('log', data.log);
+        }
+      } catch {
+        // Ignore
+      }
+    });
+
+    es.addEventListener('interaction', (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data as string) as { interaction: InteractionData };
+        if (data.interaction) {
+          cancelAwaiting();
+          setPendingInteraction(data.interaction);
         }
       } catch {
         // Ignore
@@ -190,6 +291,9 @@ export function useChatRuntime(
     es.addEventListener('done', () => {
       setStatusLog(null);
       cancelAwaiting();
+      pushDebug('turn_done');
+      // Agent turn completed — clear any lingering interaction state
+      setPendingInteraction(null);
       // Refetch first, THEN clear local streaming state so there's no gap
       void queryClient.invalidateQueries({ queryKey: chatQueryKey(featureId) }).then(() => {
         setStreamingText('');
@@ -204,12 +308,17 @@ export function useChatRuntime(
       es.close();
       eventSourceRef.current = null;
     };
-  }, [featureId, queryClient, cancelAwaiting]);
+  }, [featureId, queryClient, cancelAwaiting, pushDebug]);
 
   // ── Mutation: send user message ─────────────────────────────────────────
   const sendMutation = useMutation({
-    mutationFn: (content: string) => postMessage(featureId, content, worktreePath ?? ''),
+    mutationFn: (content: string) =>
+      postMessage(featureId, content, worktreePath ?? '', modelRef.current, agentTypeRef.current),
     onMutate: async (content: string) => {
+      pushDebug(
+        'send_message',
+        `model=${modelRef.current ?? 'default'}, agent=${agentTypeRef.current ?? 'default'}, len=${content.length}`
+      );
       startAwaiting();
       // Cancel in-flight refetches so our optimistic update isn't overwritten
       await queryClient.cancelQueries({ queryKey: chatQueryKey(featureId) });
@@ -258,7 +367,44 @@ export function useChatRuntime(
   const activeStreamText = streamingText ?? backendStreamingText ?? '';
 
   const threadMessages: ThreadMessageLike[] = useMemo(() => {
-    const result: ThreadMessageLike[] = messages.map(toThreadMessage);
+    const chatMessages: ThreadMessageLike[] = messages.map(toThreadMessage);
+
+    // Merge debug bubbles into the timeline by timestamp
+    let result: ThreadMessageLike[];
+    if (options?.debugMode && debugEvents.length > 0) {
+      const debugMessages: ThreadMessageLike[] = debugEvents.map((evt) => ({
+        id: evt.id,
+        role: 'assistant' as const,
+        content: [
+          {
+            type: 'text' as const,
+            text: evt.detail ? `🔧 **${evt.label}** — ${evt.detail}` : `🔧 **${evt.label}**`,
+          },
+        ],
+        createdAt: evt.timestamp,
+      }));
+      // Merge both arrays (both already sorted by time) into one sorted list
+      result = [];
+      let ci = 0;
+      let di = 0;
+      while (ci < chatMessages.length && di < debugMessages.length) {
+        const chatTime = chatMessages[ci].createdAt
+          ? new Date(chatMessages[ci].createdAt as unknown as string).getTime()
+          : 0;
+        const dbgTime = debugMessages[di].createdAt
+          ? new Date(debugMessages[di].createdAt as unknown as string).getTime()
+          : 0;
+        if (chatTime <= dbgTime) {
+          result.push(chatMessages[ci++]);
+        } else {
+          result.push(debugMessages[di++]);
+        }
+      }
+      while (ci < chatMessages.length) result.push(chatMessages[ci++]);
+      while (di < debugMessages.length) result.push(debugMessages[di++]);
+    } else {
+      result = chatMessages;
+    }
 
     // Streaming text as the last message — may include a live activity suffix
     if (activeStreamText.trim()) {
@@ -291,7 +437,15 @@ export function useChatRuntime(
     }
 
     return result;
-  }, [messages, activeStreamText, awaitingResponse, sessionStatus, statusLog]);
+  }, [
+    messages,
+    activeStreamText,
+    awaitingResponse,
+    sessionStatus,
+    statusLog,
+    options?.debugMode,
+    debugEvents,
+  ]);
 
   // ── Status info for typing indicator ──────────────────────────────────
   const status: ChatStatus = useMemo(() => {
@@ -319,9 +473,10 @@ export function useChatRuntime(
     const res = await fetch(`/api/interactive/chat/${featureId}/messages`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`Failed to clear chat: ${res.status}`);
     setStreamingText('');
-
+    setDebugEvents([]);
     setStatusLog(null);
     cancelAwaiting();
+    setPendingInteraction(null);
     void queryClient.invalidateQueries({ queryKey: chatQueryKey(featureId) });
   }, [featureId, queryClient, cancelAwaiting]);
 
@@ -335,6 +490,35 @@ export function useChatRuntime(
     cancelAwaiting();
     void queryClient.invalidateQueries({ queryKey: chatQueryKey(featureId) });
   }, [featureId, queryClient, cancelAwaiting]);
+
+  // ── Respond to interaction (AskUserQuestion) ───────────────────────────
+  const respondToInteraction = useCallback(
+    async (answers: Record<string, string>) => {
+      // Clear the bubble and status log immediately — answers are persisted as
+      // a user message by the backend, shown in conversation history on refetch.
+      setPendingInteraction(null);
+      setStatusLog(null);
+
+      try {
+        const res = await fetch(`/api/interactive/chat/${featureId}/respond`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers }),
+        });
+        if (!res.ok) {
+          // eslint-disable-next-line no-console
+          console.error(`[respondToInteraction] failed: ${res.status}`);
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[respondToInteraction] error:', err);
+      }
+
+      // Refetch to show the persisted user message with answers
+      void queryClient.invalidateQueries({ queryKey: chatQueryKey(featureId) });
+    },
+    [featureId, queryClient]
+  );
 
   // ── Build assistant-ui runtime ──────────────────────────────────────────
   const runtime = useExternalStoreRuntime({
@@ -350,5 +534,14 @@ export function useChatRuntime(
     }, [cancelAwaiting]),
   });
 
-  return { runtime, status, clearChat, stopAgent, sessionInfo, isChatLoading };
+  return {
+    runtime,
+    status,
+    clearChat,
+    stopAgent,
+    sessionInfo,
+    isChatLoading,
+    pendingInteraction,
+    respondToInteraction,
+  };
 }

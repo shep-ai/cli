@@ -15,6 +15,10 @@
           "name": "Codex CLI",
           "description": "OpenAI's Codex CLI terminal agent (GPT models)"
         },
+        "copilotCli": {
+          "name": "Copilot CLI",
+          "description": "GitHub Copilot CLI (Claude Sonnet 4.5 default, requires Copilot subscription)"
+        },
         "cursor": {
           "name": "Cursor",
           "description": "Cursor AI coding agent"

@@ -40,6 +40,7 @@ interface NewOptions {
   model?: string;
   attach?: string[];
   rebase?: boolean;
+  injectSkills?: boolean;
 }
 
 /** Commander collect pattern for repeatable options. */
@@ -104,6 +105,8 @@ export function createNewCommand(): Command {
     .option('--no-fast', t('cli:commands.feat.new.noFastOption'))
     .option('--model <model>', t('cli:commands.feat.new.modelOption'))
     .option('--no-rebase', t('cli:commands.feat.new.noRebaseOption'))
+    .option('--inject-skills', t('cli:commands.feat.new.injectSkillsOption'))
+    .option('--no-inject-skills', t('cli:commands.feat.new.noInjectSkillsOption'))
     .option('--attach <path>', t('cli:commands.feat.new.attachOption'), collect, [])
     .action(async (description: string, options: NewOptions) => {
       try {
@@ -174,6 +177,7 @@ export function createNewCommand(): Command {
             ...(fast && { fast: true }),
             ...(options.model !== undefined && { model: options.model }),
             ...(attachmentPaths.length > 0 && { attachmentPaths }),
+            ...(options.injectSkills !== undefined && { injectSkills: options.injectSkills }),
             rebaseBeforeBranch: options.rebase,
           })
         );

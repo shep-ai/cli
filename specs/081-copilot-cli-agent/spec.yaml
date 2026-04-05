@@ -1,0 +1,313 @@
+name: "copilot-cli-agent"
+number: 81
+branch: "feat/081-copilot-cli-agent"
+oneLiner: "Add GitHub Copilot CLI as a supported agent executor"
+userQuery: "Add support for GitHub Copilot CLI (copilot) as an agent provider in Shep\n"
+summary: "Integrate GitHub Copilot CLI as a new agent executor in Shep's settings-driven agent system. This involves adding a CopilotCli variant to the AgentType enum in TypeSpec, implementing a CopilotCliExecutorService that spawns the `copilot` binary with JSON output mode, and wiring it through the factory, DI container, and all presentation layers (TUI wizard, Web UI).\n"
+phase: "Requirements"
+sizeEstimate: "M"
+relatedFeatures: []
+technologies:
+  - "TypeSpec (domain model enum extension)"
+  - "TypeScript (executor service implementation)"
+  - "Node.js child_process (subprocess spawning)"
+  - "GitHub Copilot CLI (copilot --output-format json)"
+  - "JSONL (newline-delimited JSON event stream parsing)"
+  - "Next.js (web UI agent selection components)"
+  - "Inquirer.js (TUI agent selection prompt)"
+  - "Vitest (unit and integration tests)"
+  - "Storybook (UI component stories)"
+relatedLinks:
+  - title: "GitHub Copilot CLI documentation"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line"
+  - title: "GitHub Copilot CLI npm package"
+    url: "https://www.npmjs.com/package/@githubnext/github-copilot-cli"
+  - title: "GitHub Copilot subscriptions"
+    url: "https://docs.github.com/en/copilot/about-github-copilot/subscription-plans-for-github-copilot"
+openQuestions:
+  - question: "What permission bypass flag should the executor use?"
+    resolved: true
+    options:
+      - option: "--allow-all flag"
+        description: "Use --allow-all which grants all tool permissions without interactive prompts. This is the non-interactive equivalent of Claude Code's --dangerously-skip-permissions and Codex CLI's --sandbox danger-full-access. Required for fully autonomous SDLC execution."
+        selected: true
+      - option: "Interactive approval gates"
+        description: "Do not pass any permission bypass flag. The CLI will pause and prompt for approval at each tool use. Incompatible with Shep's headless autonomous execution model."
+        selected: false
+    selectionRationale: "--allow-all is required because Shep executes autonomously without a human in the loop. All other supported executors bypass interactive permission gates (Claude Code: --dangerously-skip-permissions, Codex: --sandbox danger-full-access). --allow-all is the Copilot CLI equivalent and is the documented flag for non-interactive scripting."
+    answer: "--allow-all flag"
+
+  - question: "How should the executor pass the prompt to copilot?"
+    resolved: true
+    options:
+      - option: "--prompt / -p flag"
+        description: "Pass the prompt via the -p (or --prompt) flag. This is the documented non-interactive mode for Copilot CLI. Avoids shell and avoids stdin complications. The confirmed invocation is `copilot -p \"prompt\" --allow-all --output-format json -s --no-custom-instructions --no-ask-user`."
+        selected: true
+      - option: "Stdin pipe"
+        description: "Pipe prompt via stdin. Codex and Claude Code use this pattern. However, Copilot CLI's confirmed non-interactive mode is -p flag based, not stdin based."
+        selected: false
+      - option: "Positional argument"
+        description: "Pass prompt as a bare positional argument. Not the documented interface for Copilot CLI non-interactive mode."
+        selected: false
+    selectionRationale: "The -p/--prompt flag is the confirmed, documented interface for Copilot CLI non-interactive mode, as validated locally. This is `copilot -p <prompt> --allow-all --output-format json -s --no-custom-instructions --no-ask-user`. While other executors use stdin, the -p flag is Copilot CLI's native non-interactive API and avoids any stdin buffering or EOF signaling issues."
+    answer: "-p flag"
+
+  - question: "How should session resume be implemented?"
+    resolved: true
+    options:
+      - option: "--resume=<sessionId> flag"
+        description: "Use the --resume=<sessionId> flag confirmed in local testing. The sessionId comes from the `result` event's sessionId field in the JSONL output. This enables multi-turn SDLC workflows where later phases can reference prior context."
+        selected: true
+      - option: "--continue flag"
+        description: "Use --continue which resumes the most recent session without specifying an ID. Less precise — cannot target a specific prior phase's session."
+        selected: false
+      - option: "No session resume"
+        description: "Skip session resume for v1. Each execution is stateless. Simpler but limits multi-phase context continuity."
+        selected: false
+    selectionRationale: "--resume=<sessionId> is preferred over --continue because it allows precise targeting of a specific session ID from a prior phase, matching the existing AgentExecutionOptions.resumeSession field. The sessionId is available in the JSONL result event and maps directly to the existing AgentExecutionResult.sessionId field."
+    answer: "--resume=<sessionId> flag"
+
+  - question: "What authentication mechanism should the executor use?"
+    resolved: true
+    options:
+      - option: "GitHub OAuth session (copilot auth login)"
+        description: "Rely on the user having authenticated via `copilot auth login` (GitHub OAuth). Copilot CLI uses the GitHub Copilot subscription attached to the user's GitHub account. No API key env var is needed or available — auth is tied to the GitHub session."
+        selected: true
+      - option: "GITHUB_TOKEN environment variable"
+        description: "Inject GITHUB_TOKEN env var. While Copilot CLI uses GitHub auth, injecting a PAT or Actions token may not work for Copilot API access which requires a Copilot subscription, not just a GitHub token."
+        selected: false
+      - option: "COPILOT_API_KEY environment variable"
+        description: "There is no documented COPILOT_API_KEY env var for Copilot CLI. Copilot access is subscription-based via GitHub OAuth, not token-based."
+        selected: false
+    selectionRationale: "GitHub Copilot CLI authenticates via GitHub OAuth (the user's Copilot subscription). There is no API key — auth is managed by `copilot auth login` which stores credentials locally. The executor does not inject any auth env var; instead it validates that the user has authenticated before spawning. This is different from Codex CLI (CODEX_API_KEY) and Gemini CLI (GEMINI_API_KEY) which support direct API key injection."
+    answer: "GitHub OAuth session"
+
+  - question: "Which models should be included in the initial supported models list?"
+    resolved: true
+    options:
+      - option: "Claude Sonnet 4.5 only (default)"
+        description: "Only list the default model. Simple but prevents users from selecting other models in the UI."
+        selected: false
+      - option: "Static list of known supported models"
+        description: "Include a curated static list of known models available via --model flag: claude-sonnet-4-5 (default), claude-opus-4-5, claude-haiku-4-5, gpt-4.1, gpt-4o, o3, o4-mini. Informational for UI picker — executor passes whatever the user configures."
+        selected: true
+      - option: "Dynamic discovery via copilot API"
+        description: "Query available models dynamically. Adds latency to UI rendering and no existing executor does dynamic discovery."
+        selected: false
+    selectionRationale: "A curated static list follows the same pattern as all other executors (CLAUDE_CODE_MODELS, CODEX_CLI_MODELS, GEMINI_CLI_MODELS). The executor passes whatever model value the user configures via --model; getSupportedModels() is informational only. The list should include the documented default (claude-sonnet-4-5) plus other known available models."
+    answer: "Static list of known supported models"
+
+  - question: "What icon should represent Copilot CLI in the web UI?"
+    resolved: true
+    options:
+      - option: "GitHub Copilot brand icon"
+        description: "Use the GitHub Copilot logo (the distinctive robot/visor mark). Copilot CLI is a GitHub product with its own brand identity separate from the GitHub octocat. Consistent with the pattern where agents use their own product icon."
+        selected: true
+      - option: "GitHub octocat icon"
+        description: "Use the generic GitHub octocat. Less specific — Copilot has its own distinct brand identity."
+        selected: false
+    selectionRationale: "The GitHub Copilot brand icon (the robot/visor logomark) is the appropriate choice because Copilot CLI is a distinct GitHub product with its own recognized brand. Using the specific Copilot icon is consistent with how Claude Code uses the Anthropic/Claude icon and Codex uses the OpenAI icon — each agent uses its own product icon, not a generic parent company mark."
+    answer: "GitHub Copilot brand icon"
+
+  - question: "Should --output-format json be used for all invocations?"
+    resolved: true
+    options:
+      - option: "Always use --output-format json"
+        description: "Use --output-format json for all invocations. Provides structured JSONL events with sessionId, usage, and typed event stream in all cases. Consistent parsing logic between execute() and executeStream()."
+        selected: true
+      - option: "JSON only for streaming, plain text for execute()"
+        description: "Two different parsing paths. Loses sessionId and usage metadata in non-streaming mode. No benefit over always using JSON."
+        selected: false
+    selectionRationale: "Always using --output-format json is the correct approach because the structured JSONL event stream provides sessionId (for resume), usage metadata, and typed events. This follows the same reasoning as Codex CLI (always --json) and Claude Code (always --output-format json). A single parsing codepath for both execute() and executeStream() is cleaner and more maintainable."
+    answer: "Always use --output-format json"
+
+content: |
+  ## Problem Statement
+
+  Shep's agent system currently supports Claude Code, Codex CLI, and Cursor as AI coding
+  agent executors. Users who use GitHub Copilot CLI — GitHub's official terminal AI coding
+  assistant — have no way to use it with Shep. GitHub Copilot CLI is a natural fit: it is
+  widely adopted (Copilot has the largest enterprise user base of any AI coding tool),
+  integrates seamlessly with GitHub workflows, and supports non-interactive execution with
+  structured JSON output.
+
+  GitHub Copilot CLI provides a non-interactive mode (`copilot -p "prompt" --allow-all
+  --output-format json -s --no-custom-instructions --no-ask-user`) that outputs JSONL-
+  structured events to stdout including `assistant.message_delta`, `assistant.message`,
+  and a final `result` event with `sessionId` and usage statistics. It supports session
+  resume via `--resume=<sessionId>` and model selection via `--model`. This maps cleanly
+  to Shep's IAgentExecutor interface pattern.
+
+  ## Success Criteria
+
+  - [ ] SC-1: `copilot-cli` appears in the AgentType enum after TypeSpec compilation
+  - [ ] SC-2: Selecting Copilot CLI in settings and running a feature workflow executes prompts via the `copilot` binary
+  - [ ] SC-3: Streaming mode (`executeStream()`) yields real-time progress events from Copilot JSONL output
+  - [ ] SC-4: Session resume works across multi-phase SDLC workflows using Copilot sessionIds
+  - [ ] SC-5: Auth validation detects missing Copilot CLI login and surfaces a clear error
+  - [ ] SC-6: Copilot CLI is selectable in both TUI agent wizard and Web UI settings dropdown
+  - [ ] SC-7: Web UI displays the GitHub Copilot brand icon and "Copilot CLI" label
+  - [ ] SC-8: All unit tests pass with >90% coverage on the executor service
+  - [ ] SC-9: Factory correctly creates, caches, and returns CopilotCliExecutorService instances
+  - [ ] SC-10: All Storybook stories render correctly for Copilot CLI variants
+  - [ ] SC-11: `pnpm validate` passes with zero errors after all changes
+  - [ ] SC-12: Existing agent executors continue to work without regression
+
+  ## Functional Requirements
+
+  - **FR-1: TypeSpec enum extension** — Add `CopilotCli: "copilot-cli"` variant to the AgentType
+    enum in `tsp/common/enums/agent-config.tsp`. Run `pnpm tsp:compile` to regenerate the
+    domain output. All downstream typed references must compile without error.
+
+  - **FR-2: Executor service implementation** — Create `CopilotCliExecutorService` implementing
+    `IAgentExecutor` at `packages/core/src/infrastructure/services/agents/common/executors/`.
+    The executor must:
+    - Accept `SpawnFunction` via constructor injection
+    - Spawn `copilot` with `-p <prompt> --allow-all --output-format json -s --no-custom-instructions --no-ask-user`
+    - Parse JSONL stdout events to extract response text from `assistant.message` events
+    - Extract `sessionId` from the final `result` event for session resume
+    - Return `AgentExecutionResult` with result text, sessionId, and usage metadata
+    - Support `--model <model>` flag from `options.model`
+    - Set working directory via spawn `cwd` option
+
+  - **FR-3: Streaming execution** — Implement `executeStream()` as an async generator that:
+    - Spawns `copilot` with the same flags and reads stdout line-by-line
+    - Yields `AgentExecutionStreamEvent` objects with type `progress` for `assistant.message_delta` events
+    - Yields a final event with type `result` containing the complete response from `assistant.message`
+    - Yields type `error` events when stderr contains fatal errors or exit code is non-zero
+    - Handles partial JSON lines across chunk boundaries
+
+  - **FR-4: Session resume** — When `options.resumeSession` is provided:
+    - Append `--resume=<sessionId>` to the copilot invocation
+    - Report `session-resume` as a supported feature via `supportsFeature()`
+
+  - **FR-5: Authentication** — Copilot CLI uses GitHub OAuth (no API key injection):
+    - Auth method is always `session` (GitHub Copilot subscription)
+    - The executor does NOT inject any auth environment variable
+    - When the user has not authenticated, `copilot` exits with a non-zero code and auth error on stderr
+    - Surface a clear error message with instructions to run `copilot auth login`
+    - Auth method `token` is not supported and should surface an informative error
+
+  - **FR-6: Factory integration** — Update `AgentExecutorFactory`:
+    - Add `copilot-cli` case to `createExecutor()` switch statement
+    - Pass `spawn` function and `authConfig` to the executor constructor
+    - Add `copilot-cli` to `getSupportedAgents()` return array
+    - Add CLI info entry: `{ agentType: 'copilot-cli', cmd: 'copilot', versionArgs: ['--version'] }`
+    - Add `getSupportedModels('copilot-cli')` returning the known models list
+
+  - **FR-7: DI container registration** — Register a stub session repository for `copilot-cli`
+    in the DI container, following the pattern of existing agent session repositories.
+
+  - **FR-8: TUI agent selection** — Add a Copilot CLI choice to the TUI agent select prompt:
+    - Name: "Copilot CLI"
+    - Value: `AgentType.CopilotCli`
+    - Description: "GitHub Copilot CLI (Claude Sonnet 4.5 default, requires Copilot subscription)"
+    - Status: Enabled (not "Coming Soon")
+
+  - **FR-9: Web UI agent settings** — Add Copilot CLI to the web settings panel:
+    - Add entry to `AGENT_TYPE_OPTIONS` with value and label
+    - Auth method: Session only (no API token input field)
+
+  - **FR-10: Web UI agent icons** — Add Copilot CLI to the icon system:
+    - Add `'copilot-cli'` to the `AgentTypeValue` union type
+    - Add icon mapping using a GitHub Copilot SVG at `/public/icons/agents/copilot.svg`
+    - Add label: `'copilot-cli': 'Copilot CLI'`
+
+  - **FR-11: Agent model picker** — Add Copilot CLI models to the model picker:
+    - Add to `AGENT_LABELS` with display name "Copilot CLI"
+    - Add to `AGENT_ORDER` for consistent ordering in the UI
+    - Models list populated from factory's `getSupportedModels()`
+
+  - **FR-12: Storybook stories** — Add Copilot CLI variants to all affected story files:
+    - Agent type icons stories
+    - Agent settings section stories
+    - Agent model picker stories
+
+  - **FR-13: Feature support declaration** — The executor must report supported features via
+    `supportsFeature()`:
+    - `session-resume`: Supported (via --resume=<sessionId>)
+    - `streaming`: Supported (via --output-format json JSONL output)
+    - `tool-scoping`: Not supported (no --allowedTools equivalent in Copilot CLI)
+    - `structured-output`: Not supported initially (no JSON schema flag in confirmed CLI)
+    - `system-prompt`: Not supported (Copilot CLI uses its own system prompt)
+    - `session-listing`: Not supported initially
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Cross-platform compatibility** — The executor must work on macOS, Linux, and
+    Windows. Use `windowsHide: true` on Windows. Never use `shell: true` for spawning.
+    Handle Windows-specific process termination via `taskkill /F /T`.
+
+  - **NFR-2: Testability** — Constructor injection of `SpawnFunction` must enable full unit
+    testing without a real Copilot CLI binary. All subprocess interactions must be mockable.
+    Target >90% line coverage on the executor service.
+
+  - **NFR-3: Error resilience** — The executor must handle: non-zero exit codes, malformed
+    JSON output, empty stdout, stderr-only auth errors (with install/login instructions),
+    process timeout, and missing `copilot` binary with a clear error and install instructions.
+
+  - **NFR-4: Performance** — Executor overhead must add <10ms to each invocation. Streaming
+    must not buffer the entire response before yielding events.
+
+  - **NFR-5: Security** — Never log prompt content at DEBUG level in production. The executor
+    must not accept or inject API keys (Copilot auth is OAuth-only).
+
+  - **NFR-6: Consistency** — Follow the exact patterns established by ClaudeCodeExecutorService,
+    CodexCliExecutorService, and GeminiCliExecutorService: same constructor signature, same
+    logging conventions, same error message formatting, same silent-mode behavior.
+
+  - **NFR-7: Maintainability** — Keep the executor as a single file under 500 lines. Reuse
+    existing utility functions where available. Document Copilot CLI-specific behavioral
+    quirks (e.g., -s silent flag behavior, --no-ask-user interaction) with inline comments.
+
+  - **NFR-8: Graceful degradation** — When Copilot CLI is not installed, the validator
+    service must detect this and surface a clear message. The agent must still appear in
+    selection UIs but show an appropriate status when the binary is missing.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Which permission bypass flag? | --allow-all | Only documented non-interactive flag; required for headless execution |
+  | 2 | How to pass prompt? | -p flag | Confirmed non-interactive interface for Copilot CLI; avoids stdin complications |
+  | 3 | Session resume strategy? | --resume=<sessionId> | Precise session targeting; maps to existing AgentExecutionOptions.resumeSession |
+  | 4 | Authentication method? | GitHub OAuth session only | Copilot is subscription-based via GitHub OAuth; no API key available |
+  | 5 | Models list strategy? | Static curated list | Follows all existing executor patterns; getSupportedModels() is informational |
+  | 6 | Use --output-format json always? | Yes | Single parsing path; provides sessionId and usage metadata in all cases |
+  | 7 | Web UI icon? | GitHub Copilot brand icon | Copilot has distinct brand identity; consistent with product-specific icon convention |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/common/enums/agent-config.tsp` | High | Add `CopilotCli: "copilot-cli"` to AgentType enum |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-generated after tsp compile — new enum variant |
+  | `packages/core/src/infrastructure/services/agents/common/executors/` | High | New `copilot-cli-executor.service.ts` (~400 lines) |
+  | `packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts` | High | Add case for copilot-cli in createExecutor, getSupportedAgents, getCliInfo, getSupportedModels |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register stub session repository for copilot-cli |
+  | `src/presentation/tui/prompts/agent-select.prompt.ts` | Medium | Add Copilot CLI choice (enabled, not Coming Soon) |
+  | `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` | Medium | Add icon mapping and label for copilot-cli |
+  | `src/presentation/web/components/features/settings/agent-settings-section.tsx` | Medium | Add to AGENT_TYPE_OPTIONS array |
+  | `src/presentation/web/app/actions/get-all-agent-models.ts` | Medium | Add to AGENT_LABELS and AGENT_ORDER |
+  | `public/icons/agents/` | Low | Add GitHub Copilot brand icon asset (copilot.svg) |
+  | `src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx` | Low | Add to allAgentTypes array |
+  | `src/presentation/web/components/features/settings/agent-settings-section.stories.tsx` | Low | Add story variant for Copilot CLI |
+  | `src/presentation/web/components/features/settings/AgentModelPicker/AgentModelPicker.stories.tsx` | Low | Add story for Copilot CLI selection |
+  | `packages/core/src/infrastructure/services/agents/sessions/` | Low | Add stub session repository for copilot-cli |
+  | Test files (unit + integration) | High | TDD: executor tests, factory tests, DI tests |
+
+  ## Dependencies
+
+  - **GitHub Copilot CLI binary** (`copilot`) must be installed (`npm i -g @githubnext/github-copilot-cli` or via GitHub CLI extension)
+  - **Authentication:** User must run `copilot auth login` (GitHub OAuth with active Copilot subscription)
+  - **Existing infrastructure:** Relies on SpawnFunction, IAgentExecutor interface, AgentExecutorFactory pattern — all already established
+  - **No new npm dependencies required** — Copilot CLI is invoked as a subprocess, same as all other agent executors
+  - **GitHub Copilot brand icon asset** — An SVG file for the web UI
+
+  ## Size Estimate
+
+  **M** — Well-patterned task with clear precedent (3 existing executor implementations to follow).
+  The executor service is the main effort (~400 lines), plus TypeSpec enum addition, factory wiring,
+  DI registration, and UI updates across TUI and Web. The primary difference from other executors
+  is the -p flag prompt delivery pattern (vs stdin) and the OAuth-only auth model (no API key
+  injection). No architectural changes needed — purely additive within established patterns.

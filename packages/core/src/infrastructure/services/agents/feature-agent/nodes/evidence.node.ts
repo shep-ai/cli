@@ -109,7 +109,7 @@ export function createEvidenceNode(executor: IAgentExecutor) {
     const commitEvidence = state.commitEvidence;
     const settings = hasSettings() ? getSettings() : undefined;
     const maxRetries = settings?.workflow.evidenceRetries ?? DEFAULT_MAX_RETRIES;
-    const options = buildExecutorOptions(state);
+    const options = buildExecutorOptions(state, undefined, 'evidence');
     const tasks = parseTasks(state.specDir);
 
     // --- Validation retry loop ---

@@ -48,6 +48,7 @@ function createMockFeature(overrides: Partial<Feature> = {}): Feature {
     commitSpecs: true,
     ciWatchEnabled: true,
     enableEvidence: false,
+    injectSkills: false,
     commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     pr: {
@@ -108,6 +109,7 @@ function createMockGitPrService(): IGitPrService {
     getBranchSyncStatus: vi.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
     stash: vi.fn().mockResolvedValue(false),
     stashPop: vi.fn().mockResolvedValue(undefined),
+    stashDrop: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -117,6 +119,7 @@ function createMockAgentRunRepository(): IAgentRunRepository {
     findById: vi.fn().mockResolvedValue(null),
     findByThreadId: vi.fn().mockResolvedValue(null),
     updateStatus: vi.fn(),
+    updatePinnedConfig: vi.fn(),
     findRunningByPid: vi.fn().mockResolvedValue([]),
     list: vi.fn().mockResolvedValue([]),
     delete: vi.fn(),

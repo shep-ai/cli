@@ -1,0 +1,32 @@
+{
+  "name": "Codex CLI",
+  "summary": "AI-powered code assistant from OpenAI",
+  "description": "Codex CLI is an AI-powered code assistant from OpenAI that helps you write, understand, and debug code with advanced AI capabilities.",
+  "tags": ["cli-agent"],
+  "author": "OpenAI",
+  "website": "https://developers.openai.com/codex/cli",
+  "platforms": ["linux", "darwin", "win32"],
+  "iconUrl": "https://cdn.simpleicons.org/openai",
+  "binary": "codex",
+  "packageManager": "npm",
+  "commands": {
+    "linux": "npm i -g @openai/codex",
+    "darwin": "npm i -g @openai/codex",
+    "win32": "npm i -g @openai/codex"
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://developers.openai.com/codex",
+  "verifyCommand": "codex --version",
+  "autoInstall": true,
+  "openDirectory": "cd {dir} && exec codex",
+  "spawnOptions": {
+    "shell": true,
+    "stdio": "inherit",
+    "detached": false
+  },
+  "terminalCommand": {
+    "linux": "x-terminal-emulator -e bash -c 'cd {dir} && exec codex'",
+    "darwin": "open -a Terminal.app bash -c 'cd {dir} && exec codex'",
+    "win32": "start pwsh.exe 'cd {dir} && codex'"
+  }
+}

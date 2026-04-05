@@ -42,6 +42,7 @@ export type { IDeploymentService, DeploymentStatus } from './deployment-service.
 export type {
   IGitHubRepositoryService,
   GitHubRepo,
+  GitHubOrganization,
   ListUserRepositoriesOptions,
   CloneOptions,
   ParsedGitHubUrl,
@@ -58,3 +59,4 @@ export type {
   UnsubscribeFn,
   ChatState,
 } from './interactive-session-service.interface.js';
+export type { ISkillInjectorService, SkillInjectionResult } from './skill-injector.interface.js';

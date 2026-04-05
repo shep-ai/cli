@@ -1,0 +1,129 @@
+name: "skill-injector"
+number: 81
+branch: "feat/081-skill-injector"
+oneLiner: "Inject curated agent skills into worktrees during feature creation, with idempotency and commit prevention"
+summary: "Add a skill injection system that copies curated Claude Code skills into feature worktrees during CreateFeatureUseCase execution. Skills are sourced from a configurable registry of local paths and remote packages (via npx skills add). The injector skips skills already present, ensures injected files are never committed via .gitignore management, and is opt-in by default (controlled via a Settings field). The system follows existing Clean Architecture patterns with a port interface, infrastructure service, DI registration, and TypeSpec-first domain modeling.\n"
+phase: "Requirements"
+sizeEstimate: "M"
+relatedFeatures:
+  - "033-global-skills-page"
+  - "080-skill-branding-injection"
+technologies:
+  - "TypeScript"
+  - "TypeSpec"
+  - "tsyringe (dependency injection)"
+  - "SQLite (settings persistence)"
+  - "Node.js child_process (npx skills add)"
+  - "Node.js fs/promises (file copy, .gitignore management)"
+relatedLinks:
+  - title: "Claude Code Skills Documentation"
+    url: "https://code.claude.com/docs/en/setup"
+  - title: "npx skills add pattern (Medium article)"
+    url: "https://medium.com/@unicodeveloper/10-must-have-skills-for-claude-and-any-coding-agent-in-2026-b5451b013051"
+openQuestions:
+  - question: "Should skill injection be opt-in (disabled by default) or opt-out (enabled by default)?"
+    resolved: true
+    options:
+      - option: "Opt-in (disabled by default)"
+        description: "Users must explicitly enable skill injection in Settings before it runs. Safer for existing users who may not want additional files injected into their worktrees. Avoids unexpected side effects on upgrade."
+        selected: true
+      - option: "Opt-out (enabled by default)"
+        description: "Skill injection runs automatically for all users. Maximizes agent effectiveness out of the box but may surprise users with new files in worktrees. Requires clear changelog communication."
+        selected: false
+    selectionRationale: "Opt-in is recommended because injecting files into worktrees is a side-effectful operation that modifies the developer's working environment. Existing users upgrading should not see unexpected changes. Once the feature proves stable, the default can be flipped in a future release."
+    answer: "Opt-in (disabled by default)"
+  - question: "Where should the skillInjection config live within the Settings entity?"
+    resolved: true
+    options:
+      - option: "Under workflow (WorkflowConfig)"
+        description: "Skill injection is part of the feature creation workflow, so it logically belongs alongside ciWatchEnabled, approvalGateDefaults, and other workflow settings. Keeps Settings top-level flat."
+        selected: true
+      - option: "Top-level on Settings"
+        description: "Adds skillInjection as a new top-level field on Settings, parallel to workflow, agent, notifications. Gives it first-class visibility but increases Settings surface area."
+        selected: false
+      - option: "Under agent (AgentConfig)"
+        description: "Skills enhance agent capabilities, so the config could live under agent settings. However, AgentConfig currently only handles agent type and authentication, making this a poor semantic fit."
+        selected: false
+    selectionRationale: "WorkflowConfig is the right home because skill injection is a step in the feature creation workflow, not an agent configuration or standalone concern. It sits alongside ciWatchEnabled, approvalGateDefaults, and enableEvidence which are all per-workflow-run behaviors."
+    answer: "Under workflow (WorkflowConfig)"
+  - question: "How should the skill registry be stored in SQLite?"
+    resolved: true
+    options:
+      - option: "JSON column"
+        description: "Store the skills array as a single JSON TEXT column (e.g., skill_injection_skills). Simple migration, flexible schema, easy to extend. SQLite has good JSON support. Follows the pattern used by other complex nested objects."
+        selected: true
+      - option: "Separate table"
+        description: "Create a skill_sources table with foreign key to settings. Normalized, queryable per-skill, but adds migration complexity and a new repository pattern for a simple list that is always read/written as a whole."
+        selected: false
+      - option: "One column per skill property"
+        description: "Flatten each skill into individual columns. Extremely rigid, requires migration for every new skill added. Not viable for a variable-length list."
+        selected: false
+    selectionRationale: "A JSON column is the pragmatic choice because the skill list is always read and written as a whole unit (never queried individually), the list is small (< 20 items), and JSON avoids the complexity of a separate table and repository. The settings mapper already handles complex nested objects."
+    answer: "JSON column"
+  - question: "Should the CLI expose a per-invocation override for skill injection?"
+    resolved: true
+    options:
+      - option: "Yes, --inject-skills / --no-inject-skills flags"
+        description: "Adds explicit CLI flags to shep feat new that override the Settings value for a single invocation. Gives power users control without changing global settings. Follows the pattern of --fast/--no-fast."
+        selected: true
+      - option: "No, Settings only"
+        description: "Skill injection is purely controlled by Settings. Simpler CLI surface, but forces users to change settings for one-off overrides."
+        selected: false
+    selectionRationale: "CLI flags follow the established pattern (--fast/--no-fast, --pr/--no-pr) and give users per-invocation control. The implementation cost is minimal since the flag just overrides the settings value in CreateFeatureInput."
+    answer: "Yes, --inject-skills / --no-inject-skills flags"
+  - question: "How should remote skill installation failures be handled?"
+    resolved: true
+    options:
+      - option: "Log warning and continue"
+        description: "If npx skills add fails for a remote skill, log a warning with the error details and continue with the remaining skills and feature creation. The agent can still function without optional skills."
+        selected: true
+      - option: "Fail feature creation"
+        description: "Treat remote skill failure as a hard error, aborting feature creation. Ensures the agent always has the full skill set but blocks work for potentially transient network issues."
+        selected: false
+      - option: "Retry with backoff then warn"
+        description: "Attempt retry with exponential backoff before falling back to warning. More resilient to transient failures but adds complexity and delays feature creation."
+        selected: false
+    selectionRationale: "Log-and-continue is recommended because skills are enhancements, not prerequisites. A network hiccup or missing npx package should not prevent feature creation. The warning gives visibility while maintaining forward progress. Retry logic adds complexity disproportionate to the value."
+    answer: "Log warning and continue"
+  - question: "Should the injector handle skill version updates (overwrite existing skills with newer versions)?"
+    resolved: true
+    options:
+      - option: "No, skip if present (strict idempotency)"
+        description: "If SKILL.md exists in the target directory, skip entirely. Simple, predictable, no risk of overwriting user customizations. Users who want updates can delete the skill directory and re-inject."
+        selected: true
+      - option: "Yes, compare versions and update"
+        description: "Check SKILL.md version metadata and overwrite if source is newer. More sophisticated but adds complexity around version comparison, user customization preservation, and conflict resolution."
+        selected: false
+    selectionRationale: "Strict idempotency (skip if present) is the safest and simplest approach. Version comparison adds significant complexity for minimal value in the initial release. The agent already has access to whatever version is present, and version management can be added as a follow-up feature if needed."
+    answer: "No, skip if present (strict idempotency)"
+  - question: "Should there be a timeout for remote skill installation (npx skills add)?"
+    resolved: true
+    options:
+      - option: "Yes, 30 second timeout per skill"
+        description: "Apply a 30-second timeout to each npx skills add invocation. Prevents feature creation from hanging indefinitely on network issues. 30 seconds is generous enough for most npm operations."
+        selected: true
+      - option: "Yes, 60 second timeout per skill"
+        description: "More generous timeout for slow networks or large skill packages. Lower risk of false timeouts but longer potential hang time."
+        selected: false
+      - option: "No timeout"
+        description: "Let npx run indefinitely. Simple but risks blocking feature creation on network issues."
+        selected: false
+    selectionRationale: "A 30-second timeout per skill balances reliability with responsiveness. npx skills add should complete quickly for well-behaved packages. If it takes longer, something is likely wrong and the log-and-continue strategy will handle it gracefully."
+    answer: "Yes, 30 second timeout per skill"
+  - question: "Should local skill injection copy files or use symlinks?"
+    resolved: true
+    options:
+      - option: "Copy files"
+        description: "Deep copy the skill directory into the worktree. Isolated, predictable, works on all platforms including Windows. No risk of modifying the source when the agent edits files."
+        selected: true
+      - option: "Symlinks"
+        description: "Create symlinks from worktree to source. Saves disk space, always up-to-date. But symlinks have Windows compatibility issues, git may track them differently, and agent edits could modify the source."
+        selected: false
+    selectionRationale: "File copying is recommended for cross-platform reliability (Windows symlink support is inconsistent), isolation (agent edits in the worktree should not modify the source repository), and simplicity (.gitignore handling is straightforward with real files)."
+    answer: "Copy files"
+content: "## Problem Statement\n\nWhen a new feature is created in Shep, the spawned agent operates inside a\ngit worktree that starts as a clean branch off main. The agent has access to\nwhatever skills are already committed in `.claude/skills/`, but there is no\nmechanism to automatically inject additional curated skills that would\nenhance agent effectiveness for the specific feature being developed.\n\nCurrently, 19 skills exist in the repository's `.claude/skills/` directory\nas committed files (e.g., `architecture-reviewer`, `mermaid-diagrams`,\n`shadcn-ui`, `tsp-model`). However, there are external skills (e.g.,\nAnthropic's `frontend-design`) that must be fetched at runtime, and the\nfull set of desired skills may vary per-project or per-user.\n\nThis feature adds a **skill injector** that runs as part of feature\ncreation (Phase 2 of CreateFeatureUseCase), copying/installing skills\ninto the worktree's `.claude/skills/` directory while ensuring:\n1. **Idempotency** — skills already present are never re-injected\n2. **No commit pollution** — injected skills are added to `.gitignore`\n3. **Opt-in by default** — disabled unless the user enables it in Settings\n4. **Configurability** — the curated skill list is stored in Settings\n\n## Success Criteria\n\n- [ ] SC-1: ISkillInjectorService port interface defined in application/ports/output/services/\n- [ ] SC-2: SkillInjectorService implementation in infrastructure/services/ with DI registration\n- [ ] SC-3: Skill injection executes in Phase 2 of CreateFeatureUseCase, after spec initialization and before agent spawn\n- [ ] SC-4: Local skills are deep-copied from source repo's .claude/skills/ into the worktree's .claude/skills/\n- [ ] SC-5: Remote skills are installed via npx skills add with cwd set to the worktree path\n- [ ] SC-6: Skills already present (SKILL.md exists) are skipped without error\n- [ ] SC-7: Each injected (non-tracked) skill path is appended to the worktree's .gitignore\n- [ ] SC-8: Already-tracked skills (committed in git) are NOT added to .gitignore\n- [ ] SC-9: Feature is opt-in by default (disabled unless settings.workflow.skillInjection.enabled = true)\n- [ ] SC-10: CLI flag --inject-skills / --no-inject-skills overrides the settings value per invocation\n- [ ] SC-11: SkillInjectionConfig and SkillSource TypeSpec models defined in settings.tsp\n- [ ] SC-12: SQLite migration adds skill_injection columns (enabled boolean + skills JSON)\n- [ ] SC-13: Settings mapper correctly serializes/deserializes the skill injection config\n- [ ] SC-14: Default skill list populated in createDefaultSettings() factory\n- [ ] SC-15: Remote skill installation has a 30-second timeout per skill\n- [ ] SC-16: Remote skill failures log a warning and continue (do not block feature creation)\n- [ ] SC-17: Cross-platform path handling (works on Windows, macOS, and Linux)\n- [ ] SC-18: All new code has unit tests with TDD cycles (RED-GREEN-REFACTOR)\n- [ ] SC-19: Integration test verifies end-to-end injection into a real worktree\n\n## Functional Requirements\n\n- **FR-1: Skill Injector Service Port** — Define an `ISkillInjectorService` port interface in `application/ports/output/services/` with a single `inject(worktreePath: string, settings: SkillInjectionConfig): Promise<SkillInjectionResult>` method. The result includes counts of injected, skipped, and failed skills plus a list of warnings.\n\n- **FR-2: Local Skill Injection** — For each skill with `type: \"local\"`, deep-copy the skill directory from the configured source path into `<worktreePath>/.claude/skills/<name>/`. Use `fs/promises` recursive copy. Preserve directory structure including subdirectories (templates/, examples/, scripts/, references/).\n\n- **FR-3: Remote Skill Injection** — For each skill with `type: \"remote\"`, execute `npx skills add <source> --skill <remoteSkillName>` with `cwd` set to the worktree path. Capture stdout/stderr for logging. Apply a 30-second timeout per invocation.\n\n- **FR-4: Idempotency Check** — Before injecting any skill (local or remote), check if `<worktreePath>/.claude/skills/<name>/SKILL.md` exists. If it does, skip that skill and record it in the \"skipped\" count. Do not compare versions or overwrite.\n\n- **FR-5: Git Ignore Management** — After all injections complete, read the worktree's `.gitignore` file (create if absent). For each skill that was actually injected (not skipped), check if its path (`.claude/skills/<name>/`) is already in `.gitignore`. If not, append it. Do NOT add entries for skills that are already tracked in git (use `git ls-files` to check).\n\n- **FR-6: CreateFeatureUseCase Integration** — Inject a call to `ISkillInjectorService.inject()` in the `initializeAndSpawn()` method of CreateFeatureUseCase, positioned after `SpecInitializerService.initialize()` completes and before the agent spawn step. Guard the call with a check: run injection only if the resolved `injectSkills` flag is true (from CLI override or settings).\n\n- **FR-7: Settings Domain Model** — Add `skillInjection?: SkillInjectionConfig` to `WorkflowConfig` in the TypeSpec Settings entity. `SkillInjectionConfig` has `enabled: boolean` (default false) and `skills: SkillSource[]` (default empty). `SkillSource` has `name: string`, `type: \"local\" | \"remote\"`, `source: string`, and `remoteSkillName?: string`.\n\n- **FR-8: Settings Persistence** — Add a SQLite migration that creates two new columns on the settings table: `skill_injection_enabled` (INTEGER, default 0) and `skill_injection_skills` (TEXT, nullable, JSON array). Update the settings mapper to serialize/deserialize `SkillInjectionConfig` to/from these columns.\n\n- **FR-9: Settings Defaults** — Populate `createDefaultSettings()` with a default skill list containing Shep's curated skills: local skills (architecture-reviewer, cross-validate-artifacts, mermaid-diagrams, react-flow, shadcn-ui, tsp-model, vercel-react-best-practices) and any configured remote skills. The `enabled` field defaults to `false`.\n\n- **FR-10: CLI Flag** — Add `--inject-skills` and `--no-inject-skills` options to `shep feat new`. When provided, this overrides `settings.workflow.skillInjection.enabled` for that single invocation. When omitted, the settings value is used.\n\n- **FR-11: CreateFeatureInput Extension** — Add an optional `injectSkills?: boolean` field to `CreateFeatureInput` in the use case types. The CLI resolves this from the flag or leaves undefined to fall back to settings.\n\n- **FR-12: Injection Result Reporting** — The skill injector returns a structured result: `{ injected: string[], skipped: string[], failed: Array<{ name: string, error: string }> }`. The use case logs this result at info level (injected count) and warn level (any failures).\n\n- **FR-13: .claude/skills Directory Bootstrapping** — If `<worktreePath>/.claude/skills/` does not exist, create it before attempting any skill injection. Handle the case where `.claude/` itself does not exist.\n\n## Non-Functional Requirements\n\n- **NFR-1: Performance** — Skill injection must not add more than 5 seconds to feature creation for local-only skill sets (file copying). Remote skill installation time is bounded by the 30-second per-skill timeout. Total injection should not block the critical path unnecessarily — local and remote skills can be processed sequentially since the total count is small (< 20).\n\n- **NFR-2: Cross-Platform Compatibility** — All file paths must use `path.join()` or `path.resolve()`, never hardcoded separators. File copy operations must handle Windows, macOS, and Linux filesystem semantics. The `npx` command must be resolved correctly on all platforms (use `npx.cmd` on Windows if needed, or rely on cross-spawn patterns).\n\n- **NFR-3: Error Isolation** — A failure in skill injection must never prevent feature creation from completing. The injector is a best-effort enhancement. If the entire injection process throws, the use case catches the error, logs a warning, and continues with agent spawn.\n\n- **NFR-4: Clean Architecture Compliance** — The skill injector must follow the established port/adapter pattern: interface in `application/ports/output/services/`, implementation in `infrastructure/services/`, registration in the DI container. The use case must only depend on the port interface, never the implementation.\n\n- **NFR-5: Testability** — The port interface must be easily mockable for unit testing the CreateFeatureUseCase integration. The SkillInjectorService implementation must accept injected dependencies (filesystem abstraction, child process executor) to enable isolated unit testing without actual file operations or npx calls.\n\n- **NFR-6: Logging** — All injection operations must produce structured log output: skill name, type, action taken (injected/skipped/failed), and timing. Use the existing logger infrastructure. Warnings for failures must include the error message and stack trace.\n\n- **NFR-7: Idempotency Guarantee** — Running feature creation twice with the same skill configuration must produce identical results. The second run must skip all previously injected skills. The .gitignore must not accumulate duplicate entries.\n\n- **NFR-8: Security** — Remote skill sources execute arbitrary npx commands. The skill list comes from Settings (user-configured), not untrusted input. However, the implementation should validate that `source` values do not contain shell injection characters. Use `child_process.execFile` or `execa` instead of `child_process.exec` to avoid shell interpolation.\n\n- **NFR-9: Disk Space** — Local skill directories are typically small (< 100KB each). Deep copying 10-20 skills adds < 2MB per worktree. This is negligible relative to worktree size. No disk space optimization is needed.\n\n## Product Questions & AI Recommendations\n\n| # | Question | AI Recommendation | Rationale |\n| - | -------- | ----------------- | --------- |\n| 1 | Should skill injection be opt-in or opt-out? | Opt-in (disabled by default) | Injecting files is side-effectful; existing users should not see unexpected changes on upgrade |\n| 2 | Where should skillInjection config live? | Under workflow (WorkflowConfig) | Skill injection is a workflow step, alongside ciWatch, approvalGates, and evidence settings |\n| 3 | How should the skill registry be stored in SQLite? | JSON column | Skills list is always read/written as a whole; JSON avoids separate table complexity |\n| 4 | Should the CLI expose per-invocation overrides? | Yes, --inject-skills / --no-inject-skills | Follows --fast/--no-fast pattern; minimal implementation cost |\n| 5 | How should remote skill failures be handled? | Log warning and continue | Skills are enhancements, not prerequisites; network issues should not block work |\n| 6 | Should the injector handle version updates? | No, skip if present | Strict idempotency is simplest and safest; version management is a follow-up feature |\n| 7 | Should there be a timeout for remote installs? | Yes, 30 seconds per skill | Prevents hanging on network issues; generous enough for normal npm operations |\n| 8 | Should local skills use copy or symlinks? | Copy files | Cross-platform reliability, isolation from source edits, simpler .gitignore handling |\n\n## Affected Areas\n\n| Area | Impact | Reasoning |\n| ---- | ------ | --------- |\n| `tsp/domain/entities/settings.tsp` | High | New SkillInjectionConfig, SkillSource, and SkillSourceType models added to WorkflowConfig |\n| `packages/core/src/domain/generated/output.ts` | High | Regenerated from TypeSpec (new types) |\n| `packages/core/src/domain/factories/settings-defaults.factory.ts` | Medium | Default skill list and enabled=false populated here |\n| `packages/core/src/application/ports/output/services/` | High | New ISkillInjectorService port interface |\n| `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | High | Calls skill injector in initializeAndSpawn() after spec init |\n| `packages/core/src/application/use-cases/features/create/types.ts` | Low | Optional injectSkills field on CreateFeatureInput |\n| `packages/core/src/infrastructure/services/` | High | New SkillInjectorService implementation |\n| `packages/core/src/infrastructure/di/container.ts` | Low | Register ISkillInjectorService binding |\n| `packages/core/src/infrastructure/persistence/sqlite/migrations/` | Medium | New migration for skill_injection_enabled and skill_injection_skills columns |\n| `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts` | Medium | Map new skillInjection fields to/from SQLite columns |\n| `src/presentation/cli/commands/feat/new.command.ts` | Low | --inject-skills / --no-inject-skills flag |\n| `.gitignore` (per-worktree) | None | Not modified globally; .gitignore changes are per-worktree only |\n\n## Dependencies\n\n- **TypeSpec compiler** (`pnpm tsp:compile`) — Required to regenerate domain types after settings.tsp changes\n- **npx skills add** — Third-party CLI tool for remote skill installation (must be available at runtime; graceful degradation if absent)\n- **Settings migration system** — Existing SQLite migration pattern for adding new columns\n- **CreateFeatureUseCase** — Integration point for injection logic in initializeAndSpawn()\n- **SpecInitializerService** — Pattern reference for filesystem service design; injection runs after spec init\n- **IWorktreeService** — Provides worktree path resolution (already injected into CreateFeatureUseCase)\n- **Logger** — Existing structured logging for injection result reporting\n\n## Size Estimate\n\n**M** — This feature requires changes across multiple architecture layers\n(TypeSpec, domain, application port, infrastructure service, DI, migration,\nmapper, use case integration, CLI flag) but each individual change is\nwell-scoped and follows established patterns. The core logic (copy files,\nrun npx, update .gitignore) is straightforward. The main complexity is\nensuring proper Clean Architecture layering, cross-platform path handling,\nand comprehensive test coverage for idempotency and .gitignore management.\n\nEstimated scope: 13 functional requirements, 9 non-functional requirements,\n~15 files touched across 4 architecture layers.\n"
+rejectionFeedback:
+  - iteration: 1
+    message: "rebase on remote main and resolve conflicts"
+    phase: "merge"
+    timestamp: "2026-04-05T13:59:42.312Z"

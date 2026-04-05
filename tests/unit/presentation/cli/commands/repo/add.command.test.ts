@@ -14,18 +14,25 @@ import { Command } from 'commander';
 // Mocks — vi.hoisted ensures these are available during vi.mock hoisting
 // -------------------------------------------------------------------------
 
-const { mockImportExecute, mockListExecute, mockGitHubService, mockGithubImportWizard } =
-  vi.hoisted(() => ({
-    mockImportExecute: vi.fn(),
-    mockListExecute: vi.fn(),
-    mockGitHubService: {
-      checkAuth: vi.fn(),
-      cloneRepository: vi.fn(),
-      listUserRepositories: vi.fn(),
-      parseGitHubUrl: vi.fn(),
-    },
-    mockGithubImportWizard: vi.fn(),
-  }));
+const {
+  mockImportExecute,
+  mockListExecute,
+  mockListOrgsExecute,
+  mockGitHubService,
+  mockGithubImportWizard,
+} = vi.hoisted(() => ({
+  mockImportExecute: vi.fn(),
+  mockListExecute: vi.fn(),
+  mockListOrgsExecute: vi.fn().mockResolvedValue([]),
+  mockGitHubService: {
+    checkAuth: vi.fn(),
+    cloneRepository: vi.fn(),
+    listUserRepositories: vi.fn(),
+    listOrganizations: vi.fn(),
+    parseGitHubUrl: vi.fn(),
+  },
+  mockGithubImportWizard: vi.fn(),
+}));
 
 vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
@@ -37,6 +44,8 @@ vi.mock('@/infrastructure/di/container.js', () => ({
           return { execute: mockImportExecute };
         case 'ListGitHubRepositoriesUseCase':
           return { execute: mockListExecute };
+        case 'ListGitHubOrganizationsUseCase':
+          return { execute: mockListOrgsExecute };
         case 'IGitHubRepositoryService':
           return mockGitHubService;
         default:

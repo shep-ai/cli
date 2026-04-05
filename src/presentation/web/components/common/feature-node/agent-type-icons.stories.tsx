@@ -4,6 +4,7 @@ import { getAgentTypeIcon, DefaultAgentIcon, type AgentTypeValue } from './agent
 const allAgentTypes: { type: AgentTypeValue; label: string }[] = [
   { type: 'claude-code', label: 'Claude Code' },
   { type: 'codex-cli', label: 'Codex CLI' },
+  { type: 'copilot-cli', label: 'Copilot CLI' },
   { type: 'cursor', label: 'Cursor' },
   { type: 'gemini-cli', label: 'Gemini CLI' },
   { type: 'aider', label: 'Aider' },

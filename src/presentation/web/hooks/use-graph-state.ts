@@ -174,6 +174,10 @@ export function useGraphState(
   // before the node disappears from the canvas.
   const deletingRetainedRef = useRef<Set<string>>(new Set());
 
+  // Track deleted repo IDs so reconcile doesn't resurrect them from stale server data.
+  // Cleared once reconcile sees the repo is gone from server data.
+  const deletedRepoIdsRef = useRef<Set<string>>(new Set());
+
   // Callbacks stored in a ref so changing them doesn't trigger re-render.
   // The stable wrapper object reads from the ref so node closures always use latest callbacks.
   const callbacksRef = useRef<GraphCallbacks>({});
@@ -383,6 +387,17 @@ export function useGraphState(
       // Start with everything the server returned
       const merged = new Map(newRepoMap);
 
+      // Remove repos that were deleted client-side but the server still returns
+      // (stale data). Once the server stops returning the repo, clear the tombstone.
+      for (const deletedId of deletedRepoIdsRef.current) {
+        if (merged.has(deletedId)) {
+          merged.delete(deletedId);
+        } else {
+          // Server confirmed deletion — no longer need the tombstone
+          deletedRepoIdsRef.current.delete(deletedId);
+        }
+      }
+
       // Build a set of repositoryPaths present in server data for dedup
       const serverPaths = new Set([...newRepoMap.values()].map((e) => e.data.repositoryPath));
 
@@ -478,6 +493,7 @@ export function useGraphState(
 
   const addRepository = useCallback((nodeId: string, data: RepositoryNodeData) => {
     protectedRepoIdsRef.current.add(nodeId);
+    deletedRepoIdsRef.current.delete(nodeId);
     setRepoMap((prev) => {
       const next = new Map(prev);
       next.set(nodeId, { nodeId, data });
@@ -487,6 +503,7 @@ export function useGraphState(
 
   const removeRepository = useCallback((nodeId: string) => {
     protectedRepoIdsRef.current.delete(nodeId);
+    deletedRepoIdsRef.current.add(nodeId);
     setRepoMap((prev) => {
       if (!prev.has(nodeId)) return prev;
       const next = new Map(prev);

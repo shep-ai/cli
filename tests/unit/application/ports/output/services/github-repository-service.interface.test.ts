@@ -191,7 +191,7 @@ describe('CloneOptions type', () => {
 });
 
 describe('IGitHubRepositoryService', () => {
-  it('should be implementable with all four methods', () => {
+  it('should be implementable with all methods', () => {
     const mock: IGitHubRepositoryService = {
       checkAuth: async () => {
         /* noop */
@@ -200,6 +200,7 @@ describe('IGitHubRepositoryService', () => {
         /* noop */
       },
       listUserRepositories: async () => [],
+      listOrganizations: async () => [],
       parseGitHubUrl: () => ({
         owner: 'octocat',
         repo: 'my-project',
@@ -212,10 +213,11 @@ describe('IGitHubRepositoryService', () => {
       'checkAuth',
       'cloneRepository',
       'listUserRepositories',
+      'listOrganizations',
       'parseGitHubUrl',
     ];
 
-    expect(methodNames).toHaveLength(4);
+    expect(methodNames).toHaveLength(5);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }
