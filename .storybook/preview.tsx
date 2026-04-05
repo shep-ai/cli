@@ -1,6 +1,8 @@
 import type { Preview } from '@storybook/react';
 import React, { useEffect } from 'react';
 import '../src/presentation/web/app/globals.css';
+// Ensure i18n singleton is initialized before any stories render
+import '../src/presentation/web/lib/i18n';
 
 // Decorator to handle theme based on background color
 const ThemeDecorator = (
