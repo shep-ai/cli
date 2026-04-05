@@ -15,6 +15,10 @@
           "name": "Codex CLI",
           "description": "סוכן טרמינל Codex CLI של OpenAI (מודלי GPT)"
         },
+        "copilotCli": {
+          "name": "Copilot CLI",
+          "description": "GitHub Copilot CLI (ברירת מחדל: Claude Sonnet 4.5, דורש מנוי Copilot)"
+        },
         "cursor": {
           "name": "Cursor",
           "description": "סוכן קידוד Cursor AI"

@@ -50,3 +50,12 @@ export const AiderSession: Story = {
     },
   },
 };
+
+export const CopilotCli: Story = {
+  args: {
+    agent: {
+      type: AgentType.CopilotCli,
+      authMethod: AgentAuthMethod.Session,
+    },
+  },
+};

@@ -163,6 +163,31 @@ describe('AgentValidatorService', () => {
     });
   });
 
+  describe('isAvailable - copilot-cli', () => {
+    it('should return available with version when binary is found', async () => {
+      vi.mocked(mockExec).mockResolvedValue({
+        stdout: '1.2.3\n',
+        stderr: '',
+      });
+
+      const result = await service.isAvailable(AgentType.CopilotCli);
+
+      expect(result.available).toBe(true);
+      expect(result.version).toBe('1.2.3');
+      expect(mockExec).toHaveBeenCalledWith('copilot', ['--version']);
+    });
+
+    it('should return not available when binary is not found', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('spawn copilot ENOENT'));
+
+      const result = await service.isAvailable(AgentType.CopilotCli);
+
+      expect(result.available).toBe(false);
+      expect(result.error).toContain('copilot');
+      expect(result.error).toContain('not found or not executable');
+    });
+  });
+
   describe('isAvailable - cursor', () => {
     it('should return available with version when binary is found', async () => {
       // Arrange

@@ -1,0 +1,35 @@
+feature:
+  id: "081-copilot-cli-agent"
+  name: "copilot-cli-agent"
+  number: 81
+  branch: "feat/081-copilot-cli-agent"
+  lifecycle: "plan"
+  createdAt: "2025-07-14T00:00:00Z"
+status:
+  phase: "requirements"
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: "2025-07-14T00:00:00Z"
+  lastUpdatedBy: "feature-agent:spec"
+  completedPhases:
+    - "analyze"
+    - "requirements"
+    - "research"
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: "feature-created"
+    completedAt: "2025-07-14T00:00:00Z"
+    completedBy: "feature-agent"
+errors:
+  current: null
+  history: []

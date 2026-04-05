@@ -22,12 +22,16 @@ import type { AgentConfig } from '@shepai/core/domain/generated/output';
 const AGENT_TYPE_OPTIONS = [
   { value: AgentType.ClaudeCode, label: 'Claude Code' },
   { value: AgentType.CodexCli, label: 'Codex CLI' },
+  { value: AgentType.CopilotCli, label: 'Copilot CLI' },
   { value: AgentType.Cursor, label: 'Cursor' },
   { value: AgentType.GeminiCli, label: 'Gemini CLI' },
   { value: AgentType.Aider, label: 'Aider' },
   { value: AgentType.Continue, label: 'Continue' },
   { value: AgentType.Dev, label: 'Dev' },
 ];
+
+/** Agent types that only support session-based auth (no API token). */
+const SESSION_ONLY_AGENTS = new Set<AgentType>([AgentType.CopilotCli]);
 
 const AUTH_METHOD_OPTIONS = [
   { value: AgentAuthMethod.Session, label: 'Session' },
@@ -75,8 +79,13 @@ export function AgentSettingsSection({ agent }: AgentSettingsSectionProps) {
   }
 
   function handleAgentTypeChange(value: string) {
-    setAgentType(value as AgentType);
-    save(buildPayload({ type: value as AgentType }));
+    const newType = value as AgentType;
+    const newAuthMethod = SESSION_ONLY_AGENTS.has(newType) ? AgentAuthMethod.Session : authMethod;
+    setAgentType(newType);
+    if (newAuthMethod !== authMethod) {
+      setAuthMethod(newAuthMethod);
+    }
+    save(buildPayload({ type: newType, authMethod: newAuthMethod }));
   }
 
   function handleAuthMethodChange(value: string) {
@@ -133,18 +142,31 @@ export function AgentSettingsSection({ agent }: AgentSettingsSectionProps) {
 
         <div className="space-y-2">
           <Label htmlFor="auth-method">Authentication Method</Label>
-          <Select value={authMethod} onValueChange={handleAuthMethodChange}>
+          <Select
+            value={authMethod}
+            onValueChange={handleAuthMethodChange}
+            disabled={SESSION_ONLY_AGENTS.has(agentType)}
+          >
             <SelectTrigger id="auth-method" data-testid="auth-method-select">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {AUTH_METHOD_OPTIONS.map((opt) => (
+              {AUTH_METHOD_OPTIONS.filter(
+                (opt) =>
+                  !SESSION_ONLY_AGENTS.has(agentType) || opt.value === AgentAuthMethod.Session
+              ).map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {SESSION_ONLY_AGENTS.has(agentType) && (
+            <p className="text-muted-foreground text-xs">
+              Copilot CLI uses GitHub OAuth — authenticate with{' '}
+              <code className="font-mono">copilot auth login</code>. No API token needed.
+            </p>
+          )}
         </div>
 
         {authMethod === AgentAuthMethod.Token && (

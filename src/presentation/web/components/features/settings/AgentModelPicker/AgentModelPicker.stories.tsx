@@ -82,6 +82,14 @@ export const DemoAgent: Story = {
   },
 };
 
+export const CopilotCli: Story = {
+  args: {
+    initialAgentType: 'copilot-cli',
+    initialModel: 'claude-sonnet-4.5',
+    mode: 'settings',
+  },
+};
+
 export const OverrideMode: Story = {
   args: {
     initialAgentType: 'claude-code',

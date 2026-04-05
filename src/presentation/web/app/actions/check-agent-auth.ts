@@ -30,6 +30,7 @@ const AGENT_LABELS: Record<string, string> = {
   cursor: 'Cursor Agent',
   'gemini-cli': 'Gemini CLI',
   aider: 'Aider',
+  copilot: 'Copilot CLI',
   continue: 'Continue',
   dev: 'Demo',
 };
@@ -38,12 +39,14 @@ const AGENT_TOOL_MAP: Record<string, string> = {
   'claude-code': 'claude-code',
   cursor: 'cursor-cli',
   'gemini-cli': 'gemini-cli',
+  copilot: 'copilot-cli',
 };
 
 const AGENT_BINARY_MAP: Record<string, string> = {
   'claude-code': 'claude',
   cursor: 'cursor-agent',
   'gemini-cli': 'gemini',
+  copilot: 'copilot',
 };
 
 /**
@@ -75,6 +78,15 @@ function tier1AuthCheck(agentType: string): boolean {
       const accountsPath = join(home, '.gemini', 'google_accounts.json');
       return existsSync(accountsPath);
     }
+    case 'copilot-cli': {
+      if (process.env['GITHUB_TOKEN']) return true;
+      if (process.env['GH_TOKEN']) return true;
+      if (process.env['GITHUB_AUTH_TOKEN']) return true;
+      // GitHub CLI stores creds after `gh auth login` — check common locations
+      const ghDir = IS_WINDOWS ? join(home, '.copilot') : join(home, '.config', 'gh');
+      return existsSync(ghDir);
+    }
+
     default:
       // dev, aider, continue — assume no auth needed
       return true;
@@ -98,6 +110,10 @@ function tier2AuthVerify(agentType: string, binaryName: string): Promise<boolean
       case 'cursor':
         cmd = binaryName;
         args = ['status'];
+        break;
+      case 'copilot-cli':
+        cmd = 'gh';
+        args = ['auth', 'status'];
         break;
       default:
         // No tier 2 command available — trust tier 1

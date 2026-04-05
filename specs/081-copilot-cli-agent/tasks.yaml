@@ -1,0 +1,437 @@
+name: "copilot-cli-agent"
+summary: >
+  13 tasks across 4 phases implementing Copilot CLI agent executor integration.
+  Phase 1 (domain) establishes the enum foundation. Phase 2 (executor) is the core
+  engineering work with TDD-driven JSONL parsing and session resume. Phase 3 (wiring)
+  connects executor to factory and DI. Phase 4 (presentation) adds Copilot CLI to all
+  user-facing surfaces with Storybook stories.
+
+relatedFeatures: []
+technologies: []
+relatedLinks:
+  - title: "GitHub Copilot CLI documentation"
+    url: "https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line"
+
+tasks:
+  # ============================================================
+  # PHASE 1: Domain Foundation
+  # ============================================================
+
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Add CopilotCli variant to AgentType enum in TypeSpec"
+    description: |
+      Add CopilotCli: "copilot-cli" to the AgentType enum in tsp/common/enums/agent-config.tsp,
+      run pnpm tsp:compile to regenerate domain output, and verify the new enum value
+      appears in packages/core/src/domain/generated/output.ts. Also update the module
+      doc comment to list copilot-cli as a supported agent. This unblocks all
+      downstream tasks that reference AgentType.CopilotCli.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "CopilotCli variant exists in tsp/common/enums/agent-config.tsp with value copilot-cli"
+      - "pnpm tsp:compile succeeds without errors"
+      - "AgentType.CopilotCli is available in packages/core/src/domain/generated/output.ts"
+      - "Existing enum variants are unchanged"
+      - "Module doc comment updated to show copilot-cli as supported"
+    tdd:
+      red:
+        - "Write a test that imports AgentType and asserts AgentType.CopilotCli equals 'copilot-cli'"
+      green:
+        - "Add CopilotCli: \"copilot-cli\" to AgentType enum in agent-config.tsp with @doc annotation"
+        - "Run pnpm tsp:compile to regenerate output.ts"
+      refactor:
+        - "Verify enum ordering follows existing alphabetical/grouping convention"
+    estimatedEffort: "20min"
+
+  # ============================================================
+  # PHASE 2: Executor Service Core
+  # ============================================================
+
+  - id: "task-2"
+    phaseId: "phase-2"
+    title: "Implement executor scaffold with agentType and supportsFeature"
+    description: |
+      Create CopilotCliExecutorService class skeleton implementing IAgentExecutor.
+      Set agentType to CopilotCli, implement supportsFeature() with session-resume
+      and streaming as supported features. Stub execute() and executeStream() to
+      throw not-implemented errors.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "Class implements IAgentExecutor interface"
+      - "agentType returns AgentType.CopilotCli"
+      - "supportsFeature returns true for session-resume and streaming"
+      - "supportsFeature returns false for system-prompt, tool-scoping, structured-output, session-listing"
+      - "Constructor accepts SpawnFunction and optional AgentConfig"
+    tdd:
+      red:
+        - "Write test file with createMockChildProcess helper (following codex-cli-executor.test.ts pattern)"
+        - "Test agentType equals AgentType.CopilotCli"
+        - "Test supportsFeature for all 6 feature types (2 true, 4 false)"
+      green:
+        - "Create copilot-cli-executor.service.ts with class skeleton"
+        - "Implement SUPPORTED_FEATURES Set with session-resume and streaming"
+        - "Implement supportsFeature() checking the Set"
+      refactor:
+        - "Ensure import paths follow existing executor conventions"
+    estimatedEffort: "30min"
+
+  - id: "task-3"
+    phaseId: "phase-2"
+    title: "Implement execute() with -p flag prompt delivery and JSONL parsing"
+    description: |
+      Implement execute() method that spawns copilot with required flags
+      (-p <prompt>, --allow-all, --output-format json, -s, --no-custom-instructions,
+      --no-ask-user), collects JSONL stdout, parses assistant.message events for
+      response text, extracts sessionId from the final result event, and returns
+      AgentExecutionResult.
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "Spawns copilot with -p <prompt> and all required base flags"
+      - "Does NOT use stdin for prompt delivery"
+      - "Parses JSONL stdout to extract response text from assistant.message event"
+      - "Extracts sessionId from result event"
+      - "Returns AgentExecutionResult with result text and sessionId"
+      - "Handles empty stdout with descriptive error"
+    tdd:
+      red:
+        - "Test execute spawns copilot with -p flag and correct base args"
+        - "Test prompt is passed as -p flag argument, not via stdin"
+        - "Test JSONL parsing extracts response text from assistant.message event"
+        - "Test sessionId extracted from result event"
+        - "Test returns undefined sessionId when result event is missing"
+      green:
+        - "Implement BASE_FLAGS constant array"
+        - "Implement buildArgs() placing -p prompt first, followed by base flags"
+        - "Implement JSONL line parser accumulating response from assistant.message"
+        - "Implement execute() orchestrating spawn, stdout collection, and parsing"
+      refactor:
+        - "Extract JSONL parsing into a private parseJsonlLine() method"
+        - "Extract BASE_FLAGS as a module-level constant"
+    estimatedEffort: "1h30min"
+
+  - id: "task-4"
+    phaseId: "phase-2"
+    title: "Add model, cwd, and usage extraction to execute()"
+    description: |
+      Extend execute() to support --model flag from options.model, cwd from
+      options.cwd in spawn options, and extract usage (input/output tokens) from
+      the result JSONL event. Add logging support with silent mode toggle.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "Passes --model <model> when options.model is provided"
+      - "Sets cwd in spawn options when options.cwd is provided"
+      - "Extracts usage from result event (inputTokens, outputTokens)"
+      - "Returns undefined usage when result event has no usage data"
+      - "Respects silent flag to suppress logging"
+    tdd:
+      red:
+        - "Test --model flag appears in spawn args when model option provided"
+        - "Test cwd is passed to spawn options when provided"
+        - "Test usage extraction from result JSONL event"
+        - "Test undefined usage when result event has no usage"
+      green:
+        - "Add --model conditional to buildArgs()"
+        - "Add cwd to buildSpawnOptions()"
+        - "Parse result event to extract usage.inputTokens and usage.outputTokens"
+        - "Add logging with silent mode check"
+      refactor:
+        - "Ensure buildArgs and buildSpawnOptions are clean and well-organized"
+    estimatedEffort: "45min"
+
+  - id: "task-5"
+    phaseId: "phase-2"
+    title: "Add session resume support to executor"
+    description: |
+      Implement session resume using --resume=<sessionId> flag. When
+      options.resumeSession is provided, append --resume=<sessionId> to the args.
+      The -p flag is still used for the follow-up prompt in resume mode.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "Appends --resume=<sessionId> to args when resumeSession option is provided"
+      - "Still uses -p flag for prompt delivery in resume mode"
+      - "All base flags still included in resume mode"
+      - "--resume flag is absent when resumeSession is not provided"
+    tdd:
+      red:
+        - "Test resume args include --resume=<sessionId> when resumeSession provided"
+        - "Test -p flag still used for prompt in resume mode"
+        - "Test no --resume flag when resumeSession is undefined"
+      green:
+        - "Add resume detection to buildArgs() — append --resume=<sessionId> when present"
+      refactor:
+        - "Clean up buildArgs to clearly document the flag ordering"
+    estimatedEffort: "30min"
+
+  - id: "task-6"
+    phaseId: "phase-2"
+    title: "Add error handling and auth validation"
+    description: |
+      Implement comprehensive error handling: ENOENT for missing copilot binary
+      (with install and auth instructions), non-zero exit codes with stderr extraction,
+      auth-specific errors (GitHub Copilot login required), malformed JSON line
+      skipping, empty stdout, and timeout with process kill.
+      Also implement authMethod: 'token' unsupported error.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "ENOENT error includes install instructions ('npm install -g @githubnext/github-copilot-cli') and auth instructions ('copilot auth login')"
+      - "Non-zero exit code rejects with stderr content"
+      - "Stderr containing 'auth' or 'login' produces specific auth error with copilot auth login instructions"
+      - "Malformed JSON lines are skipped gracefully"
+      - "Timeout kills process and rejects with timeout message"
+      - "authMethod 'token' surfaces informative error (Copilot CLI uses GitHub OAuth only)"
+    tdd:
+      red:
+        - "Test ENOENT error message includes install and auth instructions"
+        - "Test non-zero exit code rejection with stderr"
+        - "Test auth-related stderr produces specific auth error"
+        - "Test malformed JSON line is skipped without crashing"
+        - "Test timeout kills process and rejects"
+        - "Test authMethod token produces unsupported error"
+      green:
+        - "Add ENOENT handler in spawn error event listener with install instructions"
+        - "Add exit code checking in close handler"
+        - "Add try/catch around JSON.parse in JSONL parser"
+        - "Add setTimeout-based timeout with proc.kill()"
+        - "Add auth stderr pattern detection"
+        - "Add constructor validation for authMethod token"
+      refactor:
+        - "Extract auth error patterns to a const array"
+        - "Ensure error messages are consistent with other executors"
+    estimatedEffort: "1h"
+
+  - id: "task-7"
+    phaseId: "phase-2"
+    title: "Implement executeStream() as async generator"
+    description: |
+      Implement executeStream() as an async generator that spawns copilot with
+      --output-format json, reads stdout line-by-line, maps JSONL events to
+      AgentExecutionStreamEvent types (progress for assistant.message_delta, result
+      for assistant.message + result event), handles partial JSON lines across chunk
+      boundaries, and yields events in real-time.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+      - "task-6"
+    acceptanceCriteria:
+      - "Yields progress events for assistant.message_delta events with delta text"
+      - "Yields result event with complete text from assistant.message + sessionId from result event"
+      - "Yields error event on auth failure, non-zero exit, and fatal stderr patterns"
+      - "Handles partial JSON lines across chunk boundaries"
+      - "Skips unknown event types gracefully"
+      - "Includes --resume flag for streaming resume"
+      - "Includes --model flag when options.model is provided"
+    tdd:
+      red:
+        - "Test streaming assistant.message_delta events yield progress with delta text"
+        - "Test assistant.message event text is included in final result"
+        - "Test result event sessionId is included in yielded result"
+        - "Test error event on non-zero exit"
+        - "Test unknown event types are skipped"
+        - "Test non-JSON lines yield raw progress"
+        - "Test spawn error yields error event"
+        - "Test resume flag in streaming mode"
+        - "Test model flag in streaming mode"
+      green:
+        - "Implement async generator with queue-based event delivery"
+        - "Add line-buffered JSONL parser for streaming"
+        - "Map each Copilot JSONL event type to AgentExecutionStreamEvent"
+        - "Handle chunk boundary partial lines"
+      refactor:
+        - "Extract shared JSONL parsing logic between execute() and executeStream()"
+        - "Ensure event mapping is consistent with the research JSONL event mapping"
+    estimatedEffort: "1h30min"
+
+  # ============================================================
+  # PHASE 3: Factory, DI, and Infrastructure Wiring
+  # ============================================================
+
+  - id: "task-8"
+    phaseId: "phase-3"
+    title: "Wire CopilotCliExecutorService into AgentExecutorFactory"
+    description: |
+      Add copilot-cli case to all factory methods: createExecutor() switch statement,
+      getSupportedAgents() return array, getCliInfo() with cmd 'copilot' and
+      versionArgs ['--version'], and getSupportedModels() with the 7 known Copilot
+      models. Update existing factory tests.
+      Known models: claude-sonnet-4-5 (default), claude-opus-4-5, claude-haiku-4-5,
+      gpt-4.1, gpt-4o, o3, o4-mini.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "createExecutor('copilot-cli') returns CopilotCliExecutorService instance"
+      - "getSupportedAgents() includes 'copilot-cli'"
+      - "getCliInfo() includes { agentType: 'copilot-cli', cmd: 'copilot', versionArgs: ['--version'] }"
+      - "getSupportedModels('copilot-cli') returns the 7 known models"
+      - "claude-sonnet-4-5 is listed as the first (default) model"
+      - "Executor instances are cached (same instance returned on second call)"
+      - "Existing factory tests still pass after adding copilot-cli"
+    tdd:
+      red:
+        - "Test createExecutor returns CopilotCliExecutorService for copilot-cli"
+        - "Test getSupportedAgents includes copilot-cli"
+        - "Test getCliInfo includes copilot entry with cmd 'copilot'"
+        - "Test getSupportedModels returns 7 models for copilot-cli with claude-sonnet-4-5 first"
+        - "Test executor caching (second createExecutor returns same instance)"
+      green:
+        - "Add 'copilot-cli' case to createExecutor switch"
+        - "Add 'copilot-cli' to getSupportedAgents array"
+        - "Add copilot CLI info entry to getCliInfo"
+        - "Add COPILOT_CLI_MODELS constant and copilot-cli case to getSupportedModels"
+      refactor:
+        - "Verify model list matches confirmed known models"
+        - "Ensure import is clean and follows existing pattern"
+    estimatedEffort: "45min"
+
+  - id: "task-9"
+    phaseId: "phase-3"
+    title: "Register CopilotCli stub session repository in DI container"
+    description: |
+      Register a stub session repository for copilot-cli in the DI container,
+      following the pattern used for claude-code, codex-cli, and cursor session
+      repositories. Update DI container tests.
+    state: "Todo"
+    dependencies:
+      - "task-8"
+    acceptanceCriteria:
+      - "StubSessionRepository (or equivalent) registered for copilot-cli in container.ts"
+      - "DI container can resolve the session repository for copilot-cli"
+      - "Existing DI container tests pass"
+    tdd:
+      red:
+        - "Test DI container resolves session repository for copilot-cli"
+      green:
+        - "Add copilot-cli session repository registration to container.ts"
+      refactor:
+        - "Verify registration follows existing pattern exactly"
+    estimatedEffort: "20min"
+
+  # ============================================================
+  # PHASE 4: Presentation Layer Integration
+  # ============================================================
+
+  - id: "task-10"
+    phaseId: "phase-4"
+    title: "Add Copilot CLI to TUI agent select prompt"
+    description: |
+      Add a Copilot CLI choice to the TUI agent select prompt in
+      src/presentation/tui/prompts/agent-select.prompt.ts. The choice must be
+      enabled (not Coming Soon) with the correct name, value, and description.
+    state: "Todo"
+    dependencies:
+      - "task-9"
+    acceptanceCriteria:
+      - "Copilot CLI choice appears in TUI agent select prompt"
+      - "Name: 'Copilot CLI'"
+      - "Value: AgentType.CopilotCli"
+      - "Description: 'GitHub Copilot CLI (Claude Sonnet 4.5 default, requires Copilot subscription)'"
+      - "Status: Enabled (not Coming Soon)"
+    tdd:
+      red:
+        - "Test agent select prompt includes CopilotCli choice with correct metadata"
+        - "Test CopilotCli choice is not marked as Coming Soon"
+      green:
+        - "Add CopilotCli entry to agent select choices array"
+      refactor:
+        - "Verify ordering relative to other agent choices is sensible"
+    estimatedEffort: "20min"
+
+  - id: "task-11"
+    phaseId: "phase-4"
+    title: "Add Copilot CLI to Web UI settings and agent icons"
+    description: |
+      Add copilot-cli to the web settings panel (AGENT_TYPE_OPTIONS), the agent
+      type icons component (copilot.svg icon mapping and label), and the model
+      picker AGENT_LABELS and AGENT_ORDER. Source or create the GitHub Copilot
+      brand SVG icon at public/icons/agents/copilot.svg.
+    state: "Todo"
+    dependencies:
+      - "task-9"
+    acceptanceCriteria:
+      - "copilot-cli appears in AGENT_TYPE_OPTIONS with label 'Copilot CLI'"
+      - "copilot-cli icon mapping added to agent-type-icons.tsx using copilot.svg"
+      - "copilot-cli label added: 'Copilot CLI'"
+      - "AGENT_LABELS includes 'Copilot CLI' entry"
+      - "AGENT_ORDER includes 'copilot-cli'"
+      - "public/icons/agents/copilot.svg exists with valid SVG content"
+      - "Settings panel does NOT show API token input for copilot-cli (session only)"
+    tdd:
+      red:
+        - "Test agent-type-icons renders copilot icon for copilot-cli agent type"
+        - "Test settings section renders Copilot CLI option"
+        - "Test settings section shows session-only auth for copilot-cli (no token input)"
+      green:
+        - "Add copilot.svg icon file"
+        - "Add copilot-cli entry to agent-type-icons.tsx"
+        - "Add copilot-cli to agent-settings-section.tsx AGENT_TYPE_OPTIONS"
+        - "Add to get-all-agent-models.ts AGENT_LABELS and AGENT_ORDER"
+      refactor:
+        - "Verify icon renders correctly at standard sizes"
+    estimatedEffort: "45min"
+
+  - id: "task-12"
+    phaseId: "phase-4"
+    title: "Add Storybook stories for Copilot CLI presentation components"
+    description: |
+      Add Copilot CLI variants to all affected Storybook story files:
+      agent-type-icons.stories.tsx (add to allAgentTypes array),
+      agent-settings-section.stories.tsx (add CopilotCli story variant),
+      AgentModelPicker.stories.tsx (add Copilot CLI model selection story).
+    state: "Todo"
+    dependencies:
+      - "task-11"
+    acceptanceCriteria:
+      - "agent-type-icons.stories.tsx includes copilot-cli in allAgentTypes"
+      - "agent-settings-section.stories.tsx has a CopilotCli story variant"
+      - "AgentModelPicker.stories.tsx has a story showing Copilot CLI models"
+      - "All Storybook stories render without errors"
+    tdd:
+      red:
+        - "Verify Storybook renders new stories without console errors"
+      green:
+        - "Add copilot-cli to agent-type-icons.stories.tsx allAgentTypes array"
+        - "Add CopilotCli story to agent-settings-section.stories.tsx"
+        - "Add CopilotCli model story to AgentModelPicker.stories.tsx"
+      refactor:
+        - "Verify story args match the final component prop types"
+    estimatedEffort: "30min"
+
+  - id: "task-13"
+    phaseId: "phase-4"
+    title: "Final validation — pnpm validate passes with zero errors"
+    description: |
+      Run the full validation suite (lint + format + typecheck + tsp) to confirm
+      zero errors across all changes. Fix any type errors, lint issues, or format
+      problems surfaced by the validation pass. Run existing unit and integration
+      tests to confirm no regressions.
+    state: "Todo"
+    dependencies:
+      - "task-12"
+    acceptanceCriteria:
+      - "pnpm validate passes with zero errors"
+      - "pnpm test:unit passes with zero failures"
+      - "pnpm test:int passes with zero failures"
+      - "No TypeScript type errors in any modified file"
+      - "No lint errors or warnings in any modified file"
+    tdd:
+      red:
+        - "Run pnpm validate — note any errors"
+        - "Run pnpm test:unit — note any failures"
+      green:
+        - "Fix any type errors surfaced by typecheck"
+        - "Fix any lint or format issues"
+        - "Fix any test failures caused by missing copilot-cli cases"
+      refactor:
+        - "Review all modified files for consistency with codebase conventions"
+    estimatedEffort: "30min"

@@ -150,6 +150,7 @@ shep settings agent --agent claude-code
 | ----------- | -------- | ----------- |
 | Claude Code | `claude` | Available   |
 | Cursor      | `agent`  | Available   |
+| Copilot CLI | `copilot` | Available  |
 | Gemini CLI  | —        | Coming Soon |
 | Aider       | —        | Coming Soon |
 | Continue    | —        | Coming Soon |
