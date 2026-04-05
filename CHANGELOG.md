@@ -1,3 +1,10 @@
+# [1.174.0](https://github.com/shep-ai/shep/compare/v1.173.0...v1.174.0) (2026-04-05)
+
+
+### Features
+
+* **web:** add inventory page filters, search, grouping, and sort ([#529](https://github.com/shep-ai/shep/issues/529)) ([af82901](https://github.com/shep-ai/shep/commit/af82901941bb1ce532f1854119febe47bf139282))
+
 # [1.173.0](https://github.com/shep-ai/shep/compare/v1.172.0...v1.173.0) (2026-04-05)
 
 
