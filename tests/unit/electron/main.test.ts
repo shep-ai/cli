@@ -4,13 +4,28 @@ import type { IWebServerService } from '@shepai/core/application/ports/output/se
 
 // ── Hoisted mocks (must be declared before vi.mock) ────────────────
 
-const { mockBootstrapBackend, mockSetupTray } = vi.hoisted(() => ({
+const {
+  mockBootstrapBackend,
+  mockSetupTray,
+  mockRegisterElectronAdapters,
+  mockSetupIpcHandlers,
+  mockResolvePort,
+  mockCheckForUpdates,
+} = vi.hoisted(() => ({
   mockBootstrapBackend: vi.fn(),
   mockSetupTray: vi.fn(() => ({
     setContextMenu: vi.fn(),
     setToolTip: vi.fn(),
     on: vi.fn(),
   })),
+  mockRegisterElectronAdapters: vi.fn(() => ({
+    notifier: { send: vi.fn(), startListening: vi.fn(), stopListening: vi.fn() },
+    opener: { open: vi.fn() },
+    cleanup: vi.fn(),
+  })),
+  mockSetupIpcHandlers: vi.fn(),
+  mockResolvePort: vi.fn(async () => ({ port: 3456, startServer: true })),
+  mockCheckForUpdates: vi.fn(),
 }));
 
 vi.mock('../../../packages/electron/src/bootstrap.js', () => ({
@@ -23,6 +38,22 @@ vi.mock('../../../packages/electron/src/resolve-web-dir.js', () => ({
 
 vi.mock('../../../packages/electron/src/tray.js', () => ({
   setupTray: mockSetupTray,
+}));
+
+vi.mock('../../../packages/electron/src/electron-adapters.js', () => ({
+  registerElectronAdapters: mockRegisterElectronAdapters,
+}));
+
+vi.mock('../../../packages/electron/src/ipc/channels.js', () => ({
+  setupIpcHandlers: mockSetupIpcHandlers,
+}));
+
+vi.mock('../../../packages/electron/src/port-conflict.js', () => ({
+  resolvePort: mockResolvePort,
+}));
+
+vi.mock('../../../packages/electron/src/update-checker.js', () => ({
+  checkForUpdates: mockCheckForUpdates,
 }));
 
 vi.mock('@shepai/core/application/use-cases/settings/initialize-settings.use-case.js', () => ({
@@ -71,9 +102,11 @@ function createMockWindow(): AppBrowserWindow & {
     focus: vi.fn(),
     hide: vi.fn(),
     close: vi.fn(),
+    minimize: vi.fn(),
     isDestroyed: vi.fn(() => false),
     isMinimized: vi.fn(() => false),
     restore: vi.fn(),
+    webContents: { send: vi.fn() },
     _onceHandlers: onceHandlers,
     _onHandlers: onHandlers,
   };
@@ -133,6 +166,7 @@ function createMockContainer() {
         if (token === 'IWebServerService') return mockWebServer;
         return {};
       }),
+      register: vi.fn(),
     } as unknown as DependencyContainer,
     mockWebServer,
   };
@@ -195,10 +229,47 @@ function createMockDeps(overrides: Partial<AppDeps> = {}) {
     resourcesDir: '/mock/resources',
     splashHtmlPath: '/mock/splash.html',
     preloadPath: '/mock/preload.js',
+    adapterDeps: {
+      createDesktopNotifier: vi.fn() as never,
+      createBrowserOpener: vi.fn() as never,
+      getNotificationBus: vi.fn() as never,
+    },
+    portConflictDeps: {
+      defaultPort: 3000,
+      isPortAvailable: vi.fn().mockResolvedValue(true),
+      showDialog: vi.fn().mockResolvedValue(0),
+      warn: vi.fn(),
+    },
+    ipcHandlerDeps: {
+      ipcMain: { handle: vi.fn(), on: vi.fn() },
+      getVersion: vi.fn(() => '1.0.0'),
+    },
+    updateCheckerDeps: {
+      currentVersion: '1.0.0',
+      repoOwner: 'test',
+      repoName: 'test',
+      fetch: vi.fn().mockResolvedValue({ ok: false, json: vi.fn() }),
+      warn: vi.fn(),
+    },
     ...overrides,
   };
 
   return { deps, mockApp, bwInstances, bwOpts, mockShutdown, mockWebServer, container };
+}
+
+/** Helper to create a valid AppState */
+function makeState(overrides: Partial<AppState> = {}): AppState {
+  return {
+    mainWindow: null,
+    splashWindow: null,
+    tray: null,
+    bootstrapResult: null,
+    adapterResult: null,
+    webServerService: null,
+    serverPort: 0,
+    isQuitting: false,
+    ...overrides,
+  };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────
@@ -247,18 +318,6 @@ describe('createMainWindow', () => {
     height: 800,
     manage: vi.fn(),
   }));
-
-  function makeState(overrides: Partial<AppState> = {}): AppState {
-    return {
-      mainWindow: null,
-      splashWindow: null,
-      tray: null,
-      bootstrapResult: null,
-      webServerService: null,
-      isQuitting: false,
-      ...overrides,
-    };
-  }
 
   it('creates window with security settings', () => {
     const { MockBW, allOpts } = createMockBrowserWindowClass();
@@ -356,16 +415,25 @@ describe('gracefulShutdown', () => {
     vi.useRealTimers();
   });
 
+  it('calls adapterResult.cleanup()', async () => {
+    const mockCleanup = vi.fn();
+    const state = makeState({
+      adapterResult: {
+        notifier: { send: vi.fn(), startListening: vi.fn(), stopListening: vi.fn() } as never,
+        opener: { open: vi.fn() } as never,
+        cleanup: mockCleanup,
+      },
+    });
+
+    await gracefulShutdown(state);
+    expect(mockCleanup).toHaveBeenCalled();
+  });
+
   it('calls bootstrapResult.shutdown()', async () => {
     const mockShutdown = vi.fn();
-    const state: AppState = {
-      mainWindow: null,
-      splashWindow: null,
-      tray: null,
+    const state = makeState({
       bootstrapResult: { container: {} as DependencyContainer, shutdown: mockShutdown },
-      webServerService: null,
-      isQuitting: false,
-    };
+    });
 
     await gracefulShutdown(state);
     expect(mockShutdown).toHaveBeenCalled();
@@ -373,29 +441,16 @@ describe('gracefulShutdown', () => {
 
   it('calls webServerService.stop()', async () => {
     const mockStop = vi.fn().mockResolvedValue(undefined);
-    const state: AppState = {
-      mainWindow: null,
-      splashWindow: null,
-      tray: null,
-      bootstrapResult: null,
+    const state = makeState({
       webServerService: { start: vi.fn(), stop: mockStop } as unknown as IWebServerService,
-      isQuitting: false,
-    };
+    });
 
     await gracefulShutdown(state);
     expect(mockStop).toHaveBeenCalled();
   });
 
   it('does not throw when bootstrapResult is null', async () => {
-    const state: AppState = {
-      mainWindow: null,
-      splashWindow: null,
-      tray: null,
-      bootstrapResult: null,
-      webServerService: null,
-      isQuitting: false,
-    };
-
+    const state = makeState();
     await expect(gracefulShutdown(state)).resolves.not.toThrow();
   });
 });
@@ -403,6 +458,7 @@ describe('gracefulShutdown', () => {
 describe('startApp', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockResolvePort.mockResolvedValue({ port: 3456, startServer: true });
   });
 
   it('requests single instance lock', async () => {
@@ -444,6 +500,30 @@ describe('startApp', () => {
     const { deps } = createMockDeps();
     await startApp(deps);
     expect(mockBootstrapBackend).toHaveBeenCalled();
+  });
+
+  it('calls registerElectronAdapters', async () => {
+    const { deps } = createMockDeps();
+    await startApp(deps);
+    expect(mockRegisterElectronAdapters).toHaveBeenCalled();
+  });
+
+  it('calls setupIpcHandlers', async () => {
+    const { deps } = createMockDeps();
+    await startApp(deps);
+    expect(mockSetupIpcHandlers).toHaveBeenCalled();
+  });
+
+  it('calls checkForUpdates', async () => {
+    const { deps } = createMockDeps();
+    await startApp(deps);
+    expect(mockCheckForUpdates).toHaveBeenCalled();
+  });
+
+  it('calls resolvePort for port conflict detection', async () => {
+    const { deps } = createMockDeps();
+    await startApp(deps);
+    expect(mockResolvePort).toHaveBeenCalled();
   });
 
   it('calls setupTray', async () => {
@@ -496,7 +576,18 @@ describe('startApp', () => {
     expect(state.splashWindow).not.toBeNull();
     expect(state.tray).not.toBeNull();
     expect(state.bootstrapResult).not.toBeNull();
+    expect(state.adapterResult).not.toBeNull();
     expect(state.webServerService).not.toBeNull();
+  });
+
+  it('skips web server start when port conflict resolves to connect-to-existing', async () => {
+    mockResolvePort.mockResolvedValue({ port: 4050, startServer: false });
+    const { deps, mockWebServer } = createMockDeps();
+    const state = await startApp(deps);
+
+    expect(mockWebServer.start).not.toHaveBeenCalled();
+    expect(state.webServerService).toBeNull();
+    expect(state.serverPort).toBe(4050);
   });
 
   it('quits and closes splash on fatal error during bootstrap', async () => {

@@ -11,7 +11,17 @@
 // IMPORTANT: reflect-metadata must be imported first for tsyringe DI
 import 'reflect-metadata';
 
-import { app, BrowserWindow, nativeImage, Tray, Menu } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  nativeImage,
+  Tray,
+  Menu,
+  Notification,
+  shell,
+  ipcMain,
+  dialog,
+} from 'electron';
 import path from 'node:path';
 import windowStateKeeper from 'electron-window-state';
 import { startApp, type AppDeps } from './app.js';
@@ -33,8 +43,12 @@ import {
 import { getExistingConnection } from '@shepai/core/infrastructure/persistence/sqlite/connection.js';
 import {
   findAvailablePort,
+  isPortAvailable,
   DEFAULT_PORT,
 } from '@shepai/core/infrastructure/services/port.service.js';
+import { getNotificationBus } from '@shepai/core/infrastructure/services/notifications/notification-bus.js';
+import { ElectronDesktopNotifier } from './adapters/electron-desktop-notifier.js';
+import { ElectronBrowserOpener } from './adapters/electron-browser-opener.js';
 import fs from 'node:fs';
 
 /* eslint-disable no-console */
@@ -66,6 +80,71 @@ const deps = {
   resourcesDir: path.join(import.meta.dirname, '..', 'resources'),
   splashHtmlPath: path.join(import.meta.dirname, 'splash.html'),
   preloadPath: path.join(import.meta.dirname, 'preload.js'),
+
+  // Phase 3: Electron adapter deps
+  adapterDeps: {
+    createDesktopNotifier: () =>
+      new ElectronDesktopNotifier({
+        isSupported: () => Notification.isSupported(),
+        createNotification: (opts) => new Notification(opts),
+        warn: (msg, error) => console.warn(msg, error),
+      }),
+    createBrowserOpener: () =>
+      new ElectronBrowserOpener({
+        getMainWindow: () => null, // Placeholder — overridden by registerElectronAdapters
+        serverPort: DEFAULT_PORT,
+        openExternal: (url) => {
+          shell.openExternal(url);
+        },
+        warn: (msg, error) => console.warn(msg, error),
+      }),
+    getNotificationBus,
+  },
+
+  // Phase 3: Port conflict detection deps
+  portConflictDeps: {
+    defaultPort: DEFAULT_PORT,
+    isPortAvailable,
+    showDialog: async (options: {
+      type: string;
+      title: string;
+      message: string;
+      detail: string;
+      buttons: string[];
+      defaultId: number;
+    }) => {
+      const result = await dialog.showMessageBox({
+        type: options.type as 'question',
+        title: options.title,
+        message: options.message,
+        detail: options.detail,
+        buttons: options.buttons,
+        defaultId: options.defaultId,
+      });
+      return result.response;
+    },
+    warn: (msg: string, error?: unknown) => console.warn(msg, error),
+  },
+
+  // Phase 3: IPC handler deps
+  ipcHandlerDeps: {
+    ipcMain: {
+      handle: (channel: string, handler: (...args: unknown[]) => unknown) =>
+        ipcMain.handle(channel, handler as Parameters<typeof ipcMain.handle>[1]),
+      on: (channel: string, handler: (...args: unknown[]) => void) =>
+        ipcMain.on(channel, handler as Parameters<typeof ipcMain.on>[1]),
+    },
+    getVersion: () => app.getVersion(),
+  },
+
+  // Phase 3: Update checker deps
+  updateCheckerDeps: {
+    currentVersion: app.getVersion(),
+    repoOwner: 'shepai',
+    repoName: 'cli',
+    fetch: (url: string) => globalThis.fetch(url),
+    warn: (msg: string, error?: unknown) => console.warn(msg, error),
+  },
 };
 
 startApp(deps as AppDeps).catch((error) => {

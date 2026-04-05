@@ -15,6 +15,14 @@
 import { bootstrapBackend, type BootstrapDeps, type BootstrapResult } from './bootstrap.js';
 import { resolveWebDirForElectron, type ResolveWebDirDeps } from './resolve-web-dir.js';
 import { setupTray, type TrayInstance } from './tray.js';
+import {
+  registerElectronAdapters,
+  type ElectronAdapterDeps,
+  type ElectronAdapterResult,
+} from './electron-adapters.js';
+import { setupIpcHandlers, type IpcHandlerDeps } from './ipc/channels.js';
+import { resolvePort, type PortConflictDeps } from './port-conflict.js';
+import { checkForUpdates, type UpdateCheckerDeps } from './update-checker.js';
 import type { IWebServerService } from '@shepai/core/application/ports/output/services/web-server-service.interface.js';
 
 /* eslint-disable no-console */
@@ -31,9 +39,11 @@ export interface AppBrowserWindow {
   focus(): void;
   hide(): void;
   close(): void;
+  minimize(): void;
   isDestroyed(): boolean;
   isMinimized(): boolean;
   restore(): void;
+  webContents: { send(channel: string, data: unknown): void };
 }
 
 /** Electron app API surface needed by the application module. */
@@ -69,6 +79,14 @@ export interface AppDeps {
   resourcesDir: string;
   splashHtmlPath: string;
   preloadPath: string;
+  /** Factory deps for Electron adapter DI overrides. */
+  adapterDeps: Omit<ElectronAdapterDeps, 'container'>;
+  /** Factory for port conflict deps (needs serverPort at runtime). */
+  portConflictDeps: Omit<PortConflictDeps, 'findAvailablePort'>;
+  /** Factory for IPC handler deps (needs mainWindow + port at runtime). */
+  ipcHandlerDeps: Omit<IpcHandlerDeps, 'getMainWindow' | 'serverPort'>;
+  /** Factory for update checker deps (needs mainWindow at runtime). */
+  updateCheckerDeps: Omit<UpdateCheckerDeps, 'sendToRenderer'>;
 }
 
 /** Application state (exposed for testing). */
@@ -77,7 +95,9 @@ export interface AppState {
   splashWindow: AppBrowserWindow | null;
   tray: TrayInstance | null;
   bootstrapResult: BootstrapResult | null;
+  adapterResult: ElectronAdapterResult | null;
   webServerService: IWebServerService | null;
+  serverPort: number;
   isQuitting: boolean;
 }
 
@@ -183,6 +203,11 @@ export async function gracefulShutdown(state: AppState): Promise<void> {
   forceExit.unref();
 
   try {
+    // Stop Electron adapter listeners (notification bus)
+    if (state.adapterResult) {
+      state.adapterResult.cleanup();
+    }
+
     // Stop watchers
     if (state.bootstrapResult) {
       state.bootstrapResult.shutdown();
@@ -216,7 +241,9 @@ export async function startApp(deps: AppDeps): Promise<AppState> {
     splashWindow: null,
     tray: null,
     bootstrapResult: null,
+    adapterResult: null,
     webServerService: null,
+    serverPort: 0,
     isQuitting: false,
   };
 
@@ -262,16 +289,31 @@ export async function startApp(deps: AppDeps): Promise<AppState> {
     state.bootstrapResult = await bootstrapBackend(deps.bootstrapDeps);
     console.log(`${TAG} Backend bootstrapped`);
 
-    // Step 3: Find available port and start web server
-    const port = await deps.findAvailablePort(deps.defaultPort);
-    const { dir, dev } = resolveWebDirForElectron(deps.resolveWebDirDeps);
+    // Step 3: Register Electron adapters via DI token replacement
+    state.adapterResult = registerElectronAdapters({
+      container: state.bootstrapResult.container,
+      ...deps.adapterDeps,
+    });
+    console.log(`${TAG} Electron adapters registered`);
 
-    state.webServerService =
-      state.bootstrapResult.container.resolve<IWebServerService>('IWebServerService');
-    await state.webServerService.start(port, dir, dev);
-    console.log(`${TAG} Web server started at http://localhost:${port} (dev: ${dev})`);
+    // Step 4: Resolve port (with conflict detection) and start web server
+    const { port, startServer } = await resolvePort({
+      ...deps.portConflictDeps,
+      findAvailablePort: deps.findAvailablePort,
+    });
+    state.serverPort = port;
 
-    // Step 4: Create main window
+    if (startServer) {
+      const { dir, dev } = resolveWebDirForElectron(deps.resolveWebDirDeps);
+      state.webServerService =
+        state.bootstrapResult.container.resolve<IWebServerService>('IWebServerService');
+      await state.webServerService.start(port, dir, dev);
+      console.log(`${TAG} Web server started at http://localhost:${port} (dev: ${dev})`);
+    } else {
+      console.log(`${TAG} Connecting to existing server at http://localhost:${port}`);
+    }
+
+    // Step 5: Create main window
     state.mainWindow = createMainWindow(
       electron.BrowserWindow,
       deps.windowStateKeeper,
@@ -280,7 +322,15 @@ export async function startApp(deps: AppDeps): Promise<AppState> {
       state
     );
 
-    // Step 5: Set up system tray
+    // Step 6: Set up IPC handlers
+    setupIpcHandlers({
+      ...deps.ipcHandlerDeps,
+      getMainWindow: () => state.mainWindow,
+      serverPort: port,
+    });
+    console.log(`${TAG} IPC handlers registered`);
+
+    // Step 7: Set up system tray
     state.tray = setupTray(state.mainWindow, {
       platform: process.platform,
       resourcesDir: deps.resourcesDir,
@@ -289,6 +339,16 @@ export async function startApp(deps: AppDeps): Promise<AppState> {
         Menu: electron.Menu,
         app: electron.app,
         nativeImage: electron.nativeImage,
+      },
+    });
+
+    // Step 8: Start update checker (runs after 10s delay)
+    checkForUpdates({
+      ...deps.updateCheckerDeps,
+      sendToRenderer: (info) => {
+        if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+          state.mainWindow.webContents.send('shep:update-available', info);
+        }
       },
     });
 
