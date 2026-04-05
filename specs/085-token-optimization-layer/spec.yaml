@@ -1,0 +1,171 @@
+name: "token-optimization-layer"
+number: 85
+branch: "feat/token-optimization-layer"
+oneLiner: "Unified token optimization layer to reduce LLM token consumption across the agent pipeline"
+summary: >
+  Add a Token Optimization Layer that sits between Shep's graph nodes and the LLM executors,
+  reducing token consumption through five integrated capabilities: command output filtering,
+  skill pruning with lazy loading, delta-context state diffing, semantic text compression,
+  and alias/meta-token compression. The layer hooks into the existing prompt-building and
+  executor pipeline without changing the agent-agnostic architecture.
+phase: "Analysis"
+sizeEstimate: "L"
+
+relatedFeatures: []
+
+technologies:
+  - "TypeScript"
+  - "LangGraph (state graph, annotations, reducers)"
+  - "tsyringe (dependency injection)"
+  - "TypeSpec (domain model generation)"
+  - "better-sqlite3 (persistence)"
+  - "Node.js child_process (agent process spawning)"
+
+relatedLinks:
+  - title: "Caveman Claude - Token-Cutting Skill"
+    url: "https://dev.to/onsen/caveman-claude-the-token-cutting-skill-thats-changing-ai-workflows-4hmc"
+  - title: "RTK - CLI proxy that reduces LLM token consumption"
+    url: "https://github.com/rtk-ai/rtk"
+  - title: "SkillReducer - Optimizing LLM Agent Skills for Token Efficiency"
+    url: "https://arxiv.org/abs/2603.29919"
+  - title: "Lossless Token Sequence Compression via Meta-Tokens"
+    url: "https://arxiv.org/abs/2506.00307"
+  - title: "Dynamic Compressing Prompts for Efficient Inference"
+    url: "https://arxiv.org/html/2504.11004v1"
+
+openQuestions:
+  - "Should the output filter be a standalone service or integrated into the streaming executor proxy?"
+  - "Should skill pruning be driven by the graph node name (static mapping) or by LLM-based intent classification?"
+  - "What is the acceptable quality regression threshold before compression is dialed back?"
+  - "Should token budgets be per-phase, per-feature, or per-session?"
+  - "Should alias dictionaries be persisted across sessions or rebuilt each time?"
+
+content: |
+  ## Problem Statement
+
+  Shep's agent pipeline sends full, uncompressed context to the LLM on every executor call.
+  This includes complete spec/research/plan YAML files, all injected skills, raw terminal
+  output from commands (test, build, git), and repeated context across multi-phase workflows.
+  There is no filtering, pruning, or compression layer between prompt construction and LLM
+  invocation. This leads to unnecessarily high token consumption, increased cost, and slower
+  execution — especially for large features with multi-phase implementation plans.
+
+  Current pain points identified through codebase analysis:
+
+  1. **No command output filtering** — Raw test/build/git output is included verbatim in
+     prompts. A failed test run can dump thousands of lines into context.
+  2. **No skill pruning** — All injected skills are available to the agent regardless of the
+     current phase or task type. Skills are injected at feature creation time into the
+     worktree and stay there for the entire lifecycle.
+  3. **Full context resent every phase** — Each graph node reads the complete spec.yaml,
+     research.yaml, plan.yaml, and tasks.yaml from disk and includes them in the prompt,
+     even when only a small delta changed since the last phase.
+  4. **No text compression** — Prompt text is natural language with full grammar, even for
+     informational sections where semantic compression would preserve meaning.
+  5. **No token budget enforcement** — Phases run until completion or timeout with no
+     mechanism to enforce token limits or degrade gracefully when approaching budget.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers in `packages/core/src/`:
+
+  - **domain/** — TypeSpec-generated models (Feature, Settings, PhaseTiming, AgentExecutionUsage, etc.)
+  - **application/** — Use cases and output port interfaces (IAgentExecutor, IAgentExecutorProvider, ISkillInjectorService)
+  - **infrastructure/** — Agent executors, LangGraph graph, prompt builders, DI container, persistence
+  - **presentation/** — CLI (`src/presentation/cli/`), TUI (`src/presentation/tui/`), Web (`src/presentation/web/`)
+
+  Key subsystems relevant to token optimization:
+
+  | Subsystem | Location | Role |
+  | --------- | -------- | ---- |
+  | Prompt builders | `infrastructure/services/agents/feature-agent/nodes/prompts/*.prompt.ts` | Assemble full prompts per phase |
+  | Node helpers | `infrastructure/services/agents/feature-agent/nodes/node-helpers.ts` | `executeNode()`, `buildExecutorOptions()`, `readSpecFile()` |
+  | Agent executors | `infrastructure/services/agents/common/executors/*.service.ts` | Claude Code, Cursor, Copilot, Gemini, Codex adapters |
+  | Streaming proxy | `infrastructure/services/agents/streaming/streaming-executor-proxy.ts` | Wraps executors with event streaming |
+  | Skill injector | `infrastructure/services/skill-injector.service.ts` | Injects skills into worktrees at feature creation |
+  | Phase timing | `infrastructure/services/agents/feature-agent/phase-timing-context.ts` | Records token usage per phase |
+  | Settings service | `infrastructure/services/settings.service.ts` | Global + per-feature workflow config |
+  | DI container | `infrastructure/di/container.ts` | tsyringe registrations for all services |
+
+  ### Architecture Patterns
+
+  - **Agent-agnostic execution**: All agent interaction goes through `IAgentExecutor` / `IAgentExecutorProvider`. No component hardcodes an agent type.
+  - **LangGraph state graph**: Feature workflow is a `StateGraph` with typed `Annotation` channels and reducers. Nodes return partial state updates.
+  - **Prompt builders are pure functions**: Each phase has a dedicated `build*Prompt()` function that reads spec files and assembles the prompt string.
+  - **Executor pipeline**: `executeNode()` in node-helpers.ts is the shared entry point — it builds the prompt, calls the executor, records timing/tokens, and handles approval interrupts.
+  - **Token tracking already exists**: `AgentExecutionUsage` captures inputTokens, outputTokens, cacheCreationInputTokens, cacheReadInputTokens, costUsd, numTurns, durationApiMs. These are recorded per phase via `recordPhaseEnd()`.
+  - **Skills are static per feature**: Injected once at feature creation into `.claude/skills/` in the worktree. No dynamic loading or pruning during execution.
+
+  ### Relevant Technologies
+
+  - **LangGraph** — State graph orchestration with checkpointing, conditional edges, and interrupt/resume for HITL approval
+  - **tsyringe** — DI container for all services, repositories, and use cases
+  - **TypeSpec** — Domain model definitions compiled to TypeScript (tsp/ directory)
+  - **better-sqlite3** — Persistence for features, agent runs, phase timing, settings
+  - **Node.js fork()** — Detached worker processes for agent execution
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `infrastructure/services/agents/feature-agent/nodes/node-helpers.ts` | High | Central `executeNode()` is the insertion point for the optimization layer — sits between prompt build and executor call |
+  | `infrastructure/services/agents/feature-agent/nodes/prompts/*.prompt.ts` | High | All prompt builders need to use delta-context and compression instead of raw file reads |
+  | `infrastructure/services/agents/streaming/streaming-executor-proxy.ts` | Medium | Output filter could intercept executor responses here before they re-enter context |
+  | `infrastructure/services/skill-injector.service.ts` | Medium | Skill pruning requires a new routing layer that controls which skills are active per phase |
+  | `infrastructure/services/agents/feature-agent/phase-timing-context.ts` | Medium | Budget controller needs to read current token usage and enforce limits |
+  | `infrastructure/services/agents/feature-agent/state.ts` | Medium | New state channels for delta tracking, compression mode, and budget metadata |
+  | `infrastructure/di/container.ts` | Medium | New services (OutputFilter, SkillLoader, ContextManager, CompressionEngine, BudgetController) need DI registration |
+  | `application/ports/output/` | Medium | New port interfaces for the optimization layer components |
+  | `tsp/` domain models | Low | Add TokenBudget, CompressionMode, SkillRoutingConfig types |
+  | `infrastructure/services/settings.service.ts` | Low | Token budget and compression settings |
+  | `domain/generated/output.ts` | Low | Auto-generated from TypeSpec changes |
+
+  ## Dependencies
+
+  - **Existing token tracking** (`AgentExecutionUsage`, `PhaseTiming`) — Budget controller reads these to enforce limits
+  - **Existing skill injection** (`ISkillInjectorService`) — Skill loader builds on top of the current injection mechanism
+  - **Existing prompt builders** (`nodes/prompts/*.prompt.ts`) — Delta-context replaces direct file reads in these builders
+  - **Existing executor interface** (`IAgentExecutor`) — Output filter wraps or decorates the executor without changing the interface
+  - **Existing settings system** — New settings fields for token budgets, compression mode, skill routing config
+  - **No external library dependencies** — All five capabilities can be implemented with TypeScript standard library
+
+  ## Size Estimate
+
+  **L** — This is a multi-subsystem feature that touches the prompt pipeline, executor proxy,
+  skill system, state management, and settings. While each individual capability (output filter,
+  skill pruning, delta-context, compression, budget) is an M-sized change, they share
+  infrastructure (the optimization layer abstraction, settings, DI wiring) and must be
+  integrated cohesively. Estimated at 1-2 weeks for full implementation across all five
+  capabilities with tests.
+
+  ## Implementation Strategy (High-Level)
+
+  The Token Optimization Layer should be implemented as a set of composable services behind a
+  unified interface, injected via DI and invoked from `executeNode()` in node-helpers.ts.
+
+  **Phase 1 (Highest ROI):**
+  - Command output filtering — regex-based policies for test/build/git output
+  - Skill pruning — phase-aware skill routing (core vs extended)
+  - Delta-context — structured state diffing for prompt assembly
+
+  **Phase 2 (Strong extra savings):**
+  - Semantic compression — caveman-style compression for non-code prompt sections
+  - Alias/meta-token compression — session dictionary for repeated patterns
+
+  **Phase 3 (Optional, deferred):**
+  - Token budget enforcement with fallback degradation ladder
+  - Two-model compression pipeline
+  - Compressed RAG chunks
+
+  ## Success Criteria
+
+  - [ ] Command output filter reduces test/build/git output tokens by 50%+ while preserving failure information
+  - [ ] Skill pruning loads only phase-relevant skills, reducing skill token overhead by 40%+
+  - [ ] Delta-context reduces repeated context (spec/research/plan) tokens by 30%+ across multi-phase runs
+  - [ ] Semantic compression reduces informational prompt sections by 30%+ without quality regression
+  - [ ] Alias compression reduces repeated long strings (paths, IDs, policies) by 20%+
+  - [ ] All optimizations are configurable via settings (can be disabled per-feature)
+  - [ ] Token usage metrics are tracked before/after optimization for measurement
+  - [ ] No regression in task success rate or repair-loop count
