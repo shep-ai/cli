@@ -2,19 +2,12 @@ name: "auto-stash-rebase"
 number: 83
 branch: "feat/083-auto-stash-rebase"
 oneLiner: "Auto-stash uncommitted changes before rebase and pop after, with agent-powered conflict resolution"
-summary: >
-  When the user clicks "Rebase on Main" in the web UI while the working directory has uncommitted
-  changes, the system automatically stashes those changes before rebasing, pops them after, and
-  delegates any rebase conflicts to an AI agent for resolution with retry logic. The stash pop is
-  guaranteed to execute via a finally block, and the user's work-in-progress is preserved regardless
-  of rebase outcome.
+summary: "When the user clicks \"Rebase on Main\" in the web UI while the working directory has uncommitted changes, the system automatically stashes those changes before rebasing, pops them after, and delegates any rebase conflicts to an AI agent for resolution with retry logic. The stash pop is guaranteed to execute via a finally block, and the user's work-in-progress is preserved regardless of rebase outcome.\n"
 phase: "Requirements"
 sizeEstimate: "M"
-
 relatedFeatures:
   - "080-smart-rebase"
   - "063-prevent-subprocess-stash"
-
 technologies:
   - "TypeScript"
   - "tsyringe (DI)"
@@ -22,25 +15,22 @@ technologies:
   - "Next.js server actions"
   - "React (web UI)"
   - "Vitest (testing)"
-
 relatedLinks: []
-
 openQuestions:
   - question: "How should stash pop conflicts be handled when rebased code conflicts with stashed changes?"
     resolved: true
     options:
       - option: "Fail with clear error message"
         description: "If stash pop fails after rebase, report the error clearly to the user with recovery instructions (e.g. 'rebase succeeded but your stashed changes conflict — run git stash pop manually to resolve'). Simple to implement, no additional agent cost, and stash pop conflicts are rare edge cases that benefit from human judgement."
-        selected: true
+        selected: false
       - option: "Agent-powered stash pop resolution"
         description: "Invoke the conflict resolution agent to resolve stash pop conflicts automatically, similar to rebase conflicts. More seamless UX but adds complexity, agent cost, and a second conflict resolution pass for a rare edge case."
-        selected: false
+        selected: true
       - option: "Drop stash and warn user"
         description: "If stash pop fails, drop the stash entry and warn the user that their uncommitted changes were lost. Simplest but destructive — unacceptable for user trust."
         selected: false
     selectionRationale: "Stash pop conflicts are rare (they only happen when rebased code modifies the same lines as uncommitted changes). A clear error message with recovery instructions is the best balance of simplicity, safety, and UX. The stash entry is preserved so the user can resolve manually. Agent-powered resolution can be added later if this proves to be a common pain point."
-    answer: "Fail with clear error message"
-
+    answer: "Agent-powered stash pop resolution"
   - question: "Should the stash message include metadata for traceability?"
     resolved: true
     options:
@@ -52,19 +42,17 @@ openQuestions:
         selected: false
     selectionRationale: "Including the feature name in the stash message costs nothing and makes manual recovery much easier. If a user runs git stash list, they can immediately identify which stash was created by shep and for which feature."
     answer: "Include feature name and timestamp"
-
   - question: "What should happen if stash pop fails but the rebase itself succeeded?"
     resolved: true
     options:
       - option: "Report partial success"
         description: "Return a result indicating rebase succeeded but stash restoration failed. The user knows their branch is rebased but uncommitted changes need manual recovery. Preserves the stash entry for manual pop."
-        selected: true
+        selected: false
       - option: "Report full failure"
         description: "Treat any failure (including stash pop) as a complete failure. Misleading because the rebase actually succeeded — rolling it back would be destructive and unnecessary."
-        selected: false
+        selected: true
     selectionRationale: "The rebase is the primary operation and it succeeded. Reporting full failure would be misleading and could cause the user to re-trigger the rebase unnecessarily. Partial success with clear guidance ('your branch is rebased, but run git stash pop to restore your uncommitted changes') is the most helpful outcome."
-    answer: "Report partial success"
-
+    answer: "Report full failure"
   - question: "Should the conflict resolution retry count be configurable?"
     resolved: true
     options:
@@ -76,105 +64,4 @@ openQuestions:
         selected: false
     selectionRationale: "Three retries per commit is already generous. If an agent cannot resolve a conflict in 3 attempts with feedback, more attempts are unlikely to help. Adding configurability would require touching the settings service, UI, per-feature flags, and all spawn sites (per LESSONS.md, this is a 12+ layer change). Not worth the complexity for a niche setting."
     answer: "Hardcoded at 3 retries"
-
-content: |
-  ## Problem Statement
-
-  When a user clicks "Rebase on Main" in the web UI while the working directory has uncommitted
-  changes, the `rebaseOnMain()` method in `GitPrService` throws a `GIT_ERROR` with the message:
-  "Cannot rebase: working directory has uncommitted changes. Please commit or stash your changes
-  before rebasing."
-
-  This forces users to manually stash their work before rebasing, which is tedious and error-prone.
-  The system should handle this transparently: stash uncommitted changes, perform the rebase (with
-  agent-powered conflict resolution if needed), and restore the user's work-in-progress afterward.
-
-  ## Success Criteria
-
-  - [ ] Clicking "Rebase on Main" with uncommitted changes succeeds without manual stash
-  - [ ] Uncommitted changes are fully restored after a successful rebase with no conflicts
-  - [ ] Uncommitted changes are fully restored after a successful rebase with agent-resolved conflicts
-  - [ ] If rebase fails and is aborted, uncommitted changes are still restored from stash
-  - [ ] If stash pop fails (conflict with rebased code), user receives a clear error with recovery instructions and stash is preserved
-  - [ ] Clean working directories (no uncommitted changes) rebase without any stash operations
-  - [ ] Worktree-based features use the correct working directory for stash operations
-  - [ ] Activity timeline records rebase phase timing with success/error status
-  - [ ] Agent conflict resolution retries up to 3 times per conflicted commit with feedback
-  - [ ] Multi-commit rebases handle conflicts on each commit independently
-  - [ ] All new code has unit test coverage for happy paths, error paths, and edge cases
-  - [ ] Integration tests verify stash/rebase/pop flow against real git repositories
-
-  ## Functional Requirements
-
-  - **FR-1**: The system MUST automatically stash uncommitted changes before starting a rebase when the working directory is dirty
-  - **FR-2**: The `stash()` operation MUST return a boolean indicating whether changes were actually stashed (false if the working directory was already clean)
-  - **FR-3**: The stash message MUST include the feature name for traceability (e.g. "shep-auto-stash: feature-name")
-  - **FR-4**: After stashing, the system MUST sync the main branch with remote before rebasing
-  - **FR-5**: The system MUST attempt `rebaseOnMain()` after stashing and syncing
-  - **FR-6**: On `REBASE_CONFLICT`, the system MUST delegate to `ConflictResolutionService` for agent-powered resolution
-  - **FR-7**: The conflict resolution service MUST retry up to 3 times per conflicted commit, providing feedback about remaining conflict markers on each retry
-  - **FR-8**: The conflict resolution service MUST handle multi-commit rebases by resolving conflicts on each commit independently (outer loop for commits, inner loop for retries)
-  - **FR-9**: After each agent resolution attempt, the system MUST validate that no conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) remain in the resolved files
-  - **FR-10**: If conflict resolution exhausts retries for any commit, the system MUST abort the rebase and throw an error
-  - **FR-11**: The system MUST pop the stash in a `finally` block to guarantee restoration regardless of rebase outcome (success, conflict resolved, or failure)
-  - **FR-12**: Stash pop MUST only execute if stash returned true (changes were actually stashed)
-  - **FR-13**: If stash pop fails (e.g. conflict between rebased code and stashed changes), the system MUST preserve the stash entry and report a clear error with recovery instructions
-  - **FR-14**: The system MUST record a standalone agent run and phase timing entry for the rebase operation in the activity timeline
-  - **FR-15**: The system MUST resolve the correct working directory — worktree path if the feature uses a worktree, otherwise the repository root
-  - **FR-16**: The `stashPop()` operation MUST restore the most recent stash entry
-  - **FR-17**: The conflict resolution prompt MUST include branch context, conflicted file contents with markers, and instructions to preserve intent from both sides
-  - **FR-18**: On retry attempts, the conflict resolution prompt MUST include feedback about remaining markers with specific line numbers
-
-  ## Non-Functional Requirements
-
-  - **NFR-1**: Stash and stash pop operations MUST complete within the same timeout as other git operations (no additional timeout configuration needed)
-  - **NFR-2**: The conflict resolution agent MUST be resolved through `IAgentExecutorProvider` — no hardcoded AI provider
-  - **NFR-3**: The `stash()` and `stashPop()` methods MUST be defined on the `IGitPrService` port interface, not just the implementation, to maintain Clean Architecture boundaries
-  - **NFR-4**: All new services (ConflictResolutionService) MUST be registered in the DI container with appropriate lifecycle (singleton)
-  - **NFR-5**: The stash/pop flow MUST work identically whether the feature uses a worktree or the main repository — the working directory resolution handles this transparently
-  - **NFR-6**: Unit tests MUST cover: stash before rebase, stash pop after success, stash pop after conflict resolution, stash pop after failure, no-stash when clean, worktree path resolution, conflict delegation, retry exhaustion, and multi-commit conflicts
-  - **NFR-7**: Integration tests MUST verify the stash/rebase/pop flow against real git repositories with actual conflicts
-  - **NFR-8**: The conflict resolution prompt MUST NOT include instructions to run git commands — the agent edits files only, and the service handles staging and continuing
-  - **NFR-9**: Error messages from stash pop failures MUST be distinguishable from rebase failures so the user understands what succeeded and what failed
-  - **NFR-10**: The feature MUST NOT change the existing web UI — the same "Rebase on Main" button triggers the same server action, which now handles dirty working directories transparently
-
-  ## Product Questions & AI Recommendations
-
-  | # | Question | AI Recommendation | Rationale |
-  | - | -------- | ----------------- | --------- |
-  | 1 | How should stash pop conflicts be handled? | Fail with clear error message | Stash pop conflicts are rare. A clear error with preserved stash and recovery instructions is the safest, simplest approach. Agent resolution can be added later if needed. |
-  | 2 | Should the stash message include metadata? | Include feature name and timestamp | Zero-cost improvement that makes manual recovery easier when users inspect git stash list. |
-  | 3 | What if stash pop fails but rebase succeeded? | Report partial success | The rebase is the primary operation. Reporting full failure would be misleading and could cause unnecessary re-triggers. |
-  | 4 | Should conflict resolution retry count be configurable? | Hardcoded at 3 retries | Adding configurability requires touching 12+ layers (per LESSONS.md patterns). Three retries is sufficient — if the agent cannot resolve in 3 attempts, more attempts will not help. |
-
-  ## Affected Areas
-
-  | Area | Impact | Reasoning |
-  | ---- | ------ | --------- |
-  | `packages/core/src/application/use-cases/features/rebase-feature-on-main.use-case.ts` | High | Core orchestration: stash -> sync -> rebase -> conflict resolve -> pop |
-  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | New `stash()` and `stashPop()` methods on the port interface |
-  | `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Implementation of stash/stashPop + existing rebase/sync operations |
-  | `packages/core/src/infrastructure/services/agents/conflict-resolution/` | High | New service + prompt for agent-powered conflict resolution |
-  | `packages/core/src/infrastructure/di/container.ts` | Medium | DI registration of ConflictResolutionService and updated use case |
-  | `src/presentation/web/app/actions/rebase-feature.ts` | Low | Server action unchanged — calls same use case |
-  | `src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx` | Low | UI button unchanged — triggers same action |
-  | `tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts` | High | New tests for stash/pop flows, conflict delegation |
-  | `tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts` | High | Tests for stash/stashPop git operations |
-  | `tests/unit/infrastructure/services/agents/conflict-resolution/` | High | Tests for conflict resolution service and prompt builder |
-  | `tests/integration/services/git/git-pr.service.rebase-sync.test.ts` | Medium | Integration tests with real git repos |
-
-  ## Dependencies
-
-  - `IGitPrService` interface — extended with `stash()` and `stashPop()` methods
-  - `IAgentExecutorProvider` — used by ConflictResolutionService for agent-agnostic conflict resolution
-  - `IFeatureRepository` — resolves feature entity by ID/prefix
-  - `IWorktreeService` — determines correct working directory (worktree vs repo root)
-  - `IAgentRunRepository` / `IPhaseTimingRepository` — records rebase activity in timeline
-
-  ## Size Estimate
-
-  **M** — Multiple layers touched (git service interface + implementation, use case orchestration,
-  new conflict resolution service with prompt, DI registration, comprehensive test suites across
-  unit and integration). The implementation is already complete in this branch with full test
-  coverage including stash/pop happy paths, conflict delegation, error propagation, and worktree
-  awareness.
+content: "## Problem Statement\n\nWhen a user clicks \"Rebase on Main\" in the web UI while the working directory has uncommitted\nchanges, the `rebaseOnMain()` method in `GitPrService` throws a `GIT_ERROR` with the message:\n\"Cannot rebase: working directory has uncommitted changes. Please commit or stash your changes\nbefore rebasing.\"\n\nThis forces users to manually stash their work before rebasing, which is tedious and error-prone.\nThe system should handle this transparently: stash uncommitted changes, perform the rebase (with\nagent-powered conflict resolution if needed), and restore the user's work-in-progress afterward.\n\n## Success Criteria\n\n- [ ] Clicking \"Rebase on Main\" with uncommitted changes succeeds without manual stash\n- [ ] Uncommitted changes are fully restored after a successful rebase with no conflicts\n- [ ] Uncommitted changes are fully restored after a successful rebase with agent-resolved conflicts\n- [ ] If rebase fails and is aborted, uncommitted changes are still restored from stash\n- [ ] If stash pop fails (conflict with rebased code), user receives a clear error with recovery instructions and stash is preserved\n- [ ] Clean working directories (no uncommitted changes) rebase without any stash operations\n- [ ] Worktree-based features use the correct working directory for stash operations\n- [ ] Activity timeline records rebase phase timing with success/error status\n- [ ] Agent conflict resolution retries up to 3 times per conflicted commit with feedback\n- [ ] Multi-commit rebases handle conflicts on each commit independently\n- [ ] All new code has unit test coverage for happy paths, error paths, and edge cases\n- [ ] Integration tests verify stash/rebase/pop flow against real git repositories\n\n## Functional Requirements\n\n- **FR-1**: The system MUST automatically stash uncommitted changes before starting a rebase when the working directory is dirty\n- **FR-2**: The `stash()` operation MUST return a boolean indicating whether changes were actually stashed (false if the working directory was already clean)\n- **FR-3**: The stash message MUST include the feature name for traceability (e.g. \"shep-auto-stash: feature-name\")\n- **FR-4**: After stashing, the system MUST sync the main branch with remote before rebasing\n- **FR-5**: The system MUST attempt `rebaseOnMain()` after stashing and syncing\n- **FR-6**: On `REBASE_CONFLICT`, the system MUST delegate to `ConflictResolutionService` for agent-powered resolution\n- **FR-7**: The conflict resolution service MUST retry up to 3 times per conflicted commit, providing feedback about remaining conflict markers on each retry\n- **FR-8**: The conflict resolution service MUST handle multi-commit rebases by resolving conflicts on each commit independently (outer loop for commits, inner loop for retries)\n- **FR-9**: After each agent resolution attempt, the system MUST validate that no conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) remain in the resolved files\n- **FR-10**: If conflict resolution exhausts retries for any commit, the system MUST abort the rebase and throw an error\n- **FR-11**: The system MUST pop the stash in a `finally` block to guarantee restoration regardless of rebase outcome (success, conflict resolved, or failure)\n- **FR-12**: Stash pop MUST only execute if stash returned true (changes were actually stashed)\n- **FR-13**: If stash pop fails (e.g. conflict between rebased code and stashed changes), the system MUST preserve the stash entry and report a clear error with recovery instructions\n- **FR-14**: The system MUST record a standalone agent run and phase timing entry for the rebase operation in the activity timeline\n- **FR-15**: The system MUST resolve the correct working directory — worktree path if the feature uses a worktree, otherwise the repository root\n- **FR-16**: The `stashPop()` operation MUST restore the most recent stash entry\n- **FR-17**: The conflict resolution prompt MUST include branch context, conflicted file contents with markers, and instructions to preserve intent from both sides\n- **FR-18**: On retry attempts, the conflict resolution prompt MUST include feedback about remaining markers with specific line numbers\n\n## Non-Functional Requirements\n\n- **NFR-1**: Stash and stash pop operations MUST complete within the same timeout as other git operations (no additional timeout configuration needed)\n- **NFR-2**: The conflict resolution agent MUST be resolved through `IAgentExecutorProvider` — no hardcoded AI provider\n- **NFR-3**: The `stash()` and `stashPop()` methods MUST be defined on the `IGitPrService` port interface, not just the implementation, to maintain Clean Architecture boundaries\n- **NFR-4**: All new services (ConflictResolutionService) MUST be registered in the DI container with appropriate lifecycle (singleton)\n- **NFR-5**: The stash/pop flow MUST work identically whether the feature uses a worktree or the main repository — the working directory resolution handles this transparently\n- **NFR-6**: Unit tests MUST cover: stash before rebase, stash pop after success, stash pop after conflict resolution, stash pop after failure, no-stash when clean, worktree path resolution, conflict delegation, retry exhaustion, and multi-commit conflicts\n- **NFR-7**: Integration tests MUST verify the stash/rebase/pop flow against real git repositories with actual conflicts\n- **NFR-8**: The conflict resolution prompt MUST NOT include instructions to run git commands — the agent edits files only, and the service handles staging and continuing\n- **NFR-9**: Error messages from stash pop failures MUST be distinguishable from rebase failures so the user understands what succeeded and what failed\n- **NFR-10**: The feature MUST NOT change the existing web UI — the same \"Rebase on Main\" button triggers the same server action, which now handles dirty working directories transparently\n\n## Product Questions & AI Recommendations\n\n| # | Question | AI Recommendation | Rationale |\n| - | -------- | ----------------- | --------- |\n| 1 | How should stash pop conflicts be handled? | Fail with clear error message | Stash pop conflicts are rare. A clear error with preserved stash and recovery instructions is the safest, simplest approach. Agent resolution can be added later if needed. |\n| 2 | Should the stash message include metadata? | Include feature name and timestamp | Zero-cost improvement that makes manual recovery easier when users inspect git stash list. |\n| 3 | What if stash pop fails but rebase succeeded? | Report partial success | The rebase is the primary operation. Reporting full failure would be misleading and could cause unnecessary re-triggers. |\n| 4 | Should conflict resolution retry count be configurable? | Hardcoded at 3 retries | Adding configurability requires touching 12+ layers (per LESSONS.md patterns). Three retries is sufficient — if the agent cannot resolve in 3 attempts, more attempts will not help. |\n\n## Affected Areas\n\n| Area | Impact | Reasoning |\n| ---- | ------ | --------- |\n| `packages/core/src/application/use-cases/features/rebase-feature-on-main.use-case.ts` | High | Core orchestration: stash -> sync -> rebase -> conflict resolve -> pop |\n| `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | High | New `stash()` and `stashPop()` methods on the port interface |\n| `packages/core/src/infrastructure/services/git/git-pr.service.ts` | High | Implementation of stash/stashPop + existing rebase/sync operations |\n| `packages/core/src/infrastructure/services/agents/conflict-resolution/` | High | New service + prompt for agent-powered conflict resolution |\n| `packages/core/src/infrastructure/di/container.ts` | Medium | DI registration of ConflictResolutionService and updated use case |\n| `src/presentation/web/app/actions/rebase-feature.ts` | Low | Server action unchanged — calls same use case |\n| `src/presentation/web/components/common/feature-drawer-tabs/overview-tab.tsx` | Low | UI button unchanged — triggers same action |\n| `tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts` | High | New tests for stash/pop flows, conflict delegation |\n| `tests/unit/infrastructure/services/git/git-pr.service.rebase-sync.test.ts` | High | Tests for stash/stashPop git operations |\n| `tests/unit/infrastructure/services/agents/conflict-resolution/` | High | Tests for conflict resolution service and prompt builder |\n| `tests/integration/services/git/git-pr.service.rebase-sync.test.ts` | Medium | Integration tests with real git repos |\n\n## Dependencies\n\n- `IGitPrService` interface — extended with `stash()` and `stashPop()` methods\n- `IAgentExecutorProvider` — used by ConflictResolutionService for agent-agnostic conflict resolution\n- `IFeatureRepository` — resolves feature entity by ID/prefix\n- `IWorktreeService` — determines correct working directory (worktree vs repo root)\n- `IAgentRunRepository` / `IPhaseTimingRepository` — records rebase activity in timeline\n\n## Size Estimate\n\n**M** — Multiple layers touched (git service interface + implementation, use case orchestration,\nnew conflict resolution service with prompt, DI registration, comprehensive test suites across\nunit and integration). The implementation is already complete in this branch with full test\ncoverage including stash/pop happy paths, conflict delegation, error propagation, and worktree\nawareness.\n"

@@ -1,29 +1,29 @@
 
  RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-auto-stash-rebase
 
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should sync main and rebase cleanly on happy path 2ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should throw when feature not found 1ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should resolve feature by prefix when exact ID not found 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should use worktree path as cwd when worktree exists 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should use repo root as cwd when no worktree exists 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should delegate to conflict resolution service on REBASE_CONFLICT 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should propagate conflict resolution failure 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should propagate SYNC_FAILED error without attempting rebase 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should propagate non-rebase git errors directly 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should sync main and rebase cleanly on happy path 6ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should throw when feature not found 2ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should resolve feature by prefix when exact ID not found 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should use worktree path as cwd when worktree exists 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should use repo root as cwd when no worktree exists 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should delegate to conflict resolution service on REBASE_CONFLICT 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should propagate conflict resolution failure 5ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should propagate SYNC_FAILED error without attempting rebase 2ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should propagate non-rebase git errors directly 6ms
  ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should stash uncommitted changes before rebase and pop after 1ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should not pop stash when no changes were stashed 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should pop stash after rebase with conflict resolution 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should pop stash even when rebase fails with non-conflict error 2ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should stash and pop with worktree path 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should invoke resolveStashPop and stashDrop when stashPop fails 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should throw distinguishable error when resolveStashPop also fails 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should invoke resolveStashPop after rebase conflict resolution when stash pop fails 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should invoke resolveStashPop with worktree path when stash pop fails 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should propagate rebase error when both rebase and stash pop fail 0ms
- ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should not invoke resolveStashPop when stashPop succeeds 0ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should not pop stash when no changes were stashed 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should pop stash after rebase with conflict resolution 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should pop stash even when rebase fails with non-conflict error 6ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should stash and pop with worktree path 2ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should invoke resolveStashPop and stashDrop when stashPop fails 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should throw distinguishable error when resolveStashPop also fails 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should invoke resolveStashPop after rebase conflict resolution when stash pop fails 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should invoke resolveStashPop with worktree path when stash pop fails 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should propagate rebase error when both rebase and stash pop fail 1ms
+ ✓  node  tests/unit/application/use-cases/features/rebase-feature-on-main.use-case.test.ts > RebaseFeatureOnMainUseCase > should not invoke resolveStashPop when stashPop succeeds 1ms
 
  Test Files  1 passed (1)
       Tests  20 passed (20)
-   Start at  17:51:18
-   Duration  138ms (transform 47ms, setup 23ms, import 48ms, tests 12ms, environment 0ms)
+   Start at  18:10:57
+   Duration  589ms (transform 260ms, setup 153ms, import 226ms, tests 43ms, environment 0ms)
 
