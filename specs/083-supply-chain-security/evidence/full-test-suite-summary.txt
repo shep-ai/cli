@@ -1,80 +1,41 @@
-undefined
+Full Test Suite Summary
+======================
 
-[31m+ Received:[39m 
-"SyntaxError: Unexpected token 'D', \"[Deployment\"... is not valid JSON"
-
-[36m [2m❯[22m tests/e2e/cli/settings-show.test.ts:[2m28:49[22m[39m
-    [90m 26| [39m    [34mexpect[39m(result[33m.[39mexitCode)[33m.[39m[34mtoBe[39m([34m0[39m)[33m;[39m
-    [90m 27| [39m    [34mexpect[39m(result[33m.[39msuccess)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
-    [90m 28| [39m    [34mexpect[39m(() [33m=>[39m [33mJSON[39m[33m.[39m[34mparse[39m(result[33m.[39mstdout))[33m.[39mnot[33m.[39m[34mtoThrow[39m()[33m;[39m
-    [90m   | [39m                                                [31m^[39m
-    [90m 29| [39m
-    [90m 30| [39m    [35mconst[39m parsed [33m=[39m [33mJSON[39m[33m.[39m[34mparse[39m(result[33m.[39mstdout)[33m;[39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯[22m[39m
-
-[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/settings-show.test.ts[2m > [22mCLI: settings show[2m > [22mshort flag -o[2m > [22mshould work with -o json
-[31m[1mAssertionError[22m: expected [Function] to not throw an error but 'SyntaxError: Unexpected token \'D\', …' was thrown[39m
-
-[32m- Expected:[39m 
-undefined
-
-[31m+ Received:[39m 
-"SyntaxError: Unexpected token 'D', \"[Deployment\"... is not valid JSON"
-
-[36m [2m❯[22m tests/e2e/cli/settings-show.test.ts:[2m58:51[22m[39m
-    [90m 56| [39m
-    [90m 57| [39m      [34mexpect[39m(result[33m.[39mexitCode)[33m.[39m[34mtoBe[39m([34m0[39m)[33m;[39m
-    [90m 58| [39m      [34mexpect[39m(() [33m=>[39m [33mJSON[39m[33m.[39m[34mparse[39m(result[33m.[39mstdout))[33m.[39mnot[33m.[39m[34mtoThrow[39m()[33m;[39m
-    [90m   | [39m                                                  [31m^[39m
-    [90m 59| [39m    })[33m;[39m
-    [90m 60| [39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯[22m[39m
-
-[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/version.test.ts[2m > [22mCLI: version[2m > [22mshould display version matching package.json with --version flag
-[31m[1mAssertionError[22m: expected '[DeploymentService] No dev servers to…' to match /^\d+\.\d+\.\d+$/[39m
-
-[32m- Expected:[39m 
-/^\d+\.\d+\.\d+$/
-
-[31m+ Received:[39m 
-"[DeploymentService] No dev servers to recover from database
-1.166.0"
-
-[36m [2m❯[22m tests/e2e/cli/version.test.ts:[2m37:27[22m[39m
-    [90m 35| [39m    [34mexpect[39m(result[33m.[39msuccess)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
-    [90m 36| [39m    [34mexpect[39m(result[33m.[39mexitCode)[33m.[39m[34mtoBe[39m([34m0[39m)[33m;[39m
-    [90m 37| [39m    [34mexpect[39m(result[33m.[39mstdout)[33m.[39m[34mtoMatch[39m([36m/^\d+\.\d+\.\d+$/[39m)[33m;[39m
-    [90m   | [39m                          [31m^[39m
-    [90m 38| [39m    [34mexpect[39m(result[33m.[39mstdout)[33m.[39m[34mtoBe[39m(pkg[33m.[39mversion)[33m;[39m
-    [90m 39| [39m  })[33m;[39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯[22m[39m
-
-[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/version.test.ts[2m > [22mCLI: version[2m > [22mshould display version number with -v short flag
-[31m[1mAssertionError[22m: expected '[DeploymentService] No dev servers to…' to match /^\d+\.\d+\.\d+$/[39m
-
-[32m- Expected:[39m 
-/^\d+\.\d+\.\d+$/
-
-[31m+ Received:[39m 
-"[DeploymentService] No dev servers to recover from database
-1.166.0"
-
-[36m [2m❯[22m tests/e2e/cli/version.test.ts:[2m45:27[22m[39m
-    [90m 43| [39m
-    [90m 44| [39m    [34mexpect[39m(result[33m.[39msuccess)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
-    [90m 45| [39m    [34mexpect[39m(result[33m.[39mstdout)[33m.[39m[34mtoMatch[39m([36m/^\d+\.\d+\.\d+$/[39m)[33m;[39m
-    [90m   | [39m                          [31m^[39m
-    [90m 46| [39m  })[33m;[39m
-    [90m 47| [39m})[33m;[39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯[22m[39m
-
+Extracted from full test run on 2026-04-05 19:40:21
 
 [2m Test Files [22m [1m[31m4 failed[39m[22m[2m | [22m[1m[32m452 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (457)[39m
 [2m      Tests [22m [1m[31m7 failed[39m[22m[2m | [22m[1m[32m6181 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (6189)[39m
 [2m   Start at [22m 19:38:50
 [2m   Duration [22m 91.62s[2m (transform 17.29s, setup 45.66s, import 82.05s, tests 556.80s, environment 73.96s)[22m
 
+---
+
+Failed tests (all non-security):
+[22m[39m[DeploymentService] [repo-1] URL health check FAILED — "http://localhost:3000" not responding, killing zombie (pid=9999)
+     [33m[2m✓[22m[39m should throw SYNC_FAILED when on main and local main has diverged from remote [33m 3593[2mms[22m[39m
+[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/settings-agent.test.ts[2m > [22mCLI: settings agent[2m > [22mshep settings agent --agent claude-code --auth session[2m > [22mshould persist agent config to settings
+[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/settings-agent.test.ts[2m > [22mCLI: settings agent[2m > [22mshep settings agent --agent claude-code --auth token --token sk-test[2m > [22mshould persist token to settings
+[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/settings-init.test.ts[2m > [22mCLI: settings init[2m > [22mshould reset settings to defaults after init
+[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/settings-show.test.ts[2m > [22mCLI: settings show[2m > [22mshould output valid JSON with all settings sections
+[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/settings-show.test.ts[2m > [22mCLI: settings show[2m > [22mshort flag -o[2m > [22mshould work with -o json
+[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/version.test.ts[2m > [22mCLI: version[2m > [22mshould display version matching package.json with --version flag
+[41m[1m FAIL [22m[49m [30m[43m node [49m[39m tests/e2e/cli/version.test.ts[2m > [22mCLI: version[2m > [22mshould display version number with -v short flag
+
+All security test files passed:
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/repositories/sqlite-security-event.repository.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 1135[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/feature-agent/nodes/security-pre-check.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/security/governance-auditor.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/security/security-policy-file-reader.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/security/dependency-risk-evaluator.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 61[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/security/security-policy.service.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/security/release-integrity-evaluator.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 53[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/domain/generated/security-types.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/security/record-security-event.use-case.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/security/enforce-security.use-case.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 61[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/persistence/sqlite/mappers/security-event.mapper.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/security/evaluate-security-policy.use-case.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/domain/errors/security-violation.error.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/presentation/cli/commands/security.command.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/security/security-policy-validator.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/application/use-cases/security/get-security-state.use-case.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/agents/executors/security-constraint-validator.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 6[2mms[22m[39m

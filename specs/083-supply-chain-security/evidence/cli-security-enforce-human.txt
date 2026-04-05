@@ -36,4 +36,4 @@ GitHub Governance (audit-only)
 ✓ Security enforcement passed
 ℹ Mode is Advisory — findings are reported but do not block
 
-Exit code: 0
+Exit code: 
