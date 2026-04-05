@@ -1,3 +1,10 @@
+# [1.172.0](https://github.com/shep-ai/shep/compare/v1.171.0...v1.172.0) (2026-04-05)
+
+
+### Features
+
+* **agents:** add support for GitHub Copilot ([#519](https://github.com/shep-ai/shep/issues/519)) ([7216cc9](https://github.com/shep-ai/shep/commit/7216cc90e90d9899e17cad318b7947dd6215d2a6)), closes [#518](https://github.com/shep-ai/shep/issues/518)
+
 # [1.171.0](https://github.com/shep-ai/shep/compare/v1.170.0...v1.171.0) (2026-04-05)
 
 
