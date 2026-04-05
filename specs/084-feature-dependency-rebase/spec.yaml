@@ -1,0 +1,182 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-dependency-rebase
+number: 84
+branch: "feat/084-feature-dependency-rebase"
+oneLiner: "Interactive reparenting of features via canvas drag-and-drop, plus automatic rebase of child branches when parent features complete implementation"
+summary: >
+  Extends the existing feature dependency system (spec 041) with two capabilities:
+  (1) interactive drag-and-drop on the React Flow canvas to reparent features —
+  moving a feature under another feature as a dependency, and (2) automatic git
+  rebase of child feature branches onto the parent feature branch when the parent
+  completes its implementation cycle (reaches Maintain/Review lifecycle).
+phase: Analysis
+sizeEstimate: L
+
+relatedFeatures:
+  - "041-feature-dependencies"
+  - "080-smart-rebase"
+
+technologies:
+  - "TypeScript"
+  - "React 19"
+  - "Next.js 15"
+  - "@xyflow/react (React Flow v12)"
+  - "dagre (graph layout)"
+  - "tsyringe (DI)"
+  - "better-sqlite3"
+  - "node:child_process (git operations)"
+  - "shadcn/ui"
+  - "TypeSpec"
+
+relatedLinks:
+  - title: "React Flow onConnect and drag docs"
+    url: "https://reactflow.dev/api-reference/react-flow#connection-handling"
+  - title: "Spec 041 - Feature Dependencies"
+    url: "./specs/041-feature-dependencies/"
+
+openQuestions:
+  - "Should reparenting be allowed while the child feature agent is actively running (lifecycle=Implementation), or only when idle/blocked/pending?"
+  - "When auto-rebasing a child onto the parent branch, should we rebase onto the parent feature branch tip or onto main after the parent merges?"
+  - "Should reparenting trigger an immediate rebase of the child branch onto the new parent branch, or only on future parent completions?"
+  - "What happens if the parent feature is deleted or archived — should children be automatically unparented (orphaned back to repo) or blocked?"
+  - "Should the canvas support detaching a child from its parent (drag to repo node to unparent)?"
+  - "Should auto-rebase be opt-in per feature or always-on for features with a parent?"
+
+content: |
+  ## Problem Statement
+
+  The existing feature dependency system (spec 041) allows setting a parent feature at creation
+  time via `--parent <fid>` (CLI) or the parent selector in the create drawer (Web). However,
+  once created, a feature's parent cannot be changed. Users need the ability to:
+
+  1. **Reparent features interactively** — drag a feature node on the canvas to set or change its
+     parent dependency, without recreating the feature.
+  2. **Auto-rebase child branches** — when a parent feature completes its implementation cycle
+     (merges to main or reaches Review/Maintain), automatically rebase all child feature branches
+     so they incorporate the parent's changes.
+
+  Currently, the canvas is read-only (`nodesDraggable=false`, `nodesConnectable=false`). The
+  `CheckAndUnblockFeaturesUseCase` transitions blocked children to Started and spawns agents,
+  but does not perform any git rebase. The `RebaseFeatureOnMainUseCase` rebases onto main but
+  has no concept of parent feature branches.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  Key directories affected by this feature:
+
+  - `packages/core/src/domain/` — Feature entity, lifecycle gates, generated types from TypeSpec
+  - `packages/core/src/application/use-cases/features/` — Use cases: create, update-lifecycle,
+    check-and-unblock, rebase-on-main, delete, start
+  - `packages/core/src/application/ports/output/` — Repository and service interfaces
+    (IFeatureRepository, IGitPrService, IWorktreeService)
+  - `packages/core/src/infrastructure/services/git/` — Git operations (worktree, PR, rebase)
+  - `packages/core/src/infrastructure/di/container.ts` — DI wiring
+  - `src/presentation/web/components/features/features-canvas/` — React Flow canvas, dependency edge
+  - `src/presentation/web/hooks/use-graph-state.ts` — Domain Maps → graph state management
+  - `src/presentation/web/lib/derive-graph.ts` — Pure derivation: Maps → nodes/edges
+  - `src/presentation/web/app/actions/` — Server actions (create-feature, rebase-feature)
+  - `tsp/` — TypeSpec domain model definitions
+
+  ### Architecture Patterns
+
+  - **Clean Architecture** — four layers (domain, application, infrastructure, presentation)
+    with strict dependency flow inward
+  - **TypeSpec-first** — domain models defined in `.tsp` files, compiled to `output.ts`
+  - **Port/Adapter** — use cases depend on port interfaces; infrastructure implements them
+  - **DI via tsyringe** — constructor injection, string token aliases for web server actions
+  - **Domain Map architecture** (web) — `featureMap`, `repoMap`, `pendingMap` are the source
+    of truth; `deriveGraph()` is a pure function that produces React Flow nodes/edges
+  - **Optimistic UI** — mutations use `beginMutation`/`endMutation` guards to prevent stale
+    poll data from overwriting client state
+
+  ### Relevant Technologies
+
+  - **@xyflow/react** — Canvas library. Currently `nodesDraggable=false` and `nodesConnectable=false`.
+    The `onConnect` prop exists but is a no-op. React Flow supports drag-to-connect via Handles
+    (source/target) which the feature nodes already render (`showHandles` is injected by
+    `deriveGraph`). Enabling `nodesConnectable` and handling `onConnect` is the natural path.
+  - **dagre** — Handles hierarchical layout. Adding/removing edges triggers re-layout automatically
+    via the topology-key cache in `useGraphState`.
+  - **better-sqlite3** — Feature repository with `parent_id` column already exists. The `update()`
+    SQL needs to include `parent_id` in the SET clause (per LESSONS.md pattern).
+  - **node:child_process** — Git rebase operations via `IGitPrService.rebaseOnMain()`.
+
+  ### Existing Infrastructure (from spec 041)
+
+  Already implemented and available to build on:
+
+  - `Feature.parentId?: UUID` — domain field for dependency
+  - `SdlcLifecycle.Blocked` — lifecycle state for gated children
+  - `IFeatureRepository.findByParentId()` — query children by parent
+  - `CheckAndUnblockFeaturesUseCase` — transitions Blocked children to Started
+  - `UpdateFeatureLifecycleUseCase` — calls `checkAndUnblock` on every lifecycle transition
+  - `RebaseFeatureOnMainUseCase` — smart rebase with stash and conflict resolution
+  - `CreateFeatureUseCase` — parent validation, gate checking, cycle detection
+  - `DependencyEdge` — custom React Flow edge type for parent→child
+  - `deriveGraph()` — already creates dependency edges from `parentNodeId`
+  - Canvas `onConnect` prop — wired but currently a no-op
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/use-cases/features/` | High | New `ReparentFeatureUseCase` for updating parentId with validation (cycle detection, same-repo check, lifecycle guards). New `RebaseFeatureOnParentUseCase` or extension of existing rebase for parent branch rebasing. |
+  | `packages/core/src/application/use-cases/features/check-and-unblock-features.use-case.ts` | High | Must trigger auto-rebase of child branches (not just lifecycle transition) when parent reaches post-implementation gate. |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | High | Enable `nodesConnectable` (conditionally), handle `onConnect` to trigger reparent, add visual feedback during drag-to-connect. |
+  | `src/presentation/web/hooks/use-graph-state.ts` | High | New `reparentFeature()` mutation to update `parentNodeId` in featureMap optimistically before server confirmation. |
+  | `src/presentation/web/lib/derive-graph.ts` | Medium | May need to expose edge source/target handles for connectable mode. Already derives dependency edges correctly. |
+  | `src/presentation/web/app/actions/` | Medium | New `reparent-feature.ts` server action calling `ReparentFeatureUseCase`. |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new use cases + string token aliases for web server actions. |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | Medium | May need `rebaseOnBranch(cwd, featureBranch, parentBranch)` if rebasing onto parent branch (not main). |
+  | `packages/core/src/infrastructure/services/git/` | Medium | Implement `rebaseOnBranch` in git PR service if parent-branch rebase differs from main rebase. |
+  | `packages/core/src/infrastructure/persistence/sqlite/` | Low | Verify `parent_id` is included in UPDATE SQL SET clause (per LESSONS.md). May need migration if not. |
+  | `tsp/` | Low | No TypeSpec changes expected — `parentId` field already exists on Feature entity. |
+  | `src/presentation/web/components/common/feature-node/` | Low | May need enhanced handle visibility/styling for connectable mode. |
+  | `src/presentation/web/components/features/feature-tree-table/` | Low | Reparenting should be reflected in tree table (already reads parentId from data). |
+
+  ## Dependencies
+
+  ### Existing Code Dependencies
+  - **Spec 041 (Feature Dependencies)** — Foundation: parentId field, Blocked lifecycle, gate logic,
+    CheckAndUnblockFeaturesUseCase, dependency edges in canvas. This spec 084 extends spec 041.
+  - **Spec 080 (Smart Rebase)** — RebaseFeatureOnMainUseCase with stash/conflict resolution.
+    Auto-rebase will reuse this infrastructure.
+  - **React Flow onConnect** — The canvas already accepts `onConnect` prop; enabling connections
+    requires setting `nodesConnectable={true}` and implementing the handler.
+  - **dagre layout** — Topology changes from reparenting trigger automatic re-layout via the
+    existing topology-key cache mechanism.
+
+  ### Library Dependencies
+  - No new library dependencies expected. All needed functionality exists in `@xyflow/react`,
+    `better-sqlite3`, and `node:child_process`.
+
+  ## Success Criteria
+
+  - [ ] User can drag-connect one feature node to another on the canvas to set/change parent dependency
+  - [ ] Reparenting validates: same repository, no cycles, lifecycle guards (cannot reparent to a child)
+  - [ ] Reparenting is reflected immediately in canvas layout (optimistic UI) and persisted to DB
+  - [ ] User can detach a feature from its parent (unparent) via canvas interaction or context menu
+  - [ ] When a parent feature reaches post-implementation lifecycle (Implementation/Review/Maintain), all child feature branches are automatically rebased
+  - [ ] Auto-rebase uses the existing smart rebase infrastructure (stash, conflict resolution)
+  - [ ] Auto-rebase failures are surfaced to the user (not silently swallowed)
+  - [ ] Feature tree table reflects reparenting changes in real-time
+  - [ ] All new components have colocated Storybook stories
+  - [ ] TDD: failing tests written first for use cases, server actions, and graph derivation
+
+  ## Size Estimate
+
+  **L** — This feature spans all four architecture layers (domain, application, infrastructure,
+  presentation) and requires two distinct capabilities: (1) interactive canvas reparenting with
+  optimistic UI, validation, and cycle detection, and (2) automatic git rebase orchestration
+  triggered by lifecycle transitions. The rebase orchestration requires careful handling of
+  worktrees, stash, conflict resolution, and failure reporting. The canvas interaction requires
+  enabling React Flow connections, handling edge creation/deletion, and maintaining optimistic
+  state. Estimated at 1-2 weeks of implementation.
+
+  ---
+
+  _Analysis completed — proceed with research_
