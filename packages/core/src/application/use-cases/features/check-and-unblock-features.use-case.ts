@@ -20,6 +20,7 @@ import { SdlcLifecycle } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
 import { POST_IMPLEMENTATION } from '../../../domain/lifecycle-gates.js';
+import { getSettings } from '../../../infrastructure/services/settings.service.js';
 
 @injectable()
 export class CheckAndUnblockFeaturesUseCase {
@@ -73,6 +74,7 @@ export class CheckAndUnblockFeaturesUseCase {
             enableEvidence: child.enableEvidence,
             commitEvidence: child.commitEvidence,
             ...(child.fast ? { fast: true } : {}),
+            securityMode: getSettings().security?.mode,
           }
         );
       }

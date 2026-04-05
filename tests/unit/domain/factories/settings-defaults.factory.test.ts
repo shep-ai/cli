@@ -18,7 +18,12 @@ import type {
   EnvironmentConfig,
   SystemConfig,
 } from '@/domain/generated/output.js';
-import { AgentType, AgentAuthMethod, SkillSourceType } from '@/domain/generated/output.js';
+import {
+  AgentType,
+  AgentAuthMethod,
+  SkillSourceType,
+  SecurityMode,
+} from '@/domain/generated/output.js';
 
 describe('createDefaultSettings', () => {
   describe('return type and structure', () => {
@@ -457,6 +462,31 @@ describe('createDefaultSettings', () => {
         'vercel-react-best-practices',
         'frontend-design',
       ]);
+    });
+  });
+
+  describe('SecurityConfig defaults', () => {
+    it('should have security field defined', () => {
+      const settings = createDefaultSettings();
+      expect(settings.security).toBeDefined();
+    });
+
+    it('should default security.mode to Advisory', () => {
+      const settings = createDefaultSettings();
+      expect(settings.security?.mode).toBe(SecurityMode.Advisory);
+    });
+
+    it('should not set optional security fields', () => {
+      const settings = createDefaultSettings();
+      expect(settings.security?.lastEvaluationAt).toBeUndefined();
+      expect(settings.security?.policySource).toBeUndefined();
+    });
+
+    it('should match TypeSpec model defaults', () => {
+      const settings = createDefaultSettings();
+      expect(settings.security).toEqual({
+        mode: SecurityMode.Advisory,
+      });
     });
   });
 

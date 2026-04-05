@@ -686,6 +686,29 @@ export type FabLayoutConfig = {
    */
   swapPosition: boolean;
 };
+export enum SecurityMode {
+  Disabled = 'Disabled',
+  Advisory = 'Advisory',
+  Enforce = 'Enforce',
+}
+
+/**
+ * Supply-chain security configuration persisted in settings
+ */
+export type SecurityConfig = {
+  /**
+   * Effective security mode (default: Advisory)
+   */
+  mode: SecurityMode;
+  /**
+   * ISO timestamp of last policy evaluation (null if never evaluated)
+   */
+  lastEvaluationAt?: string;
+  /**
+   * Source of the active security policy (null if never evaluated)
+   */
+  policySource?: string;
+};
 
 /**
  * Global Shep platform settings (singleton)
@@ -735,6 +758,10 @@ export type Settings = BaseEntity & {
    * FAB layout configuration (optional, defaults applied at runtime)
    */
   fabLayout?: FabLayoutConfig;
+  /**
+   * Supply-chain security configuration (optional, defaults applied at runtime)
+   */
+  security?: SecurityConfig;
 };
 export enum TaskState {
   Todo = 'Todo',
@@ -1731,6 +1758,248 @@ export type Repository = SoftDeletableEntity & {
    * Remote GitHub URL this repository was cloned from (normalized: lowercase, no .git suffix)
    */
   remoteUrl?: string;
+};
+export enum SecurityActionCategory {
+  DependencyInstall = 'DependencyInstall',
+  PackageScriptExec = 'PackageScriptExec',
+  CiWorkflowModify = 'CiWorkflowModify',
+  PublishRelease = 'PublishRelease',
+  SandboxEscalation = 'SandboxEscalation',
+}
+export enum SecurityActionDisposition {
+  Allowed = 'Allowed',
+  Denied = 'Denied',
+  ApprovalRequired = 'ApprovalRequired',
+}
+
+/**
+ * Mapping of an action category to its enforcement disposition
+ */
+export type ActionDispositionEntry = {
+  /**
+   * The action category
+   */
+  category: SecurityActionCategory;
+  /**
+   * How this action should be handled
+   */
+  disposition: SecurityActionDisposition;
+};
+
+/**
+ * Dependency risk evaluation policy rules
+ */
+export type DependencyRules = {
+  /**
+   * Check manifest-lockfile consistency (default: true)
+   */
+  checkLockfileConsistency: boolean;
+  /**
+   * Flag packages with lifecycle scripts (default: true)
+   */
+  checkLifecycleScripts: boolean;
+  /**
+   * Flag non-registry dependency sources (default: true)
+   */
+  checkNonRegistrySource: boolean;
+  /**
+   * Enforce strict version ranges — no ^ or * (default: false)
+   */
+  enforceStrictVersionRanges: boolean;
+  /**
+   * Packages explicitly allowed (empty = allow all)
+   */
+  allowlist: string[];
+  /**
+   * Packages explicitly denied
+   */
+  denylist: string[];
+};
+
+/**
+ * Release integrity policy rules
+ */
+export type ReleaseRules = {
+  /**
+   * Require publishing from CI only, not local (default: true)
+   */
+  requireCiOnlyPublishing: boolean;
+  /**
+   * Require npm provenance flags on publish (default: true)
+   */
+  requireProvenance: boolean;
+  /**
+   * Check that release workflow has not been tampered with (default: true)
+   */
+  checkWorkflowIntegrity: boolean;
+};
+
+/**
+ * Security policy configuration from shep.security.yaml
+ */
+export type SecurityPolicy = {
+  /**
+   * Desired security mode for this repository
+   */
+  mode: SecurityMode;
+  /**
+   * Per-action-category enforcement dispositions
+   */
+  actionDispositions: ActionDispositionEntry[];
+  /**
+   * Dependency risk evaluation rules
+   */
+  dependencyRules: DependencyRules;
+  /**
+   * Release integrity check rules
+   */
+  releaseRules: ReleaseRules;
+};
+export enum SecuritySeverity {
+  Low = 'Low',
+  Medium = 'Medium',
+  High = 'High',
+  Critical = 'Critical',
+}
+
+/**
+ * Persisted security event for audit and observability
+ */
+export type SecurityEvent = BaseEntity & {
+  /**
+   * Absolute path to the repository this event belongs to
+   */
+  repositoryPath: string;
+  /**
+   * Feature ID if this event occurred during a feature run
+   */
+  featureId?: string;
+  /**
+   * Severity of this security event
+   */
+  severity: SecuritySeverity;
+  /**
+   * Action category that triggered this event
+   */
+  category: SecurityActionCategory;
+  /**
+   * How the action was handled (allowed, denied, approval-required)
+   */
+  disposition: SecurityActionDisposition;
+  /**
+   * Actor or source that triggered this event (agent, user, CI)
+   */
+  actor?: string;
+  /**
+   * Human-readable event description
+   */
+  message?: string;
+  /**
+   * Actionable remediation guidance
+   */
+  remediationSummary?: string;
+};
+export enum DependencyRiskType {
+  LockfileInconsistency = 'LockfileInconsistency',
+  NonRegistrySource = 'NonRegistrySource',
+  LifecycleScript = 'LifecycleScript',
+  DenylistViolation = 'DenylistViolation',
+  AllowlistViolation = 'AllowlistViolation',
+  VersionRangePolicy = 'VersionRangePolicy',
+}
+
+/**
+ * Single dependency risk finding
+ */
+export type DependencyFinding = {
+  /**
+   * Package name (e.g. 'lodash', '@types/node')
+   */
+  packageName: string;
+  /**
+   * Package version or range (e.g. '^4.17.0')
+   */
+  version?: string;
+  /**
+   * Severity of this finding
+   */
+  severity: SecuritySeverity;
+  /**
+   * Type of dependency risk detected
+   */
+  riskType: DependencyRiskType;
+  /**
+   * Human-readable description of the finding
+   */
+  message: string;
+  /**
+   * Actionable remediation guidance
+   */
+  remediation?: string;
+};
+export enum ReleaseIntegrityCheckType {
+  CiOnlyPublishing = 'CiOnlyPublishing',
+  SecretConfiguration = 'SecretConfiguration',
+  ProvenanceConfiguration = 'ProvenanceConfiguration',
+  WorkflowIntegrity = 'WorkflowIntegrity',
+}
+
+/**
+ * Result of a single release integrity check
+ */
+export type ReleaseIntegrityCheck = {
+  /**
+   * Type of check performed
+   */
+  checkType: ReleaseIntegrityCheckType;
+  /**
+   * Whether this check passed
+   */
+  passed: boolean;
+  /**
+   * Human-readable description of the result
+   */
+  message: string;
+  /**
+   * Severity when this check fails
+   */
+  severity: SecuritySeverity;
+};
+
+/**
+ * Aggregated release integrity evaluation result
+ */
+export type ReleaseIntegrityResult = {
+  /**
+   * Individual check results
+   */
+  checks: ReleaseIntegrityCheck[];
+  /**
+   * Whether all checks passed
+   */
+  passed: boolean;
+};
+
+/**
+ * Computed effective security policy snapshot
+ */
+export type EffectivePolicySnapshot = {
+  /**
+   * Resolved effective security mode
+   */
+  mode: SecurityMode;
+  /**
+   * Where the policy was sourced from (e.g. 'shep.security.yaml', 'settings-default')
+   */
+  source: string;
+  /**
+   * ISO timestamp when this snapshot was computed
+   */
+  evaluatedAt: string;
+  /**
+   * Resolved per-action-category enforcement dispositions
+   */
+  actionDispositions: ActionDispositionEntry[];
 };
 
 /**

@@ -74,7 +74,9 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         interactive_agent_max_concurrent_sessions,
         auto_archive_delay_minutes,
         stage_timeout_fast_implement_ms,
-        fab_position_swapped
+        fab_position_swapped,
+        skill_injection_enabled, skill_injection_skills,
+        security_mode, security_last_evaluation_at, security_policy_source
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement, @model_default,
@@ -106,7 +108,9 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @interactive_agent_max_concurrent_sessions,
         @auto_archive_delay_minutes,
         @stage_timeout_fast_implement_ms,
-        @fab_position_swapped
+        @fab_position_swapped,
+        @skill_injection_enabled, @skill_injection_skills,
+        @security_mode, @security_last_evaluation_at, @security_policy_source
       )
     `);
 
@@ -220,7 +224,12 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         interactive_agent_max_concurrent_sessions = @interactive_agent_max_concurrent_sessions,
         auto_archive_delay_minutes = @auto_archive_delay_minutes,
         stage_timeout_fast_implement_ms = @stage_timeout_fast_implement_ms,
-        fab_position_swapped = @fab_position_swapped
+        fab_position_swapped = @fab_position_swapped,
+        skill_injection_enabled = @skill_injection_enabled,
+        skill_injection_skills = @skill_injection_skills,
+        security_mode = @security_mode,
+        security_last_evaluation_at = @security_last_evaluation_at,
+        security_policy_source = @security_policy_source
       WHERE id = @id
     `);
 

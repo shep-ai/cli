@@ -9,13 +9,16 @@ import { ActionButton } from '@/components/common/action-button';
 import { useFeatureFlags } from '@/hooks/feature-flags-context';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
+import { SecurityPanel } from './security-panel';
+import type { SecurityEvent } from '@shepai/core/domain/generated/output';
 
 export interface RepositoryDrawerProps {
   data: RepositoryNodeData | null;
   onClose: () => void;
+  securityEvents?: SecurityEvent[];
 }
 
-export function RepositoryDrawer({ data, onClose }: RepositoryDrawerProps) {
+export function RepositoryDrawer({ data, onClose, securityEvents }: RepositoryDrawerProps) {
   const featureFlags = useFeatureFlags();
   const handleClose = useCallback(() => {
     onClose();
@@ -112,6 +115,14 @@ export function RepositoryDrawer({ data, onClose }: RepositoryDrawerProps) {
                     <p className="text-destructive text-xs">{actions.syncError}</p>
                   ) : null}
                 </div>
+              </div>
+            </>
+          ) : null}
+          {securityEvents != null && securityEvents.length >= 0 ? (
+            <>
+              <Separator />
+              <div className="flex flex-col gap-3 p-4">
+                <SecurityPanel events={securityEvents} />
               </div>
             </>
           ) : null}

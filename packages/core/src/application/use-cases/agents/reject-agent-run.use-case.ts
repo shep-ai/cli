@@ -25,6 +25,7 @@ import {
 } from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import { recordLifecycleEvent } from '../../../infrastructure/services/agents/feature-agent/phase-timing-context.js';
 import { computeWorktreePath } from '../../../infrastructure/services/ide-launchers/compute-worktree-path.js';
+import { getSettings } from '../../../infrastructure/services/settings.service.js';
 
 @injectable()
 export class RejectAgentRunUseCase {
@@ -168,6 +169,7 @@ export class RejectAgentRunUseCase {
         agentType: run.agentType,
         ...(run.modelId ? { model: run.modelId } : {}),
         ...(feature.fast ? { fast: true } : {}),
+        securityMode: getSettings().security?.mode,
       }
     );
 

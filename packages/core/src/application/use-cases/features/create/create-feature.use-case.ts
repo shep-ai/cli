@@ -390,6 +390,7 @@ export class CreateFeatureUseCase {
           ...(input.fast ? { fast: true } : {}),
           ...(input.agentType ? { agentType: input.agentType as AgentType } : {}),
           ...(input.model ? { model: input.model } : {}),
+          securityMode: settings.security?.mode,
         }
       );
     }

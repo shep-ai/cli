@@ -21,6 +21,10 @@ import { StartFeatureUseCase } from '@/application/use-cases/features/start-feat
 import type { Feature, AgentRun } from '@/domain/generated/output.js';
 import { SdlcLifecycle, AgentRunStatus, AgentType } from '@/domain/generated/output.js';
 
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  getSettings: vi.fn().mockReturnValue({}),
+}));
+
 function createMockProcessService() {
   return {
     spawn: vi.fn().mockReturnValue(12345),

@@ -15,6 +15,7 @@ const { mockGetSettings } = vi.hoisted(() => ({
   mockGetSettings: vi.fn().mockReturnValue({
     agent: { type: 'claude-code' },
     workflow: {},
+    security: { mode: 'Advisory' },
   }),
 }));
 
@@ -152,6 +153,9 @@ describe('CreateFeatureUseCase', () => {
         specDir: '/worktrees/test-feature/specs/001-test-feature',
         featureNumber: '001',
       }),
+      scaffoldSecurityPolicy: vi
+        .fn()
+        .mockResolvedValue('/worktrees/test-feature/shep.security.yaml'),
     };
 
     mockMetadataGenerator = {

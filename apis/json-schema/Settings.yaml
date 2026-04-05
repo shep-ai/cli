@@ -36,6 +36,9 @@ properties:
   fabLayout:
     $ref: FabLayoutConfig.yaml
     description: FAB layout configuration (optional, defaults applied at runtime)
+  security:
+    $ref: SecurityConfig.yaml
+    description: Supply-chain security configuration (optional, defaults applied at runtime)
 required:
   - models
   - user
