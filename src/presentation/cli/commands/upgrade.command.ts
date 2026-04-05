@@ -9,6 +9,9 @@
 
 import { Command } from 'commander';
 import { spawn as defaultSpawn, type ChildProcess } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { container } from '@/infrastructure/di/container.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
@@ -20,6 +23,7 @@ import { startDaemon } from './daemon/start-daemon.js';
 type SpawnFn = typeof defaultSpawn;
 
 const VERSION_CHECK_TIMEOUT_MS = 10_000;
+const NPM_CACHE_ADD_TIMEOUT_MS = 120_000;
 
 /** On Windows, npm is a .cmd batch file — spawn() needs shell: true to resolve it. */
 const IS_WINDOWS = process.platform === 'win32';
@@ -75,12 +79,75 @@ function getLatestVersion(spawnFn: SpawnFn): Promise<string | null> {
 }
 
 /**
+ * Pre-download the package AND all transitive dependencies into npm's cache.
+ * Uses `npm install --prefix <tmpdir>` which resolves the full dependency tree
+ * and populates the cache. The temp directory is cleaned up afterwards.
+ * Returns true if the pre-download succeeded, false otherwise (fail-open).
+ */
+function preDownloadPackage(spawnFn: SpawnFn): Promise<boolean> {
+  let tmpDir: string;
+  try {
+    tmpDir = mkdtempSync(join(tmpdir(), 'shep-upgrade-'));
+  } catch {
+    return Promise.resolve(false);
+  }
+
+  const cleanup = () => {
+    try {
+      rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
+  };
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const child: ChildProcess = spawnFn(
+      'npm',
+      ['install', '--prefix', tmpDir, '--ignore-scripts', '@shepai/cli@latest'],
+      {
+        stdio: ['ignore', 'ignore', 'pipe'],
+        ...(IS_WINDOWS && { shell: true }),
+      }
+    );
+
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        child.kill();
+        cleanup();
+        resolve(false);
+      }
+    }, NPM_CACHE_ADD_TIMEOUT_MS);
+
+    child.on('close', (code) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        cleanup();
+        resolve(code === 0);
+      }
+    });
+
+    child.on('error', () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        cleanup();
+        resolve(false);
+      }
+    });
+  });
+}
+
+/**
  * Run npm i -g @shepai/cli@latest with inherited stdio.
  * Returns the exit code, or rejects on spawn error.
  */
 function runNpmInstall(spawnFn: SpawnFn): Promise<number> {
   return new Promise((resolve, reject) => {
-    const child = spawnFn('npm', ['i', '-g', '@shepai/cli@latest'], {
+    const child = spawnFn('npm', ['i', '-g', '@shepai/cli@latest', '--prefer-offline'], {
       stdio: 'inherit',
       ...(IS_WINDOWS && { shell: true }),
     });
@@ -128,7 +195,15 @@ export function createUpgradeCommand(spawnFn: SpawnFn = defaultSpawn): Command {
           messages.info(t('cli:commands.upgrade.upgradingToLatest', { current: currentVersion }));
         }
 
-        // 4. Check daemon state before install (FR-1)
+        // 4. Pre-download the package into npm cache BEFORE stopping the daemon.
+        //    This minimizes downtime — the actual install will read from cache.
+        messages.info(t('cli:commands.upgrade.downloadingPackage'));
+        const cached = await preDownloadPackage(spawnFn);
+        if (!cached) {
+          messages.warning(t('cli:commands.upgrade.downloadFailed'));
+        }
+
+        // 5. Check daemon state and stop if running
         const daemonService = container.resolve<IDaemonService>('IDaemonService');
         const daemonState = await daemonService.read();
         const daemonWasRunning = daemonState !== null && daemonService.isAlive(daemonState.pid);
@@ -139,7 +214,7 @@ export function createUpgradeCommand(spawnFn: SpawnFn = defaultSpawn): Command {
           await stopDaemon(daemonService);
         }
 
-        // 5. Run npm i -g @shepai/cli@latest; always restore daemon in finally (FR-2, FR-3)
+        // 6. Run npm i -g @shepai/cli@latest; always restore daemon in finally
         let installExitCode = 1;
         try {
           installExitCode = await runNpmInstall(spawnFn);

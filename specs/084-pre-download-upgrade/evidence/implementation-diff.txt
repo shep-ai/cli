@@ -1,0 +1,155 @@
+diff --git a/packages/core/src/application/use-cases/upgrade/upgrade-cli.use-case.ts b/packages/core/src/application/use-cases/upgrade/upgrade-cli.use-case.ts
+index 706bb1a5b..3e3f09652 100644
+--- a/packages/core/src/application/use-cases/upgrade/upgrade-cli.use-case.ts
++++ b/packages/core/src/application/use-cases/upgrade/upgrade-cli.use-case.ts
+@@ -24,6 +24,7 @@ export interface UpgradeResult {
+ }
+
+ const VERSION_CHECK_TIMEOUT_MS = 10_000;
++const NPM_CACHE_ADD_TIMEOUT_MS = 120_000;
+
+ /** Delay (ms) before the current process exits to allow the SSE response to flush. */
+ const SELF_RESTART_DELAY_MS = 1_000;
+@@ -49,8 +50,15 @@ export class UpgradeCliUseCase {
+       return { status: 'up-to-date', currentVersion, latestVersion };
+     }
+
+-    // 3. Run upgrade
++    // 3. Pre-download the package into npm cache before install
+     const target = latestVersion ? `v${latestVersion}` : 'latest';
++    onOutput?.(`Downloading @shepai/cli@latest...\n`);
++    const cached = await this.preDownloadPackage();
++    if (!cached) {
++      onOutput?.('Pre-download did not complete — proceeding with install...\n');
++    }
++
++    // 4. Run install (fast if cached)
+     onOutput?.(`Upgrading from v${currentVersion} to ${target}...\n`);
+
+     try {
+@@ -116,6 +124,40 @@ export class UpgradeCliUseCase {
+     });
+   }
+
++  private preDownloadPackage(): Promise<boolean> {
++    return new Promise((resolve) => {
++      let settled = false;
++
++      const child: ChildProcess = spawn('npm', ['cache', 'add', '@shepai/cli@latest'], {
++        stdio: ['ignore', 'ignore', 'pipe'],
++      });
++
++      const timeout = setTimeout(() => {
++        if (!settled) {
++          settled = true;
++          child.kill();
++          resolve(false);
++        }
++      }, NPM_CACHE_ADD_TIMEOUT_MS);
++
++      child.on('close', (code) => {
++        if (!settled) {
++          settled = true;
++          clearTimeout(timeout);
++          resolve(code === 0);
++        }
++      });
++
++      child.on('error', () => {
++        if (!settled) {
++          settled = true;
++          clearTimeout(timeout);
++          resolve(false);
++        }
++      });
++    });
++  }
++
+   /**
+    * Schedule a daemon self-restart after upgrade.
+    * Reads the current daemon port, spawns a new daemon process with the
+diff --git a/src/presentation/cli/commands/upgrade.command.ts b/src/presentation/cli/commands/upgrade.command.ts
+index d36305326..f8114eaa7 100644
+--- a/src/presentation/cli/commands/upgrade.command.ts
++++ b/src/presentation/cli/commands/upgrade.command.ts
+@@ -20,6 +20,7 @@ import { startDaemon } from './daemon/start-daemon.js';
+ type SpawnFn = typeof defaultSpawn;
+
+ const VERSION_CHECK_TIMEOUT_MS = 10_000;
++const NPM_CACHE_ADD_TIMEOUT_MS = 120_000;
+
+ /** On Windows, npm is a .cmd batch file — spawn() needs shell: true to resolve it. */
+ const IS_WINDOWS = process.platform === 'win32';
+@@ -74,6 +75,46 @@ function getLatestVersion(spawnFn: SpawnFn): Promise<string | null> {
+   });
+ }
+
++/**
++ * Pre-download the package into npm's cache so the subsequent install is fast.
++ * Uses `npm cache add` which downloads without installing.
++ * Returns true if the cache add succeeded, false otherwise (fail-open).
++ */
++function preDownloadPackage(spawnFn: SpawnFn): Promise<boolean> {
++  return new Promise((resolve) => {
++    let settled = false;
++
++    const child: ChildProcess = spawnFn('npm', ['cache', 'add', '@shepai/cli@latest'], {
++      stdio: ['ignore', 'ignore', 'pipe'],
++      ...(IS_WINDOWS && { shell: true }),
++    });
++
++    const timeout = setTimeout(() => {
++      if (!settled) {
++        settled = true;
++        child.kill();
++        resolve(false);
++      }
++    }, NPM_CACHE_ADD_TIMEOUT_MS);
++
++    child.on('close', (code) => {
++      if (!settled) {
++        settled = true;
++        clearTimeout(timeout);
++        resolve(code === 0);
++      }
++    });
++
++    child.on('error', () => {
++      if (!settled) {
++        settled = true;
++        clearTimeout(timeout);
++        resolve(false);
++      }
++    });
++  });
++}
++
+ /**
+  * Run npm i -g @shepai/cli@latest with inherited stdio.
+  * Returns the exit code, or rejects on spawn error.
+@@ -128,7 +169,15 @@ export function createUpgradeCommand(spawnFn: SpawnFn = defaultSpawn): Command {
+           messages.info(t('cli:commands.upgrade.upgradingToLatest', { current: currentVersion }));
+         }
+
+-        // 4. Check daemon state before install (FR-1)
++        // 4. Pre-download the package into npm cache BEFORE stopping the daemon.
++        //    This minimizes downtime — the actual install will read from cache.
++        messages.info(t('cli:commands.upgrade.downloadingPackage'));
++        const cached = await preDownloadPackage(spawnFn);
++        if (!cached) {
++          messages.warning(t('cli:commands.upgrade.downloadFailed'));
++        }
++
++        // 5. Check daemon state and stop if running
+         const daemonService = container.resolve<IDaemonService>('IDaemonService');
+         const daemonState = await daemonService.read();
+         const daemonWasRunning = daemonState !== null && daemonService.isAlive(daemonState.pid);
+@@ -139,7 +188,7 @@ export function createUpgradeCommand(spawnFn: SpawnFn = defaultSpawn): Command {
+           await stopDaemon(daemonService);
+         }
+
+-        // 5. Run npm i -g @shepai/cli@latest; always restore daemon in finally (FR-2, FR-3)
++        // 6. Run npm i -g @shepai/cli@latest; always restore daemon in finally
+         let installExitCode = 1;
+         try {
+           installExitCode = await runNpmInstall(spawnFn);

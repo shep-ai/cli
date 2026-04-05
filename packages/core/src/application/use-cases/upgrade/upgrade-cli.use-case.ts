@@ -13,6 +13,9 @@
 
 import { injectable, inject } from 'tsyringe';
 import { spawn, type ChildProcess } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { IVersionService } from '../../ports/output/services/version-service.interface.js';
 import type { IDaemonService } from '../../ports/output/services/daemon-service.interface.js';
 
@@ -24,6 +27,7 @@ export interface UpgradeResult {
 }
 
 const VERSION_CHECK_TIMEOUT_MS = 10_000;
+const NPM_CACHE_ADD_TIMEOUT_MS = 120_000;
 
 /** Delay (ms) before the current process exits to allow the SSE response to flush. */
 const SELF_RESTART_DELAY_MS = 1_000;
@@ -49,8 +53,15 @@ export class UpgradeCliUseCase {
       return { status: 'up-to-date', currentVersion, latestVersion };
     }
 
-    // 3. Run upgrade
+    // 3. Pre-download the package into npm cache before install
     const target = latestVersion ? `v${latestVersion}` : 'latest';
+    onOutput?.(`Downloading @shepai/cli@latest...\n`);
+    const cached = await this.preDownloadPackage();
+    if (!cached) {
+      onOutput?.('Pre-download did not complete — proceeding with install...\n');
+    }
+
+    // 4. Run install (fast if cached)
     onOutput?.(`Upgrading from v${currentVersion} to ${target}...\n`);
 
     try {
@@ -116,6 +127,62 @@ export class UpgradeCliUseCase {
     });
   }
 
+  private preDownloadPackage(): Promise<boolean> {
+    let tmpDir: string;
+    try {
+      tmpDir = mkdtempSync(join(tmpdir(), 'shep-upgrade-'));
+    } catch {
+      return Promise.resolve(false);
+    }
+
+    const cleanup = () => {
+      try {
+        rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        /* best-effort */
+      }
+    };
+
+    return new Promise((resolve) => {
+      let settled = false;
+
+      const child: ChildProcess = spawn(
+        'npm',
+        ['install', '--prefix', tmpDir, '--ignore-scripts', '@shepai/cli@latest'],
+        {
+          stdio: ['ignore', 'ignore', 'pipe'],
+        }
+      );
+
+      const timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          child.kill();
+          cleanup();
+          resolve(false);
+        }
+      }, NPM_CACHE_ADD_TIMEOUT_MS);
+
+      child.on('close', (code) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          cleanup();
+          resolve(code === 0);
+        }
+      });
+
+      child.on('error', () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          cleanup();
+          resolve(false);
+        }
+      });
+    });
+  }
+
   /**
    * Schedule a daemon self-restart after upgrade.
    * Reads the current daemon port, spawns a new daemon process with the
@@ -150,7 +217,7 @@ export class UpgradeCliUseCase {
 
   private runNpmInstall(onOutput?: (data: string) => void): Promise<number> {
     return new Promise((resolve, reject) => {
-      const child = spawn('npm', ['i', '-g', '@shepai/cli@latest'], {
+      const child = spawn('npm', ['i', '-g', '@shepai/cli@latest', '--prefer-offline'], {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 

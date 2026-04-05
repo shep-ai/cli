@@ -567,6 +567,8 @@
       "alreadyUpToDate": "Already up to date (v{{version}})",
       "upgradingFromTo": "Upgrading from v{{current}} to v{{latest}}",
       "upgradingToLatest": "Upgrading from v{{current}} to latest",
+      "downloadingPackage": "Downloading new version...",
+      "downloadFailed": "Pre-download did not complete — proceeding with install",
       "stoppingDaemon": "Stopping daemon before upgrade...",
       "restartingDaemon": "Restarting daemon...",
       "daemonRestarted": "Daemon restarted successfully.",

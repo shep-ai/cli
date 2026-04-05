@@ -567,6 +567,8 @@
       "alreadyUpToDate": "Bereits aktuell (v{{version}})",
       "upgradingFromTo": "Aktualisierung von v{{current}} auf v{{latest}}",
       "upgradingToLatest": "Aktualisierung von v{{current}} auf die neueste Version",
+      "downloadingPackage": "Neue Version wird heruntergeladen...",
+      "downloadFailed": "Vorab-Download nicht abgeschlossen — Installation wird fortgesetzt",
       "stoppingDaemon": "Dienst wird vor Aktualisierung gestoppt...",
       "restartingDaemon": "Dienst wird neu gestartet...",
       "daemonRestarted": "Dienst erfolgreich neu gestartet.",

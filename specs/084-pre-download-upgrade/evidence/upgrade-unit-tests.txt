@@ -1,0 +1,50 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-pre-download-upgrade
+
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > already up to date > should return up-to-date when latest equals current 2ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > already up to date > should not spawn npm install when already up to date 0ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > command structure > should return a Commander Command with name "upgrade" 2ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > command structure > should have description "Upgrade Shep CLI to the latest version" 0ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > already up to date > should print already-up-to-date message when latest equals current version 2ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > already up to date > should not spawn npm install when already up to date 0ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > pre-download > should spawn npm cache add before npm install 105ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > pre-download > should spawn npm cache add before npm install 104ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > pre-download > should stream download message via onOutput 103ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > pre-download > should warn and continue when pre-download fails 104ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > pre-download > should continue to install even when pre-download fails 104ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > successful upgrade > should return upgraded status on successful install 55ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > pre-download > should warn and continue when pre-download spawn errors 107ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > successful upgrade > should stream output via onOutput callback 52ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > successful upgrade > should call npm install with correct arguments 53ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > successful upgrade > should print upgrade info when newer version is available 103ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > error handling > should return error status on non-zero exit 50ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > error handling > should return error status when npm install spawn fails 53ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > successful upgrade > should spawn npm install with stdio inherit when upgrade available 104ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > successful upgrade > should print success message on exit code 0 104ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > error handling > should proceed with upgrade when version check fails 103ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > error handling > should proceed with upgrade when version check times out 109ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > scheduleDaemonRestart > should delete daemon state before spawning new process 3ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > scheduleDaemonRestart > should spawn new daemon process with correct arguments and port 2ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > scheduleDaemonRestart > should spawn without --port when daemon state has no port 1ms
+ ✓  node  tests/unit/application/use-cases/upgrade/upgrade-cli.use-case.test.ts > UpgradeCliUseCase > scheduleDaemonRestart > should exit the current process after a delay 1ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > error handling > should print error and set exitCode=1 on npm install non-zero exit 104ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > error handling > should warn and proceed with upgrade when version check fails 108ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > error handling > should print error and set exitCode=1 when npm install spawn errors 107ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > error handling > should proceed with upgrade when version check times out 106ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon WAS running > should call stopDaemon() when daemon is running before npm install 108ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon WAS running > should print "Stopping daemon before upgrade..." before stopping 104ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon WAS running > should call startDaemon() with previousPort after successful npm install 103ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon WAS running > should print "Restarting daemon..." before restart 103ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon WAS running > should print "Daemon restarted successfully." after restart 103ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon WAS running > should call stopDaemon() AFTER pre-download but BEFORE npm install (order check) 104ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon WAS running > should still call startDaemon() when npm install fails (non-zero) 104ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon WAS running > should print NFR-6(d) message when npm install fails 103ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon WAS running > should set exitCode=1 when npm install fails even with daemon restart 108ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon was NOT running > should NOT call stopDaemon() when daemon is not running 104ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon was NOT running > should NOT call startDaemon() after upgrade when daemon was not running 105ms
+ ✓  node  tests/unit/presentation/cli/commands/upgrade.command.test.ts > Upgrade Command > daemon lifecycle — daemon was NOT running > should complete upgrade normally (success message) when daemon was not running 107ms
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  16:47:51
+   Duration  2.48s (transform 137ms, setup 48ms, import 144ms, tests 3.11s, environment 0ms)

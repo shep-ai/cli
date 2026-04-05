@@ -567,6 +567,8 @@
       "alreadyUpToDate": "כבר מעודכן (v{{version}})",
       "upgradingFromTo": "משדרג מ-v{{current}} ל-v{{latest}}",
       "upgradingToLatest": "משדרג מ-v{{current}} לגרסה האחרונה",
+      "downloadingPackage": "מוריד גרסה חדשה...",
+      "downloadFailed": "ההורדה המוקדמת לא הושלמה — ממשיך בהתקנה",
       "stoppingDaemon": "עוצר תהליך לפני שדרוג...",
       "restartingDaemon": "מפעיל מחדש תהליך...",
       "daemonRestarted": "התהליך הופעל מחדש בהצלחה.",

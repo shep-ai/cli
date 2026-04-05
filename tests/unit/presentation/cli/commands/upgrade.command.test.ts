@@ -184,8 +184,8 @@ describe('Upgrade Command', () => {
     });
   });
 
-  describe('successful upgrade', () => {
-    it('should print upgrade info when newer version is available', async () => {
+  describe('pre-download', () => {
+    it('should spawn npm install in temp dir before global npm install', async () => {
       const { spawnFn, processes } = createMockSpawn();
       const cmd = createUpgradeCommand(spawnFn as any);
 
@@ -193,14 +193,102 @@ describe('Upgrade Command', () => {
 
       // npm view returns newer version
       await vi.waitFor(() => expect(processes.length).toBe(1));
-      const viewProc = processes[0].proc;
-      (viewProc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      viewProc.emit('close', 0);
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      // pre-download spawned (npm install --prefix <tmpdir> --ignore-scripts)
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      expect(spawnFn).toHaveBeenCalledWith(
+        'npm',
+        expect.arrayContaining(['install', '--ignore-scripts', '@shepai/cli@latest']),
+        expect.any(Object)
+      );
+      processes[1].proc.emit('close', 0);
 
       // npm install spawned
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
+
+      await parsePromise;
+
+      expect(messages.info).toHaveBeenCalledWith(expect.stringContaining('Downloading'));
+    });
+
+    it('should warn and continue when pre-download fails', async () => {
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      // pre-download fails
       await vi.waitFor(() => expect(processes.length).toBe(2));
-      const installProc = processes[1].proc;
-      installProc.emit('close', 0);
+      processes[1].proc.emit('close', 1);
+
+      // npm install should still be spawned
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
+
+      await parsePromise;
+
+      expect(messages.warning).toHaveBeenCalledWith(expect.stringContaining('did not complete'));
+      expect(messages.success).toHaveBeenCalledWith(
+        expect.stringContaining('upgraded successfully')
+      );
+    });
+
+    it('should warn and continue when pre-download spawn errors', async () => {
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      // pre-download spawn errors
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('error', new Error('spawn npm ENOENT'));
+
+      // npm install should still be spawned
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
+
+      await parsePromise;
+
+      expect(messages.warning).toHaveBeenCalledWith(expect.stringContaining('did not complete'));
+      expect(messages.success).toHaveBeenCalled();
+    });
+  });
+
+  describe('successful upgrade', () => {
+    /** Helper: complete the version check + pre-download steps, return when install is ready */
+    async function completePreSteps(processes: ReturnType<typeof createMockSpawn>['processes']) {
+      // npm view
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      // pre-download
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('close', 0);
+    }
+
+    it('should print upgrade info when newer version is available', async () => {
+      const { spawnFn, processes } = createMockSpawn();
+      const cmd = createUpgradeCommand(spawnFn as any);
+
+      const parsePromise = cmd.parseAsync(['node', 'test']);
+
+      await completePreSteps(processes);
+
+      // npm install spawned
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
 
       await parsePromise;
 
@@ -214,21 +302,17 @@ describe('Upgrade Command', () => {
 
       const parsePromise = cmd.parseAsync(['node', 'test']);
 
-      await vi.waitFor(() => expect(processes.length).toBe(1));
-      const viewProc = processes[0].proc;
-      (viewProc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      viewProc.emit('close', 0);
+      await completePreSteps(processes);
 
-      await vi.waitFor(() => expect(processes.length).toBe(2));
-      const installProc = processes[1].proc;
-      installProc.emit('close', 0);
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
 
       await parsePromise;
 
-      // Check the second spawn call is npm install with inherit
+      // Check that npm install was called with inherit
       expect(spawnFn).toHaveBeenCalledWith(
         'npm',
-        ['i', '-g', '@shepai/cli@latest'],
+        ['i', '-g', '@shepai/cli@latest', '--prefer-offline'],
         expect.objectContaining({ stdio: 'inherit' })
       );
     });
@@ -239,13 +323,10 @@ describe('Upgrade Command', () => {
 
       const parsePromise = cmd.parseAsync(['node', 'test']);
 
-      await vi.waitFor(() => expect(processes.length).toBe(1));
-      const viewProc = processes[0].proc;
-      (viewProc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      viewProc.emit('close', 0);
+      await completePreSteps(processes);
 
-      await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('close', 0);
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
 
       await parsePromise;
 
@@ -264,12 +345,16 @@ describe('Upgrade Command', () => {
       const parsePromise = cmd.parseAsync(['node', 'test']);
 
       await vi.waitFor(() => expect(processes.length).toBe(1));
-      const viewProc = processes[0].proc;
-      (viewProc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      viewProc.emit('close', 0);
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
 
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('close', 1);
+      processes[1].proc.emit('close', 0);
+
+      // npm install fails
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 1);
 
       await parsePromise;
 
@@ -287,9 +372,13 @@ describe('Upgrade Command', () => {
       await vi.waitFor(() => expect(processes.length).toBe(1));
       processes[0].proc.emit('error', new Error('spawn npm ENOENT'));
 
-      // Should still spawn npm install
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
+
+      // Should still spawn npm install
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
 
       await parsePromise;
 
@@ -306,13 +395,16 @@ describe('Upgrade Command', () => {
 
       // npm view succeeds with newer version
       await vi.waitFor(() => expect(processes.length).toBe(1));
-      const viewProc = processes[0].proc;
-      (viewProc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      viewProc.emit('close', 0);
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      // pre-download
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('close', 0);
 
       // npm install spawn errors
-      await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('error', new Error('spawn npm ENOENT'));
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('error', new Error('spawn npm ENOENT'));
 
       await parsePromise;
 
@@ -332,9 +424,13 @@ describe('Upgrade Command', () => {
       // Advance past the 10-second timeout
       vi.advanceTimersByTime(11_000);
 
-      // Should spawn npm install after timeout
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
       processes[1].proc.emit('close', 0);
+
+      // Should spawn npm install after timeout + cache
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', 0);
 
       await parsePromise;
 
@@ -367,7 +463,7 @@ describe('Upgrade Command', () => {
       return daemonService;
     }
 
-    /** Run the full upgrade flow: emit npm view (newer version), then emit npm install close. */
+    /** Run the full upgrade flow: npm view → pre-download → npm install. */
     async function runUpgradeFlow(
       spawnFn: ReturnType<typeof createMockSpawn>['spawnFn'],
       processes: ReturnType<typeof createMockSpawn>['processes'],
@@ -380,9 +476,13 @@ describe('Upgrade Command', () => {
       (viewProc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       viewProc.emit('close', 0);
 
-      // npm install spawned
+      // pre-download
       await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('close', installExitCode);
+      processes[1].proc.emit('close', 0);
+
+      // npm install spawned
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', installExitCode);
 
       await parsePromise;
     }
@@ -448,7 +548,7 @@ describe('Upgrade Command', () => {
       );
     });
 
-    it('should call stopDaemon() BEFORE npm install (order check)', async () => {
+    it('should call stopDaemon() AFTER pre-download but BEFORE npm install (order check)', async () => {
       setupRunningDaemon();
       const { spawnFn, processes } = createMockSpawn();
       const cmd = createUpgradeCommand(spawnFn as any);
@@ -465,12 +565,16 @@ describe('Upgrade Command', () => {
       (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
       processes[0].proc.emit('close', 0);
 
-      // After version check, stopDaemon fires before npm install
-      // Wait for stopDaemon to be called, then npm install spawns
+      // pre-download — stopDaemon should NOT have been called yet
       await vi.waitFor(() => expect(processes.length).toBe(2));
+      expect(callOrder).not.toContain('stopDaemon');
+      processes[1].proc.emit('close', 0);
+
+      // After pre-download, stopDaemon fires before npm install
+      await vi.waitFor(() => expect(processes.length).toBe(3));
       // At this point stopDaemon must have already been called (before npm install spawn)
       expect(callOrder).toContain('stopDaemon');
-      processes[1].proc.emit('close', 0);
+      processes[2].proc.emit('close', 0);
 
       await parsePromise;
     });
@@ -516,20 +620,31 @@ describe('Upgrade Command', () => {
   // ── Daemon lifecycle — daemon was NOT running ──────────────────────────────
 
   describe('daemon lifecycle — daemon was NOT running', () => {
+    /** Complete version check + pre-download + npm install with given exit code */
+    async function runFullFlow(
+      processes: ReturnType<typeof createMockSpawn>['processes'],
+      installExitCode = 0
+    ) {
+      await vi.waitFor(() => expect(processes.length).toBe(1));
+      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
+      processes[0].proc.emit('close', 0);
+
+      // pre-download
+      await vi.waitFor(() => expect(processes.length).toBe(2));
+      processes[1].proc.emit('close', 0);
+
+      // npm install
+      await vi.waitFor(() => expect(processes.length).toBe(3));
+      processes[2].proc.emit('close', installExitCode);
+    }
+
     it('should NOT call stopDaemon() when daemon is not running', async () => {
       // beforeEach already sets up not-running daemon service (default)
       const { spawnFn, processes } = createMockSpawn();
       const cmd = createUpgradeCommand(spawnFn as any);
 
       const parsePromise = cmd.parseAsync(['node', 'test']);
-
-      await vi.waitFor(() => expect(processes.length).toBe(1));
-      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      processes[0].proc.emit('close', 0);
-
-      await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('close', 0);
-
+      await runFullFlow(processes);
       await parsePromise;
 
       expect(stopDaemon).not.toHaveBeenCalled();
@@ -540,14 +655,7 @@ describe('Upgrade Command', () => {
       const cmd = createUpgradeCommand(spawnFn as any);
 
       const parsePromise = cmd.parseAsync(['node', 'test']);
-
-      await vi.waitFor(() => expect(processes.length).toBe(1));
-      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      processes[0].proc.emit('close', 0);
-
-      await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('close', 0);
-
+      await runFullFlow(processes);
       await parsePromise;
 
       expect(startDaemon).not.toHaveBeenCalled();
@@ -558,14 +666,7 @@ describe('Upgrade Command', () => {
       const cmd = createUpgradeCommand(spawnFn as any);
 
       const parsePromise = cmd.parseAsync(['node', 'test']);
-
-      await vi.waitFor(() => expect(processes.length).toBe(1));
-      (processes[0].proc as any).stdout.emit('data', Buffer.from('2.0.0\n'));
-      processes[0].proc.emit('close', 0);
-
-      await vi.waitFor(() => expect(processes.length).toBe(2));
-      processes[1].proc.emit('close', 0);
-
+      await runFullFlow(processes);
       await parsePromise;
 
       expect(messages.success).toHaveBeenCalledWith(

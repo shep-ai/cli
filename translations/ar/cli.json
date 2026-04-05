@@ -567,6 +567,8 @@
       "alreadyUpToDate": "محدّث بالفعل (v{{version}})",
       "upgradingFromTo": "الترقية من v{{current}} إلى v{{latest}}",
       "upgradingToLatest": "الترقية من v{{current}} إلى الأحدث",
+      "downloadingPackage": "جارٍ تنزيل الإصدار الجديد...",
+      "downloadFailed": "لم يكتمل التنزيل المسبق — المتابعة بالتثبيت",
       "stoppingDaemon": "جارٍ إيقاف الخدمة الخلفية قبل الترقية...",
       "restartingDaemon": "جارٍ إعادة تشغيل الخدمة الخلفية...",
       "daemonRestarted": "تمت إعادة تشغيل الخدمة الخلفية بنجاح.",
