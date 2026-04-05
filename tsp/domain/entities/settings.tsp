@@ -37,6 +37,7 @@ import "../../common/enums/agent-config.tsp";
 import "../../common/enums/editor.tsp";
 import "../../common/enums/language.tsp";
 import "../../common/enums/notification.tsp";
+import "../../common/enums/security.tsp";
 import "../../common/enums/terminal.tsp";
 
 /**
@@ -670,6 +671,48 @@ model FabLayoutConfig {
 }
 
 /**
+ * Security Configuration
+ *
+ * Stores the effective security mode and evaluation metadata in the
+ * Settings singleton. The mode controls whether supply-chain security
+ * checks are disabled, advisory (surface findings), or enforced (block
+ * risky actions). Full policy rules live in shep.security.yaml; this
+ * model tracks the persisted effective state.
+ *
+ * ## Fields
+ *
+ * | Field            | Default    | Description                              |
+ * |------------------|------------|------------------------------------------|
+ * | mode             | Advisory   | Active security mode                     |
+ * | lastEvaluationAt | (none)     | ISO timestamp of last policy evaluation  |
+ * | policySource     | (none)     | Where the active policy was loaded from  |
+ */
+@doc("Supply-chain security configuration persisted in settings")
+model SecurityConfig {
+  /**
+   * Effective security mode for this installation.
+   * Advisory by default — surfaces findings without blocking.
+   */
+  @doc("Effective security mode (default: Advisory)")
+  mode: SecurityMode = SecurityMode.Advisory;
+
+  /**
+   * ISO timestamp of the last successful policy evaluation.
+   * Null when no evaluation has been run yet.
+   */
+  @doc("ISO timestamp of last policy evaluation (null if never evaluated)")
+  lastEvaluationAt?: string;
+
+  /**
+   * Where the effective policy was sourced from.
+   * Typical values: "shep.security.yaml", "settings-default".
+   * Null when no evaluation has been run yet.
+   */
+  @doc("Source of the active security policy (null if never evaluated)")
+  policySource?: string;
+}
+
+/**
  * Settings Entity
  *
  * Global Shep platform settings stored as a singleton. This entity contains
@@ -817,4 +860,13 @@ model Settings extends BaseEntity {
    */
   @doc("FAB layout configuration (optional, defaults applied at runtime)")
   fabLayout?: FabLayoutConfig;
+
+  /**
+   * Supply-chain security configuration.
+   * Controls security mode (Disabled/Advisory/Enforce) and tracks
+   * evaluation metadata. Full policy rules live in shep.security.yaml.
+   * Optional for backward compatibility — defaults applied at runtime.
+   */
+  @doc("Supply-chain security configuration (optional, defaults applied at runtime)")
+  security?: SecurityConfig;
 }
