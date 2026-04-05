@@ -28,6 +28,13 @@ vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () =
   computeWorktreePath: vi.fn().mockReturnValue('/computed/worktree/path'),
 }));
 
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  getSettings: vi.fn().mockReturnValue({
+    agent: { type: 'claude-code' },
+    security: { mode: 'Advisory' },
+  }),
+}));
+
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
 import {
