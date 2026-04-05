@@ -24,12 +24,14 @@ import type {
   ApprovalGateDefaults,
   FeatureFlags,
   SkillInjectionConfig,
+  SecurityConfig,
 } from '../generated/output';
 import {
   AgentType,
   AgentAuthMethod,
   EditorType,
   SkillSourceType,
+  SecurityMode,
   TerminalType,
 } from '../generated/output';
 
@@ -224,6 +226,10 @@ export function createDefaultSettings(): Settings {
     inventory: false,
   };
 
+  const security: SecurityConfig = {
+    mode: SecurityMode.Advisory,
+  };
+
   return {
     id: globalThis.crypto.randomUUID(),
     models,
@@ -234,6 +240,7 @@ export function createDefaultSettings(): Settings {
     notifications,
     workflow,
     featureFlags,
+    security,
     onboardingComplete: false,
     createdAt: now,
     updatedAt: now,

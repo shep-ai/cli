@@ -22,6 +22,7 @@ import {
   type AgentAuthMethod,
   type EditorType,
   type Language,
+  type SecurityMode,
   type TerminalType,
 } from '../../../../domain/generated/output.js';
 
@@ -138,6 +139,11 @@ export interface SettingsRow {
   // Skill injection config (added in migration 051)
   skill_injection_enabled: number;
   skill_injection_skills: string | null;
+
+  // SecurityConfig (added in migration 053)
+  security_mode: string;
+  security_last_evaluation_at: string | null;
+  security_policy_source: string | null;
 }
 
 /**
@@ -265,6 +271,11 @@ export function toDatabase(settings: Settings): SettingsRow {
     skill_injection_skills: settings.workflow.skillInjection?.skills?.length
       ? JSON.stringify(settings.workflow.skillInjection.skills)
       : null,
+
+    // SecurityConfig (default: Advisory mode, no evaluation yet)
+    security_mode: settings.security?.mode ?? 'Advisory',
+    security_last_evaluation_at: settings.security?.lastEvaluationAt ?? null,
+    security_policy_source: settings.security?.policySource ?? null,
   };
 }
 
@@ -443,6 +454,17 @@ export function fromDatabase(row: SettingsRow): Settings {
     // FabLayoutConfig (INTEGER 0/1 → boolean)
     fabLayout: {
       swapPosition: (row.fab_position_swapped ?? 0) !== 0,
+    },
+
+    // SecurityConfig (TEXT → string, nullable TEXT → optional string)
+    security: {
+      mode: (row.security_mode ?? 'Advisory') as SecurityMode,
+      ...(row.security_last_evaluation_at !== null && {
+        lastEvaluationAt: row.security_last_evaluation_at,
+      }),
+      ...(row.security_policy_source !== null && {
+        policySource: row.security_policy_source,
+      }),
     },
 
     // Onboarding (INTEGER → boolean)
