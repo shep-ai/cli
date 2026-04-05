@@ -19,6 +19,11 @@ import { injectable, inject } from 'tsyringe';
 import { SdlcLifecycle } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
+import type { IGitPrService } from '../../ports/output/services/git-pr-service.interface.js';
+import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
+import type { ConflictResolutionService } from '../../../infrastructure/services/agents/conflict-resolution/conflict-resolution.service.js';
+import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '../../ports/output/agents/phase-timing-repository.interface.js';
 import { POST_IMPLEMENTATION } from '../../../domain/lifecycle-gates.js';
 
 @injectable()
@@ -26,7 +31,17 @@ export class CheckAndUnblockFeaturesUseCase {
   constructor(
     @inject('IFeatureRepository') private readonly featureRepo: IFeatureRepository,
     @inject('IFeatureAgentProcessService')
-    private readonly agentProcess: IFeatureAgentProcessService
+    private readonly agentProcess: IFeatureAgentProcessService,
+    @inject('IGitPrService')
+    private readonly gitPrService: IGitPrService,
+    @inject('IWorktreeService')
+    private readonly worktreeService: IWorktreeService,
+    @inject('ConflictResolutionService')
+    private readonly conflictResolutionService: ConflictResolutionService,
+    @inject('IAgentRunRepository')
+    private readonly agentRunRepo: IAgentRunRepository,
+    @inject('IPhaseTimingRepository')
+    private readonly phaseTimingRepo: IPhaseTimingRepository
   ) {}
 
   /**
