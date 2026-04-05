@@ -1,8 +1,8 @@
-GitForkService Unit Tests — All 17 tests passing
-=================================================
+GitForkService Unit Tests — 17 passed (17)
+==========================================
 
 Command: pnpm vitest run tests/unit/infrastructure/services/git/git-fork.service.test.ts --reporter=verbose
-Date: 2026-04-05T17:43:21Z
+Captured: 2026-04-05T17:48:14Z
 
  RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fork-fallback-create
 
@@ -26,10 +26,10 @@ Date: 2026-04-05T17:43:21Z
 
  Test Files  1 passed (1)
       Tests  17 passed (17)
-   Start at  17:43:21
-   Duration  228ms (transform 58ms, setup 31ms, import 54ms, tests 5ms, environment 0ms)
+   Start at  17:48:14
+   Duration  180ms (transform 64ms, setup 31ms, import 67ms, tests 6ms, environment 0ms)
 
-New fallback tests (3):
+New fallback tests added for this feature (3 of 17):
   - should fallback to gh repo create when fork fails with no remotes
   - should fallback to gh repo create when fork fails with unable to determine base repository
   - should throw FORK_FAILED when both fork and create fallback fail

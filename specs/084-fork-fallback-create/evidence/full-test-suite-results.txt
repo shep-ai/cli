@@ -1,43 +1,51 @@
-Full Unit Test Suite — All 5337 tests passing (378 files)
+Full Unit Test Suite — 5336 passed, 1 timeout (378 files)
 ==========================================================
 
 Command: pnpm test:unit
-Date: 2026-04-05T17:43:33Z
+Captured: 2026-04-05T17:48:25Z
 
-> @shepai/cli@1.168.0 test:unit /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fork-fallback-create
+> @shepai/cli test:unit
 > vitest run tests/unit
 
  RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-fork-fallback-create
 
-[... 378 test files executed ...]
+ Test Files  1 failed | 377 passed (378)
+      Tests  1 failed | 5336 passed (5337)
+   Start at  17:48:25
+   Duration  124.08s (transform 41.73s, setup 128.80s, import 226.24s, tests 329.18s, environment 270.71s)
 
-GitForkService tests (feature under test):
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should fork the repo and remap remotes on happy path
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should detect origin is already a fork and set upstream to parent
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should update upstream URL when remote already exists for a fork origin
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should throw AUTH_FAILURE when gh auth fails
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should throw FORK_FAILED for generic fork errors
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should fallback to gh repo create when fork fails with no remotes
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should fallback to gh repo create when fork fails with unable to determine base repository
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > forkRepository > should throw FORK_FAILED when both fork and create fallback fail
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > pushToFork > should push branch to origin
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > pushToFork > should throw PUSH_FAILED on error
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > createUpstreamPr > should create PR to upstream repo
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > createUpstreamPr > should handle SSH remote URLs
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > createUpstreamPr > should throw PR_CREATE_FAILED on error
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > getUpstreamPrStatus > should return Open for open PR
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > getUpstreamPrStatus > should return Merged for merged PR
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > getUpstreamPrStatus > should return Closed for closed PR
- ✓ tests/unit/infrastructure/services/git/git-fork.service.test.ts > GitForkService > getUpstreamPrStatus > should throw PR_STATUS_FAILED on error
+--- Timeout Failure (not related to fork-fallback-create) ---
 
- Test Files  378 passed (378)
-      Tests  5337 passed (5337)
-   Start at  17:43:33
-   Duration  70.52s (transform 28.06s, setup 90.94s, import 111.02s, tests 188.16s, environment 158.55s)
+ FAIL  feature-create-drawer.test.tsx > FeatureCreateDrawer > close behavior > clears all form fields after submit without unmounting
+ Error: Test timed out in 10000ms.
 
-Key files verified:
-  - tests/unit/infrastructure/services/git/git-fork.service.test.ts (17 tests) ✓
-  - tests/unit/infrastructure/services/agents/feature-agent/nodes/merge.node.test.ts ✓
-  - tests/unit/infrastructure/spec-yaml-backward-compatibility.test.ts ✓
+This test (feature-create-drawer.test.tsx) was NOT modified on this branch.
+When run in isolation, all 91 tests in that file pass (see verification below).
+The timeout occurs only under full-suite parallel execution due to resource contention.
 
-No failures. All tests green.
+Isolation verification:
+  pnpm vitest run tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx
+  Test Files  1 passed (1)
+       Tests  91 passed (91)
+
+--- GitForkService tests (feature under test) — all 17 passed ---
+
+ ✓ GitForkService > forkRepository > should fork the repo and remap remotes on happy path
+ ✓ GitForkService > forkRepository > should detect origin is already a fork and set upstream to parent
+ ✓ GitForkService > forkRepository > should update upstream URL when remote already exists for a fork origin
+ ✓ GitForkService > forkRepository > should throw AUTH_FAILURE when gh auth fails
+ ✓ GitForkService > forkRepository > should throw FORK_FAILED for generic fork errors
+ ✓ GitForkService > forkRepository > should fallback to gh repo create when fork fails with no remotes
+ ✓ GitForkService > forkRepository > should fallback to gh repo create when fork fails with unable to determine base repository
+ ✓ GitForkService > forkRepository > should throw FORK_FAILED when both fork and create fallback fail
+ ✓ GitForkService > pushToFork > should push branch to origin
+ ✓ GitForkService > pushToFork > should throw PUSH_FAILED on error
+ ✓ GitForkService > createUpstreamPr > should create PR to upstream repo
+ ✓ GitForkService > createUpstreamPr > should handle SSH remote URLs
+ ✓ GitForkService > createUpstreamPr > should throw PR_CREATE_FAILED on error
+ ✓ GitForkService > getUpstreamPrStatus > should return Open for open PR
+ ✓ GitForkService > getUpstreamPrStatus > should return Merged for merged PR
+ ✓ GitForkService > getUpstreamPrStatus > should return Closed for closed PR
+ ✓ GitForkService > getUpstreamPrStatus > should throw PR_STATUS_FAILED on error
+
+No regressions from fork-fallback-create changes. All 5336 non-timeout tests pass.
