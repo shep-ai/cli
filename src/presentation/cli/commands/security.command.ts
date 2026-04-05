@@ -92,6 +92,22 @@ export function createSecurityCommand(): Command {
               messages.newline();
             }
 
+            // Governance findings (audit-only)
+            if (result.governanceFindings.length > 0) {
+              console.log(fmt.heading(t('cli:commands.security.enforce.governanceFindingsLabel')));
+              for (const finding of result.governanceFindings) {
+                const severityColor =
+                  finding.severity === 'Critical' || finding.severity === 'High'
+                    ? colors.error
+                    : colors.warning;
+                console.log(`  ${severityColor(`[${finding.severity}]`)} ${finding.message}`);
+                if (finding.remediation) {
+                  console.log(`    ${colors.muted(finding.remediation)}`);
+                }
+              }
+              messages.newline();
+            }
+
             // Result
             if (result.totalFindings === 0) {
               messages.info(t('cli:commands.security.enforce.noFindings'));

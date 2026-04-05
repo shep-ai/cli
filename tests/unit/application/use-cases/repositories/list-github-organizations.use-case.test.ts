@@ -39,6 +39,7 @@ describe('ListGitHubOrganizationsUseCase', () => {
         .mockResolvedValue([createMockOrg()]),
       parseGitHubUrl: vi.fn(),
       getViewerPermission: vi.fn().mockResolvedValue('ADMIN'),
+      auditRepositoryGovernance: vi.fn().mockResolvedValue([]),
     };
 
     useCase = new ListGitHubOrganizationsUseCase(mockGitHubService);

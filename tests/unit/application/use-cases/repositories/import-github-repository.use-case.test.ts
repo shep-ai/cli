@@ -48,6 +48,7 @@ describe('ImportGitHubRepositoryUseCase', () => {
         nameWithOwner: 'octocat/my-project',
       }),
       getViewerPermission: vi.fn().mockResolvedValue('ADMIN'),
+      auditRepositoryGovernance: vi.fn().mockResolvedValue([]),
     };
 
     mockRepoRepository = {

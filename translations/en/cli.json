@@ -202,6 +202,7 @@
         "dependencyFindingsLabel": "Dependency Findings",
         "releaseIntegrityLabel": "Release Integrity",
         "totalFindingsLabel": "Total Findings",
+        "governanceFindingsLabel": "GitHub Governance (audit-only)",
         "noFindings": "No findings",
         "failedToEnforce": "Failed to evaluate security posture"
       }

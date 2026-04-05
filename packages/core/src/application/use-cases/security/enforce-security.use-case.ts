@@ -25,9 +25,17 @@ import type {
 import type { ISecurityPolicyService } from '../../ports/output/services/security-policy-service.interface.js';
 import type { ISecurityEventRepository } from '../../ports/output/repositories/security-event.repository.interface.js';
 import type { ISettingsRepository } from '../../ports/output/repositories/settings.repository.interface.js';
+import type {
+  IGitHubRepositoryService,
+  GovernanceFinding,
+} from '../../ports/output/services/github-repository-service.interface.js';
 import { DependencyRiskEvaluator } from '../../../infrastructure/services/security/dependency-risk-evaluator.js';
 import { ReleaseIntegrityEvaluator } from '../../../infrastructure/services/security/release-integrity-evaluator.js';
 import { randomUUID } from 'node:crypto';
+import { execFile as execFileCb } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFileCb);
 
 /**
  * Input for the enforce security use case.
@@ -51,7 +59,9 @@ export interface EnforceSecurityResult {
   dependencyFindings: DependencyFinding[];
   /** Release integrity result */
   releaseIntegrity: ReleaseIntegrityResult;
-  /** Total number of findings */
+  /** GitHub governance audit findings (audit-only, do not affect pass/fail) */
+  governanceFindings: GovernanceFinding[];
+  /** Total number of findings (excludes governance — governance is audit-only) */
   totalFindings: number;
 }
 
@@ -88,7 +98,9 @@ export class EnforceSecurityUseCase {
     @inject('DependencyRiskEvaluator')
     private readonly dependencyEvaluator: DependencyRiskEvaluator,
     @inject('ReleaseIntegrityEvaluator')
-    private readonly releaseEvaluator: ReleaseIntegrityEvaluator
+    private readonly releaseEvaluator: ReleaseIntegrityEvaluator,
+    @inject('IGitHubRepositoryService')
+    private readonly githubService: IGitHubRepositoryService
   ) {}
 
   async execute(input: EnforceSecurityInput): Promise<EnforceSecurityResult> {
@@ -103,6 +115,7 @@ export class EnforceSecurityUseCase {
         policy,
         dependencyFindings: [],
         releaseIntegrity: { checks: [], passed: true },
+        governanceFindings: [],
         totalFindings: 0,
       };
     }
@@ -119,17 +132,25 @@ export class EnforceSecurityUseCase {
       DEFAULT_RELEASE_RULES
     );
 
-    // Count total findings
+    // Run governance audit (audit-only — does not affect pass/fail)
+    const governanceFindings = await this.runGovernanceAudit(input.repositoryPath);
+
+    // Count total findings (governance excluded — audit-only per FR-15)
     const failedReleaseChecks = releaseIntegrity.checks.filter((c) => !c.passed);
     const totalFindings = dependencyFindings.length + failedReleaseChecks.length;
 
     // Persist findings as security events
-    await this.persistFindings(input.repositoryPath, dependencyFindings, releaseIntegrity);
+    await this.persistFindings(
+      input.repositoryPath,
+      dependencyFindings,
+      releaseIntegrity,
+      governanceFindings
+    );
 
     // Update settings with evaluation timestamp
     await this.updateEvaluationTimestamp(policy.source);
 
-    // Determine pass/fail based on mode
+    // Determine pass/fail based on mode (governance is always advisory)
     const hasFailures = totalFindings > 0;
     const passed = policy.mode === SecurityMode.Advisory ? true : !hasFailures;
 
@@ -139,17 +160,39 @@ export class EnforceSecurityUseCase {
       policy,
       dependencyFindings,
       releaseIntegrity,
+      governanceFindings,
       totalFindings,
     };
   }
 
   /**
-   * Persist dependency findings and failed release checks as security events.
+   * Resolve GitHub owner/repo from the repository's git remote and run governance audit.
+   * Returns empty array if the remote cannot be resolved (not a GitHub repo, no remote, etc.).
+   */
+  private async runGovernanceAudit(repositoryPath: string): Promise<GovernanceFinding[]> {
+    try {
+      const { stdout } = await execFileAsync('git', ['remote', 'get-url', 'origin'], {
+        cwd: repositoryPath,
+      });
+      const remoteUrl = stdout.trim();
+      if (!remoteUrl) return [];
+
+      const parsed = this.githubService.parseGitHubUrl(remoteUrl);
+      return await this.githubService.auditRepositoryGovernance(parsed.owner, parsed.repo);
+    } catch {
+      // Not a GitHub repository, no remote configured, or parse failure — skip governance audit
+      return [];
+    }
+  }
+
+  /**
+   * Persist dependency findings, failed release checks, and governance findings as security events.
    */
   private async persistFindings(
     repositoryPath: string,
     depFindings: DependencyFinding[],
-    releaseResult: ReleaseIntegrityResult
+    releaseResult: ReleaseIntegrityResult,
+    govFindings: GovernanceFinding[]
   ): Promise<void> {
     const now = new Date().toISOString();
 
@@ -182,6 +225,27 @@ export class EnforceSecurityUseCase {
         };
         await this.eventRepository.save(event);
       }
+    }
+
+    // Persist governance findings as advisory events
+    for (const finding of govFindings) {
+      // Map governance severity to SecuritySeverity (Unknown → Low for persistence)
+      const severity =
+        finding.severity === 'Unknown'
+          ? ('Low' as SecurityEvent['severity'])
+          : (finding.severity as SecurityEvent['severity']);
+      const event: SecurityEvent = {
+        id: randomUUID(),
+        repositoryPath,
+        severity,
+        category: SecurityActionCategory.CiWorkflowModify,
+        disposition: 'Allowed' as SecurityEvent['disposition'],
+        message: `[Governance Audit] ${finding.message}`,
+        remediationSummary: finding.remediation,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.eventRepository.save(event);
     }
   }
 

@@ -207,6 +207,7 @@ describe('IGitHubRepositoryService', () => {
         nameWithOwner: 'octocat/my-project',
       }),
       getViewerPermission: async () => 'ADMIN',
+      auditRepositoryGovernance: async () => [],
     };
 
     const methodNames: (keyof IGitHubRepositoryService)[] = [

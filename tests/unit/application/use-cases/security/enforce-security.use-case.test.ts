@@ -4,6 +4,21 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Mock child_process.execFile used by runGovernanceAudit to resolve git remote
+vi.mock('node:child_process', () => ({
+  execFile: vi.fn(
+    (
+      _cmd: string,
+      _args: string[],
+      _opts: object,
+      cb: (err: Error | null, result?: { stdout: string; stderr: string }) => void
+    ) => {
+      cb(null, { stdout: 'https://github.com/test/repo.git\n', stderr: '' });
+    }
+  ),
+}));
+
 import { EnforceSecurityUseCase } from '@/application/use-cases/security/enforce-security.use-case.js';
 import {
   SecurityMode,
@@ -24,6 +39,10 @@ import type { ISecurityEventRepository } from '@/application/ports/output/reposi
 import type { ISettingsRepository } from '@/application/ports/output/repositories/settings.repository.interface.js';
 import type { DependencyRiskEvaluator } from '@/infrastructure/services/security/dependency-risk-evaluator.js';
 import type { ReleaseIntegrityEvaluator } from '@/infrastructure/services/security/release-integrity-evaluator.js';
+import {
+  GovernanceFindingCategory,
+  type IGitHubRepositoryService,
+} from '@/application/ports/output/services/github-repository-service.interface.js';
 
 function createMockPolicy(mode: SecurityMode): EffectivePolicySnapshot {
   return {
@@ -81,6 +100,20 @@ function createMockReleaseEvaluator(): ReleaseIntegrityEvaluator {
   } as unknown as ReleaseIntegrityEvaluator;
 }
 
+function createMockGitHubService(): IGitHubRepositoryService {
+  return {
+    checkAuth: vi.fn().mockResolvedValue(undefined),
+    cloneRepository: vi.fn().mockResolvedValue(undefined),
+    listUserRepositories: vi.fn().mockResolvedValue([]),
+    listOrganizations: vi.fn().mockResolvedValue([]),
+    parseGitHubUrl: vi
+      .fn()
+      .mockReturnValue({ owner: 'test', repo: 'repo', nameWithOwner: 'test/repo' }),
+    getViewerPermission: vi.fn().mockResolvedValue('ADMIN'),
+    auditRepositoryGovernance: vi.fn().mockResolvedValue([]),
+  };
+}
+
 describe('EnforceSecurityUseCase', () => {
   let useCase: EnforceSecurityUseCase;
   let policyService: ISecurityPolicyService;
@@ -88,6 +121,7 @@ describe('EnforceSecurityUseCase', () => {
   let settingsRepo: ISettingsRepository;
   let depEvaluator: DependencyRiskEvaluator;
   let releaseEvaluator: ReleaseIntegrityEvaluator;
+  let githubService: IGitHubRepositoryService;
 
   beforeEach(() => {
     policyService = createMockPolicyService();
@@ -95,13 +129,15 @@ describe('EnforceSecurityUseCase', () => {
     settingsRepo = createMockSettingsRepo();
     depEvaluator = createMockDepEvaluator();
     releaseEvaluator = createMockReleaseEvaluator();
+    githubService = createMockGitHubService();
 
     useCase = new EnforceSecurityUseCase(
       policyService,
       eventRepo,
       settingsRepo,
       depEvaluator,
-      releaseEvaluator
+      releaseEvaluator,
+      githubService
     );
   });
 
@@ -248,5 +284,103 @@ describe('EnforceSecurityUseCase', () => {
     const updatedSettings = vi.mocked(settingsRepo.update).mock.calls[0][0];
     expect(updatedSettings.security?.lastEvaluationAt).toBeDefined();
     expect(updatedSettings.security?.policySource).toBe('shep.security.yaml');
+  });
+
+  it('should include governance findings in result', async () => {
+    vi.mocked(policyService.evaluatePolicy).mockResolvedValue(
+      createMockPolicy(SecurityMode.Advisory)
+    );
+
+    const govFindings = [
+      {
+        category: GovernanceFindingCategory.BranchProtection,
+        severity: 'High' as const,
+        message: 'No branch protection on main',
+        remediation: 'Enable branch protection',
+      },
+    ];
+    vi.mocked(githubService.auditRepositoryGovernance).mockResolvedValue(govFindings);
+
+    const result = await useCase.execute({ repositoryPath: '/repo' });
+
+    expect(result.governanceFindings).toHaveLength(1);
+    expect(result.governanceFindings[0].category).toBe('BranchProtection');
+  });
+
+  it('should not cause overall failure from governance findings in Enforce mode', async () => {
+    vi.mocked(policyService.evaluatePolicy).mockResolvedValue(
+      createMockPolicy(SecurityMode.Enforce)
+    );
+
+    // No dependency or release findings — only governance
+    const govFindings = [
+      {
+        category: GovernanceFindingCategory.BranchProtection,
+        severity: 'High' as const,
+        message: 'No branch protection on main',
+        remediation: 'Enable branch protection',
+      },
+      {
+        category: GovernanceFindingCategory.Codeowners,
+        severity: 'Medium' as const,
+        message: 'No CODEOWNERS file',
+        remediation: 'Add CODEOWNERS',
+      },
+    ];
+    vi.mocked(githubService.auditRepositoryGovernance).mockResolvedValue(govFindings);
+
+    const result = await useCase.execute({ repositoryPath: '/repo' });
+
+    // Governance findings are audit-only — they should NOT cause failure
+    expect(result.passed).toBe(true);
+    expect(result.totalFindings).toBe(0); // totalFindings excludes governance
+    expect(result.governanceFindings).toHaveLength(2);
+  });
+
+  it('should persist governance findings as security events', async () => {
+    vi.mocked(policyService.evaluatePolicy).mockResolvedValue(
+      createMockPolicy(SecurityMode.Advisory)
+    );
+
+    const govFindings = [
+      {
+        category: GovernanceFindingCategory.Codeowners,
+        severity: 'Medium' as const,
+        message: 'No CODEOWNERS file',
+        remediation: 'Add CODEOWNERS',
+      },
+    ];
+    vi.mocked(githubService.auditRepositoryGovernance).mockResolvedValue(govFindings);
+
+    await useCase.execute({ repositoryPath: '/repo' });
+
+    expect(eventRepo.save).toHaveBeenCalledTimes(1);
+    const savedEvent = vi.mocked(eventRepo.save).mock.calls[0][0];
+    expect(savedEvent.message).toContain('Governance Audit');
+    expect(savedEvent.message).toContain('CODEOWNERS');
+  });
+
+  it('should return empty governance findings when git remote fails', async () => {
+    vi.mocked(policyService.evaluatePolicy).mockResolvedValue(
+      createMockPolicy(SecurityMode.Advisory)
+    );
+
+    // Simulate git remote failure by making execFile reject
+    const { execFile } = await import('node:child_process');
+    vi.mocked(execFile).mockImplementation(((
+      _cmd: string,
+      _args: string[],
+      _opts: object,
+      cb: (err: Error | null) => void
+    ) => {
+      cb(new Error('not a git repository'));
+    }) as typeof execFile);
+
+    const result = await useCase.execute({ repositoryPath: '/repo' });
+
+    // Should gracefully return empty governance findings
+    expect(result.governanceFindings).toHaveLength(0);
+    // auditRepositoryGovernance should not have been called
+    expect(githubService.auditRepositoryGovernance).not.toHaveBeenCalled();
   });
 });
