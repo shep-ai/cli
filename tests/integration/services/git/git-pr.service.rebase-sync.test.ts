@@ -584,7 +584,7 @@ describe('GitPrService — stash (integration)', () => {
     // Verify the file is restored
     expect(existsSync(join(cloneDir, 'wip.ts'))).toBe(true);
     const content = readFileSync(join(cloneDir, 'wip.ts'), 'utf-8');
-    expect(content).toBe('// work in progress\n');
+    expect(content.replace(/\r\n/g, '\n')).toBe('// work in progress\n');
   });
 
   it('should stash drop and discard the stash entry', async () => {
