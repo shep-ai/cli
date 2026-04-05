@@ -1,0 +1,36 @@
+feature:
+  id: '084-feature-branch-dependencies'
+  name: 'feature-branch-dependencies'
+  number: 84
+  branch: 'feat/084-feature-branch-dependencies'
+  lifecycle: 'research'
+  createdAt: '2026-04-05T14:10:53Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-04-05T14:10:53Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-04-05T14:10:53Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
