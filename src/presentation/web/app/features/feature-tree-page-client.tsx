@@ -63,7 +63,7 @@ const GROUP_BY_OPTIONS: { value: string; label: string }[] = [
 ];
 
 /** Item sort fields change based on groupBy — exclude the grouped field. */
-function getItemSortOptions(groupBy: GroupByField | null) {
+export function getItemSortOptions(groupBy: GroupByField | null) {
   const all = [
     { value: 'name', label: 'Name' },
     { value: 'repositoryName', label: 'Repository' },
@@ -75,7 +75,7 @@ function getItemSortOptions(groupBy: GroupByField | null) {
   return all.filter((o) => o.value !== groupBy);
 }
 
-function isArchived(feature: FeatureTreeRow): boolean {
+export function isArchived(feature: FeatureTreeRow): boolean {
   return feature.lifecycle === 'Archived';
 }
 

@@ -194,7 +194,7 @@ function buildColumns({ onFeatureClick, groupBy }: ColumnConfig): ColumnDefiniti
 
 // ── Tree builder ─────────────────────────────────────────────
 
-function displayLabel(groupBy: GroupByField, value: string): string {
+export function displayLabel(groupBy: GroupByField, value: string): string {
   if (groupBy === 'status') return STATUS_LABELS[value as FeatureStatus] ?? value;
   return value;
 }
@@ -259,7 +259,7 @@ export function buildTreeData(
   return roots;
 }
 
-function buildGroupedTree(
+export function buildGroupedTree(
   flatData: FeatureTreeRow[],
   groupBy: GroupByField,
   groupSortDir: SortDir,
@@ -269,7 +269,7 @@ function buildGroupedTree(
   // Group features by field value
   const groups = new Map<string, FeatureTreeRow[]>();
   for (const item of flatData) {
-    const key = item[groupBy] ?? 'Unknown';
+    const key = item[groupBy] || 'Unknown';
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(item);
   }

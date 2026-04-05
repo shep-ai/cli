@@ -1,4 +1,9 @@
-export { FeatureTreeTable, buildTreeData } from './feature-tree-table';
+export {
+  FeatureTreeTable,
+  buildTreeData,
+  buildGroupedTree,
+  displayLabel,
+} from './feature-tree-table';
 export type {
   FeatureTreeTableProps,
   FeatureTreeRow,
