@@ -54,6 +54,14 @@ import { AttachmentStorageService } from '../services/attachment-storage.service
 import type { IGitHubRepositoryService } from '../../application/ports/output/services/github-repository-service.interface.js';
 import { GitHubRepositoryService } from '../services/external/github-repository.service.js';
 
+// Security infrastructure interfaces and implementations
+import type { ISecurityPolicyService } from '../../application/ports/output/services/security-policy-service.interface.js';
+import type { ISecurityEventRepository } from '../../application/ports/output/repositories/security-event.repository.interface.js';
+import { SecurityPolicyService } from '../services/security/security-policy.service.js';
+import { SecurityPolicyFileReader } from '../services/security/security-policy-file-reader.js';
+import { SecurityPolicyValidator } from '../services/security/security-policy-validator.js';
+import { SQLiteSecurityEventRepository } from '../repositories/sqlite-security-event.repository.js';
+
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
 import type { IAgentExecutorProvider } from '../../application/ports/output/agents/agent-executor-provider.interface.js';
@@ -343,6 +351,31 @@ export async function initializeContainer(): Promise<typeof container> {
 
   container.register<ISpecInitializerService>('ISpecInitializerService', {
     useFactory: () => new SpecInitializerService(),
+  });
+
+  // Register security infrastructure
+  container.register('SecurityPolicyFileReader', {
+    useFactory: () => new SecurityPolicyFileReader(),
+  });
+
+  container.register('SecurityPolicyValidator', {
+    useFactory: () => new SecurityPolicyValidator(),
+  });
+
+  container.register<ISecurityPolicyService>('ISecurityPolicyService', {
+    useFactory: (c) => {
+      const fileReader = c.resolve<SecurityPolicyFileReader>('SecurityPolicyFileReader');
+      const validator = c.resolve<SecurityPolicyValidator>('SecurityPolicyValidator');
+      const settingsRepo = c.resolve<ISettingsRepository>('ISettingsRepository');
+      return new SecurityPolicyService(fileReader, validator, settingsRepo);
+    },
+  });
+
+  container.register<ISecurityEventRepository>('ISecurityEventRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteSecurityEventRepository(database);
+    },
   });
 
   // Register notification services
