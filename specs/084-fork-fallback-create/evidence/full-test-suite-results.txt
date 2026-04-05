@@ -1,0 +1,16 @@
+Full Unit Test Suite — All 5337 tests passing (378 files)
+==========================================================
+
+Run: pnpm test:unit -- --reporter=verbose
+Date: 2026-04-05T17:38:50Z
+
+Test Files  378 passed (378)
+     Tests  5337 passed (5337)
+  Duration  157.48s
+
+Key files verified:
+  - tests/unit/infrastructure/services/git/git-fork.service.test.ts (17 tests) ✓
+  - tests/unit/infrastructure/spec-yaml-backward-compatibility.test.ts ✓
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/merge.node.test.ts (36 tests) ✓
+
+No failures. All tests green.

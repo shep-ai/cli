@@ -1,0 +1,34 @@
+GitForkService Unit Tests — All 17 tests passing
+=================================================
+
+Run: pnpm vitest run tests/unit/infrastructure/services/git/git-fork.service.test.ts --reporter=verbose
+Date: 2026-04-05T17:41:52Z
+
+GitForkService > forkRepository
+  ✓ should fork the repo and remap remotes on happy path
+  ✓ should detect origin is already a fork and set upstream to parent
+  ✓ should update upstream URL when remote already exists for a fork origin
+  ✓ should throw AUTH_FAILURE when gh auth fails
+  ✓ should throw FORK_FAILED for generic fork errors
+  ✓ should fallback to gh repo create when fork fails with no remotes          ← NEW
+  ✓ should fallback to gh repo create when fork fails with unable to determine base repository  ← NEW
+  ✓ should throw FORK_FAILED when both fork and create fallback fail           ← NEW
+
+GitForkService > pushToFork
+  ✓ should push branch to origin
+  ✓ should throw PUSH_FAILED on error
+
+GitForkService > createUpstreamPr
+  ✓ should create PR to upstream repo
+  ✓ should handle SSH remote URLs
+  ✓ should throw PR_CREATE_FAILED on error
+
+GitForkService > getUpstreamPrStatus
+  ✓ should return Open for open PR
+  ✓ should return Merged for merged PR
+  ✓ should return Closed for closed PR
+  ✓ should throw PR_STATUS_FAILED on error
+
+Test Files  1 passed (1)
+     Tests  17 passed (17)
+  Duration  145ms
