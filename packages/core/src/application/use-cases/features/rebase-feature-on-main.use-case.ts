@@ -85,7 +85,7 @@ export class RebaseFeatureOnMainUseCase {
       const defaultBranch = await this.gitPrService.getDefaultBranch(feature.repositoryPath);
 
       // Stash uncommitted changes if present (smart rebase)
-      const didStash = await this.gitPrService.stash(cwd, 'shep-rebase: auto-stash before rebase');
+      const didStash = await this.gitPrService.stash(cwd, `shep-auto-stash: ${feature.branch}`);
 
       try {
         // Auto-sync main before rebasing (per spec decision)

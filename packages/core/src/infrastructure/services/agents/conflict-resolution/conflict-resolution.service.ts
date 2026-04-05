@@ -101,9 +101,9 @@ export class ConflictResolutionService {
 
       try {
         await this.gitPrService.rebaseContinue(cwd);
-        // rebaseContinue succeeded — check if there are more conflicts
-        // from subsequent commits (loop continues)
-        return; // No more conflicts
+        // rebaseContinue succeeded — loop back to check if subsequent
+        // commits have conflicts (getConflictedFiles at top of while loop)
+        continue;
       } catch (error) {
         if (error instanceof GitPrError && error.code === GitPrErrorCode.REBASE_CONFLICT) {
           // Next commit has conflicts — loop back to resolve them

@@ -293,7 +293,7 @@ describe('RebaseFeatureOnMainUseCase', () => {
 
     expect(mockGitPrService.stash).toHaveBeenCalledWith(
       '/home/user/my-project',
-      'shep-rebase: auto-stash before rebase'
+      'shep-auto-stash: feat/my-feature'
     );
     expect(mockGitPrService.rebaseOnMain).toHaveBeenCalled();
     expect(mockGitPrService.stashPop).toHaveBeenCalledWith('/home/user/my-project');
@@ -348,7 +348,7 @@ describe('RebaseFeatureOnMainUseCase', () => {
 
     expect(mockGitPrService.stash).toHaveBeenCalledWith(
       '/home/user/my-project/.worktrees/feat-my-feature',
-      'shep-rebase: auto-stash before rebase'
+      'shep-auto-stash: feat/my-feature'
     );
     expect(mockGitPrService.stashPop).toHaveBeenCalledWith(
       '/home/user/my-project/.worktrees/feat-my-feature'
