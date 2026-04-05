@@ -635,6 +635,12 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('AutoResolveMergedBranchesUseCase', {
     useFactory: (c) => c.resolve(AutoResolveMergedBranchesUseCase),
   });
+  container.register('GetSecurityStateUseCase', {
+    useFactory: (c) => c.resolve(GetSecurityStateUseCase),
+  });
+  container.register('EnforceSecurityUseCase', {
+    useFactory: (c) => c.resolve(EnforceSecurityUseCase),
+  });
 
   // Register interactive session infrastructure
   container.register<IInteractiveSessionRepository>('IInteractiveSessionRepository', {

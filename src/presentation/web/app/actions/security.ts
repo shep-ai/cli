@@ -5,10 +5,14 @@ import { resolve } from '@/lib/server-container';
 import type { LoadSettingsUseCase } from '@shepai/core/application/use-cases/settings/load-settings.use-case';
 import type { UpdateSettingsUseCase } from '@shepai/core/application/use-cases/settings/update-settings.use-case';
 import { updateSettings as updateSettingsSingleton } from '@shepai/core/infrastructure/services/settings.service';
-import { GetSecurityStateUseCase } from '@shepai/core/application/use-cases/security/get-security-state.use-case';
-import { EnforceSecurityUseCase } from '@shepai/core/application/use-cases/security/enforce-security.use-case';
-import type { SecurityState } from '@shepai/core/application/use-cases/security/get-security-state.use-case';
-import type { EnforceSecurityResult } from '@shepai/core/application/use-cases/security/enforce-security.use-case';
+import type {
+  GetSecurityStateUseCase,
+  SecurityState,
+} from '@shepai/core/application/use-cases/security/get-security-state.use-case';
+import type {
+  EnforceSecurityUseCase,
+  EnforceSecurityResult,
+} from '@shepai/core/application/use-cases/security/enforce-security.use-case';
 import type { SecurityMode } from '@shepai/core/domain/generated/output';
 
 export interface GetSecurityStateResult {
@@ -33,7 +37,7 @@ export async function getSecurityStateAction(
   repositoryPath: string
 ): Promise<GetSecurityStateResult> {
   try {
-    const useCase = resolve(GetSecurityStateUseCase);
+    const useCase = resolve<GetSecurityStateUseCase>('GetSecurityStateUseCase');
     const state = await useCase.execute(repositoryPath);
     return { state };
   } catch (error: unknown) {
@@ -49,7 +53,7 @@ export async function enforceSecurityAction(
   repositoryPath: string
 ): Promise<EnforceSecurityActionResult> {
   try {
-    const useCase = resolve(EnforceSecurityUseCase);
+    const useCase = resolve<EnforceSecurityUseCase>('EnforceSecurityUseCase');
     const result = await useCase.execute({ repositoryPath });
     revalidatePath('/', 'layout');
     return { result };
