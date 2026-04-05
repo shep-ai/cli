@@ -1,0 +1,69 @@
+=== Integration Test Results ===
+Test run date: 2026-04-05T17:50:55Z
+
+50 test files, 581 tests - ALL PASSED
+
+--- Key integration test suites ---
+feature-parent.repository.test.ts: 14 tests PASSED
+git-pr.service.rebase-sync.test.ts: 16 tests PASSED
+
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/repositories/sqlite-feature-repository.find-by-branch.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 412[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/application/use-cases/features/list-features.use-case.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 39[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/application/use-cases/agents/configure-agent-dev.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 196[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/feedback-and-timing.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 82[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 121[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/persistence/sqlite/migration-049.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 151[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/approve-flow.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 93[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/gate-configuration.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 100[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/worktree-git-init.test.ts [2m([22m[2m8 tests[22m[2m)[22m[33m 3553[2mms[22m[39m
+     [33m[2m✓[22m[39m should initialize a non-git directory with git init and initial commit [33m 313[2mms[22m[39m
+     [33m[2m✓[22m[39m should create initial commit for existing git repo with unborn branch (no commits) [33m 383[2mms[22m[39m
+     [33m[2m✓[22m[39m should allow worktree creation after fixing unborn branch repo [33m 429[2mms[22m[39m
+     [33m[2m✓[22m[39m should not re-initialize an existing git repository [33m 1802[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/pr-merge.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2861[2mms[22m[39m
+     [33m[2m✓[22m[39m push=true, openPr=true, allowMerge=true → BUG: verifyMerge skipped after gh pr merge [33m 2859[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/skip-merge.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 2643[2mms[22m[39m
+     [33m[2m✓[22m[39m undefined-gates-silent-skip: should skip merge silently when approvalGates is undefined [33m 2641[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/smoke.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 4912[2mms[22m[39m
+       [33m[2m✓[22m[39m should create a bare repo and clone with main + feature branch [33m 2395[2mms[22m[39m
+       [33m[2m✓[22m[39m createLocalOnlyHarness: should create a local repo with no remote [33m 2462[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/gate-tests.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 5013[2mms[22m[39m
+     [33m[2m✓[22m[39m commit-only-with-gate: should interrupt at merge gate when allowMerge=false [33m 2797[2mms[22m[39m
+     [33m[2m✓[22m[39m push-pr-with-gate: should interrupt at merge gate when allowMerge=false (PR path) [33m 2213[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/push-merge.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 4418[2mms[22m[39m
+     [33m[2m✓[22m[39m push-no-pr-merge: feature branch should be merged into main after push+merge [33m 4416[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/local-merge.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 11014[2mms[22m[39m
+     [33m[2m✓[22m[39m local-merge-no-push: feature branch should be merged into main after node completes [33m 4007[2mms[22m[39m
+     [33m[2m✓[22m[39m no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden) [33m 3311[2mms[22m[39m
+     [33m[2m✓[22m[39m no-remote-local-merge: should merge locally without any remote [33m 3693[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/verify-merge.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 14998[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after a true merge (git merge) [33m 1730[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after a squash merge (git merge --squash) [33m 3231[2mms[22m[39m
+     [33m[2m✓[22m[39m should return false when branch has not been merged [33m 2313[2mms[22m[39m
+     [33m[2m✓[22m[39m should return false when main has extra commits after squash but feature has diverged [33m 2514[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after squash merge with modified tree when premergeBaseSha provided [33m 2825[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after squash merge even when local branch is deleted (remote fallback) [33m 2383[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 52438[2mms[22m[39m
+     [33m[2m✓[22m[39m should fetch latest main when upstream has new commits (from feature branch) [33m 1718[2mms[22m[39m
+     [33m[2m✓[22m[39m should fast-forward main when on the main branch (uses pull) [33m 2389[2mms[22m[39m
+     [33m[2m✓[22m[39m should succeed silently when main is already up-to-date [33m 2870[2mms[22m[39m
+     [33m[2m✓[22m[39m should throw SYNC_FAILED when on main and local main has diverged from remote [33m 4587[2mms[22m[39m
+     [33m[2m✓[22m[39m should succeed from feature branch even when local main has diverged (fetches origin/main only) [33m 4322[2mms[22m[39m
+     [33m[2m✓[22m[39m should be idempotent — calling sync twice succeeds [33m 2690[2mms[22m[39m
+     [33m[2m✓[22m[39m should successfully rebase feature branch onto main with no conflicts [33m 3189[2mms[22m[39m
+     [33m[2m✓[22m[39m should throw REBASE_CONFLICT when rebase encounters conflicting changes [33m 3454[2mms[22m[39m
+     [33m[2m✓[22m[39m should throw GIT_ERROR when worktree has uncommitted changes [33m 2029[2mms[22m[39m
+     [33m[2m✓[22m[39m should throw BRANCH_NOT_FOUND when feature branch does not exist [33m 1665[2mms[22m[39m
+     [33m[2m✓[22m[39m should leave worktree clean after aborting a conflicted rebase [33m 2977[2mms[22m[39m
+     [33m[2m✓[22m[39m should produce linear history after successful rebase [33m 2977[2mms[22m[39m
+     [33m[2m✓[22m[39m should succeed when feature branch is already up-to-date with main (no-op rebase) [33m 1688[2mms[22m[39m
+     [33m[2m✓[22m[39m getConflictedFiles should return conflicted file paths during a rebase conflict [33m 3668[2mms[22m[39m
+     [33m[2m✓[22m[39m stageFiles + rebaseContinue should complete rebase after manual conflict resolution [33m 7138[2mms[22m[39m
+     [33m[2m✓[22m[39m rebaseAbort should restore branch to pre-rebase state [33m 5075[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m50 passed[39m[22m[90m (50)[39m
+[2m      Tests [22m [1m[32m581 passed[39m[22m[90m (581)[39m
+[2m   Start at [22m 20:03:32
+[2m   Duration [22m 52.75s[2m (transform 3.96s, setup 888ms, import 12.75s, tests 120.47s, environment 5ms)[22m
+
