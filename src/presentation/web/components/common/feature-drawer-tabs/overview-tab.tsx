@@ -13,6 +13,7 @@ import {
   GitCommitHorizontal,
   GitMerge,
   Info,
+  Puzzle,
   RefreshCw,
   Settings,
   ShieldCheck,
@@ -22,6 +23,7 @@ import {
 import { InlineAttachments } from '@/components/common/inline-attachments';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { CometSpinner } from '@/components/ui/comet-spinner';
 import { ActionButton } from '@/components/common/action-button';
@@ -345,6 +347,9 @@ export function OverviewTab({
 
       {/* ── Settings ── */}
       <SettingsBlock data={data} pinnedConfig={pinnedConfig} />
+
+      {/* ── Injected Skills ── */}
+      {data.injectedSkills?.length ? <InjectedSkillsSection skills={data.injectedSkills} /> : null}
     </div>
   );
 }
@@ -506,7 +511,8 @@ function SettingsBlock({
     data.ciWatchEnabled != null ||
     data.enableEvidence != null ||
     data.forkAndPr != null ||
-    data.commitSpecs != null;
+    data.commitSpecs != null ||
+    data.injectSkills != null;
   const showPinnedConfig = pinnedConfig != null && canSwitchPinnedConfig(data.state);
 
   if (!hasSettings && !showPinnedConfig) return null;
@@ -543,6 +549,16 @@ function SettingsBlock({
                 </div>
               </Card>
             ) : null}
+            {data.injectSkills != null ? (
+              <Card>
+                <div className="text-foreground/40 mb-1.5 flex items-center gap-1 text-[10px] font-medium tracking-wider uppercase">
+                  <Puzzle className="size-3" /> Skills
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <Flag on={data.injectSkills} label="Inject" />
+                </div>
+              </Card>
+            ) : null}
             {data.push != null ||
             data.openPr != null ||
             data.ciWatchEnabled != null ||
@@ -565,6 +581,22 @@ function SettingsBlock({
             ) : null}
           </div>
         ) : null}
+      </div>
+    </Section>
+  );
+}
+
+// ── Injected Skills ────────────────────────────────────────────────
+
+function InjectedSkillsSection({ skills }: { skills: string[] }) {
+  return (
+    <Section icon={Puzzle} title="Feature Skills">
+      <div className="flex flex-wrap gap-1.5">
+        {skills.map((name) => (
+          <Badge key={name} variant="secondary">
+            {name}
+          </Badge>
+        ))}
       </div>
     </Section>
   );

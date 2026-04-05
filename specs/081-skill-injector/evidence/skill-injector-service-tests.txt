@@ -1,0 +1,32 @@
+
+ RUN  v4.0.18 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-skill-injector
+
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > local skill injection > should deep-copy a local skill to worktree .claude/skills/<name>/ 2ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > local skill injection > should create .claude/skills/ directory if missing 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > local skill injection > should resolve source paths against repo root, not worktree 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > local skill injection > should add failed skill to result.failed when fs.cp throws 1ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > local skill injection > should return empty result for empty skills array 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > idempotency check > should skip skill when SKILL.md exists in target directory 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > idempotency check > should produce identical results when inject() is called twice 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > remote skill injection > should call ExecFunction with correct npx arguments for remote skill 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > remote skill injection > should add remote skill to failed array when execution throws 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > remote skill injection > should add remote skill to failed array on timeout (AbortError) 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > .gitignore management > should append injected untracked skill to .gitignore 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > .gitignore management > should NOT add tracked skill to .gitignore 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > .gitignore management > should not create duplicate .gitignore entries on repeated runs 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > .gitignore management > should create .gitignore when absent 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > input validation > should reject source with shell metacharacters (semicolon) 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > input validation > should reject skill name with path traversal (..) 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > input validation > should reject skill name starting with / 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > input validation > should throw for non-existent worktree path 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > input validation > should reject source with pipe character 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > input validation > should reject skill name with backslash 0ms
+ ✓  node  tests/unit/infrastructure/services/skill-injector.service.test.ts > SkillInjectorService > multiple skills > should process multiple skills and aggregate results 0ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  17:56:23
+   Duration  148ms (transform 56ms, setup 23ms, import 60ms, tests 7ms, environment 0ms)
+
+
+Captured: 2026-04-01T14:56:23Z

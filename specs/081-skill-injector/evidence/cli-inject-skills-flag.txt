@@ -1,0 +1,42 @@
+CLI --inject-skills / --no-inject-skills Flag Evidence
+======================================================
+Captured: 2026-04-01T14:56:40Z
+
+1. Commander.js option registration (new.command.ts, lines 108-109):
+---
+    .option('--no-fast', t('cli:commands.feat.new.noFastOption'))
+    .option('--model <model>', t('cli:commands.feat.new.modelOption'))
+    .option('--no-rebase', t('cli:commands.feat.new.noRebaseOption'))
+    .option('--inject-skills', t('cli:commands.feat.new.injectSkillsOption'))
+    .option('--no-inject-skills', t('cli:commands.feat.new.noInjectSkillsOption'))
+    .option('--attach <path>', t('cli:commands.feat.new.attachOption'), collect, [])
+    .action(async (description: string, options: NewOptions) => {
+      try {
+        // First-run onboarding gate — only for interactive terminals
+        if (process.stdin.isTTY) {
+          const { isComplete } = await new CheckOnboardingStatusUseCase().execute();
+
+2. NewOptions interface (new.command.ts, line 43):
+---
+  allowMerge?: boolean;
+  allowAll?: boolean;
+  parent?: string;
+  fast?: boolean;
+  pending?: boolean;
+  model?: string;
+  attach?: string[];
+  rebase?: boolean;
+  injectSkills?: boolean;
+}
+
+/** Commander collect pattern for repeatable options. */
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+
+3. Passthrough to CreateFeatureInput (new.command.ts, line ~180):
+---
+43:  injectSkills?: boolean;
+108:    .option('--inject-skills', t('cli:commands.feat.new.injectSkillsOption'))
+180:            ...(options.injectSkills !== undefined && { injectSkills: options.injectSkills }),

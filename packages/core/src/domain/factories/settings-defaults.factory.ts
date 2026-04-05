@@ -23,8 +23,15 @@ import type {
   WorkflowConfig,
   ApprovalGateDefaults,
   FeatureFlags,
+  SkillInjectionConfig,
 } from '../generated/output';
-import { AgentType, AgentAuthMethod, EditorType, TerminalType } from '../generated/output';
+import {
+  AgentType,
+  AgentAuthMethod,
+  EditorType,
+  SkillSourceType,
+  TerminalType,
+} from '../generated/output';
 
 /**
  * Default AI model for all SDLC agents.
@@ -141,6 +148,60 @@ export function createDefaultSettings(): Settings {
     pushOnImplementationComplete: false,
   };
 
+  const skillInjection: SkillInjectionConfig = {
+    enabled: false,
+    skills: [
+      {
+        name: 'architecture-reviewer',
+        type: SkillSourceType.Remote,
+        source: 'shep-ai/shep',
+        remoteSkillName: 'architecture-reviewer',
+      },
+      {
+        name: 'cross-validate-artifacts',
+        type: SkillSourceType.Remote,
+        source: 'shep-ai/shep',
+        remoteSkillName: 'cross-validate-artifacts',
+      },
+      {
+        name: 'mermaid-diagrams',
+        type: SkillSourceType.Remote,
+        source: 'shep-ai/shep',
+        remoteSkillName: 'mermaid-diagrams',
+      },
+      {
+        name: 'react-flow',
+        type: SkillSourceType.Remote,
+        source: 'shep-ai/shep',
+        remoteSkillName: 'react-flow',
+      },
+      {
+        name: 'shadcn-ui',
+        type: SkillSourceType.Remote,
+        source: 'shep-ai/shep',
+        remoteSkillName: 'shadcn-ui',
+      },
+      {
+        name: 'tsp-model',
+        type: SkillSourceType.Remote,
+        source: 'shep-ai/shep',
+        remoteSkillName: 'tsp-model',
+      },
+      {
+        name: 'vercel-react-best-practices',
+        type: SkillSourceType.Remote,
+        source: 'shep-ai/shep',
+        remoteSkillName: 'vercel-react-best-practices',
+      },
+      {
+        name: 'frontend-design',
+        type: SkillSourceType.Remote,
+        source: 'anthropics/claude-code',
+        remoteSkillName: 'frontend-design',
+      },
+    ],
+  };
+
   const workflow: WorkflowConfig = {
     openPrOnImplementationComplete: false,
     approvalGateDefaults,
@@ -149,6 +210,7 @@ export function createDefaultSettings(): Settings {
     commitEvidence: false,
     defaultFastMode: true,
     autoArchiveDelayMinutes: 10,
+    skillInjection,
   };
 
   const featureFlags: FeatureFlags = {

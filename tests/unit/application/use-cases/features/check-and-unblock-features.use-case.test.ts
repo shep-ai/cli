@@ -42,6 +42,7 @@ function makeFeature(overrides?: Partial<Feature>): Feature {
     commitSpecs: true,
     ciWatchEnabled: true,
     enableEvidence: false,
+    injectSkills: false,
     commitEvidence: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     agentRunId: 'run-001',

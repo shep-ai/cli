@@ -122,6 +122,7 @@ const sampleFeature: Feature = {
   commitSpecs: true,
   ciWatchEnabled: true,
   enableEvidence: false,
+  injectSkills: false,
   commitEvidence: false,
   approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
   createdAt: new Date(),

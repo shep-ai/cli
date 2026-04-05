@@ -206,6 +206,8 @@
         "noFastOption": "Executar todas as fases do SDLC (analisar → requisitos → plano → implementar)",
         "modelOption": "Identificador do modelo LLM para esta execução (ex: claude-opus-4-6)",
         "noRebaseOption": "Skip syncing main from remote before creating the feature branch",
+        "injectSkillsOption": "Inject curated skills into the worktree",
+        "noInjectSkillsOption": "Skip skill injection for this invocation",
         "attachOption": "Anexar um arquivo (repetível)",
         "parentNotFound": "Recurso pai não encontrado: {{id}}",
         "attachmentNotFound": "Anexo não encontrado: {{path}}",

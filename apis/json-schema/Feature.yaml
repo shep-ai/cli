@@ -39,6 +39,11 @@ properties:
   agentRunId:
     type: string
     description: Associated agent run ID for process tracking (optional)
+  injectedSkills:
+    type: array
+    items:
+      type: string
+    description: Skills that were injected into this feature's worktree during creation
   specPath:
     type: string
     description: Absolute path to the feature spec directory inside the worktree
@@ -73,6 +78,10 @@ properties:
     type: boolean
     default: false
     description: "Enable evidence collection after implementation (default: false)"
+  injectSkills:
+    type: boolean
+    default: false
+    description: "Inject curated skills into the feature worktree (default: false)"
   commitEvidence:
     type: boolean
     default: false
@@ -114,6 +123,7 @@ required:
   - commitSpecs
   - ciWatchEnabled
   - enableEvidence
+  - injectSkills
   - commitEvidence
   - approvalGates
 allOf:

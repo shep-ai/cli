@@ -541,6 +541,41 @@ describe('createNewCommand', () => {
     });
   });
 
+  describe('--inject-skills flag', () => {
+    it('should expose --inject-skills option in command help', () => {
+      const cmd = createNewCommand();
+      const option = cmd.options.find((o) => o.long === '--inject-skills');
+      expect(option).toBeDefined();
+      expect(option?.description).toBeTruthy();
+    });
+
+    it('should pass injectSkills=true to use case when --inject-skills is provided', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--inject-skills'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ injectSkills: true })
+      );
+    });
+
+    it('should pass injectSkills=false to use case when --no-inject-skills is provided', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--no-inject-skills'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ injectSkills: false })
+      );
+    });
+
+    it('should not include injectSkills in use case input when neither flag is provided', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      const callArg = mockCreateExecute.mock.calls[0][0];
+      expect(callArg.injectSkills).toBeUndefined();
+    });
+  });
+
   describe('--attach flag', () => {
     it('should expose --attach option in command help', () => {
       const cmd = createNewCommand();

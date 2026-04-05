@@ -21,6 +21,7 @@ import {
   AgentAuthMethod,
   EditorType,
   Language,
+  SkillSourceType,
   TerminalType,
 } from '@/domain/generated/output.js';
 
@@ -165,6 +166,8 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     interactive_agent_max_concurrent_sessions: 3,
     auto_archive_delay_minutes: 10,
     fab_position_swapped: 0,
+    skill_injection_enabled: 0,
+    skill_injection_skills: null,
     ...overrides,
   };
 }
@@ -1000,6 +1003,211 @@ describe('Settings Mapper', () => {
       const row = toDatabase(original);
       const restored = fromDatabase(row);
       expect(restored.fabLayout?.swapPosition).toBe(false);
+    });
+  });
+
+  describe('toDatabase() - skill injection', () => {
+    it('should map skillInjection.enabled=true to skill_injection_enabled=1', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          skillInjection: {
+            enabled: true,
+            skills: [
+              {
+                name: 'test-skill',
+                type: SkillSourceType.Local,
+                source: '.claude/skills/test-skill',
+              },
+            ],
+          },
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.skill_injection_enabled).toBe(1);
+    });
+
+    it('should map skillInjection.enabled=false to skill_injection_enabled=0', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          skillInjection: {
+            enabled: false,
+            skills: [],
+          },
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.skill_injection_enabled).toBe(0);
+    });
+
+    it('should map undefined skillInjection to skill_injection_enabled=0', () => {
+      const settings = createTestSettings();
+      const row = toDatabase(settings);
+      expect(row.skill_injection_enabled).toBe(0);
+    });
+
+    it('should serialize skills array to JSON string', () => {
+      const skills = [
+        {
+          name: 'arch-reviewer',
+          type: SkillSourceType.Local,
+          source: '.claude/skills/arch-reviewer',
+        },
+        {
+          name: 'frontend-design',
+          type: SkillSourceType.Remote,
+          source: '@anthropic/skills',
+          remoteSkillName: 'frontend-design',
+        },
+      ];
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          skillInjection: { enabled: true, skills },
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.skill_injection_skills).toBe(JSON.stringify(skills));
+    });
+
+    it('should map empty skills array to null', () => {
+      const settings = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          skillInjection: { enabled: false, skills: [] },
+        },
+      });
+      const row = toDatabase(settings);
+      expect(row.skill_injection_skills).toBeNull();
+    });
+
+    it('should map undefined skillInjection to null skills', () => {
+      const settings = createTestSettings();
+      const row = toDatabase(settings);
+      expect(row.skill_injection_skills).toBeNull();
+    });
+  });
+
+  describe('fromDatabase() - skill injection', () => {
+    it('should reconstruct skillInjection from enabled=1 and valid JSON', () => {
+      const skills = [{ name: 'test-skill', type: 'local', source: '.claude/skills/test-skill' }];
+      const row = createTestRow({
+        skill_injection_enabled: 1,
+        skill_injection_skills: JSON.stringify(skills),
+      });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.skillInjection).toEqual({
+        enabled: true,
+        skills,
+      });
+    });
+
+    it('should reconstruct skillInjection with enabled=false when flag is 0 but skills exist', () => {
+      const skills = [{ name: 'test-skill', type: 'local', source: '.claude/skills/test-skill' }];
+      const row = createTestRow({
+        skill_injection_enabled: 0,
+        skill_injection_skills: JSON.stringify(skills),
+      });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.skillInjection).toEqual({
+        enabled: false,
+        skills,
+      });
+    });
+
+    it('should omit skillInjection when both columns are default/null', () => {
+      const row = createTestRow({
+        skill_injection_enabled: 0,
+        skill_injection_skills: null,
+      });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.skillInjection).toBeUndefined();
+    });
+
+    it('should fall back to default skills when enabled=1 but skills is null', () => {
+      const row = createTestRow({
+        skill_injection_enabled: 1,
+        skill_injection_skills: null,
+      });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.skillInjection?.enabled).toBe(true);
+      expect(settings.workflow.skillInjection?.skills.length).toBeGreaterThan(0);
+      expect(settings.workflow.skillInjection?.skills.map((s) => s.name)).toContain(
+        'frontend-design'
+      );
+    });
+
+    it('should deserialize remote skills with remoteSkillName', () => {
+      const skills = [
+        {
+          name: 'frontend-design',
+          type: 'remote',
+          source: '@anthropic/skills',
+          remoteSkillName: 'frontend-design',
+        },
+      ];
+      const row = createTestRow({
+        skill_injection_enabled: 1,
+        skill_injection_skills: JSON.stringify(skills),
+      });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.skillInjection!.skills[0].remoteSkillName).toBe('frontend-design');
+    });
+  });
+
+  describe('round-trip - skill injection', () => {
+    it('should preserve skillInjection with local and remote skills through round-trip', () => {
+      const skillInjection = {
+        enabled: true,
+        skills: [
+          {
+            name: 'arch-reviewer',
+            type: SkillSourceType.Local,
+            source: '.claude/skills/arch-reviewer',
+          },
+          {
+            name: 'frontend-design',
+            type: SkillSourceType.Remote,
+            source: '@anthropic/skills',
+            remoteSkillName: 'frontend-design',
+          },
+        ],
+      };
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          skillInjection,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.skillInjection).toEqual(skillInjection);
+    });
+
+    it('should preserve disabled skillInjection with skills through round-trip', () => {
+      const skillInjection = {
+        enabled: false,
+        skills: [
+          { name: 'test-skill', type: SkillSourceType.Local, source: '.claude/skills/test-skill' },
+        ],
+      };
+      const original = createTestSettings({
+        workflow: {
+          ...createTestSettings().workflow,
+          skillInjection,
+        },
+      });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.skillInjection).toEqual(skillInjection);
+    });
+
+    it('should preserve undefined skillInjection through round-trip', () => {
+      const original = createTestSettings();
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.workflow.skillInjection).toBeUndefined();
     });
   });
 });

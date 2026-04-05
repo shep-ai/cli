@@ -11,7 +11,12 @@
  * - Optional fields stored as NULL when missing
  */
 
-import type { Settings } from '../../../../domain/generated/output.js';
+import type {
+  Settings,
+  SkillInjectionConfig,
+  SkillSource,
+} from '../../../../domain/generated/output.js';
+import { createDefaultSettings } from '../../../../domain/factories/settings-defaults.factory.js';
 import {
   type AgentType,
   type AgentAuthMethod,
@@ -129,6 +134,10 @@ export interface SettingsRow {
 
   // FAB layout config (added in migration 050)
   fab_position_swapped: number;
+
+  // Skill injection config (added in migration 051)
+  skill_injection_enabled: number;
+  skill_injection_skills: string | null;
 }
 
 /**
@@ -250,6 +259,12 @@ export function toDatabase(settings: Settings): SettingsRow {
 
     // FAB layout config (default: not swapped)
     fab_position_swapped: (settings.fabLayout?.swapPosition ?? false) ? 1 : 0,
+
+    // Skill injection config (default: disabled, no skills)
+    skill_injection_enabled: settings.workflow.skillInjection?.enabled ? 1 : 0,
+    skill_injection_skills: settings.workflow.skillInjection?.skills?.length
+      ? JSON.stringify(settings.workflow.skillInjection.skills)
+      : null,
   };
 }
 
@@ -289,6 +304,31 @@ function buildAnalyzeRepoTimeoutsFromRow(
 ): { analyzeRepoTimeouts: Record<string, number> } | Record<string, never> {
   if (row.analyze_repo_timeout_analyze_ms === null) return {};
   return { analyzeRepoTimeouts: { analyzeMs: row.analyze_repo_timeout_analyze_ms } };
+}
+
+/**
+ * Build the skillInjection spread from DB row columns.
+ * Returns `{ skillInjection: { ... } }` when the enabled flag or skills JSON is present,
+ * or an empty object `{}` when both are default/null (so the field stays undefined).
+ */
+function buildSkillInjectionFromRow(
+  row: SettingsRow
+): { skillInjection: SkillInjectionConfig } | Record<string, never> {
+  const hasSkills = row.skill_injection_skills !== null;
+  const isEnabled = row.skill_injection_enabled === 1;
+
+  if (!isEnabled && !hasSkills) return {};
+
+  const skills: SkillSource[] = hasSkills
+    ? JSON.parse(row.skill_injection_skills!)
+    : (createDefaultSettings().workflow.skillInjection?.skills ?? []);
+
+  return {
+    skillInjection: {
+      enabled: isEnabled,
+      skills,
+    },
+  };
 }
 
 /**
@@ -372,6 +412,7 @@ export function fromDatabase(row: SettingsRow): Settings {
       ...(row.ci_log_max_chars !== null && { ciLogMaxChars: row.ci_log_max_chars }),
       ...buildStageTimeoutsFromRow(row),
       ...buildAnalyzeRepoTimeoutsFromRow(row),
+      ...buildSkillInjectionFromRow(row),
       ciWatchEnabled: row.ci_watch_enabled !== 0,
       enableEvidence: row.workflow_enable_evidence === 1,
       commitEvidence: row.workflow_commit_evidence === 1,

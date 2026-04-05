@@ -269,7 +269,7 @@
     "deleteSubFeatures": "מחק תת-פיצ'רים",
     "closePullRequest": "סגור בקשת משיכה",
     "cancel": "ביטול",
-    "deleting": "מוחק\u2026",
+    "deleting": "מוחק…",
     "delete": "מחק"
   },
   "rejectFeedback": {
@@ -278,25 +278,25 @@
     "ariaLabel": "משוב דחייה",
     "placeholder": "תאר מה צריך לשנות...",
     "cancel": "ביטול",
-    "rejecting": "דוחה\u2026",
+    "rejecting": "דוחה…",
     "confirmReject": "אשר דחייה"
   },
   "emptyState": {
     "addProject": "הוסף פרויקט",
     "addProjectDescription": "הוסף את תיקיית הפרויקט שלך כדי לאפשר יצירת פיצ'רים.",
-    "addProjectDescriptionLine2": "תאר מה אתה צריך \u2014 Shep מטפל בשאר.",
-    "checkingSetup": "בודק הגדרה\u2026",
+    "addProjectDescriptionLine2": "תאר מה אתה צריך — Shep מטפל בשאר.",
+    "checkingSetup": "בודק הגדרה…",
     "ready": "{{label}} מוכן",
     "notInstalled": "{{label}} לא מותקן",
     "reCheck": "בדוק שוב",
     "needsAuth": "{{label}} דורש אימות",
     "open": "פתח {{label}}",
-    "checking": "בודק {{label}}\u2026",
+    "checking": "בודק {{label}}…",
     "notFound": "{{label}} לא נמצא",
     "docs": "תיעוד",
-    "opening": "פותח\u2026",
+    "opening": "פותח…",
     "chooseFolder": "בחר תיקייה",
-    "folderHint": "כל תיקייה מתאימה \u2014 Git יאותחל אוטומטית אם צריך.",
+    "folderHint": "כל תיקייה מתאימה — Git יאותחל אוטומטית אם צריך.",
     "orUseCli": "או השתמש ב-CLI",
     "copyCommands": "העתק פקודות",
     "git": "Git",
@@ -305,7 +305,7 @@
     "githubCliRequired": "נדרש לבקשות משיכה"
   },
   "welcome": {
-    "loadingAgents": "טוען סוכנים\u2026",
+    "loadingAgents": "טוען סוכנים…",
     "chooseAgent": "בחר את הסוכן שלך",
     "pickModel": "בחר מודל",
     "selectAgentSubtitle": "בחר את סוכן הקידוד AI שתרצה ש-Shep ישתמש בו.",
@@ -353,11 +353,11 @@
     "stopDevServer": "עצירת שרת",
     "startDevServer": "הפעלת שרת",
     "retryDevServer": "הפעלה מחדש של שרת",
-    "starting": "מפעיל\u2026",
+    "starting": "מפעיל…",
     "retry": "ניסיון חוזר",
     "start": "הפעלה",
     "failed": "נכשל",
-    "deleting": "מוחק\u2026",
+    "deleting": "מוחק…",
     "addFeature": "הוספת פיצ'ר",
     "reviewRequirements": "סקירת דרישות",
     "reviewTechnicalPlan": "סקירת תוכנית טכנית",
@@ -478,7 +478,11 @@
     "plan": "תוכנית",
     "planDescription": "אישור אוטומטי של מעבר תכנון ליישום.",
     "merge": "מיזוג",
-    "mergeDescription": "אישור אוטומטי של מעבר מיזוג להשלמה."
+    "mergeDescription": "אישור אוטומטי של מעבר מיזוג להשלמה.",
+    "skills": "SKILLS",
+    "skillsDescription": "Curated skills to guide the agent during feature development.",
+    "injectSkills": "Inject",
+    "injectSkillsDescription": "Include curated skills in the feature worktree."
   },
   "featureDrawer": {
     "copyFeatureId": "העתקת מזהה פיצ'ר",
@@ -592,7 +596,7 @@
     "addRepository": "הוספת מאגר"
   },
   "modelPicker": {
-    "searchPlaceholder": "חיפוש או הקלדת מזהה מודל\u2026"
+    "searchPlaceholder": "חיפוש או הקלדת מזהה מודל…"
   },
   "skills": {
     "searchPlaceholder": "חיפוש כישורים..."
