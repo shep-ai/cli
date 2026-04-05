@@ -18,6 +18,7 @@ import {
   Timer,
   MessageSquare,
   LayoutGrid,
+  Shield,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -36,12 +37,14 @@ import {
   type AgentType,
   EditorType,
   Language,
+  SecurityMode,
   TerminalType,
 } from '@shepai/core/domain/generated/output';
 import { getEditorTypeIcon } from '@/components/common/editor-type-icons';
 import { AgentModelPicker } from '@/components/features/settings/AgentModelPicker';
 import { LanguageSettingsSection } from '@/components/features/settings/language-settings-section';
 import { TimeoutSlider } from '@/components/features/settings/timeout-slider';
+import { SupplyChainSecuritySettingsSection } from '@/components/features/settings/supply-chain-security-settings-section';
 import type {
   Settings,
   FeatureFlags,
@@ -70,6 +73,7 @@ const SECTIONS = [
   { id: 'agent', labelKey: 'settings.sections.agent', icon: Bot },
   { id: 'environment', labelKey: 'settings.sections.environment', icon: Terminal },
   { id: 'workflow', labelKey: 'settings.sections.workflow', icon: GitBranch },
+  { id: 'security', labelKey: 'settings.sections.security', icon: Shield },
   { id: 'ci', labelKey: 'settings.sections.ci', icon: Activity },
   { id: 'stage-timeouts', labelKey: 'settings.sections.timeouts', icon: Timer },
   { id: 'notifications', labelKey: 'settings.sections.notifications', icon: Bell },
@@ -1081,6 +1085,32 @@ export function SettingsPageClient({
             ]}
           >
             {t('settings.workflow.hint')}
+          </SectionHint>
+        </div>
+
+        {/* ── Security ── */}
+        <div
+          id="section-security"
+          className="grid scroll-mt-18 grid-cols-1 gap-x-5 rounded-lg lg:grid-cols-[1fr_280px]"
+        >
+          <SupplyChainSecuritySettingsSection
+            securityState={{
+              mode: settings.security?.mode ?? SecurityMode.Advisory,
+              lastEvaluationAt: settings.security?.lastEvaluationAt ?? null,
+              policySource: settings.security?.policySource ?? null,
+              recentEvents: [],
+              highestSeverityFinding: null,
+            }}
+          />
+          <SectionHint
+            links={[
+              {
+                label: t('settings.security.links.securitySpec'),
+                href: 'https://github.com/shep-ai/shep/blob/main/specs/083-supply-chain-security/spec.yaml',
+              },
+            ]}
+          >
+            {t('settings.security.hint')}
           </SectionHint>
         </div>
 

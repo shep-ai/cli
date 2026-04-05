@@ -19,6 +19,10 @@ import { ApproveAgentRunUseCase } from '@/application/use-cases/agents/approve-a
 import { ReviewFeatureUseCase } from '@/application/use-cases/agents/review-feature.use-case.js';
 import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  getSettings: vi.fn().mockReturnValue({}),
+}));
+
 // --- Mock Factories ---
 
 function createMockRunRepository() {

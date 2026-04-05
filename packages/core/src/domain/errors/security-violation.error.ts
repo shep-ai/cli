@@ -6,7 +6,7 @@
  * and actionable remediation guidance.
  */
 
-import type { SecurityActionCategory } from '../generated/output.js';
+import type { SecurityActionCategory } from '../generated/output';
 
 export class SecurityViolationError extends Error {
   constructor(
