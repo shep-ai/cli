@@ -18,7 +18,12 @@ import type {
   EnvironmentConfig,
   SystemConfig,
 } from '@/domain/generated/output.js';
-import { AgentType, AgentAuthMethod, SkillSourceType, SecurityMode } from '@/domain/generated/output.js';
+import {
+  AgentType,
+  AgentAuthMethod,
+  SkillSourceType,
+  SecurityMode,
+} from '@/domain/generated/output.js';
 
 describe('createDefaultSettings', () => {
   describe('return type and structure', () => {
