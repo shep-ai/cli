@@ -17,6 +17,13 @@ vi.mock('@/infrastructure/services/ide-launchers/compute-worktree-path.js', () =
   computeWorktreePath: vi.fn().mockReturnValue('/computed/worktree/path'),
 }));
 
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  getSettings: vi.fn().mockReturnValue({
+    agent: { type: 'claude-code' },
+    security: { mode: 'Advisory' },
+  }),
+}));
+
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import type { AgentRun } from '@/domain/generated/output.js';
 import { ApproveAgentRunUseCase } from '@/application/use-cases/agents/approve-agent-run.use-case.js';

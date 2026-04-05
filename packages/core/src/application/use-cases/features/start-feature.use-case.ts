@@ -14,6 +14,7 @@ import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-re
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import { POST_IMPLEMENTATION } from '../../../domain/lifecycle-gates.js';
+import { getSettings } from '../../../infrastructure/services/settings.service.js';
 
 export interface StartFeatureResult {
   feature: Feature;
@@ -132,6 +133,7 @@ export class StartFeatureUseCase {
           agentType: agentRun.agentType,
           ...(resolved.fast ? { fast: true } : {}),
           ...(agentRun.modelId ? { model: agentRun.modelId } : {}),
+          securityMode: getSettings().security?.mode,
         }
       );
     }

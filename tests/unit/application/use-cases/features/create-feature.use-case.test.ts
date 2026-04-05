@@ -15,6 +15,7 @@ const { mockGetSettings } = vi.hoisted(() => ({
   mockGetSettings: vi.fn().mockReturnValue({
     agent: { type: 'claude-code' },
     workflow: {},
+    security: { mode: 'Advisory' },
   }),
 }));
 

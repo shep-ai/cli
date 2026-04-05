@@ -22,6 +22,7 @@ import {
   safeYamlDump,
 } from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 import { computeWorktreePath } from '../../../infrastructure/services/ide-launchers/compute-worktree-path.js';
+import { getSettings } from '../../../infrastructure/services/settings.service.js';
 
 @injectable()
 export class ApproveAgentRunUseCase {
@@ -140,6 +141,7 @@ export class ApproveAgentRunUseCase {
         agentType: run.agentType,
         ...(run.modelId ? { model: run.modelId } : {}),
         ...(feature?.fast ? { fast: true } : {}),
+        securityMode: getSettings().security?.mode,
       }
     );
 

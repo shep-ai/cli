@@ -13,6 +13,7 @@ import type { IFeatureRepository } from '../../ports/output/repositories/feature
 import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
+import { getSettings } from '../../../infrastructure/services/settings.service.js';
 
 const RESUMABLE_STATUSES = new Set<string>([
   AgentRunStatus.interrupted,
@@ -144,6 +145,7 @@ export class ResumeFeatureUseCase {
         ...(feature.fast ? { fast: true } : {}),
         ...(lastRun.modelId ? { model: lastRun.modelId } : {}),
         resumeReason: lastRun.status,
+        securityMode: getSettings().security?.mode,
       }
     );
 
