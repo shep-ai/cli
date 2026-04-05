@@ -1,3 +1,10 @@
+# [1.173.0](https://github.com/shep-ai/shep/compare/v1.172.0...v1.173.0) (2026-04-05)
+
+
+### Features
+
+* **web:** add right margin to sidenav repo plus button for scrollbar clearance ([#528](https://github.com/shep-ai/shep/issues/528)) ([3402902](https://github.com/shep-ai/shep/commit/3402902d129dd5c56716d1bfeef310d6a432db49))
+
 # [1.172.0](https://github.com/shep-ai/shep/compare/v1.171.0...v1.172.0) (2026-04-05)
 
 
