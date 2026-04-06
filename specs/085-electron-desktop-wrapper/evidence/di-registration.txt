@@ -1,0 +1,6 @@
+56:import type { IBrowserOpener } from '../../application/ports/output/services/i-browser-opener.js';
+80:import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
+355:  container.register('DesktopNotifier', {
+356:    useFactory: () => new DesktopNotifier(),
+362:      const desktopNotif = c.resolve('DesktopNotifier') as DesktopNotifier;
+368:  container.register<IBrowserOpener>('IBrowserOpener', {

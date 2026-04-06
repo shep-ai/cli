@@ -1,0 +1,219 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper[39m
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-desktop-notifier.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/port-conflict.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/tray.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/update-checker.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/ipc/channels.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/preload.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/bootstrap.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mgracefulShutdown[2m > [22m[2mcalls adapterResult.cleanup()
+[22m[39m[electron] Shutting down...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mgracefulShutdown[2m > [22m[2mcalls bootstrapResult.shutdown()
+[22m[39m[electron] Shutting down...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mgracefulShutdown[2m > [22m[2mcalls webServerService.stop()
+[22m[39m[electron] Shutting down...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mgracefulShutdown[2m > [22m[2mdoes not throw when bootstrapResult is null
+[22m[39m[electron] Shutting down...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mrequests single instance lock
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mrequests single instance lock
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mrequests single instance lock
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mquits when single instance lock is not acquired
+[22m[39m[electron] Another instance is running. Exiting.
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcreates splash window as first BrowserWindow
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcreates splash window as first BrowserWindow
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcreates splash window as first BrowserWindow
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcreates main window as second BrowserWindow with security settings
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcreates main window as second BrowserWindow with security settings
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcreates main window as second BrowserWindow with security settings
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls bootstrapBackend
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls bootstrapBackend
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls bootstrapBackend
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls registerElectronAdapters
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls registerElectronAdapters
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls registerElectronAdapters
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls setupIpcHandlers
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls setupIpcHandlers
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls setupIpcHandlers
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls checkForUpdates
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls checkForUpdates
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls checkForUpdates
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls resolvePort for port conflict detection
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls resolvePort for port conflict detection
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls resolvePort for port conflict detection
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls setupTray
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls setupTray
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mcalls setupTray
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mloads localhost URL with discovered port
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mloads localhost URL with discovered port
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mloads localhost URL with discovered port
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters before-quit handler that sets isQuitting
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters before-quit handler that sets isQuitting
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters before-quit handler that sets isQuitting
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters will-quit handler for graceful shutdown
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters will-quit handler for graceful shutdown
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters will-quit handler for graceful shutdown
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters will-quit handler for graceful shutdown
+[22m[39m[electron] Shutting down...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters activate handler for macOS dock click
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters activate handler for macOS dock click
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mregisters activate handler for macOS dock click
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mreturns state with all created resources
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mreturns state with all created resources
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mreturns state with all created resources
+[22m[39m[electron] Web server started at http://localhost:3456 (dev: false)
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mskips web server start when port conflict resolves to connect-to-existing
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mskips web server start when port conflict resolves to connect-to-existing
+[22m[39m[electron] Backend bootstrapped
+[electron] Electron adapters registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mskips web server start when port conflict resolves to connect-to-existing
+[22m[39m[electron] Connecting to existing server at http://localhost:4050
+[electron] IPC handlers registered
+
+[90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mquits and closes splash on fatal error during bootstrap
+[22m[39m[electron] App ready, starting bootstrap...
+
+[90mstderr[2m | tests/unit/electron/main.test.ts[2m > [22m[2mstartApp[2m > [22m[2mquits and closes splash on fatal error during bootstrap
+[22m[39m[electron] Fatal error during startup: Error: bootstrap failed
+    at [90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mtests/unit/electron/main.test.ts:595:48
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:145:11
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:915:26
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout [90m(file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:1209:10[90m)[39m
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:1653:37
+    at Traces.$ [90m(file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/vitest@4.0.18_@types+node@25.2.0_jiti@2.6.1_jsdom@28.0.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/[4mvitest[24m/dist/chunks/traces.CCmnQaNT.js:142:27[90m)[39m
+    at trace [90m(file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/vitest@4.0.18_@types+node@25.2.0_jiti@2.6.1_jsdom@28.0.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.8.2/node_modules/[4mvitest[24m/dist/chunks/test.B8ej_ZHS.js:239:21[90m)[39m
+    at runTest [90m(file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:1653:12[90m)[39m
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/main.test.ts [2m([22m[2m33 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/resolve-web-dir.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/app-wiring.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m11 passed[39m[22m[90m (11)[39m
+[2m      Tests [22m [1m[32m123 passed[39m[22m[90m (123)[39m
+[2m   Start at [22m 03:26:49
+[2m   Duration [22m 237ms[2m (transform 538ms, setup 237ms, import 477ms, tests 79ms, environment 1ms)[22m
+

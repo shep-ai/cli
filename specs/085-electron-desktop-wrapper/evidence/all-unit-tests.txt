@@ -1,0 +1,100 @@
+[22m[39m[deployFeature] feature not found in repository: "nonexistent-id"
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-feature.test.ts[2m > [22m[2mdeployFeature server action[2m > [22m[2mreturns error when worktree directory does not exist
+[22m[39m[deployFeature] worktree path does not exist on disk: "/mock/.shep/repos/abc123/wt/feat-my-feature"
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-feature.test.ts[2m > [22m[2mdeployFeature server action[2m > [22m[2mreturns error when service.start throws
+[22m[39m[deployFeature] error: No dev script found in package.json Error: No dev script found in package.json
+    at Object.<anonymous> [90m(/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mtests/unit/presentation/web/actions/deploy-feature.test.ts:97:13[90m)[39m
+    at Object.Mock [as start] [90m(file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/@vitest+spy@4.0.18/node_modules/[4m@vitest[24m/spy/dist/index.js:285:34[90m)[39m
+    at deployFeature [90m(/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39msrc/presentation/web/app/actions/deploy-feature.ts:55:23[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at [90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mtests/unit/presentation/web/actions/deploy-feature.test.ts:100:20
+    at [90mfile:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:915:20
+
+[90mstderr[2m | tests/unit/presentation/web/actions/deploy-feature.test.ts[2m > [22m[2mdeployFeature server action[2m > [22m[2mreturns generic error for non-Error throws
+[22m[39m[deployFeature] error: Failed to deploy feature unexpected
+
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/deploy-feature.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-supported-models.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/merge-review/get-merge-review-data.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/derive-graph.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/features/create-feature.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/load-settings.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/list-github-repositories.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/pick-files.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/open-ide.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-feature-drawer-data.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts [2m([22m[2m47 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/parse-log-line.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-deployment-logs.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/api/version.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-viewer-permission.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/features/feature-tree-table/build-tree-data.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/feature-flags.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/import-github-repository.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/features/delete-feature.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/update-settings.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-deployment-status.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/approve-feature.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/language.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/get-feature-phase-timings.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/get-feature-plan.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/control-center-drawer/drawer-view.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/get-workflow-defaults.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/merge-review/merge-review-config.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/format-duration.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/pick-folder.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/app/actions/list-github-organizations.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/actions/compose-user-input.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/lib/compare-versions.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/features/control-center/derive-state.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[46m web [49m[39m tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx [2m([22m[2m91 tests[22m[2m)[22m[33m 45351[2mms[22m[39m
+       [33m[2m✓[22m[39m renders the drawer header when open [33m 660[2mms[22m[39m
+       [33m[2m✓[22m[39m accepts text in the description field [33m 1249[2mms[22m[39m
+       [33m[2m✓[22m[39m enables submit button when description has content [33m 1200[2mms[22m[39m
+       [33m[2m✓[22m[39m disables submit button when description is only whitespace [33m 590[2mms[22m[39m
+       [33m[2m✓[22m[39m calls onSubmit with payload containing description (no name field) [33m 1359[2mms[22m[39m
+       [33m[2m✓[22m[39m includes attachments array with file objects [33m 1492[2mms[22m[39m
+       [33m[2m✓[22m[39m sends approvalGates with only PRD checked [33m 1628[2mms[22m[39m
+       [33m[2m✓[22m[39m sends all-true approvalGates when all checkboxes are checked [33m 1506[2mms[22m[39m
+       [33m[2m✓[22m[39m sends all-false approvalGates when no checkboxes are checked [33m 1255[2mms[22m[39m
+       [33m[2m✓[22m[39m resets all switches to defaults after close and reopen [33m 568[2mms[22m[39m
+       [33m[2m✓[22m[39m clicking All button selects all when some are selected [33m 495[2mms[22m[39m
+       [33m[2m✓[22m[39m clicking All button deselects all when all are selected [33m 428[2mms[22m[39m
+       [33m[2m✓[22m[39m submits correct approvalGates after All toggle [33m 1428[2mms[22m[39m
+       [33m[2m✓[22m[39m clears all form fields after submit without unmounting [33m 2686[2mms[22m[39m
+       [33m[2m✓[22m[39m clears form data on submit so next open starts fresh [33m 1251[2mms[22m[39m
+       [33m[2m✓[22m[39m calls pickFiles and displays attachment chip [33m 389[2mms[22m[39m
+       [33m[2m✓[22m[39m displays file size [33m 541[2mms[22m[39m
+       [33m[2m✓[22m[39m supports multiple file selections across multiple picks [33m 499[2mms[22m[39m
+       [33m[2m✓[22m[39m removes attachment when remove button is clicked [33m 567[2mms[22m[39m
+       [33m[2m✓[22m[39m shows multiple attachment chips [33m 373[2mms[22m[39m
+       [33m[2m✓[22m[39m does not add files when user cancels the picker [33m 315[2mms[22m[39m
+       [33m[2m✓[22m[39m does not add duplicate files when the same file is picked again [33m 480[2mms[22m[39m
+       [33m[2m✓[22m[39m handles pickFiles error gracefully [33m 335[2mms[22m[39m
+       [33m[2m✓[22m[39m plays create sound on form submit [33m 1071[2mms[22m[39m
+       [33m[2m✓[22m[39m toggling fast mode checkbox updates form state [33m 581[2mms[22m[39m
+       [33m[2m✓[22m[39m submitting with fast mode on includes fast=true in payload [33m 1031[2mms[22m[39m
+       [33m[2m✓[22m[39m submitting with fast mode off includes fast=false in payload [33m 1105[2mms[22m[39m
+       [33m[2m✓[22m[39m fast mode resets to default after submit [33m 1127[2mms[22m[39m
+       [33m[2m✓[22m[39m submits the form when Ctrl+Enter is pressed in the textarea [33m 808[2mms[22m[39m
+       [33m[2m✓[22m[39m submits the form when Meta+Enter is pressed in the textarea [33m 868[2mms[22m[39m
+       [33m[2m✓[22m[39m does not submit on plain Enter (without modifier) [33m 764[2mms[22m[39m
+       [33m[2m✓[22m[39m shows attachment chip after dropping a valid file [33m 332[2mms[22m[39m
+       [33m[2m✓[22m[39m includes sessionId in submitted payload [33m 1043[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is disabled when no repo selected and repositoryPath is empty [33m 1033[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repo is selected via combobox [33m 1258[2mms[22m[39m
+       [33m[2m✓[22m[39m submit button is enabled when repositoryPath is provided (canvas flow) [33m 902[2mms[22m[39m
+       [33m[2m✓[22m[39m handleSubmit includes selectedRepoPath in payload [33m 1340[2mms[22m[39m
+       [33m[2m✓[22m[39m filters repositories by name when typing in search input [33m 384[2mms[22m[39m
+       [33m[2m✓[22m[39m filters repositories by path when typing in search input [33m 457[2mms[22m[39m
+       [33m[2m✓[22m[39m shows empty state message when no repos match search [33m 570[2mms[22m[39m
+       [33m[2m✓[22m[39m shows check icon for selected repository [33m 421[2mms[22m[39m
+       [33m[2m✓[22m[39m can submit feature after adding new repo via combobox [33m 383[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m395 passed[39m[22m[90m (395)[39m
+[2m      Tests [22m [1m[32m5622 passed[39m[22m[90m (5622)[39m
+[2m   Start at [22m 03:24:40
+[2m   Duration [22m 64.38s[2m (transform 19.25s, setup 73.38s, import 102.19s, tests 153.20s, environment 149.06s)[22m
+

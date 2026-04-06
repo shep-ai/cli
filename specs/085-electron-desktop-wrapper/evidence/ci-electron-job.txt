@@ -1,0 +1,51 @@
+  # ===========================================================================
+  # Electron Desktop App Build
+  # Builds Electron installers for macOS, Windows, and Linux in parallel.
+  # Artifacts are uploaded for PR inspection; release job publishes them.
+  # ===========================================================================
+  build-electron:
+    name: Electron (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            build_cmd: 'build:mac'
+            artifact_pattern: 'packages/electron/release/*.dmg'
+            artifact_name: 'electron-mac'
+          - os: windows-latest
+            build_cmd: 'build:win'
+            artifact_pattern: 'packages/electron/release/*.exe'
+            artifact_name: 'electron-win'
+          - os: ubuntu-latest
+            build_cmd: 'build:linux'
+            artifact_pattern: 'packages/electron/release/*.AppImage'
+            artifact_name: 'electron-linux'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build web UI and CLI
+        run: pnpm run build:release
+
+      - name: Build Electron installer
+        run: pnpm --filter @shepai/electron ${{ matrix.build_cmd }}
+
+      - name: Upload Electron artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_pattern }}
+          if-no-files-found: error
+          retention-days: 7
+
+  # ===========================================================================
+  # Security: Gitleaks Secret Detection
+  # Uses gitleaks CLI directly (free, open source) instead of gitleaks-action

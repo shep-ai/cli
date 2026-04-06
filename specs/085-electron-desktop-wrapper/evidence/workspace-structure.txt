@@ -1,0 +1,147 @@
+=== packages/electron/ source files ===
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/adapters/electron-browser-opener.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/adapters/electron-desktop-notifier.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/app.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/bootstrap.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/electron-adapters.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/ipc/channels.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/ipc/constants.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/main.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/port-conflict.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/preload.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/resolve-web-dir.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/splash.html
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/tray.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/update-checker.ts
+
+=== packages/electron/resources/ ===
+total 664
+drwxr-xr-x@  9 arielshadkhan  staff     288 Apr  6 02:21 .
+drwxr-xr-x@ 13 arielshadkhan  staff     416 Apr  6 03:05 ..
+-rw-r--r--@  1 arielshadkhan  staff  294040 Apr  6 02:21 icon.icns
+-rw-r--r--@  1 arielshadkhan  staff   10642 Apr  6 02:21 icon.ico
+-rw-r--r--@  1 arielshadkhan  staff   14767 Apr  6 02:19 icon.png
+-rw-r--r--@  1 arielshadkhan  staff     662 Apr  6 02:21 tray.ico
+-rw-r--r--@  1 arielshadkhan  staff     187 Apr  6 02:21 tray.png
+-rw-r--r--@  1 arielshadkhan  staff     187 Apr  6 02:21 trayTemplate.png
+-rw-r--r--@  1 arielshadkhan  staff     437 Apr  6 02:21 trayTemplate@2x.png
+
+=== pnpm-workspace.yaml ===
+# pnpm workspace configuration
+
+packages:
+  # Root package (main CLI)
+  - '.'
+  # Core package (domain, application, infrastructure layers)
+  - 'packages/core'
+  # Web UI package
+  - 'src/presentation/web'
+  # Electron desktop app
+  - 'packages/electron'
+
+=== Electron test files ===
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/adapters/electron-browser-opener.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/adapters/electron-desktop-notifier.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/app-wiring.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/bootstrap.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/ipc/channels.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/main.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/port-conflict.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/preload.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/resolve-web-dir.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/tray.test.ts
+/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/update-checker.test.ts
+
+=== Core port interfaces ===
+-rw-r--r--@ 1 arielshadkhan  staff  929 Apr  6 01:28 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/core/src/application/ports/output/services/i-browser-opener.ts
+-rw-r--r--@ 1 arielshadkhan  staff  893 Apr  6 01:25 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/core/src/application/ports/output/services/i-desktop-notifier.ts
+
+=== electron-builder.yml ===
+# electron-builder configuration
+# Docs: https://www.electron.build/configuration.html
+
+appId: 'ai.shep.desktop'
+productName: 'Shep'
+copyright: 'Copyright © 2024-2026 Shep AI'
+
+# The compiled JS output directory
+directories:
+  buildResources: 'resources'
+  output: 'release'
+  app: '.'
+
+# Use the compiled JS entry point
+files:
+  - 'dist/**/*'
+  - 'resources/**/*'
+  - 'package.json'
+  - '!src/**/*'
+  - '!scripts/**/*'
+  - '!tsconfig*.json'
+  - '!electron-builder.yml'
+  - '!**/*.ts'
+  - '!dist/**/*.map'
+
+# Rebuild native modules (better-sqlite3) for Electron's Node.js ABI
+npmRebuild: true
+
+# Native .node binaries cannot load from inside ASAR archives
+asar: true
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+  - '**/node_modules/bindings/**'
+  - '**/node_modules/file-uri-to-path/**'
+
+# Copy the pre-built web UI into the packaged app's resources
+extraResources:
+  - from: '../../web'
+    to: 'web'
+    filter:
+      - '**/*'
+      - '!**/*.map'
+
+# macOS configuration
+mac:
+  target:
+    - target: 'dmg'
+      arch:
+        - 'x64'
+        - 'arm64'
+  icon: 'resources/icon.icns'
+  category: 'public.app-category.developer-tools'
+  darkModeSupport: true
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: 'link'
+      path: '/Applications'
+
+# Windows configuration
+win:
+  target:
+    - target: 'nsis'
+      arch:
+        - 'x64'
+  icon: 'resources/icon.ico'
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: 'resources/icon.ico'
+  uninstallerIcon: 'resources/icon.ico'
+
+# Linux configuration
+linux:
+  target:
+    - target: 'AppImage'
+      arch:
+        - 'x64'
+  icon: 'resources/icon.png'
+  category: 'Development'
+  synopsis: 'Autonomous AI Native SDLC Platform'
+  description: 'Shep — AI-powered software development lifecycle automation'
