@@ -1,32 +1,7 @@
-=== packages/electron/ source files ===
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/adapters/electron-browser-opener.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/adapters/electron-desktop-notifier.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/app.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/bootstrap.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/electron-adapters.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/ipc/channels.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/ipc/constants.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/main.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/port-conflict.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/preload.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/resolve-web-dir.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/splash.html
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/tray.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/electron/src/update-checker.ts
+=== Workspace Structure Evidence — Electron Desktop Wrapper ===
+Generated: 2026-04-06T00:35:28Z
 
-=== packages/electron/resources/ ===
-total 664
-drwxr-xr-x@  9 arielshadkhan  staff     288 Apr  6 02:21 .
-drwxr-xr-x@ 13 arielshadkhan  staff     416 Apr  6 03:05 ..
--rw-r--r--@  1 arielshadkhan  staff  294040 Apr  6 02:21 icon.icns
--rw-r--r--@  1 arielshadkhan  staff   10642 Apr  6 02:21 icon.ico
--rw-r--r--@  1 arielshadkhan  staff   14767 Apr  6 02:19 icon.png
--rw-r--r--@  1 arielshadkhan  staff     662 Apr  6 02:21 tray.ico
--rw-r--r--@  1 arielshadkhan  staff     187 Apr  6 02:21 tray.png
--rw-r--r--@  1 arielshadkhan  staff     187 Apr  6 02:21 trayTemplate.png
--rw-r--r--@  1 arielshadkhan  staff     437 Apr  6 02:21 trayTemplate@2x.png
-
-=== pnpm-workspace.yaml ===
+--- pnpm-workspace.yaml ---
 # pnpm workspace configuration
 
 packages:
@@ -39,24 +14,115 @@ packages:
   # Electron desktop app
   - 'packages/electron'
 
-=== Electron test files ===
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/adapters/electron-browser-opener.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/adapters/electron-desktop-notifier.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/app-wiring.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/bootstrap.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/ipc/channels.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/main.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/port-conflict.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/preload.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/resolve-web-dir.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/tray.test.ts
-/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/tests/unit/electron/update-checker.test.ts
+--- packages/electron/ source files ---
+  packages/electron/src/adapters/electron-browser-opener.ts
+  packages/electron/src/adapters/electron-desktop-notifier.ts
+  packages/electron/src/app.ts
+  packages/electron/src/bootstrap.ts
+  packages/electron/src/electron-adapters.ts
+  packages/electron/src/ipc/channels.ts
+  packages/electron/src/ipc/constants.ts
+  packages/electron/src/main.ts
+  packages/electron/src/port-conflict.ts
+  packages/electron/src/preload.ts
+  packages/electron/src/resolve-web-dir.ts
+  packages/electron/src/splash.html
+  packages/electron/src/tray.ts
+  packages/electron/src/update-checker.ts
 
-=== Core port interfaces ===
--rw-r--r--@ 1 arielshadkhan  staff  929 Apr  6 01:28 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/core/src/application/ports/output/services/i-browser-opener.ts
--rw-r--r--@ 1 arielshadkhan  staff  893 Apr  6 01:25 /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/packages/core/src/application/ports/output/services/i-desktop-notifier.ts
+--- packages/electron/ test files ---
+  tests/unit/electron/adapters/electron-browser-opener.test.ts
+  tests/unit/electron/adapters/electron-desktop-notifier.test.ts
+  tests/unit/electron/app-wiring.test.ts
+  tests/unit/electron/bootstrap.test.ts
+  tests/unit/electron/ipc/channels.test.ts
+  tests/unit/electron/main.test.ts
+  tests/unit/electron/port-conflict.test.ts
+  tests/unit/electron/preload.test.ts
+  tests/unit/electron/resolve-web-dir.test.ts
+  tests/unit/electron/tray.test.ts
+  tests/unit/electron/update-checker.test.ts
 
-=== electron-builder.yml ===
+--- packages/electron/ resource assets ---
+  packages/electron/resources/icon.icns
+  packages/electron/resources/icon.ico
+  packages/electron/resources/icon.png
+  packages/electron/resources/tray.ico
+  packages/electron/resources/tray.png
+  packages/electron/resources/trayTemplate.png
+  packages/electron/resources/trayTemplate@2x.png
+
+--- packages/electron/package.json (name, scripts, key deps) ---
+{
+  "name": "@shepai/electron",
+  "version": "0.0.0",
+  "main": "./dist/main.js",
+  "scripts": {
+    "dev": "electron .",
+    "compile": "node scripts/build.mjs",
+    "build": "node scripts/build.mjs && electron-builder --publish never",
+    "build:mac": "node scripts/build.mjs && electron-builder --mac --publish never",
+    "build:win": "node scripts/build.mjs && electron-builder --win --publish never",
+    "build:linux": "node scripts/build.mjs && electron-builder --linux --publish never",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": [
+    "electron-window-state",
+    "reflect-metadata",
+    "tsyringe",
+    "better-sqlite3",
+    "next",
+    "react",
+    "react-dom",
+    "js-yaml",
+    "node-notifier",
+    "umzug",
+    "ajv",
+    "ajv-formats",
+    "which",
+    "@langchain/langgraph",
+    "@langchain/langgraph-checkpoint-sqlite",
+    "@langchain/core"
+  ],
+  "devDependencies": [
+    "@electron/rebuild",
+    "electron",
+    "electron-builder",
+    "esbuild",
+    "typescript"
+  ]
+}
+
+--- packages/electron/tsconfig.json ---
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "declaration": true,
+    "declarationMap": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@shepai/core": ["../core/src/index.ts"],
+      "@shepai/core/*": ["../core/src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+
+--- packages/electron/electron-builder.yml ---
 # electron-builder configuration
 # Docs: https://www.electron.build/configuration.html
 

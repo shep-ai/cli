@@ -1,0 +1,31 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper[39m
+
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts[2m > [22mElectronBrowserOpener[2m > [22mfocuses BrowserWindow for localhost:port URLs[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts[2m > [22mElectronBrowserOpener[2m > [22mfocuses BrowserWindow for localhost:port/path URLs[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts[2m > [22mElectronBrowserOpener[2m > [22mfocuses BrowserWindow for 127.0.0.1:port URLs[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts[2m > [22mElectronBrowserOpener[2m > [22mcalls openExternal for external URLs[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts[2m > [22mElectronBrowserOpener[2m > [22mcalls openExternal for localhost URLs on a different port[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts[2m > [22mElectronBrowserOpener[2m > [22mhandles destroyed window gracefully (no throw)[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts[2m > [22mElectronBrowserOpener[2m > [22mhandles null window gracefully[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts[2m > [22mElectronBrowserOpener[2m > [22mcatches errors from openExternal and warns[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts[2m > [22mElectronBrowserOpener[2m > [22mdoes not navigate main window for root localhost URL[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22mshould be assignable to IBrowserOpener[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22mdarwin (macOS)[2m > [22mcalls execFile with "open" command and url as argument[32m 2[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22mdarwin (macOS)[2m > [22mcalls unref on the child process[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22mlinux[2m > [22mcalls execFile with "xdg-open" command and url as argument[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22mlinux[2m > [22mcalls unref on the child process[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22mwin32 (Windows)[2m > [22mcalls execFile with "cmd" and /c start args[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22mwin32 (Windows)[2m > [22mcalls unref on the child process[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22munsupported platform[2m > [22mdoes not call execFile on unsupported platform[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22munsupported platform[2m > [22mdoes not call warn on unsupported platform[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22merror handling[2m > [22mcalls warn when execFile fails[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22merror handling[2m > [22mdoes not throw when execFile fails[32m 1[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22mnon-TTY environment[2m > [22mdoes not open browser when isTTY is false[32m 0[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/infrastructure/services/browser-opener.service.test.ts[2m > [22mBrowserOpenerService[2m > [22mconstructor defaults[2m > [22mcreates service with default deps when none provided[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m22 passed[39m[22m[90m (22)[39m
+[2m   Start at [22m 03:33:24
+[2m   Duration [22m 325ms[2m (transform 167ms, setup 135ms, import 112ms, tests 29ms, environment 0ms)[22m
+

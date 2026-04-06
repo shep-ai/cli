@@ -1,50 +1,60 @@
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/sessions/claude-code-session.repository.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 57[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/prd-approval-iterations.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+[2026-04-06T00:35:21.293Z] [repair:spec.yaml] Repairing spec.yaml (attempt 1)
+[2026-04-06T00:35:21.295Z] [repair:spec.yaml] Repair complete (5 chars)
+[2026-04-06T00:35:21.296Z] [validate:spec.yaml] Validating spec.yaml
+[2026-04-06T00:35:21.300Z] [validate:spec.yaml] ERROR: YAML parse error in spec.yaml: unexpected end of the stream within a flow collection (15:1)
+
+ 12 |   - React
+ 13 |   - broken item with : colon ca ...
  14 | openQuestions: [
  15 | 
 ------^
-[2026-04-06T00:27:05.218Z] [validate:spec.yaml] Validating spec.yaml
-[2026-04-06T00:27:05.219Z] [validate:spec.yaml] Validation passed
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/yaml-repair-cycle.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 16[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/local-merge.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 14039[2mms[22m[39m
-     [33m[2m✓[22m[39m local-merge-no-push: feature branch should be merged into main after node completes [33m 4739[2mms[22m[39m
-     [33m[2m✓[22m[39m no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden) [33m 6440[2mms[22m[39m
-     [33m[2m✓[22m[39m no-remote-local-merge: should merge locally without any remote [33m 2858[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/verify-merge.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 16830[2mms[22m[39m
-     [33m[2m✓[22m[39m should return true after a true merge (git merge) [33m 1768[2mms[22m[39m
-     [33m[2m✓[22m[39m should return true after a squash merge (git merge --squash) [33m 5256[2mms[22m[39m
-     [33m[2m✓[22m[39m should return false when branch has not been merged [33m 2790[2mms[22m[39m
-     [33m[2m✓[22m[39m should return false when main has extra commits after squash but feature has diverged [33m 3912[2mms[22m[39m
-     [33m[2m✓[22m[39m should return true after squash merge with modified tree when premergeBaseSha provided [33m 1705[2mms[22m[39m
-     [33m[2m✓[22m[39m should return true after squash merge even when local branch is deleted (remote fallback) [33m 1398[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts [2m([22m[2m26 tests[22m[2m)[22m[33m 40449[2mms[22m[39m
-     [33m[2m✓[22m[39m should fetch latest main when upstream has new commits (from feature branch) [33m 3974[2mms[22m[39m
-     [33m[2m✓[22m[39m should fast-forward main when on the main branch (uses pull) [33m 7410[2mms[22m[39m
-     [33m[2m✓[22m[39m should succeed silently when main is already up-to-date [33m 2772[2mms[22m[39m
-     [33m[2m✓[22m[39m should throw SYNC_FAILED when on main and local main has diverged from remote [33m 1996[2mms[22m[39m
-     [33m[2m✓[22m[39m should succeed from feature branch even when local main has diverged (fetches origin/main only) [33m 1613[2mms[22m[39m
-     [33m[2m✓[22m[39m should be idempotent — calling sync twice succeeds [33m 1084[2mms[22m[39m
-     [33m[2m✓[22m[39m should successfully rebase feature branch onto main with no conflicts [33m 1240[2mms[22m[39m
-     [33m[2m✓[22m[39m should throw REBASE_CONFLICT when rebase encounters conflicting changes [33m 1081[2mms[22m[39m
-     [33m[2m✓[22m[39m should throw GIT_ERROR when worktree has uncommitted changes [33m 659[2mms[22m[39m
-     [33m[2m✓[22m[39m should throw BRANCH_NOT_FOUND when feature branch does not exist [33m 689[2mms[22m[39m
-     [33m[2m✓[22m[39m should leave worktree clean after aborting a conflicted rebase [33m 1160[2mms[22m[39m
-     [33m[2m✓[22m[39m should produce linear history after successful rebase [33m 1325[2mms[22m[39m
-     [33m[2m✓[22m[39m should succeed when feature branch is already up-to-date with main (no-op rebase) [33m 729[2mms[22m[39m
-     [33m[2m✓[22m[39m getConflictedFiles should return conflicted file paths during a rebase conflict [33m 1312[2mms[22m[39m
-     [33m[2m✓[22m[39m stageFiles + rebaseContinue should complete rebase after manual conflict resolution [33m 1434[2mms[22m[39m
-     [33m[2m✓[22m[39m rebaseAbort should restore branch to pre-rebase state [33m 1189[2mms[22m[39m
-     [33m[2m✓[22m[39m should stash uncommitted changes and return true [33m 737[2mms[22m[39m
-     [33m[2m✓[22m[39m should return false when working directory is clean [33m 743[2mms[22m[39m
-     [33m[2m✓[22m[39m should include the stash message in git stash list output [33m 800[2mms[22m[39m
-     [33m[2m✓[22m[39m should stash pop and restore uncommitted changes [33m 758[2mms[22m[39m
-     [33m[2m✓[22m[39m should stash drop and discard the stash entry [33m 770[2mms[22m[39m
-     [33m[2m✓[22m[39m should preserve uncommitted changes across a clean rebase (stash → sync → rebase → pop) [33m 1392[2mms[22m[39m
-     [33m[2m✓[22m[39m should skip stash when working directory is clean and rebase normally [33m 1558[2mms[22m[39m
-     [33m[2m✓[22m[39m should preserve uncommitted changes even when rebase has conflicts that are manually resolved [33m 1577[2mms[22m[39m
-     [33m[2m✓[22m[39m should restore uncommitted changes even after a failed rebase that is aborted [33m 1170[2mms[22m[39m
-     [33m[2m✓[22m[39m should handle unstaged modifications in stash-rebase-pop flow [33m 1277[2mms[22m[39m
+[2026-04-06T00:35:21.300Z] [validate:spec.yaml] Validating spec.yaml
+[2026-04-06T00:35:21.301Z] [validate:spec.yaml] Validation passed
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/agents/graph-state-transitions/yaml-repair-cycle.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/local-merge.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 14138[2mms[22m[39m
+     [33m[2m✓[22m[39m local-merge-no-push: feature branch should be merged into main after node completes [33m 4606[2mms[22m[39m
+     [33m[2m✓[22m[39m no-remote-override-merge: should merge locally when remote unavailable (push+openPr overridden) [33m 5339[2mms[22m[39m
+     [33m[2m✓[22m[39m no-remote-local-merge: should merge locally without any remote [33m 4192[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/infrastructure/services/git/merge-step-real-git/verify-merge.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 17104[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after a true merge (git merge) [33m 2222[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after a squash merge (git merge --squash) [33m 6353[2mms[22m[39m
+     [33m[2m✓[22m[39m should return false when branch has not been merged [33m 2592[2mms[22m[39m
+     [33m[2m✓[22m[39m should return false when main has extra commits after squash but feature has diverged [33m 3184[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after squash merge with modified tree when premergeBaseSha provided [33m 1373[2mms[22m[39m
+     [33m[2m✓[22m[39m should return true after squash merge even when local branch is deleted (remote fallback) [33m 1379[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/integration/services/git/git-pr.service.rebase-sync.test.ts [2m([22m[2m26 tests[22m[2m)[22m[33m 42045[2mms[22m[39m
+     [33m[2m✓[22m[39m should fetch latest main when upstream has new commits (from feature branch) [33m 5175[2mms[22m[39m
+     [33m[2m✓[22m[39m should fast-forward main when on the main branch (uses pull) [33m 6408[2mms[22m[39m
+     [33m[2m✓[22m[39m should succeed silently when main is already up-to-date [33m 2405[2mms[22m[39m
+     [33m[2m✓[22m[39m should throw SYNC_FAILED when on main and local main has diverged from remote [33m 1965[2mms[22m[39m
+     [33m[2m✓[22m[39m should succeed from feature branch even when local main has diverged (fetches origin/main only) [33m 1757[2mms[22m[39m
+     [33m[2m✓[22m[39m should be idempotent — calling sync twice succeeds [33m 1134[2mms[22m[39m
+     [33m[2m✓[22m[39m should successfully rebase feature branch onto main with no conflicts [33m 1312[2mms[22m[39m
+     [33m[2m✓[22m[39m should throw REBASE_CONFLICT when rebase encounters conflicting changes [33m 1141[2mms[22m[39m
+     [33m[2m✓[22m[39m should throw GIT_ERROR when worktree has uncommitted changes [33m 687[2mms[22m[39m
+     [33m[2m✓[22m[39m should throw BRANCH_NOT_FOUND when feature branch does not exist [33m 712[2mms[22m[39m
+     [33m[2m✓[22m[39m should leave worktree clean after aborting a conflicted rebase [33m 1181[2mms[22m[39m
+     [33m[2m✓[22m[39m should produce linear history after successful rebase [33m 1589[2mms[22m[39m
+     [33m[2m✓[22m[39m should succeed when feature branch is already up-to-date with main (no-op rebase) [33m 1209[2mms[22m[39m
+     [33m[2m✓[22m[39m getConflictedFiles should return conflicted file paths during a rebase conflict [33m 1417[2mms[22m[39m
+     [33m[2m✓[22m[39m stageFiles + rebaseContinue should complete rebase after manual conflict resolution [33m 1334[2mms[22m[39m
+     [33m[2m✓[22m[39m rebaseAbort should restore branch to pre-rebase state [33m 1152[2mms[22m[39m
+     [33m[2m✓[22m[39m should stash uncommitted changes and return true [33m 992[2mms[22m[39m
+     [33m[2m✓[22m[39m should return false when working directory is clean [33m 896[2mms[22m[39m
+     [33m[2m✓[22m[39m should include the stash message in git stash list output [33m 796[2mms[22m[39m
+     [33m[2m✓[22m[39m should stash pop and restore uncommitted changes [33m 753[2mms[22m[39m
+     [33m[2m✓[22m[39m should stash drop and discard the stash entry [33m 741[2mms[22m[39m
+     [33m[2m✓[22m[39m should preserve uncommitted changes across a clean rebase (stash → sync → rebase → pop) [33m 1621[2mms[22m[39m
+     [33m[2m✓[22m[39m should skip stash when working directory is clean and rebase normally [33m 1596[2mms[22m[39m
+     [33m[2m✓[22m[39m should preserve uncommitted changes even when rebase has conflicts that are manually resolved [33m 1477[2mms[22m[39m
+     [33m[2m✓[22m[39m should restore uncommitted changes even after a failed rebase that is aborted [33m 1194[2mms[22m[39m
+     [33m[2m✓[22m[39m should handle unstaged modifications in stash-rebase-pop flow [33m 1400[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m50 passed[39m[22m[90m (50)[39m
 [2m      Tests [22m [1m[32m595 passed[39m[22m[90m (595)[39m
-[2m   Start at [22m 03:26:51
-[2m   Duration [22m 40.70s[2m (transform 4.13s, setup 1.14s, import 18.34s, tests 123.80s, environment 8ms)[22m
+[2m   Start at [22m 03:35:07
+[2m   Duration [22m 42.29s[2m (transform 4.10s, setup 1.06s, import 17.52s, tests 127.96s, environment 7ms)[22m
 

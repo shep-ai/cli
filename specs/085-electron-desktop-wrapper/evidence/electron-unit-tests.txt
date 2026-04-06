@@ -1,14 +1,14 @@
 
 [1m[46m RUN [49m[22m [36mv4.0.18 [39m[90m/Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper[39m
 
- [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-desktop-notifier.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
  [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/port-conflict.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-browser-opener.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/adapters/electron-desktop-notifier.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 6[2mms[22m[39m
  [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/tray.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 6[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/update-checker.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/ipc/channels.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/ipc/channels.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 5[2mms[22m[39m
  [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/preload.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 4[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/bootstrap.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/update-checker.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/bootstrap.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 22[2mms[22m[39m
 [90mstdout[2m | tests/unit/electron/main.test.ts[2m > [22m[2mgracefulShutdown[2m > [22m[2mcalls adapterResult.cleanup()
 [22m[39m[electron] Shutting down...
 
@@ -209,11 +209,11 @@
     at runTest [90m(file:///Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/[39mnode_modules/[4m.pnpm[24m/@vitest+runner@4.0.18/node_modules/[4m@vitest[24m/runner/dist/index.js:1653:12[90m)[39m
 
  [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/main.test.ts [2m([22m[2m33 tests[22m[2m)[22m[32m 17[2mms[22m[39m
- [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/resolve-web-dir.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 3[2mms[22m[39m
  [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/app-wiring.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m [30m[43m node [49m[39m tests/unit/electron/resolve-web-dir.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 3[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m11 passed[39m[22m[90m (11)[39m
 [2m      Tests [22m [1m[32m123 passed[39m[22m[90m (123)[39m
-[2m   Start at [22m 03:26:49
-[2m   Duration [22m 237ms[2m (transform 538ms, setup 237ms, import 477ms, tests 79ms, environment 1ms)[22m
+[2m   Start at [22m 03:32:36
+[2m   Duration [22m 245ms[2m (transform 559ms, setup 238ms, import 492ms, tests 87ms, environment 1ms)[22m
 

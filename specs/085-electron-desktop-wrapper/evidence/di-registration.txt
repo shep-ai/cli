@@ -1,6 +1,39 @@
+54-import type { IGitHubRepositoryService } from '../../application/ports/output/services/github-repository-service.interface.js';
+55-import { GitHubRepositoryService } from '../services/external/github-repository.service.js';
 56:import type { IBrowserOpener } from '../../application/ports/output/services/i-browser-opener.js';
+57-import { BrowserOpenerService } from '../services/browser-opener.service.js';
+58-
+59-// Agent infrastructure interfaces and implementations
+60-import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
+61-import type { IAgentExecutorProvider } from '../../application/ports/output/agents/agent-executor-provider.interface.js';
+--
+78-import { FeatureAgentProcessService } from '../services/agents/feature-agent/feature-agent-process.service.js';
+79-import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
 80:import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
+81-import { NotificationService } from '../services/notifications/notification.service.js';
+82-import { getNotificationBus } from '../services/notifications/notification-bus.js';
+83-import { spawn } from 'node:child_process';
+84-
+85-// Use cases
+--
+353-  container.registerInstance('NotificationEventBus', notificationBus);
+354-
 355:  container.register('DesktopNotifier', {
 356:    useFactory: () => new DesktopNotifier(),
+357-  });
+358-
+359-  container.register<INotificationService>('INotificationService', {
+360-    useFactory: (c) => {
+361-      const bus = c.resolve('NotificationEventBus') as ReturnType<typeof getNotificationBus>;
 362:      const desktopNotif = c.resolve('DesktopNotifier') as DesktopNotifier;
+363-      return new NotificationService(bus, desktopNotif);
+364-    },
+365-  });
+366-
+367-  // Register browser opener service
 368:  container.register<IBrowserOpener>('IBrowserOpener', {
+369-    useFactory: () => new BrowserOpenerService(),
+370-  });
+371-
+372-  // Register use cases (singletons for performance)
+373-  container.registerSingleton(InitializeSettingsUseCase);

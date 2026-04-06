@@ -1,8 +1,3 @@
-  # ===========================================================================
-  # Electron Desktop App Build
-  # Builds Electron installers for macOS, Windows, and Linux in parallel.
-  # Artifacts are uploaded for PR inspection; release job publishes them.
-  # ===========================================================================
   build-electron:
     name: Electron (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -49,3 +44,57 @@
   # ===========================================================================
   # Security: Gitleaks Secret Detection
   # Uses gitleaks CLI directly (free, open source) instead of gitleaks-action
+  # which requires a paid license for organizations
+  # ===========================================================================
+  security-gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          GITLEAKS_VERSION="8.18.4"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Gitleaks secret scan
+        run: gitleaks detect --source . --verbose --redact
+
+  # ===========================================================================
+  # Security: Semgrep SAST
+  # ===========================================================================
+  security-semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+--
+      - build-electron
+      - security-gitleaks
+      - security-semgrep
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use PAT token to allow pushing to protected main branch
+          # persist-credentials must be true for semantic-release to push commits
+          persist-credentials: true

@@ -2,4 +2,3 @@
 > @shepai/cli@1.172.0 lint /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper
 > eslint . --max-warnings 0 --cache
 
-Pages directory cannot be found at /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/pages or /Users/arielshadkhan/.shep/repos/fbfd7efb528913ed/wt/feat-electron-desktop-wrapper/src/pages. If using a custom path, please configure with the `no-html-link-for-pages` rule in your eslint config file.
